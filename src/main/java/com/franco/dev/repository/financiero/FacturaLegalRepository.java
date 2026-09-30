@@ -213,4 +213,59 @@ public interface FacturaLegalRepository
                                                     @Param("numero") Integer numero,
                                                     Pageable pageable);
 
+
+        /**
+         * Resumen fiscal de ventas (ResumenFiscalVentasService): facturas del mes agrupadas por
+         * RUC + sucursal + punto de expedicion + timbrado. Papel y electronicas por igual. Anulada
+         * = activo false o, en electronicas, documento CANCELADO en SIFEN (ahi activo queda en
+         * NULL). Rechazada = documento electronico RECHAZADO por SIFEN (sin validez fiscal): no suma,
+         * se cuenta aparte con su monto. Papel no tiene documento electronico y siempre es valida.
+         * Los montos solo suman las validas; el rango de numeracion incluye anuladas y rechazadas.
+         * Mismo criterio que el Excel de facturas (FacturaLegalService.factorAlTotal): cada parcial
+         * se lleva al total_final (factor 1 salvo facturas viejas con parciales brutos) y el IVA
+         * sale del total con IVA incluido (/11 y /21), no de iva_parcial.
+         * Cada columna lleva alias: Hibernate rechaza una consulta nativa con nombres repetidos
+         * (dos COUNT o dos SUM sin alias = NonUniqueDiscoveredSqlAliasException).
+         */
+        String RESUMEN_FISCAL_SELECT = "SELECT t.ruc AS ruc, t.razon_social AS razon_social, fl.sucursal_id AS sucursal_id, s.nombre AS sucursal, "
+                        + "s.codigo_establecimiento_factura AS establecimiento, td.punto_expedicion AS punto_expedicion, t.numero AS timbrado, "
+                        + "COALESCE(t.is_electronico, false) AS electronico, "
+                        + "COUNT(*) FILTER (WHERE fl.valida) AS emitidas, COUNT(*) FILTER (WHERE fl.anulada) AS anuladas, "
+                        + "MIN(fl.numero_factura) AS numero_desde, MAX(fl.numero_factura) AS numero_hasta, "
+                        + "SUM(fl.total_parcial_10 * fl.factor) FILTER (WHERE fl.valida) AS total_10, "
+                        + "SUM(fl.total_parcial_10 * fl.factor) FILTER (WHERE fl.valida) / 11 AS iva_10, "
+                        + "SUM(fl.total_parcial_5 * fl.factor) FILTER (WHERE fl.valida) AS total_5, "
+                        + "SUM(fl.total_parcial_5 * fl.factor) FILTER (WHERE fl.valida) / 21 AS iva_5, "
+                        + "SUM(fl.total_parcial_0 * fl.factor) FILTER (WHERE fl.valida) AS exentas, "
+                        + "COUNT(*) FILTER (WHERE fl.rechazada) AS rechazadas, "
+                        + "SUM(fl.total_final) FILTER (WHERE fl.rechazada) AS monto_rechazadas "
+                        + "FROM (SELECT x.*, NOT x.anulada AND NOT x.rechazada AS valida FROM ("
+                        + "  SELECT f.*, (f.activo IS FALSE OR COALESCE(de.estado = 'CANCELADO', false)) AS anulada, "
+                        + "        (f.activo IS NOT FALSE AND COALESCE(de.estado = 'RECHAZADO', false)) AS rechazada, "
+                        + "        CASE WHEN f.total_final IS NULL OR COALESCE(f.total_parcial_0, 0) "
+                        + "          + COALESCE(f.total_parcial_5, 0) + COALESCE(f.total_parcial_10, 0) = 0 THEN 1 "
+                        + "        ELSE f.total_final / (COALESCE(f.total_parcial_0, 0) "
+                        + "          + COALESCE(f.total_parcial_5, 0) + COALESCE(f.total_parcial_10, 0)) END AS factor "
+                        + "      FROM financiero.factura_legal f "
+                        + "      LEFT JOIN financiero.documento_electronico de "
+                        + "        ON de.factura_legal_id = f.id AND de.sucursal_id = f.sucursal_id "
+                        + "      WHERE f.fecha >= :inicio AND f.fecha < :fin ";
+
+        String RESUMEN_FISCAL_FROM = ") x) fl "
+                        + "JOIN financiero.timbrado_detalle td "
+                        + "  ON td.id = fl.timbrado_detalle_id AND td.sucursal_id = fl.sucursal_id "
+                        + "JOIN financiero.timbrado t ON t.id = td.timbrado_id "
+                        + "LEFT JOIN empresarial.sucursal s ON s.id = fl.sucursal_id "
+                        + "GROUP BY t.ruc, t.razon_social, fl.sucursal_id, s.nombre, "
+                        + "s.codigo_establecimiento_factura, td.punto_expedicion, t.numero, t.is_electronico "
+                        + "ORDER BY t.ruc, s.codigo_establecimiento_factura, td.punto_expedicion, t.numero";
+
+        @Query(value = RESUMEN_FISCAL_SELECT + "AND f.sucursal_id IN (:sucIds) " + RESUMEN_FISCAL_FROM,
+                        nativeQuery = true)
+        List<Object[]> resumenFiscalVentas(@Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin, @Param("sucIds") List<Long> sucIds);
+
+        @Query(value = RESUMEN_FISCAL_SELECT + RESUMEN_FISCAL_FROM, nativeQuery = true)
+        List<Object[]> resumenFiscalVentasSinSucursal(@Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin);
 }

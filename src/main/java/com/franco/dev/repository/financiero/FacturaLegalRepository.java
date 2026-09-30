@@ -222,19 +222,21 @@ public interface FacturaLegalRepository
          * Mismo criterio que el Excel de facturas (FacturaLegalService.factorAlTotal): cada parcial
          * se lleva al total_final (factor 1 salvo facturas viejas con parciales brutos) y el IVA
          * sale del total con IVA incluido (/11 y /21), no de iva_parcial.
+         * Cada columna lleva alias: Hibernate rechaza una consulta nativa con nombres repetidos
+         * (dos COUNT o dos SUM sin alias = NonUniqueDiscoveredSqlAliasException).
          */
-        String RESUMEN_FISCAL_SELECT = "SELECT t.ruc, t.razon_social, fl.sucursal_id, s.nombre, "
-                        + "s.codigo_establecimiento_factura, td.punto_expedicion, t.numero, "
-                        + "COALESCE(t.is_electronico, false), "
-                        + "COUNT(*) FILTER (WHERE NOT fl.anulada), COUNT(*) FILTER (WHERE fl.anulada), "
-                        + "MIN(fl.numero_factura), MAX(fl.numero_factura), "
-                        + "SUM(fl.total_parcial_10 * fl.factor) FILTER (WHERE NOT fl.anulada), "
-                        + "SUM(fl.total_parcial_10 * fl.factor) FILTER (WHERE NOT fl.anulada) / 11, "
-                        + "SUM(fl.total_parcial_5 * fl.factor) FILTER (WHERE NOT fl.anulada), "
-                        + "SUM(fl.total_parcial_5 * fl.factor) FILTER (WHERE NOT fl.anulada) / 21, "
-                        + "SUM(fl.total_parcial_0 * fl.factor) FILTER (WHERE NOT fl.anulada), "
+        String RESUMEN_FISCAL_SELECT = "SELECT t.ruc AS ruc, t.razon_social AS razon_social, fl.sucursal_id AS sucursal_id, s.nombre AS sucursal, "
+                        + "s.codigo_establecimiento_factura AS establecimiento, td.punto_expedicion AS punto_expedicion, t.numero AS timbrado, "
+                        + "COALESCE(t.is_electronico, false) AS electronico, "
+                        + "COUNT(*) FILTER (WHERE NOT fl.anulada) AS emitidas, COUNT(*) FILTER (WHERE fl.anulada) AS anuladas, "
+                        + "MIN(fl.numero_factura) AS numero_desde, MAX(fl.numero_factura) AS numero_hasta, "
+                        + "SUM(fl.total_parcial_10 * fl.factor) FILTER (WHERE NOT fl.anulada) AS total_10, "
+                        + "SUM(fl.total_parcial_10 * fl.factor) FILTER (WHERE NOT fl.anulada) / 11 AS iva_10, "
+                        + "SUM(fl.total_parcial_5 * fl.factor) FILTER (WHERE NOT fl.anulada) AS total_5, "
+                        + "SUM(fl.total_parcial_5 * fl.factor) FILTER (WHERE NOT fl.anulada) / 21 AS iva_5, "
+                        + "SUM(fl.total_parcial_0 * fl.factor) FILTER (WHERE NOT fl.anulada) AS exentas, "
                         + "COUNT(*) FILTER (WHERE NOT fl.anulada AND (fl.fecha < t.fecha_inicio "
-                        + "  OR fl.fecha >= t.fecha_fin + INTERVAL '1 day')) "
+                        + "  OR fl.fecha >= t.fecha_fin + INTERVAL '1 day')) AS fuera_de_vigencia "
                         + "FROM (SELECT f.*, (f.activo IS FALSE OR COALESCE(de.estado = 'CANCELADO', false)) AS anulada, "
                         + "        CASE WHEN f.total_final IS NULL OR COALESCE(f.total_parcial_0, 0) "
                         + "          + COALESCE(f.total_parcial_5, 0) + COALESCE(f.total_parcial_10, 0) = 0 THEN 1 "

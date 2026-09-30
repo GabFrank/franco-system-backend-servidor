@@ -53,6 +53,16 @@ class SifenServiceConsultarLoteTest {
     }
 
     @Test
+    void enProcesamientoSigueEnProceso() {
+        LoteDE lote = loteEnProceso();
+
+        sifenService.aplicarRespuestaConsultaLote(lote, respuesta("0361"));
+
+        assertEquals(EstadoLoteDE.EN_PROCESO, lote.getEstado());
+        verify(loteDEService).save(lote);
+    }
+
+    @Test
     void loteInexistenteSiQuedaEnErrorPermanente() {
         LoteDE lote = loteEnProceso();
 

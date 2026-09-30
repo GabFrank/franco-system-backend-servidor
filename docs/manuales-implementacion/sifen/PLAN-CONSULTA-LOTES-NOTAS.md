@@ -186,3 +186,15 @@ en su `.env`.
 | B5 | B | Carrera tick vs mutation manual (entidad vieja) | baja | D3: relectura y salteo |
 | B6 | B | Fase 2 deja `anular` sin salida con lote muerto | media | Fase 2 rediseñada: `consultarDE` primero |
 | B7 | B | Default `false` más prudente | baja | aceptado: default `false`, solo bodega en `true` (§5) |
+
+## 9. Auditoría del diff (paso 8) — 3 ejes fijos, ningún condicional por glob
+
+| Eje | Hallazgo | Sev. | Qué se hizo |
+|---|---|---|---|
+| 1 | CDC podría repetirse entre sucursales en `findByCdc` | baja | sin cambio: el CDC lleva RUC, establecimiento, punto y número |
+| 1 | `findByLoteDe` podría traer DE de otra sucursal | baja | **refutado**: la relación se une por `(lote_de_id, sucursal_id)` |
+| 2 | La JPQL nueva no la ejecuta ningún test contra una base real | baja | se cubre en la prueba de runtime (arranque + tick) |
+| 3 | Refresco + envío pueden pasar los 60 s del timeout del desktop | media | residual anotado: con lote vivo es 1 consulta; subir `timeoutMs` es cambio del desktop, fuera de este PR |
+| 3 | Lote `EN_PROCESO` de más de 47 h con DE sin aclarar: nota sin poder reenviarse ni anularse | media | **corregido**: `sigueEnProceso` solo espera mientras el lote es consultable por lote; test nuevo |
+| 3 | El scheduler general reconsulta sin tope un lote con código desconocido | baja | anotado: el general está apagado en el central y ya se comporta así con 0361 |
+| 3 | Faltaban casos de 0361 / null en el test del switch | baja | agregado 0361 (null ya estaba) |

@@ -92,6 +92,13 @@ class SifenEnvioSincronoRefrescoTest {
         assertFalse(envio.sigueEnProceso(de()));
     }
 
+    /** Si no, una nota cuyo CDC SIFEN no aclara no se podía reenviar ni anular nunca más. */
+    @Test
+    void pasadoElPlazoDelLoteYaNoSeEspera() {
+        lote(EstadoLoteDE.EN_PROCESO, LocalDateTime.now().minusHours(50));
+        assertFalse(envio.sigueEnProceso(de()));
+    }
+
     private LoteDE lote(EstadoLoteDE estado, LocalDateTime creadoEn) {
         LoteDE lote = new LoteDE();
         lote.setId(7L);

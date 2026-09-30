@@ -90,13 +90,16 @@ public class SifenEnvioSincronoService {
         }
     }
 
-    /** El DE sigue EN_LOTE y su lote está EN_PROCESO: SIFEN todavía no respondió. */
+    /**
+     * El DE sigue EN_LOTE y su lote todavía se puede consultar: SIFEN no respondió y todavía puede
+     * hacerlo. Pasado el plazo de consulta del lote (o sin protocolo) ya no se espera más: si no,
+     * una nota cuyo CDC SIFEN no aclara quedaba sin poder reenviarse ni anularse para siempre.
+     */
     public boolean sigueEnProceso(DocumentoElectronico de) {
         if (de == null || de.getEstado() != EstadoDE.EN_LOTE) {
             return false;
         }
-        LoteDE lote = lote(de);
-        return lote != null && lote.getEstado() == EstadoLoteDE.EN_PROCESO;
+        return consultablePorLote(lote(de));
     }
 
     private LoteDE lote(DocumentoElectronico de) {

@@ -62,9 +62,13 @@ public class LiquidacionConceptoService extends CrudService<LiquidacionConcepto,
         validarNumero(entity);
         try {
             // saveAndFlush: la violación del índice único (dos ediciones a la vez) sale acá, no al commit.
+            // Funciona porque el único llamador (el resolver) no es transaccional: el save corre en su
+            // propia transacción, ya revertida cuando llega el catch.
             return repository.saveAndFlush(entity);
         } catch (DataIntegrityViolationException e) {
-            if (entity.getNumero() != null) {
+            // Solo el índice del número: otra violación (ej. codigo UNIQUE) no es "número ya usado".
+            String causa = e.getMostSpecificCause() != null ? e.getMostSpecificCause().getMessage() : "";
+            if (entity.getNumero() != null && causa != null && causa.contains("uq_liquidacion_concepto_numero_activo")) {
                 throw new GraphQLException("El numero " + entity.getNumero() + " ya lo usa otra operacion activa");
             }
             throw e;

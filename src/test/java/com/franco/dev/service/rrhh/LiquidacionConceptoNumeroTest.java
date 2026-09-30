@@ -94,11 +94,22 @@ class LiquidacionConceptoNumeroTest {
 
     @Test
     void laViolacionDelIndicePorEdicionSimultaneaSaleComoMensaje() {
-        when(repository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("uq"));
+        when(repository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("dup",
+                new RuntimeException("duplicate key value violates unique constraint \"uq_liquidacion_concepto_numero_activo\"")));
 
         GraphQLException ex = assertThrows(GraphQLException.class,
                 () -> service.save(concepto(20L, "AJUSTE_HABER", "AJUSTE (HABER)", 5, true)));
         assertTrue(ex.getMessage().contains("5"), ex.getMessage());
+    }
+
+    @Test
+    void otraViolacionDeIntegridadNoSeDisfrazaDeNumeroRepetido() {
+        DataIntegrityViolationException otra = new DataIntegrityViolationException("dup",
+                new RuntimeException("duplicate key value violates unique constraint \"liquidacion_concepto_codigo_key\""));
+        when(repository.saveAndFlush(any())).thenThrow(otra);
+
+        assertThrows(DataIntegrityViolationException.class,
+                () -> service.save(concepto(20L, "AJUSTE_HABER", "AJUSTE (HABER)", 5, true)));
     }
 
     // ─────────────────────────── orden ───────────────────────────

@@ -111,8 +111,14 @@ Revertido el fix, 1, 5, 6 y el de código desconocido tienen que fallar.
 ### Fase 2 — Reenviar y anular miran a SIFEN antes de actuar (commit `fix(sifen): …`)
 
 Rediseñada por el hallazgo B6: bloquear sin más dejaba al usuario sin salida con lotes muertos.
-En `reenviarNota*` y `anularNota*`, si el DE está `EN_LOTE`: **primero `consultarDE(cdc)`**, y según
-lo que quede:
+En `reenviarNota*` y `anularNota*`, si el DE está `EN_LOTE`: **primero se le pregunta a SIFEN**, y según
+lo que quede. Cómo se pregunta depende del lote (corregido al implementar, 2026-09-30):
+- lote `EN_PROCESO` de menos de 47 h → `consultarLote` (por protocolo). **No** por CDC: mientras SIFEN
+  procesa el lote puede contestar `0420` («no existe») por el CDC, y `consultarDE` marcaría `RECHAZADO`
+  una nota que después sale aprobada;
+- cualquier otro caso (lote muerto, sin protocolo, o de más de 47 h) → `consultarDE(cdc)`.
+Un error de la consulta se loguea y se decide con el estado que haya. La lógica vive en
+`SifenEnvioSincronoService` (la comparten NC y NRE).
 - `APROBADO` → `anular` cancela ante SIFEN (camino existente); `reenviar` responde «ya fue aprobada»
   (existente).
 - `RECHAZADO` (incluye «no existe», 0420) → `anular` hace la baja local; `reenviar` sigue como hoy.

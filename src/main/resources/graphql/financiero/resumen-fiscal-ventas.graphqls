@@ -1,0 +1,65 @@
+# Resumen fiscal de las ventas facturadas de un mes (base sin IVA e IVA por tasa), para el contador.
+# Papel y electronicas por igual; las anuladas no suman. sucIds vacio o null = todas.
+type ResumenFiscalVentas {
+    anio: Int
+    mes: Int
+    periodo: String
+    sucursalesFiltro: String
+    contribuyentes: [ResumenFiscalContribuyente]
+}
+
+type ResumenFiscalContribuyente {
+    ruc: String
+    razonSocial: String
+    gravada10: Float
+    iva10: Float
+    gravada5: Float
+    iva5: Float
+    exentas: Float
+    totalBase: Float
+    totalIva: Float
+    totalFacturado: Float
+    emitidas: Int
+    anuladas: Int
+    fueraDeVigencia: Int
+    rubros: [ResumenFiscalRubro]
+    detalle: [ResumenFiscalTimbrado]
+}
+
+type ResumenFiscalRubro {
+    rubro: String
+    inciso: String
+    concepto: String
+    gravada10: Float
+    gravada5: Float
+    iva10: Float
+    iva5: Float
+    exentas: Float
+}
+
+type ResumenFiscalTimbrado {
+    sucursalId: ID
+    sucursal: String
+    timbrado: String
+    electronico: Boolean
+    tipo: String
+    establecimiento: String
+    puntoExpedicion: String
+    numeroDesde: String
+    numeroHasta: String
+    emitidas: Int
+    anuladas: Int
+    fueraDeVigencia: Int
+    gravada10: Float
+    iva10: Float
+    gravada5: Float
+    iva5: Float
+    exentas: Float
+    totalFacturado: Float
+}
+
+extend type Query {
+    resumenFiscalVentas(anio: Int!, mes: Int!, sucIds: [ID]): ResumenFiscalVentas
+    # PDF en base64
+    imprimirResumenFiscalVentas(anio: Int!, mes: Int!, sucIds: [ID]): String
+}

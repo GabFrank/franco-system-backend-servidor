@@ -213,4 +213,53 @@ public interface FacturaLegalRepository
                                                     @Param("numero") Integer numero,
                                                     Pageable pageable);
 
+
+        /**
+         * Resumen fiscal de ventas (ResumenFiscalVentasService): facturas del mes agrupadas por
+         * RUC + sucursal + punto de expedicion + timbrado. Papel y electronicas por igual. Anulada
+         * = activo false o, en electronicas, documento CANCELADO en SIFEN (ahi activo queda en
+         * NULL). Los montos solo suman las vigentes; el rango de numeracion incluye las anuladas.
+         * Mismo criterio que el Excel de facturas (FacturaLegalService.factorAlTotal): cada parcial
+         * se lleva al total_final (factor 1 salvo facturas viejas con parciales brutos) y el IVA
+         * sale del total con IVA incluido (/11 y /21), no de iva_parcial.
+         */
+        String RESUMEN_FISCAL_SELECT = "SELECT t.ruc, t.razon_social, fl.sucursal_id, s.nombre, "
+                        + "s.codigo_establecimiento_factura, td.punto_expedicion, t.numero, "
+                        + "COALESCE(t.is_electronico, false), "
+                        + "COUNT(*) FILTER (WHERE NOT fl.anulada), COUNT(*) FILTER (WHERE fl.anulada), "
+                        + "MIN(fl.numero_factura), MAX(fl.numero_factura), "
+                        + "SUM(fl.total_parcial_10 * fl.factor) FILTER (WHERE NOT fl.anulada), "
+                        + "SUM(fl.total_parcial_10 * fl.factor) FILTER (WHERE NOT fl.anulada) / 11, "
+                        + "SUM(fl.total_parcial_5 * fl.factor) FILTER (WHERE NOT fl.anulada), "
+                        + "SUM(fl.total_parcial_5 * fl.factor) FILTER (WHERE NOT fl.anulada) / 21, "
+                        + "SUM(fl.total_parcial_0 * fl.factor) FILTER (WHERE NOT fl.anulada), "
+                        + "COUNT(*) FILTER (WHERE NOT fl.anulada AND (fl.fecha < t.fecha_inicio "
+                        + "  OR fl.fecha >= t.fecha_fin + INTERVAL '1 day')) "
+                        + "FROM (SELECT f.*, (f.activo IS FALSE OR COALESCE(de.estado = 'CANCELADO', false)) AS anulada, "
+                        + "        CASE WHEN f.total_final IS NULL OR COALESCE(f.total_parcial_0, 0) "
+                        + "          + COALESCE(f.total_parcial_5, 0) + COALESCE(f.total_parcial_10, 0) = 0 THEN 1 "
+                        + "        ELSE f.total_final / (COALESCE(f.total_parcial_0, 0) "
+                        + "          + COALESCE(f.total_parcial_5, 0) + COALESCE(f.total_parcial_10, 0)) END AS factor "
+                        + "      FROM financiero.factura_legal f "
+                        + "      LEFT JOIN financiero.documento_electronico de "
+                        + "        ON de.factura_legal_id = f.id AND de.sucursal_id = f.sucursal_id "
+                        + "      WHERE f.fecha >= :inicio AND f.fecha < :fin ";
+
+        String RESUMEN_FISCAL_FROM = ") fl "
+                        + "JOIN financiero.timbrado_detalle td "
+                        + "  ON td.id = fl.timbrado_detalle_id AND td.sucursal_id = fl.sucursal_id "
+                        + "JOIN financiero.timbrado t ON t.id = td.timbrado_id "
+                        + "LEFT JOIN empresarial.sucursal s ON s.id = fl.sucursal_id "
+                        + "GROUP BY t.ruc, t.razon_social, fl.sucursal_id, s.nombre, "
+                        + "s.codigo_establecimiento_factura, td.punto_expedicion, t.numero, t.is_electronico "
+                        + "ORDER BY t.ruc, s.codigo_establecimiento_factura, td.punto_expedicion, t.numero";
+
+        @Query(value = RESUMEN_FISCAL_SELECT + "AND f.sucursal_id IN (:sucIds) " + RESUMEN_FISCAL_FROM,
+                        nativeQuery = true)
+        List<Object[]> resumenFiscalVentas(@Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin, @Param("sucIds") List<Long> sucIds);
+
+        @Query(value = RESUMEN_FISCAL_SELECT + RESUMEN_FISCAL_FROM, nativeQuery = true)
+        List<Object[]> resumenFiscalVentasSinSucursal(@Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin);
 }

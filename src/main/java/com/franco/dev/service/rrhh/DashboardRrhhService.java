@@ -58,6 +58,7 @@ public class DashboardRrhhService {
     private final AguinaldoRepository aguinaldoRepository;
     private final com.franco.dev.repository.rrhh.VacacionRepository vacacionRepository;
     private final ConfiguracionRrhhService configuracionRrhhService;
+    private final ValeService valeService;
 
     @Transactional(readOnly = true)
     public DashboardRrhhKpisDto getKpis(String periodo) {
@@ -122,7 +123,8 @@ public class DashboardRrhhService {
         for (ValeEstado est : new ValeEstado[]{ValeEstado.SOLICITADO, ValeEstado.CONFIRMADO}) {
             for (Vale v : valeRepository.findByEstadoOrderByFechaDesc(est)) {
                 valesCant++;
-                if (v.getMonto() != null) valesMonto = valesMonto.add(v.getMonto());
+                // Lo que falta descontar: en un vale en cuotas, solo las pendientes.
+                valesMonto = valesMonto.add(valeService.saldoPendiente(v));
             }
         }
         k.setValesPendientesCantidad(valesCant);
@@ -205,7 +207,7 @@ public class DashboardRrhhService {
         for (ValeEstado est : new ValeEstado[]{ValeEstado.SOLICITADO, ValeEstado.CONFIRMADO}) {
             for (Vale v : valeRepository.findByEstadoOrderByFechaDesc(est)) {
                 if (v.getFuncionario() == null) continue;
-                acumular(acc, v.getFuncionario(), v.getMonto());
+                acumular(acc, v.getFuncionario(), valeService.saldoPendiente(v));
             }
         }
         for (Prestamo p : prestamoRepository.findByEstadoOrderByFechaInicioDesc(PrestamoEstado.ACTIVO)) {

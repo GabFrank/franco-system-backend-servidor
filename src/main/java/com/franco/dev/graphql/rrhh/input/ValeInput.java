@@ -15,6 +15,8 @@ public class ValeInput {
     private String fecha;
     private ValeEstado estado;
     private Boolean esAdelanto;
+    /** Null = no cambia (un desktop viejo no lo manda). */
+    private Integer cantidadCuotas;
     private String observacion;
     private String comprobanteUrl;
     private Long autorizadoPorId;

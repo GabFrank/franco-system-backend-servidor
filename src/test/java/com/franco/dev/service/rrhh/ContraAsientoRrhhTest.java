@@ -128,7 +128,8 @@ class ContraAsientoRrhhTest {
                 mock(CreditoConvenioService.class),
                 mock(AguinaldoRepository.class),
                 mock(BaseRemunerativaService.class),
-                descuento);
+                descuento,
+                mock(ValeCuotaDescuentoService.class));
 
         valeRepository = mock(ValeRepository.class);
         when(valeRepository.save(any())).thenAnswer(i -> i.getArgument(0));
@@ -137,7 +138,10 @@ class ContraAsientoRrhhTest {
                 cajaVirtualService,
                 movimientoCajaVirtualService,
                 mock(UsuarioService.class),
-                mock(PagoSolicitudDetalleRepository.class));
+                mock(PagoSolicitudDetalleRepository.class),
+                mock(ValeCuotaRepository.class),
+                mock(LiquidacionItemRepository.class),
+                mock(LiquidacionFinalItemRepository.class));
     }
 
     // ─────────────────────────────── finiquito ───────────────────────────────

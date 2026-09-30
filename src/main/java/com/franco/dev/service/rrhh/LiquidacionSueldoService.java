@@ -80,6 +80,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     private final LiquidacionConceptoService liquidacionConceptoService;
     private final PlatformTransactionManager transactionManager;
     private final PrestamoCuotaDescuentoService prestamoCuotaDescuentoService;
+    private final ValeCuotaDescuentoService valeCuotaDescuentoService;
 
     /**
      * Inyectado por campo a proposito: @AllArgsConstructor solo toma los final, y este no
@@ -291,6 +292,16 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         // VALE_DESCUENTO / ADELANTO_DESCUENTO — vales CONFIRMADO sin liquidar
         for (Vale v : valeRepository.findByFuncionarioIdAndEstado(fid, ValeEstado.CONFIRMADO)) {
             if (v.getLiquidacionId() != null) continue;
+            if (ValeService.tieneCuotas(v)) {
+                // Vale en cuotas: una por periodo (las atrasadas tambien), nunca el vale entero.
+                String codigo = Boolean.TRUE.equals(v.getEsAdelanto()) ? "ADELANTO_DESCUENTO" : "VALE_DESCUENTO";
+                for (com.franco.dev.domain.rrhh.ValeCuota c
+                        : valeCuotaDescuentoService.cuotasParaLiquidacion(v, fin, liq.getId())) {
+                    items.add(item(liq, codigo, ValeCuotaDescuentoService.descripcion(v, c), c.getMonto(),
+                            LiquidacionItemTipo.DESCUENTO, c.getId(), ValeService.REFERENCIA_CUOTA));
+                }
+                continue;
+            }
             BigDecimal monto = v.getMonto() != null ? v.getMonto() : BigDecimal.ZERO;
             if (Boolean.TRUE.equals(v.getEsAdelanto())) {
                 items.add(item(liq, "ADELANTO_DESCUENTO", "ADELANTO DE SUELDO", monto, LiquidacionItemTipo.DESCUENTO, v.getId(), "ADELANTO"));
@@ -535,6 +546,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         // el neto ya la trae descontada y pagar la cobraria dos veces (issue #300). Toma las cuotas con
         // lock antes que el saldo de caja.
         prestamoCuotaDescuentoService.validarLiquidacion(liq.getId());
+        valeCuotaDescuentoService.validarLiquidacion(liq.getId());
 
         CajaVirtual caja = cajaVirtualService.findById(cajaVirtualId)
                 .orElseThrow(() -> new GraphQLException("Caja Mayor no encontrada"));
@@ -688,6 +700,10 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
                     // Con lock, actualiza tambien el prestamo y, al revertir, recalcula el estado (issue #300).
                     if (pagar) prestamoCuotaDescuentoService.aplicar(refId, it.getMonto());
                     else prestamoCuotaDescuentoService.revertir(refId, it.getMonto());
+                    break;
+                case ValeService.REFERENCIA_CUOTA:
+                    if (pagar) valeCuotaDescuentoService.aplicarLiquidacion(refId, it.getMonto(), liq.getId());
+                    else valeCuotaDescuentoService.revertirLiquidacion(refId, liq.getId());
                     break;
                 case "AGUINALDO":
                     aguinaldoRepository.findById(refId).ifPresent(a -> {

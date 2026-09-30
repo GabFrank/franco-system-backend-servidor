@@ -58,6 +58,14 @@ public class Vale implements Identifiable<Long> {
     @Column(name = "es_adelanto")
     private Boolean esAdelanto;
 
+    /** 1 = se descuenta entero (camino de siempre). Mas de 1 = se descuenta por rrhh.vale_cuota. */
+    @Column(name = "cantidad_cuotas")
+    private Integer cantidadCuotas = 1;
+
+    /** Entregado en bienes (ej. uniforme): nace CONFIRMADO sin egreso de caja. */
+    @Column(name = "en_especie")
+    private Boolean enEspecie = false;
+
     // FKs planas (patron movimiento_id de Gourmet)
     @Column(name = "liquidacion_id")
     private Long liquidacionId;

@@ -149,7 +149,7 @@ public class RrhhMobileService {
         for (Vale v : valeService.findByFuncionarioId(f.getId())) {
             if (v.getEstado() == ValeEstado.SOLICITADO || v.getEstado() == ValeEstado.CONFIRMADO) {
                 valesCant++;
-                if (v.getMonto() != null) valesMonto = valesMonto.add(v.getMonto());
+                valesMonto = valesMonto.add(valeService.saldoPendiente(v));
             }
         }
         r.setValesPendientesCantidad(valesCant);

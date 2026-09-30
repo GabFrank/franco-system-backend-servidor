@@ -404,6 +404,21 @@ Leyenda de estado: ⬜ pendiente · 🟡 implementado, pendiente de test manual 
 
 ---
 
+### ✅ T22 — Ítem de liquidación para otro periodo *(probado en UI local, 2026-09-30)*
+- **Pasos:** liquidación en BORRADOR → Agregar Item → operación, monto y **Periodo** tipeado posterior (ej. `2026-10`).
+- **Esperado:**
+  1. Aviso "Programado: se aplicará en la liquidación de 2026-10"; el total de la liquidación de origen no cambia;
+     aparece en "Ítems programados" como PENDIENTE.
+  2. Generar un periodo intermedio → no aparece. Generar el periodo → aparece como **PROGRAMADO**, sin editar ni
+     eliminar. Regenerar → una sola vez.
+  3. Pagar → APLICADO. Anular la liquidación → PENDIENTE.
+  4. Anular el programado desde "Ítems programados" → sale del borrador y el total se recalcula.
+  5. Programar con el borrador del periodo ya creado → entra en el acto.
+  6. Periodo con liquidación APROBADA → rechazo; mismo periodo o anterior → rechazo.
+- **Sin verificar en UI:** el finiquito con programados pendientes (cubierto por tests del servicio).
+
+---
+
 ## Mejoras futuras detectadas durante el testeo (TODO — NO implementado)
 
 ### TODO-1 — Feriados avanzados (gestión real de feriados) — *detectado en T3*

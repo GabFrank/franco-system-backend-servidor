@@ -1027,6 +1027,25 @@ Las notas de crédito y de remisión las emite y las envía el **central**, en e
   una baja solo local de una nota que SIFEN termina aprobando.
 - **Destrabar a mano** (dentro de las 48 h): mutation `consultarLote(loteId, sucursalId)`.
 
+### 6.4. Validación del traslado de la nota de remisión (`NotaRemisionService.validar`)
+
+Un rechazo de SIFEN **quema el número** de la serie (se asigna en `NotaRemisionService.crear`), así
+que lo que SIFEN va a rechazar se corta en `validar`, que corre **antes** de tomar el lock del
+timbrado y numerar.
+
+- **Fechas:** el fin del traslado no puede ser anterior al inicio (sin inicio, vale la fecha de la
+  nota o hoy, igual que el builder). SIFEN lo rechaza con **2108**, cuyo texto («fecha estimada de
+  inicio de traslado es antigua») confunde: el dato malo es el fin. El prellenado tampoco propone
+  como fin una llegada de la hoja de ruta anterior a la salida.
+- **Ciudad y código** (salida y entrega): si el código de ciudad es el de algún `timbrado_detalle`
+  no dado de baja, la descripción tiene que coincidir con la de alguna de esas filas (sin mayúsculas,
+  acentos ni espacios de más; los paréntesis cuentan: «CURUGUATY (MUNICIPIO)»). SIFEN rechaza el par
+  con **2208** (entrega) o 2203 (salida). No hay tabla de ciudades SIFEN en el sistema: un código que
+  ningún timbrado tiene **no se valida** y puede seguir quemando número.
+- La consulta de pares es nativa con columnas sueltas (`TimbradoDetalleRepository.findCiudadesConCodigo`):
+  la entidad mapea solo `id` y con ids compartidos entre sucursales Hibernate mezcla filas; el
+  código es `varchar` en el timbrado e `Integer` en la nota, y se compara como número.
+
 ## 7. Entidad de Soporte Principal
 
 Si bien las entidades anteriores son específicas del módulo de facturación electrónica, todas dependen de una entidad central que representa la factura en el sistema.

@@ -161,7 +161,10 @@ public class NotaRemisionPrellenadoService {
             if (hojaRuta.getFechaSalida() != null) {
                 nota.setFechaInicioTraslado(hojaRuta.getFechaSalida().toLocalDate());
             }
-            if (hojaRuta.getFechaLlegada() != null) {
+            // Una llegada anterior a la salida (hoja de ruta reutilizada o mal cargada) no se
+            // propone: SIFEN la rechaza y el validador de la nota no la deja guardar.
+            if (hojaRuta.getFechaLlegada() != null && (nota.getFechaInicioTraslado() == null
+                    || !hojaRuta.getFechaLlegada().toLocalDate().isBefore(nota.getFechaInicioTraslado()))) {
                 nota.setFechaFinTraslado(hojaRuta.getFechaLlegada().toLocalDate());
             }
         }

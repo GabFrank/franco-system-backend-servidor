@@ -14,6 +14,14 @@ type Moneda {
     monedaBilleteList: [MonedaBilletes]
 }
 
+# Importes en guaranies expresados en una moneda. `montos` respeta el orden
+# de los `montosGs` pedidos. Lo usa el kiosco de precios de la PWA.
+type PreciosEnMoneda {
+    moneda: Moneda
+    decimales: Int
+    montos: [Float]
+}
+
 input MonedaInput {
     id:Int
     denominacion: String
@@ -33,6 +41,7 @@ extend type Query {
     monedas(page:Int = 0, size:Int = 10):[Moneda]!
     monedasSearch(texto: String): [Moneda]
     countMoneda: Int
+    convertirPreciosMobile(montosGs: [Float]!): [PreciosEnMoneda]
 }
 
 extend type Mutation {

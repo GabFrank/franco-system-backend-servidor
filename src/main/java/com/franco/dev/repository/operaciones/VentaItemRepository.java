@@ -57,7 +57,8 @@ public interface VentaItemRepository extends HelperRepository<VentaItem, Embebed
         @Query(value = "SELECT " +
                         "u.id AS usuario_id, " +
                         "COALESCE(per.nombre, u.nickname, '') AS nombre_funcionario, " +
-                        "SUM(vi.cantidad * pre.cantidad * COALESCE(vi.costo_unitario, cpp.ultimo_precio_compra, 0)) AS costo_total, " +
+                        // Venta sin costo: el respaldo es el costo medio, no el precio de una sola compra.
+                        "SUM(vi.cantidad * pre.cantidad * COALESCE(vi.costo_unitario, NULLIF(cpp.costo_medio, 0), cpp.ultimo_precio_compra, 0)) AS costo_total, " +
                         "SUM(vi.cantidad * pre.cantidad) AS cantidad, " +
                         "SUM(vi.precio * vi.cantidad) AS total_venta, " +
                         "SUM(CASE WHEN v.total_gs > 0 " +
@@ -71,7 +72,7 @@ public interface VentaItemRepository extends HelperRepository<VentaItem, Embebed
                         "INNER JOIN productos.presentacion pre ON pre.id = vi.presentacion_id " +
                         "INNER JOIN productos.producto pro ON pro.id = vi.producto_id " +
                         "LEFT JOIN ( " +
-                        "  SELECT DISTINCT ON (producto_id) producto_id, ultimo_precio_compra " +
+                        "  SELECT DISTINCT ON (producto_id) producto_id, ultimo_precio_compra, costo_medio " +
                         "  FROM productos.costo_por_producto ORDER BY producto_id, id DESC " +
                         ") cpp ON cpp.producto_id = pro.id " +
                         "LEFT JOIN ( " +

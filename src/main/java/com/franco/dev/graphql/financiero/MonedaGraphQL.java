@@ -2,7 +2,9 @@ package com.franco.dev.graphql.financiero;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Moneda;
+import com.franco.dev.domain.financiero.dto.PreciosEnMonedaDto;
 import com.franco.dev.graphql.financiero.input.MonedaInput;
+import com.franco.dev.service.financiero.ConversionPrecioService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -31,8 +33,16 @@ public class MonedaGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private MultiTenantService multiTenantService;
 
+    @Autowired
+    private ConversionPrecioService conversionPrecioService;
+
     public Optional<Moneda> moneda(Long id) {
         return service.findById(id);
+    }
+
+    /** Kiosco de precios de la PWA. Ver ConversionPrecioService. */
+    public List<PreciosEnMonedaDto> convertirPreciosMobile(List<Double> montosGs) {
+        return conversionPrecioService.convertir(montosGs);
     }
 
     public List<Moneda> monedas(int page, int size) {

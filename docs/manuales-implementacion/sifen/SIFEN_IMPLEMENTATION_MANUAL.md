@@ -999,6 +999,34 @@ public class SifenEventoService {
 }
 ```
 
+### 6.3. Consulta de los lotes de notas en el central (`SifenSchedulerService.consultarLotesDeNotas`)
+
+Las notas de crédito y de remisión las emite y las envía el **central**, en el momento
+(`SifenEnvioSincronoService.generarYEnviarSincrono`): SIFEN contesta `0300` y el lote queda
+`EN_PROCESO`, el DE `EN_LOTE`. La respuesta final la trae este tick, no el scheduler general.
+
+- **El scheduler general (`sifen.scheduler.enabled`) va apagado en el central, a propósito.** Su
+  `lote_de` y `documento_electronico` reciben replicados los lotes y DE de facturas de las filiales:
+  prenderlo reenviaría a SIFEN documentos que ya envía cada filial. Con el general apagado y sin este
+  tick, las notas quedaban `EN_LOTE` para siempre (bodega, 2026-09-30).
+- **Solo toma lotes `EN_PROCESO` con DE de nota** (`LoteDERepository.findEnProcesoDeNotas`, por
+  `loteDeId` y `sucursalId`). Los de facturas nunca entran.
+- **Bandera `sifen.notas.consulta.enabled` (env `SIFEN_NOTAS_CONSULTA_ENABLED`), apagada por defecto.**
+  Se prende por instancia en su `.env`: hoy solo bodega. No corre si `sifen.scheduler.enabled=true`
+  (ahí el general ya consulta todo). Intervalo: `sifen.notas.consulta.fixed-delay` (120 s).
+- **Sin transacción envolvente y sin contar intentos.** Un error se loguea y el lote se reintenta en la
+  vuelta siguiente: el bucle del general manda a `ERROR_RED` un lote vivo y pierde la vuelta entera si
+  un lote tira excepción. No anotar el método con `@Transactional`.
+- **Pasadas 47 h, por CDC.** SIFEN acepta la consulta de lote dentro de las 48 h; después se consulta
+  cada DE con `consultarDE` y el estado del lote se deriva de sus DE. Con el lote vivo **nunca** por
+  CDC: mientras SIFEN lo procesa puede contestar «no existe» (0420) y el DE quedaría `RECHAZADO`.
+- **Código de consulta desconocido o nulo no mata el lote** (`consultarLote`): `ERROR_PERMANENTE`
+  queda solo para `0360`.
+- **Reenviar y anular una nota `EN_LOTE`** le preguntan antes a SIFEN (`refrescarSiEnLote`) y, si el
+  lote sigue consultable, contestan «todavía está procesando»: ni un segundo lote con el mismo CDC ni
+  una baja solo local de una nota que SIFEN termina aprobando.
+- **Destrabar a mano** (dentro de las 48 h): mutation `consultarLote(loteId, sucursalId)`.
+
 ## 7. Entidad de Soporte Principal
 
 Si bien las entidades anteriores son específicas del módulo de facturación electrónica, todas dependen de una entidad central que representa la factura en el sistema.

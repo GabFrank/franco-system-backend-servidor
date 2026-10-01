@@ -50,6 +50,13 @@ public class SifenSchedulerService {
     @Value("${sifen.lote.max-retries:5}")
     private Integer maxReintentos;
 
+    /** Consulta de los lotes de notas (ver {@link #consultarLotesDeNotas}). Solo bodega la prende. */
+    @Value("${sifen.notas.consulta.enabled:false}")
+    private Boolean notasConsultaEnabled;
+
+    /** SIFEN acepta la consulta de un lote solo dentro de las 48 h de recibido. */
+    static final long HORAS_CONSULTA_POR_LOTE = 47;
+
     private final SifenService sifenService;
     private final DocumentoElectronicoService documentoElectronicoService;
     private final LoteDEService loteDEService;
@@ -122,6 +129,110 @@ public class SifenSchedulerService {
         } finally {
             procesandoLotes = false;
         }
+    }
+
+    /**
+     * Trae la respuesta de SIFEN para las notas de crédito y de remisión.
+     *
+     * Las notas se envían en el momento, desde el central ({@link SifenEnvioSincronoService}), y el
+     * lote queda EN_PROCESO. Sin este tick la respuesta solo la traía el scheduler general, que en
+     * el central está apagado a propósito: su tabla de lotes recibe replicados los lotes de
+     * facturas de las filiales, y prenderlo los reenviaría. Las notas quedaban EN_LOTE para siempre.
+     *
+     * Por eso toma solo lotes con DE de nota, y no reusa el bucle de {@link #consultarLotesPendientes}:
+     * - **sin transacción envolvente**: cada {@code consultarLote} es la suya (otro bean, pasa por el
+     *   proxy). Una envolvente se marca rollback-only con la excepción de un lote y pierde lo escrito
+     *   en los demás. No anotar este método con {@code @Transactional};
+     * - **sin contar intentos**: el general manda a ERROR_RED un lote con protocolo que SIFEN sigue
+     *   procesando, y nadie lo vuelve a mirar. Acá un error se loguea y el lote se reintenta en la
+     *   vuelta siguiente, hasta que SIFEN lo cierre o pase el corte de {@link #HORAS_CONSULTA_POR_LOTE};
+     * - **por CDC pasado ese corte**, porque SIFEN ya no acepta la consulta del lote.
+     */
+    @Scheduled(fixedDelayString = "${sifen.notas.consulta.fixed-delay:120000}", initialDelay = 60000)
+    public void consultarLotesDeNotas() {
+        if (!Boolean.TRUE.equals(notasConsultaEnabled)) {
+            return;
+        }
+        // El general ya consulta todos los EN_PROCESO: dos consultas en paralelo del mismo lote
+        // pelean por el mismo registro.
+        if (Boolean.TRUE.equals(schedulerEnabled)) {
+            return;
+        }
+        if (procesandoLotes) {
+            return;
+        }
+        try {
+            procesandoLotes = true;
+            List<LoteDE> lotes = loteDEService.findEnProcesoDeNotas();
+            if (lotes.isEmpty()) {
+                return;
+            }
+            log.info("🔍 Consultando {} lotes de notas en proceso", lotes.size());
+            LocalDateTime corte = LocalDateTime.now().minusHours(HORAS_CONSULTA_POR_LOTE);
+            for (LoteDE encontrado : lotes) {
+                consultarLoteDeNota(encontrado, corte);
+            }
+        } catch (Exception e) {
+            log.error("❌ Error al consultar los lotes de notas", e);
+        } finally {
+            procesandoLotes = false;
+        }
+    }
+
+    private void consultarLoteDeNota(LoteDE encontrado, LocalDateTime corte) {
+        try {
+            // La mutation manual o un reenvío pudieron cerrarlo desde que se armó la lista.
+            LoteDE lote = loteDEService
+                .findByIdAndSucursalId(encontrado.getId(), encontrado.getSucursalId()).orElse(null);
+            if (lote == null || lote.getEstado() != EstadoLoteDE.EN_PROCESO) {
+                return;
+            }
+            if (lote.getCreadoEn() != null && lote.getCreadoEn().isBefore(corte)) {
+                consultarLotePorCdc(lote);
+            } else {
+                sifenService.consultarLote(lote);
+            }
+        } catch (Exception e) {
+            log.warn("⚠️ Lote de nota {} no se pudo consultar ({}): se reintenta en la próxima vuelta",
+                encontrado.getId(), e.getMessage());
+        }
+    }
+
+    /**
+     * Consulta cada DE del lote por su CDC y deriva el estado del lote de lo que quedó, igual que
+     * {@code SifenService.procesarRespuestaLoteConcluido}. Mientras algún DE siga EN_LOTE el lote no
+     * cambia. Ojo: si SIFEN no conoce el CDC (0420), {@code consultarDE} deja el DE RECHAZADO.
+     */
+    private void consultarLotePorCdc(LoteDE lote) {
+        List<com.franco.dev.domain.financiero.DocumentoElectronico> documentos =
+            documentoElectronicoService.findByLoteDe(lote);
+        if (documentos.isEmpty()) {
+            return;
+        }
+        for (com.franco.dev.domain.financiero.DocumentoElectronico de : documentos) {
+            if (de.getEstado() == EstadoDE.EN_LOTE && de.getCdc() != null) {
+                sifenService.consultarDE(de.getCdc());
+            }
+        }
+
+        int aprobados = 0;
+        int rechazados = 0;
+        for (com.franco.dev.domain.financiero.DocumentoElectronico de : documentoElectronicoService.findByLoteDe(lote)) {
+            if (de.getEstado() == EstadoDE.APROBADO || de.getEstado() == EstadoDE.CANCELADO) {
+                aprobados++;
+            } else if (de.getEstado() == EstadoDE.RECHAZADO) {
+                rechazados++;
+            } else {
+                log.info("⏳ Lote de nota {}: el DE {} sigue {} tras consultar por CDC",
+                    lote.getId(), de.getId(), de.getEstado());
+                return;
+            }
+        }
+        lote.setEstado(rechazados == 0 ? EstadoLoteDE.PROCESADO
+            : aprobados == 0 ? EstadoLoteDE.RECHAZADO : EstadoLoteDE.PROCESADO_CON_ERRORES);
+        lote.setFechaProcesado(LocalDateTime.now());
+        loteDEService.save(lote);
+        log.info("✅ Lote de nota {} cerrado por CDC: {}", lote.getId(), lote.getEstado());
     }
 
     /**

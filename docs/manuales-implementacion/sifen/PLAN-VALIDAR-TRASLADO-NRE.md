@@ -97,3 +97,15 @@ Ninguno. Sin migraciones, sin GraphQL, sin desktop.
 | B | Normalizer no cubre paréntesis/puntuación | baja | decidido no aflojar: el texto con paréntesis es el que SIFEN aprobó |
 | A | Destinos fuera de las sucursales siguen sin validarse y pueden quemar número | media | anotado en D4 / §5 |
 | B | Tests 3/5/6 no prueban el fix (no regresión) | baja | se agregan 1-2, 7, 9 y la verificación de que no se toma el lock |
+
+## 7. Auditoría del diff (paso 8) — 3 ejes fijos, ningún condicional por glob
+
+| Eje | Hallazgo | Sev. | Qué se hizo |
+|---|---|---|---|
+| 1 | El mensaje muestra el nombre de ciudad de un código de cualquier sucursal | baja | sin cambio: dato geográfico público de SIFEN, y sin él el mensaje no es accionable |
+| 2 | La consulta nativa no la valida Spring al arrancar | baja | columnas y tipos verificados contra V0/V68.1; la misma tabla/filtro corrió en bodega el 01/10 |
+| 2 | La consulta trae filas repetidas | baja | `SELECT DISTINCT` |
+| 3 | El prellenado podría usar un timbrado inactivo fuera del mapa | baja | **refutado**: `timbradoElectronicoDeONulo` filtra `activo = TRUE` (`:341`) |
+| 3 | Inicio de traslado anterior a la emisión no se valida | baja | fuera de alcance (D2): sin evidencia de que SIFEN lo exija |
+| 3 | `LocalDate.now()` del fallback vs zona del servidor | baja | sin cambio: igual que el builder |
+| 3 | Test con nombre engañoso; faltaba ciudad nula con código conocido | baja | renombrado; caso agregado |

@@ -56,7 +56,7 @@ public interface TimbradoDetalleRepository extends HelperRepository<TimbradoDeta
      * Los pares {codigo_ciudad, ciudad} de las filas no dadas de baja: son los que SIFEN ya aceptó
      * en las facturas de cada sucursal. Nativa por el mismo motivo que la de arriba.
      */
-    @Query(value = "SELECT td.codigo_ciudad, td.ciudad FROM financiero.timbrado_detalle td "
+    @Query(value = "SELECT DISTINCT td.codigo_ciudad, td.ciudad FROM financiero.timbrado_detalle td "
             + "WHERE td.activo IS NOT FALSE AND td.codigo_ciudad IS NOT NULL AND td.ciudad IS NOT NULL",
             nativeQuery = true)
     List<Object[]> findCiudadesConCodigo();

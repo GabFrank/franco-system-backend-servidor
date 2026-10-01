@@ -152,11 +152,19 @@ class NotaRemisionValidarTrasladoTest {
 
     /** El código del timbrado es varchar: con espacios no tiene que volverse «desconocido». */
     @Test
-    void elCodigoDelTimbradoConEspaciosIgualValida() {
+    void elCodigoDelTimbradoConEspaciosIgualRechazaUnaCiudadQueNoEsLaSuya() {
         ciudades.clear();
         ciudades.add(new Object[]{" 5626 ", "FRANCISCO CABALLERO ALVAREZ"});
         NotaRemision nota = nota();
         nota.setEntregaCiudad("KATUETE");
+        nota.setEntregaCodigoCiudad(5626);
+
+        assertThrows(GraphQLException.class, () -> service.crear(nota, items()));
+    }
+
+    @Test
+    void unCodigoConocidoSinCiudadNoSeNumera() {
+        NotaRemision nota = nota();
         nota.setEntregaCodigoCiudad(5626);
 
         assertThrows(GraphQLException.class, () -> service.crear(nota, items()));

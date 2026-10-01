@@ -376,6 +376,62 @@ Leyenda de estado: ⬜ pendiente · 🟡 implementado, pendiente de test manual 
 
 ---
 
+### ✅ T20 — Vale en cuotas y vale en especie *(probado en UI por Franco, 2026-09-29)*
+- **Objetivo:** un vale que se descuenta en varias liquidaciones, entregado en bienes sin tocar caja.
+- **Pasos UI:** `Vales` → Nuevo: funcionario, Gs. 300.000, fecha 15/09, **2 cuotas**, **Entrega en
+  especie** (solo con RRHH APROBAR). La vista previa muestra 1/2 el 15/09 y 2/2 el 15/10.
+- **Esperado:**
+  1. El vale queda CONFIRMADO con la marca EN ESPECIE; la Caja Mayor no se mueve.
+  2. Liquidación de septiembre → ítem `VALE <MOTIVO> 1/2` por 150.000. Pagar.
+  3. Liquidación de octubre → solo `VALE <MOTIVO> 2/2`. Pagar → el vale pasa a DESCONTADO.
+  4. Anular la de octubre → en «Ver cuotas» la 2/2 vuelve a PENDIENTE y el vale a CONFIRMADO.
+  5. Anular el vale → rechazo (la 1/2 ya se descontó).
+  6. Un vale de 1 cuota contra caja → igual que antes (egreso + ítem `VALE`).
+  7. Finiquito con un vale de 3 cuotas y 1 descontada → ítems 2/3 y 3/3, nunca el vale entero.
+- **Sin verificar:** el caso 7 (finiquito) no tiene test automático.
+### ✅ T21 — Anular una liquidación pagada desde tesorería *(probado en UI local, 2026-09-29)*
+- **Objetivo:** que anular devuelva la plata por el medio usado y revierta vales/cuotas/convenio.
+- **Pasos:** liquidación APROBADA con un vale → pagarla sola desde el hub de RRHH (Caja Mayor → pagos RRHH) →
+  Anular desde la liquidación (requiere RRHH PAGAR y TESORERIA CPP PAGAR/GESTIONAR).
+- **Esperado:**
+  1. Por **banco**: la cuenta bancaria vuelve al saldo previo, el vale a CONFIRMADO, el pago CANCELADO, la liquidación
+     ANULADA. *(local: #489, banco 1.040.025 → 3.300.000)*
+  2. En **efectivo**: un solo contra-asiento en la Caja Mayor; anular después el pago desde la caja → "El pago ya está
+     anulado". *(local: #490, caja 5.800.000 → 8.300.000)*
+  3. Dos liquidaciones pagadas en el **mismo lote** → anular una → rechazo que nombra a la otra; nada cambia.
+     *(local: #492 con #491)*
+  4. Sin rol de tesorería → "No autorizado" *(cubierto por test automático, no probado en UI)*.
+
+---
+
+### ✅ T22 — Ítem de liquidación para otro periodo *(probado en UI local, 2026-09-30)*
+- **Pasos:** liquidación en BORRADOR → Agregar Item → operación, monto y **Periodo** tipeado posterior (ej. `2026-10`).
+- **Esperado:**
+  1. Aviso "Programado: se aplicará en la liquidación de 2026-10"; el total de la liquidación de origen no cambia;
+     aparece en "Ítems programados" como PENDIENTE.
+  2. Generar un periodo intermedio → no aparece. Generar el periodo → aparece como **PROGRAMADO**, sin editar ni
+     eliminar. Regenerar → una sola vez.
+  3. Pagar → APLICADO. Anular la liquidación → PENDIENTE.
+  4. Anular el programado desde "Ítems programados" → sale del borrador y el total se recalcula.
+  5. Programar con el borrador del periodo ya creado → entra en el acto.
+  6. Periodo con liquidación APROBADA → rechazo; mismo periodo o anterior → rechazo.
+- **Sin verificar en UI:** el finiquito con programados pendientes (cubierto por tests del servicio).
+
+---
+
+### ✅ T23 — Operación del ítem por número *(probado en UI local, 2026-09-30)*
+- **Pasos:** liquidación en BORRADOR → Agregar Item → campo **Operación**.
+- **Esperado:**
+  1. Clic en el campo → lista completa `1 · AJUSTE (HABER)`, `2 · BONIFICACION`…
+  2. Escribir `2` → el campo se completa con `2 · BONIFICACION` sin Enter y la lista se cierra.
+  3. Volver al campo (selecciona todo) y escribir `7` → `7 · DESCUENTO JUDICIAL`.
+  4. Escribir `falt` y salir con Tab → `8 · FALTANTE DE CAJA`.
+  5. Escribir `99` → "No existe esa operación"; guardar pide elegir la operación.
+  6. Configuración → Conceptos: columna N° ordenada; poner a una operación un número de otra activa → "El número 3
+     ya lo usa BONO MANUAL"; vaciar el número lo quita.
+
+---
+
 ## Mejoras futuras detectadas durante el testeo (TODO — NO implementado)
 
 ### TODO-1 — Feriados avanzados (gestión real de feriados) — *detectado en T3*

@@ -11,6 +11,7 @@ import com.franco.dev.repository.rrhh.PrestamoCuotaRepository;
 import com.franco.dev.repository.rrhh.VacacionVentaRepository;
 import com.franco.dev.repository.rrhh.ValeRepository;
 import com.franco.dev.service.empresarial.ConfiguracionGeneralService;
+import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.rrhh.dto.ReciboLiquidacionItemDto;
 import com.franco.dev.utilitarios.NumeroALetrasService;
 import com.franco.dev.utilitarios.print.ReciboTicketEscPos;
@@ -54,9 +55,11 @@ public class ReciboLiquidacionService {
     private final BonoRepository bonoRepository;
     private final VacacionVentaRepository vacacionVentaRepository;
     private final PrestamoCuotaRepository prestamoCuotaRepository;
+    private final com.franco.dev.repository.rrhh.ValeCuotaRepository valeCuotaRepository;
     private final PenalizacionRepository penalizacionRepository;
     private final ConfiguracionRrhhService configuracionRrhhService;
     private final LiquidacionConceptoService liquidacionConceptoService;
+    private final ImageService imageService;
     private final DecimalFormat formato = new DecimalFormat("#,##0.##");
     private final DecimalFormat formatoGs = new DecimalFormat("#,##0");   // guaraníes sin decimales (ticket)
 
@@ -69,7 +72,9 @@ public class ReciboLiquidacionService {
                                     PrestamoCuotaRepository prestamoCuotaRepository,
                                     PenalizacionRepository penalizacionRepository,
                                     ConfiguracionRrhhService configuracionRrhhService,
-                                    LiquidacionConceptoService liquidacionConceptoService) {
+                                    LiquidacionConceptoService liquidacionConceptoService,
+                                    ImageService imageService,
+                                    com.franco.dev.repository.rrhh.ValeCuotaRepository valeCuotaRepository) {
         this.liquidacionSueldoService = liquidacionSueldoService;
         this.configuracionGeneralService = configuracionGeneralService;
         this.numeroALetrasService = numeroALetrasService;
@@ -80,6 +85,8 @@ public class ReciboLiquidacionService {
         this.penalizacionRepository = penalizacionRepository;
         this.configuracionRrhhService = configuracionRrhhService;
         this.liquidacionConceptoService = liquidacionConceptoService;
+        this.imageService = imageService;
+        this.valeCuotaRepository = valeCuotaRepository;
     }
 
     @Transactional(readOnly = true)
@@ -113,6 +120,7 @@ public class ReciboLiquidacionService {
 
         Map<String, Object> params = new HashMap<>();
         params.put("empresa", razonSocial());
+        params.put("marcaAgua", imageService.getMarcaAguaReporte());
         params.put("ruc", ruc());
         params.put("direccionEmpresa", configuracionRrhhService.getString("EMPRESA_DIRECCION", ""));
         params.put("telefonoEmpresa", configuracionRrhhService.getString("EMPRESA_TELEFONO", ""));
@@ -309,6 +317,9 @@ public class ReciboLiquidacionService {
                     break;
                 case "VACACION_VENTA":
                     f = vacacionVentaRepository.findById(ref).map(v -> v.getFecha()).orElse(null);
+                    break;
+                case ValeService.REFERENCIA_CUOTA:
+                    f = valeCuotaRepository.findById(ref).map(c -> c.getFechaDescuento()).orElse(null);
                     break;
                 case "CPP_CUOTA":
                     f = prestamoCuotaRepository.findById(ref).map(c -> c.getFechaVencimiento()).orElse(null);

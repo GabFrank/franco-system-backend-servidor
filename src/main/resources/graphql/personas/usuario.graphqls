@@ -52,6 +52,9 @@ extend type Query {
     usuariosActivos:[Usuario]
     usuarioPorEmbedding(embedding: [Float], excludeIds: [Int]): UsuarioSimilitud
     usuarioSearchPaginated(texto: String, page: Int, size: Int): UsuarioPage
+    # Usuarios con al menos uno de los roles. Query aparte (no un argumento mas en
+    # usuarioSearchPaginated) para que un desktop nuevo no rompa contra un central viejo.
+    usuarioSearchPaginatedPorRoles(texto: String, page: Int, size: Int, roleIds: [ID]): UsuarioPage
 }
 
 type UsuarioPage {

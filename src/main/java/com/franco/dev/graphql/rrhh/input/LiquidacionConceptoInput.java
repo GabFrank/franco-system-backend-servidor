@@ -13,6 +13,8 @@ public class LiquidacionConceptoInput {
     private Boolean esCalculadoAuto;
     private Boolean esRemunerativo;
     private Boolean activo;
+    /** Null = no cambia (cliente viejo); 0 = sin número. */
+    private Integer numero;
     private LocalDateTime creadoEn;
     private Long usuarioId;
 }

@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Resumen de ventas de un mes para el contador (exentas, gravadas 5 % y 10 %). Lo llena
+     ReporteResumenFiscalVentasService, una vez por RUC; los montos llegan pre-formateados. El resumen
+     de IVA va en el titulo (tamaño fijo); el detalle por timbrado es la fuente de datos principal, así
+     su encabezado se repite si ocupa más de una página. -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="resumen-fiscal-ventas" pageWidth="842" pageHeight="595" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="802" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20">
+	<style name="celda" fontName="SansSerif" fontSize="7">
+		<box leftPadding="3" rightPadding="3">
+			<pen lineWidth="0.5" lineColor="#9E9E9E"/>
+		</box>
+	</style>
+	<style name="encabezado" style="celda" backcolor="#FFF2A8" mode="Opaque" isBold="true"/>
+	<style name="resumenCelda" style="celda" fontSize="9">
+		<conditionalStyle>
+			<conditionExpression><![CDATA[Boolean.TRUE.equals($F{total})]]></conditionExpression>
+			<style isBold="true" backcolor="#F2F2F2" mode="Opaque"/>
+		</conditionalStyle>
+	</style>
+	<style name="detalleCelda" style="celda">
+		<conditionalStyle>
+			<conditionExpression><![CDATA[Boolean.TRUE.equals($F{total})]]></conditionExpression>
+			<style isBold="true" backcolor="#F2F2F2" mode="Opaque"/>
+		</conditionalStyle>
+	</style>
+	<subDataset name="resumen">
+		<field name="concepto" class="java.lang.String"/>
+		<field name="monto" class="java.lang.String"/>
+		<field name="iva" class="java.lang.String"/>
+		<field name="total" class="java.lang.Boolean"/>
+	</subDataset>
+	<parameter name="razonSocial" class="java.lang.String"/>
+	<parameter name="ruc" class="java.lang.String"/>
+	<parameter name="periodo" class="java.lang.String"/>
+	<parameter name="sucursalesFiltro" class="java.lang.String"/>
+	<parameter name="usuario" class="java.lang.String"/>
+	<parameter name="fechaGeneracion" class="java.lang.String"/>
+	<parameter name="totalFacturado" class="java.lang.String"/>
+	<parameter name="emitidas" class="java.lang.String"/>
+	<parameter name="anuladas" class="java.lang.String"/>
+	<parameter name="rechazadas" class="java.lang.String"/>
+	<parameter name="resumenDS" class="net.sf.jasperreports.engine.JRDataSource"/>
+	<field name="sucursal" class="java.lang.String"/>
+	<field name="tipo" class="java.lang.String"/>
+	<field name="rango" class="java.lang.String"/>
+	<field name="emitidas" class="java.lang.String"/>
+	<field name="anuladas" class="java.lang.String"/>
+	<field name="rechazadas" class="java.lang.String"/>
+	<field name="gravada10" class="java.lang.String"/>
+	<field name="iva10" class="java.lang.String"/>
+	<field name="gravada5" class="java.lang.String"/>
+	<field name="iva5" class="java.lang.String"/>
+	<field name="exentas" class="java.lang.String"/>
+	<field name="totalFacturado" class="java.lang.String"/>
+	<field name="total" class="java.lang.Boolean"/>
+	<title>
+		<band height="148" splitType="Stretch">
+			<staticText>
+				<reportElement x="0" y="0" width="802" height="20"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Resumen fiscal de ventas]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="0" y="20" width="802" height="16"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{razonSocial} + "  -  RUC " + $P{ruc}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="0" y="40" width="530" height="14"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="SansSerif" size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Período: " + $P{periodo} + "     Sucursales: " + $P{sucursalesFiltro}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="530" y="40" width="272" height="14"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Generado por " + $P{usuario} + " el " + $P{fechaGeneracion}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="62" width="430" height="14"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="SansSerif" size="10" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Resumen de IVA (montos sin IVA)]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="encabezado" x="0" y="78" width="170" height="16"/>
+				<textElement verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[Concepto]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="encabezado" x="170" y="78" width="130" height="16"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[Monto total]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="encabezado" x="300" y="78" width="130" height="16"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<text><![CDATA[IVA]]></text>
+			</staticText>
+			<componentElement>
+				<reportElement x="0" y="94" width="430" height="16"/>
+				<jr:list xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports/components http://jasperreports.sourceforge.net/xsd/components.xsd" printOrder="Vertical">
+					<datasetRun subDataset="resumen">
+						<dataSourceExpression><![CDATA[$P{resumenDS}]]></dataSourceExpression>
+					</datasetRun>
+					<jr:listContents height="16" width="430">
+						<textField isBlankWhenNull="true">
+							<reportElement style="resumenCelda" x="0" y="0" width="170" height="16"/>
+							<textElement verticalAlignment="Middle"/>
+							<textFieldExpression><![CDATA[$F{concepto}]]></textFieldExpression>
+						</textField>
+						<textField isBlankWhenNull="true">
+							<reportElement style="resumenCelda" x="170" y="0" width="130" height="16"/>
+							<textElement textAlignment="Right" verticalAlignment="Middle"/>
+							<textFieldExpression><![CDATA[$F{monto}]]></textFieldExpression>
+						</textField>
+						<textField isBlankWhenNull="true">
+							<reportElement style="resumenCelda" x="300" y="0" width="130" height="16"/>
+							<textElement textAlignment="Right" verticalAlignment="Middle"/>
+							<textFieldExpression><![CDATA[$F{iva}]]></textFieldExpression>
+						</textField>
+					</jr:listContents>
+				</jr:list>
+			</componentElement>
+			<frame>
+				<reportElement x="470" y="78" width="332" height="68"/>
+				<box>
+					<pen lineWidth="0.5" lineColor="#9E9E9E"/>
+				</box>
+				<staticText>
+					<reportElement x="6" y="4" width="180" height="16"/>
+					<textElement verticalAlignment="Middle">
+						<font fontName="SansSerif" size="9" isBold="true"/>
+					</textElement>
+					<text><![CDATA[Total facturado (con IVA):]]></text>
+				</staticText>
+				<textField isBlankWhenNull="true">
+					<reportElement x="186" y="4" width="140" height="16"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font fontName="SansSerif" size="9" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$P{totalFacturado}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="6" y="22" width="180" height="14"/>
+					<textElement verticalAlignment="Middle">
+						<font fontName="SansSerif" size="8"/>
+					</textElement>
+					<text><![CDATA[Facturas vigentes:]]></text>
+				</staticText>
+				<textField isBlankWhenNull="true">
+					<reportElement x="186" y="22" width="140" height="14"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font fontName="SansSerif" size="8"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$P{emitidas}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="6" y="36" width="180" height="14"/>
+					<textElement verticalAlignment="Middle">
+						<font fontName="SansSerif" size="8"/>
+					</textElement>
+					<text><![CDATA[Facturas anuladas (no suman):]]></text>
+				</staticText>
+				<textField isBlankWhenNull="true">
+					<reportElement x="186" y="36" width="140" height="14"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font fontName="SansSerif" size="8"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$P{anuladas}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="6" y="50" width="180" height="14"/>
+					<textElement verticalAlignment="Middle">
+						<font fontName="SansSerif" size="8"/>
+					</textElement>
+					<text><![CDATA[Rechazadas por SIFEN (no suman):]]></text>
+				</staticText>
+				<textField isBlankWhenNull="true">
+					<reportElement x="186" y="50" width="140" height="14"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font fontName="SansSerif" size="8"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$P{rechazadas}]]></textFieldExpression>
+				</textField>
+			</frame>
+			<staticText>
+				<reportElement positionType="Float" x="0" y="120" width="802" height="14"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="SansSerif" size="10" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Detalle por timbrado y punto de expedición (montos sin IVA)]]></text>
+			</staticText>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="14" splitType="Stretch">
+			<staticText>
+				<reportElement style="encabezado" x="0" y="0" width="138" height="14"/>
+				<textElement verticalAlignment="Middle"/>
+				<text><![CDATA[Sucursal / Timbrado]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="encabezado" x="138" y="0" width="48" height="14"/>
+				<textElement verticalAlignment="Middle"/>
+				<text><![CDATA[Tipo]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="encabezado" x="186" y="0" width="130" height="14"/>
+				<textElement verticalAlignment="Middle"/>
+				<text><![CDATA[Numeración usada]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="encabezado" x="316" y="0" width="40" height="14"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<text><![CDATA[Vigentes]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="encabezado" x="356" y="0" width="40" height="14"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<text><![CDATA[Anuladas]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="encabezado" x="396" y="0" width="40" height="14"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<text><![CDATA[Rechaz.]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="encabezado" x="436" y="0" width="61" height="14"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<text><![CDATA[Grav. 10%]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="encabezado" x="497" y="0" width="61" height="14"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<text><![CDATA[IVA 10%]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="encabezado" x="558" y="0" width="61" height="14"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<text><![CDATA[Grav. 5%]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="encabezado" x="619" y="0" width="61" height="14"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<text><![CDATA[IVA 5%]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="encabezado" x="680" y="0" width="61" height="14"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<text><![CDATA[Exentas]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="encabezado" x="741" y="0" width="61" height="14"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<text><![CDATA[Total c/IVA]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="13" splitType="Stretch">
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="0" y="0" width="138" height="13"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{sucursal}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="138" y="0" width="48" height="13"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{tipo}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="186" y="0" width="130" height="13"/>
+				<textElement verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{rango}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="316" y="0" width="40" height="13"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{emitidas}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="356" y="0" width="40" height="13"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{anuladas}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="396" y="0" width="40" height="13"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{rechazadas}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="436" y="0" width="61" height="13"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{gravada10}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="497" y="0" width="61" height="13"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{iva10}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="558" y="0" width="61" height="13"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{gravada5}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="619" y="0" width="61" height="13"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{iva5}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="680" y="0" width="61" height="13"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{exentas}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="741" y="0" width="61" height="13"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{totalFacturado}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<pageFooter>
+		<band height="16" splitType="Stretch">
+			<textField isBlankWhenNull="true">
+				<reportElement x="0" y="2" width="600" height="14"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="SansSerif" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{razonSocial} + " - RUC " + $P{ruc} + " - " + $P{periodo}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="600" y="2" width="160" height="14"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Página " + $V{PAGE_NUMBER} + " de"]]></textFieldExpression>
+			</textField>
+			<textField evaluationTime="Report">
+				<reportElement x="760" y="2" width="42" height="14"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="SansSerif" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[" " + $V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageFooter>
+</jasperReport>

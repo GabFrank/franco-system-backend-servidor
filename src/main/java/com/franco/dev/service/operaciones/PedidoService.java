@@ -206,7 +206,12 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
         
         // Crear la siguiente etapa (Recepción de Nota) como pendiente
         procesoEtapaService.crearEtapaSiguiente(pedido, ProcesoEtapaTipo.CREACION);
-        
+
+        // Si la planificación se reabrió con notas ya cargadas, la recepción documental retoma EN_PROCESO
+        if (!notaRecepcionService.findByPedidoId(pedidoId).isEmpty()) {
+            procesoEtapaService.actualizarEtapaAEnProceso(pedidoId, ProcesoEtapaTipo.RECEPCION_NOTA);
+        }
+
         return pedidoFinalizado;
     }
 

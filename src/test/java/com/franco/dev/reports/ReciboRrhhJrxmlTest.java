@@ -84,6 +84,25 @@ public class ReciboRrhhJrxmlTest {
         }
     }
 
+    /**
+     * El titulo del A4 tiene ancho fijo y no estira: Jasper recorta sin error. El mas largo
+     * que se emite hoy es el de la constancia de descuento de un item de liquidacion, con
+     * un numero de 6 digitos de margen.
+     */
+    @Test
+    void tituloMasLargoSaleCompleto() throws Exception {
+        String titulo = "CONSTANCIA DE DESCUENTO Nro. 123456";
+        for (String tpl : new String[]{"reports/recibo-rrhh.jrxml",
+                "reports/recibo-ticket-58.jrxml", "reports/recibo-ticket-80.jrxml"}) {
+            JasperReport jr = JasperCompileManager.compileReport(ResourceUtils.getFile("classpath:" + tpl).getAbsolutePath());
+            Map<String, Object> p = new HashMap<>();
+            p.put("titulo", titulo);
+            JasperPrint print = JasperFillManager.fillReport(jr, p,
+                    new JRBeanCollectionDataSource(Arrays.asList(new Row("DESCUENTO IPS", "250.000"))));
+            assertContiene(textosDelPrint(print), titulo, tpl);
+        }
+    }
+
     private JasperPrint llenar(String tpl, String concepto, String observacion) throws Exception {
         JasperReport jr = JasperCompileManager.compileReport(ResourceUtils.getFile("classpath:" + tpl).getAbsolutePath());
         Map<String, Object> p = new HashMap<>();

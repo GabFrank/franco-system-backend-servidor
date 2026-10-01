@@ -47,7 +47,9 @@ public interface RecepcionMercaderiaRepository extends HelperRepository<Recepcio
 
     /**
      * Busca recepciones reutilizables por criterios específicos
-     * Regla: Mismo proveedor, misma sucursal, misma fecha, estado EN_PROCESO/PENDIENTE
+     * Regla: Mismo proveedor, misma sucursal, misma fecha, estado EN_PROCESO/PENDIENTE,
+     * y sin ítems ni notas de OTRO pedido: una recepción compartida la cierra el primer pedido
+     * que finaliza, con el stock del otro adentro, y el otro queda trabado.
      */
     @Query("SELECT rm FROM RecepcionMercaderia rm " +
            "WHERE rm.proveedor.id = :proveedorId " +
@@ -55,12 +57,19 @@ public interface RecepcionMercaderiaRepository extends HelperRepository<Recepcio
            "AND DATE(rm.fecha) = DATE(:fecha) " +
            "AND rm.estado IN ('EN_PROCESO', 'PENDIENTE') " +
            "AND (:usuarioId IS NULL OR rm.usuario.id = :usuarioId) " +
+           "AND NOT EXISTS (SELECT rmi.id FROM RecepcionMercaderiaItem rmi " +
+           "    WHERE rmi.recepcionMercaderia.id = rm.id " +
+           "    AND rmi.notaRecepcionItem.notaRecepcion.pedido.id <> :pedidoId) " +
+           "AND NOT EXISTS (SELECT rmn.id FROM RecepcionMercaderiaNota rmn " +
+           "    WHERE rmn.recepcionMercaderia.id = rm.id " +
+           "    AND rmn.notaRecepcion.pedido.id <> :pedidoId) " +
            "ORDER BY rm.fecha DESC")
     List<RecepcionMercaderia> findRecepcionesReutilizables(
             @Param("proveedorId") Long proveedorId,
             @Param("sucursalRecepcionId") Long sucursalRecepcionId,
             @Param("fecha") LocalDateTime fecha,
-            @Param("usuarioId") Long usuarioId);
+            @Param("usuarioId") Long usuarioId,
+            @Param("pedidoId") Long pedidoId);
 
     /**
      * Verifica si existe una recepción para un ítem de nota y sucursal específica

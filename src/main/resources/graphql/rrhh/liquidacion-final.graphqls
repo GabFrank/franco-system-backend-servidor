@@ -73,6 +73,8 @@ type LiquidacionFinalItem {
     editadoPor: Usuario
     editadoEn: Date
     montoOriginal: Float
+    # VALE, CPP_CUOTA, ITEM_PROGRAMADO... (de donde sale el item)
+    referenciaTipo: String
 }
 
 type LiquidacionFinal {

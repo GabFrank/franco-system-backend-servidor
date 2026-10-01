@@ -51,6 +51,12 @@ public class LiquidacionConcepto implements Identifiable<Long> {
 
     private Boolean activo;
 
+    /**
+     * Número fijo de la operación: se tipea al cargar un ítem de liquidación y elige la operación.
+     * Único entre activos (desactivar libera el número). Null = sin número.
+     */
+    private Integer numero;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;

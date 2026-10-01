@@ -2,11 +2,15 @@ package com.franco.dev.service.sifen;
 
 import com.franco.dev.domain.financiero.DocumentoElectronico;
 import com.franco.dev.domain.financiero.LoteDE;
+import com.franco.dev.domain.financiero.enums.EstadoDE;
+import com.franco.dev.domain.financiero.enums.EstadoLoteDE;
+import com.franco.dev.service.financiero.LoteDEService;
 import com.roshka.sifen.core.exceptions.SifenException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 
 /**
@@ -37,9 +41,11 @@ import java.util.Collections;
 public class SifenEnvioSincronoService {
 
     private final SifenService sifenService;
+    private final LoteDEService loteDEService;
 
-    public SifenEnvioSincronoService(SifenService sifenService) {
+    public SifenEnvioSincronoService(SifenService sifenService, LoteDEService loteDEService) {
         this.sifenService = sifenService;
+        this.loteDEService = loteDEService;
     }
 
     /**
@@ -56,5 +62,58 @@ public class SifenEnvioSincronoService {
         log.info("📤 Enviando el documento {} en el lote {}", de.getId(), lote.getId());
         sifenService.enviarLote(lote);                                            // T3
         return lote;
+    }
+
+    /**
+     * Antes de reenviar o anular una nota cuyo DE está EN_LOTE, le pregunta a SIFEN cómo quedó.
+     * Sin esto, el reenvío armaba un segundo lote con el mismo CDC mientras el primero seguía vivo,
+     * y la anulación daba de baja solo en el sistema una nota que SIFEN tenía aprobada.
+     *
+     * Con el lote vivo se consulta **por lote**: mientras SIFEN lo procesa puede contestar «no
+     * existe» (0420) por el CDC, y {@code consultarDE} marcaría RECHAZADO una nota que después sale
+     * aprobada. Por CDC solo con el lote muerto o pasado el plazo de consulta de lotes. Un error de
+     * la consulta se loguea: quien llama decide con el estado que haya en la base.
+     */
+    public void refrescarSiEnLote(DocumentoElectronico de) {
+        if (de == null || de.getEstado() != EstadoDE.EN_LOTE) {
+            return;
+        }
+        LoteDE lote = lote(de);
+        try {
+            if (consultablePorLote(lote)) {
+                sifenService.consultarLote(lote);
+            } else if (de.getCdc() != null) {
+                sifenService.consultarDE(de.getCdc());
+            }
+        } catch (Exception e) {
+            log.warn("⚠️ No se pudo consultar a SIFEN el documento {}: {}", de.getId(), e.getMessage());
+        }
+    }
+
+    /**
+     * El DE sigue EN_LOTE y su lote todavía se puede consultar: SIFEN no respondió y todavía puede
+     * hacerlo. Pasado el plazo de consulta del lote (o sin protocolo) ya no se espera más: si no,
+     * una nota cuyo CDC SIFEN no aclara quedaba sin poder reenviarse ni anularse para siempre.
+     */
+    public boolean sigueEnProceso(DocumentoElectronico de) {
+        if (de == null || de.getEstado() != EstadoDE.EN_LOTE) {
+            return false;
+        }
+        return consultablePorLote(lote(de));
+    }
+
+    private LoteDE lote(DocumentoElectronico de) {
+        if (de.getLoteDeId() == null) {
+            return null;
+        }
+        return loteDEService.findByIdAndSucursalId(de.getLoteDeId(), de.getSucursalId()).orElse(null);
+    }
+
+    private static boolean consultablePorLote(LoteDE lote) {
+        return lote != null
+                && lote.getEstado() == EstadoLoteDE.EN_PROCESO
+                && lote.getProtocolo() != null
+                && (lote.getCreadoEn() == null || lote.getCreadoEn().isAfter(
+                        LocalDateTime.now().minusHours(SifenSchedulerService.HORAS_CONSULTA_POR_LOTE)));
     }
 }

@@ -118,7 +118,8 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
         @Query("SELECT Distinct new com.franco.dev.domain.operaciones.dto.LucroPorProductosDto(" +
                         "pro.id as id, " +
                         "pro.descripcion as descripcion, " +
-                        "SUM(vi.cantidad * pre.cantidad * COALESCE(vi.precioCosto, cpp.ultimoPrecioCompra, 0)) as costoTotal, "
+                        // Venta sin costo: el respaldo es el costo medio, no el precio de una sola compra.
+                        "SUM(vi.cantidad * pre.cantidad * COALESCE(vi.precioCosto, NULLIF(cpp.costoMedio, 0), cpp.ultimoPrecioCompra, 0)) as costoTotal, "
                         +
                         "SUM(vi.cantidad * pre.cantidad) as cantidad, " +
                         "SUM(vi.precio * vi.cantidad * pre.cantidad) as totalVenta," +

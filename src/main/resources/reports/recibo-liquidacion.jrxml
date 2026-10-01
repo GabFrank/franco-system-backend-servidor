@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="recibo-liquidacion" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c01">
 	<parameter name="empresa" class="java.lang.String"/>
+	<parameter name="marcaAgua" class="java.awt.Image"/>
 	<parameter name="ruc" class="java.lang.String"/>
 	<parameter name="direccionEmpresa" class="java.lang.String"/>
 	<parameter name="telefonoEmpresa" class="java.lang.String"/>
@@ -24,7 +25,15 @@
 	<field name="fecha" class="java.lang.String"/>
 	<field name="monto" class="java.lang.String"/>
 	<background>
-		<band splitType="Stretch"/>
+		<band height="160" splitType="Stretch">
+			<!-- Marca de agua de la via del funcionario (arriba del corte). La via ORIGINAL lleva la suya en el summary. -->
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="177" y="40" width="200" height="120" uuid="0057d9fb-2eee-477d-9e72-f77b6c5c26dc">
+					<printWhenExpression><![CDATA[$P{marcaAgua} != null]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{marcaAgua}]]></imageExpression>
+			</image>
+		</band>
 	</background>
 	<title>
 		<band height="110" splitType="Stretch">
@@ -43,7 +52,7 @@
 ]]></textFieldExpression>
 			</textField>
 			<rectangle>
-				<reportElement x="0" y="32" width="555" height="60" uuid="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c02"/>
+				<reportElement mode="Transparent" x="0" y="32" width="555" height="60" uuid="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c02"/>
 				<graphicElement>
 					<pen lineWidth="0.5"/>
 				</graphicElement>
@@ -148,6 +157,13 @@
 	</detail>
 	<summary>
 		<band height="292" splitType="Stretch">
+			<!-- Primer elemento de la banda: se dibuja debajo del texto de la via ORIGINAL. -->
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="177" y="165" width="200" height="120" uuid="3dd1e31e-fa3d-45da-9e1b-1cee51818a94">
+					<printWhenExpression><![CDATA[$P{marcaAgua} != null]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{marcaAgua}]]></imageExpression>
+			</image>
 			<staticText>
 				<reportElement x="0" y="0" width="200" height="12" uuid="2d94563a-0eb8-4872-b45a-8ef04369b4d3"/>
 				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="7" isItalic="true"/></textElement>

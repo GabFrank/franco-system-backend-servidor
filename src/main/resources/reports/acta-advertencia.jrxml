@@ -5,6 +5,7 @@
               name="acta-advertencia" pageWidth="595" pageHeight="842" columnWidth="555"
               leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="77a73d4e-71ec-4c13-8498-0c75089bf316">
 	<parameter name="empresa" class="java.lang.String"/>
+	<parameter name="marcaAgua" class="java.awt.Image"/>
 	<parameter name="ruc" class="java.lang.String"/>
 	<parameter name="direccionEmpresa" class="java.lang.String"/>
 	<parameter name="telefonoEmpresa" class="java.lang.String"/>
@@ -17,7 +18,15 @@
 	<parameter name="fecha" class="java.lang.String"/>
 	<parameter name="ciudad" class="java.lang.String"/>
 	<background>
-		<band splitType="Stretch"/>
+		<band height="330" splitType="Stretch">
+			<!-- Marca de agua: el acta ocupa la hoja entera y no se corta: va centrada, detras del cuerpo del texto. -->
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="127" y="150" width="300" height="180" uuid="0e51e234-1c33-4683-bd4e-852020347ab2">
+					<printWhenExpression><![CDATA[$P{marcaAgua} != null]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{marcaAgua}]]></imageExpression>
+			</image>
+		</band>
 	</background>
 	<title>
 		<band height="130" splitType="Stretch">
@@ -41,7 +50,7 @@
 				<textFieldExpression><![CDATA["ACTA DE AMONESTACION" + ($P{numeroAdvertencia} != null && $P{numeroAdvertencia}.length() > 0 ? " N " + $P{numeroAdvertencia} : "")]]></textFieldExpression>
 			</textField>
 			<rectangle>
-				<reportElement x="0" y="62" width="555" height="60" uuid="07433670-de97-425b-b4ca-8fd6d092122a"/>
+				<reportElement mode="Transparent" x="0" y="62" width="555" height="60" uuid="07433670-de97-425b-b4ca-8fd6d092122a"/>
 				<graphicElement><pen lineWidth="0.5"/></graphicElement>
 			</rectangle>
 			<textField>

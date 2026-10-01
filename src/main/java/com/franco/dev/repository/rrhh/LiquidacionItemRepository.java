@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.List;
 
 public interface LiquidacionItemRepository extends HelperRepository<LiquidacionItem, Long> {
@@ -95,4 +96,37 @@ public interface LiquidacionItemRepository extends HelperRepository<LiquidacionI
             "and i.liquidacion.estado in (com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.APROBADA, " +
             "com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.PAGADA)")
     boolean existeEnLiquidacionCerrada(@Param("bonoId") Long bonoId);
+
+    /**
+     * Liquidaciones no ANULADAS con un item de alguna de estas cuotas de vale (VALE_CUOTA). Una cuota que
+     * esta en un documento vivo no se puede regenerar ni anular, y no se vuelve a meter en otro borrador.
+     */
+    @Query("select distinct i.liquidacion.id from LiquidacionItem i " +
+            "where i.referenciaTipo = 'VALE_CUOTA' and i.referenciaId in :cuotaIds " +
+            "and i.liquidacion.estado <> com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.ANULADA")
+    List<Long> findLiquidacionesVivasConCuotasDeVale(@Param("cuotaIds") Collection<Long> cuotaIds);
+
+    /** De estas cuotas de vale, las que ya estan en una liquidacion no ANULADA distinta de la indicada. */
+    @Query("select distinct i.referenciaId from LiquidacionItem i " +
+            "where i.referenciaTipo = 'VALE_CUOTA' and i.referenciaId in :cuotaIds " +
+            "and i.liquidacion.estado <> com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.ANULADA " +
+            "and (:excludeLiqId is null or i.liquidacion.id <> :excludeLiqId)")
+    List<Long> findCuotasDeValeEnOtrasLiquidaciones(@Param("cuotaIds") Collection<Long> cuotaIds,
+                                                    @Param("excludeLiqId") Long excludeLiqId);
+
+    /** Las liquidaciones no ANULADAS que tienen el ítem de un programado (ITEM_PROGRAMADO). */
+    @Query("select distinct i.liquidacion from LiquidacionItem i " +
+            "where i.referenciaTipo = 'ITEM_PROGRAMADO' and i.referenciaId = :programadoId " +
+            "and i.liquidacion.estado <> com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.ANULADA")
+    List<com.franco.dev.domain.rrhh.LiquidacionSueldo> findLiquidacionesVivasConProgramado(
+            @Param("programadoId") Long programadoId);
+
+    /** De estas referencias de un tipo, las que ya estan en una liquidacion no ANULADA distinta de la indicada. */
+    @Query("select distinct i.referenciaId from LiquidacionItem i " +
+            "where i.referenciaTipo = :tipo and i.referenciaId in :ids " +
+            "and i.liquidacion.estado <> com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.ANULADA " +
+            "and (:excludeLiqId is null or i.liquidacion.id <> :excludeLiqId)")
+    List<Long> findReferenciasEnOtrasLiquidaciones(@Param("tipo") String tipo,
+                                                   @Param("ids") Collection<Long> ids,
+                                                   @Param("excludeLiqId") Long excludeLiqId);
 }

@@ -2,6 +2,7 @@ package com.franco.dev.repository.financiero;
 
 import com.franco.dev.domain.financiero.ConfiguracionFacturacionHistorial;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
@@ -20,4 +21,10 @@ public interface ConfiguracionFacturacionHistorialRepository extends HelperRepos
 
     /** La global no tiene sucursal: su historial se pide aparte. */
     List<ConfiguracionFacturacionHistorial> findBySucursalIsNullOrderByIdDesc(Pageable pageable);
+
+    // Paginados, con total: el orden viene en el Pageable. Sin filtro, findAll(Pageable) de JpaRepository.
+
+    Page<ConfiguracionFacturacionHistorial> findBySucursalId(Long sucursalId, Pageable pageable);
+
+    Page<ConfiguracionFacturacionHistorial> findBySucursalIsNull(Pageable pageable);
 }

@@ -6,6 +6,7 @@ import com.franco.dev.domain.financiero.Timbrado;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
 import com.franco.dev.domain.financiero.enums.OrigenNotaRemision;
 import com.franco.dev.domain.general.Ciudad;
+import com.franco.dev.domain.operaciones.HojaRuta;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.operaciones.TransferenciaItemService;
@@ -13,6 +14,8 @@ import com.franco.dev.service.operaciones.TransferenciaService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.Optional;
 
@@ -35,6 +38,7 @@ class NotaRemisionPrellenadoServiceTest {
     private SucursalService sucursalService;
     private NotaRemisionPrellenadoService service;
     private Sucursal destino;
+    private Transferencia transferencia;
 
     @BeforeEach
     void setUp() {
@@ -60,7 +64,7 @@ class NotaRemisionPrellenadoServiceTest {
         ciudad.setCodigo("KTT");
         destino.setCiudad(ciudad);
 
-        Transferencia transferencia = new Transferencia();
+        transferencia = new Transferencia();
         transferencia.setId(TRANSFERENCIA);
         transferencia.setSucursalOrigen(origen);
         transferencia.setSucursalDestino(destino);
@@ -124,6 +128,34 @@ class NotaRemisionPrellenadoServiceTest {
         assertEquals(4599, katuete.getCodigoCiudad());
         assertEquals("30 DE JULIO", locales.stream().filter(l -> ORIGEN.equals(l.getSucursalId()))
                 .findFirst().orElseThrow(AssertionError::new).getDireccion(), "sin dirección en la sucursal, la del timbrado");
+    }
+
+    /** Una llegada anterior a la salida no se propone: SIFEN la rechaza (2108) y el validador no deja guardarla. */
+    @Test
+    void unaHojaDeRutaConLaLlegadaAntesDeLaSalidaNoProponeFin() {
+        when(timbradoDetalleService.findBySucursalId(DESTINO)).thenReturn(Collections.emptyList());
+        transferencia.setHojaRuta(hojaRuta(LocalDateTime.of(2026, 10, 1, 8, 0), LocalDateTime.of(2026, 9, 1, 18, 0)));
+
+        NotaRemision nota = prellenar();
+
+        assertEquals(LocalDate.of(2026, 10, 1), nota.getFechaInicioTraslado());
+        assertTrue(nota.getFechaFinTraslado() == null || !nota.getFechaFinTraslado().isBefore(nota.getFechaInicioTraslado()),
+                "fin propuesto: " + nota.getFechaFinTraslado());
+    }
+
+    @Test
+    void unaHojaDeRutaValidaProponeSuLlegadaComoFin() {
+        when(timbradoDetalleService.findBySucursalId(DESTINO)).thenReturn(Collections.emptyList());
+        transferencia.setHojaRuta(hojaRuta(LocalDateTime.of(2026, 10, 1, 8, 0), LocalDateTime.of(2026, 10, 1, 18, 0)));
+
+        assertEquals(LocalDate.of(2026, 10, 1), prellenar().getFechaFinTraslado());
+    }
+
+    private static HojaRuta hojaRuta(LocalDateTime salida, LocalDateTime llegada) {
+        HojaRuta hoja = new HojaRuta();
+        hoja.setFechaSalida(salida);
+        hoja.setFechaLlegada(llegada);
+        return hoja;
     }
 
     private NotaRemision prellenar() {

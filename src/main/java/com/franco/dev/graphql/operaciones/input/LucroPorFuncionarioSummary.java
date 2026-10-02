@@ -11,6 +11,7 @@ public class LucroPorFuncionarioSummary {
     private Double totalVenta;
     private Double lucro;
     private Double margen;
+    private Double margenCosto;
     private Double totalDescuento;
     private Double totalAumento;
     private Double ventaMedia;

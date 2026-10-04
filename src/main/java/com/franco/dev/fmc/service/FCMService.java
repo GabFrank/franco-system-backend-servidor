@@ -26,6 +26,12 @@ import org.springframework.stereotype.Service;
 public class FCMService {
 
     private static final String DEFAULT_DATA_PATH = "/";
+    // Rutas relativas a proposito: el service worker las resuelve contra su
+    // propio origen, asi que el mismo payload sirve en alpha, farmacia y bodega.
+    private static final String WEB_ICON = "/icons/icon-192x192.png";
+    // Android usa solo el canal alfa del badge y lo tine: tiene que ser una
+    // silueta sobre transparente, no un icono a color. Vive en la PWA.
+    private static final String WEB_BADGE = "/icons/badge-96x96.png";
     private static final Logger logger = LoggerFactory.getLogger(FCMService.class);
     private final Gson gson;
     @SuppressWarnings("unused")
@@ -136,7 +142,7 @@ public class FCMService {
      *
      * Esto no toca Android ni iOS: `WebpushConfig` solo lo lee el navegador.
      */
-    private WebpushConfig getWebpushConfig(PushNotificationRequest request) {
+    static WebpushConfig getWebpushConfig(PushNotificationRequest request) {
         String path = request.getData() != null ? request.getData() : DEFAULT_DATA_PATH;
 
         Map<String, Object> alTocar = new HashMap<>();
@@ -157,6 +163,8 @@ public class FCMService {
                 .setNotification(WebpushNotification.builder()
                         .setBody(request.getMessage())
                         .setTitle(request.getTitle())
+                        .setIcon(WEB_ICON)
+                        .setBadge(WEB_BADGE)
                         .setRequireInteraction(true)
                         .putCustomData("data", datos)
                         .build())

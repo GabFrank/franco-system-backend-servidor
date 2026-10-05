@@ -77,6 +77,16 @@ type MovimientoBancario {
     anulado: Boolean
     creadoEn: Date
     usuario: Usuario
+    # name de OrigenMovimientoTipo (la columna es varchar). Dice que modulo es el dueno del
+    # movimiento, y por lo tanto desde donde se anula.
+    origenTipo: String
+    origenId: Int
+    # Evento de pago al que pertenece el movimiento, o null si no es de un pago del motor de CPP.
+    #
+    # No alcanza con origenId: el cheque al contado de un pago se registra con origenId nulo, y
+    # un movimiento de pago anterior al motor no pertenece a ningun evento. La verdad la tiene
+    # PagoSolicitudDetalle. El front lo usa para anular por evento (anularPagoCpp).
+    pagoId: Int
 }
 
 type MovimientoBancarioPage {

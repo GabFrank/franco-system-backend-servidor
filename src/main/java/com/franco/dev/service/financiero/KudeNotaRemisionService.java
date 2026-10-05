@@ -6,11 +6,13 @@ import com.franco.dev.domain.financiero.NotaRemisionItem;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
 import com.franco.dev.domain.financiero.enums.TipoTransporteNr;
 import com.franco.dev.service.sifen.util.SifenTimbradoHelper;
+import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.utilitarios.DateUtils;
 import com.franco.dev.utilitarios.print.QRCodeImageGenerator;
 import lombok.extern.slf4j.Slf4j;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
@@ -39,6 +41,14 @@ public class KudeNotaRemisionService {
 
     public static final String PLANTILLA = "reports/nota-remision-kude.jrxml";
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    /** Por setter y no por constructor: los tests arman el service con {@code new} y sin logo. */
+    private ImageService imageService;
+
+    @Autowired
+    public void setImageService(ImageService imageService) {
+        this.imageService = imageService;
+    }
 
     /** PDF en base64, listo para el visor de impresión del desktop. */
     public String generarPdfBase64(NotaRemision nota, List<NotaRemisionItem> items,
@@ -82,7 +92,7 @@ public class KudeNotaRemisionService {
 
     public Map<String, Object> parametros(NotaRemision nota, TimbradoDetalle timbradoDetalle, DocumentoElectronico de) {
         Map<String, Object> p = new HashMap<>();
-        p.put("logo", "");
+        p.put("logo", imageService != null ? imageService.getLogoReporte() : null);
         p.put("qrImagePath", "");
         p.put("urlValidacion", "https://ekuatia.set.gov.py/consultas/");
 

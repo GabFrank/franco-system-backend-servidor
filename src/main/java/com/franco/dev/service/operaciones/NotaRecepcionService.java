@@ -99,6 +99,26 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
         save(nota);
     }
 
+    /**
+     * Borra la nota y, si el pedido se queda sin notas, devuelve RECEPCION_NOTA a PENDIENTE
+     * (la pasó a EN_PROCESO la primera nota; sin esto el pedido no se puede volver a reabrir).
+     */
+    @Override
+    @Transactional
+    public Boolean deleteById(Long id) {
+        Long pedidoId = findById(id)
+                .map(NotaRecepcion::getPedido)
+                .map(pedido -> pedido.getId())
+                .orElse(null);
+
+        Boolean eliminado = super.deleteById(id);
+
+        if (Boolean.TRUE.equals(eliminado) && pedidoId != null && findByPedidoId(pedidoId).isEmpty()) {
+            procesoEtapaService.volverEtapaAPendiente(pedidoId, ProcesoEtapaTipo.RECEPCION_NOTA);
+        }
+        return eliminado;
+    }
+
     public List<NotaRecepcion> findByPedidoId(Long id){
         return  repository.findByPedidoId(id);
     }

@@ -10,6 +10,7 @@ import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.rrhh.LiquidacionFinal;
 import com.franco.dev.domain.rrhh.LiquidacionFinalItem;
+import com.franco.dev.domain.rrhh.LiquidacionItemProgramado;
 import com.franco.dev.domain.rrhh.LiquidacionSueldo;
 import com.franco.dev.domain.rrhh.Penalizacion;
 import com.franco.dev.domain.rrhh.Prestamo;
@@ -82,6 +83,8 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     private final com.franco.dev.repository.rrhh.AguinaldoRepository aguinaldoRepository;
     private final BaseRemunerativaService baseRemunerativaService;
     private final PrestamoCuotaDescuentoService prestamoCuotaDescuentoService;
+    private final ValeCuotaDescuentoService valeCuotaDescuentoService;
+    private final ItemProgramadoAplicacionService itemProgramadoAplicacionService;
 
     @Override
     public LiquidacionFinalRepository getRepository() {
@@ -350,6 +353,14 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         // Vales / adelantos CONFIRMADO sin liquidar.
         if (cobrarVales) {
             for (Vale v : valeRepository.findByFuncionarioIdAndEstado(fid, ValeEstado.CONFIRMADO)) {
+                if (ValeService.tieneCuotas(v)) {
+                    // Vale en cuotas: todas las que falten, cada una con su item; nunca el vale entero.
+                    for (com.franco.dev.domain.rrhh.ValeCuota c : valeCuotaDescuentoService.cuotasParaFiniquito(v, lf.getId())) {
+                        itemRepository.save(descItem(lf, ValeCuotaDescuentoService.descripcion(v, c), c.getMonto(),
+                                c.getId(), ValeService.REFERENCIA_CUOTA));
+                    }
+                    continue;
+                }
                 BigDecimal monto = v.getMonto() != null ? v.getMonto() : BigDecimal.ZERO;
                 if (monto.signum() <= 0) continue;
                 if (Boolean.TRUE.equals(v.getEsAdelanto())) {
@@ -390,6 +401,22 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
             if (totalPenal.signum() > 0) {
                 itemRepository.save(descItem(lf, "PENALIZACIONES DEL MES", totalPenal, null, "PENALIZACION"));
             }
+        }
+
+        // Items programados pendientes, de cualquier periodo (se va y no hay liquidaciones futuras), salvo
+        // los que ya estan en una liquidacion mensual viva. Antes del convenio: el tope tiene que verlos.
+        for (LiquidacionItemProgramado p : itemProgramadoAplicacionService.paraFiniquito(fid, lf.getId())) {
+            LiquidacionFinalItem it = new LiquidacionFinalItem();
+            it.setLiquidacionFinal(lf);
+            it.setConcepto(LiquidacionFinalConcepto.MANUAL);
+            it.setDescripcion(p.getDescripcion() + " (PROGRAMADO " + p.getPeriodo() + ")");
+            it.setMonto(p.getMonto());
+            it.setTipo(p.getTipo());
+            it.setManual(false);
+            it.setEditado(false);
+            it.setReferenciaId(p.getId());
+            it.setReferenciaTipo(LiquidacionItemProgramado.REFERENCIA_TIPO);
+            itemRepository.save(it);
         }
 
         // Crédito por convenio (compras a crédito) — cuotas impagas del funcionario,
@@ -471,11 +498,19 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         return it;
     }
 
+    /** Igual que en la mensual: el ítem de un programado se anula desde Items programados, no se toca acá. */
+    private static void exigirNoProgramado(LiquidacionFinalItem it) {
+        if (LiquidacionItemProgramado.REFERENCIA_TIPO.equals(it.getReferenciaTipo())) {
+            throw new GraphQLException("Este item viene de un item programado: anulalo desde Items programados");
+        }
+    }
+
     @Transactional
     public LiquidacionFinalItem editarItem(Long itemId, String descripcion, BigDecimal monto, LiquidacionItemTipo tipo, Long usuarioId) {
         LiquidacionFinalItem it = itemRepository.findById(itemId)
                 .orElseThrow(() -> new GraphQLException("Item no encontrado"));
         LiquidacionFinal lf = borradorDelItem(it);
+        exigirNoProgramado(it);
         // Guardar el monto original en la primera edición (delta negociado).
         if (!Boolean.TRUE.equals(it.getEditado())) it.setMontoOriginal(it.getMonto());
         if (descripcion != null) it.setDescripcion(descripcion.toUpperCase());
@@ -494,6 +529,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         LiquidacionFinalItem it = itemRepository.findById(itemId).orElse(null);
         if (it == null) return false;
         LiquidacionFinal lf = borradorDelItem(it);
+        exigirNoProgramado(it);
         itemRepository.deleteById(itemId);
         recalcularTotal(lf);
         return true;
@@ -602,6 +638,8 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         // Antes de mover plata: una cuota descontada que se cobro por caja despues de generar el borrador
         // se cobraria dos veces (issue #300). Toma las cuotas con lock antes que el saldo de caja.
         prestamoCuotaDescuentoService.validarFiniquito(lf.getId());
+        valeCuotaDescuentoService.validarFiniquito(lf.getId());
+        itemProgramadoAplicacionService.validarFiniquito(lf.getId());
 
         CajaVirtual caja = cajaVirtualService.findById(cajaVirtualId)
                 .orElseThrow(() -> new GraphQLException("Caja Mayor no encontrada"));
@@ -661,6 +699,14 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                     // Con lock, actualiza tambien el prestamo y, al revertir, recalcula el estado (issue #300).
                     if (pagar) prestamoCuotaDescuentoService.aplicar(refId, it.getMonto());
                     else prestamoCuotaDescuentoService.revertir(refId, it.getMonto());
+                    break;
+                case ValeService.REFERENCIA_CUOTA:
+                    if (pagar) valeCuotaDescuentoService.aplicarFiniquito(refId, it.getMonto(), lf.getId());
+                    else valeCuotaDescuentoService.revertirFiniquito(refId, lf.getId());
+                    break;
+                case LiquidacionItemProgramado.REFERENCIA_TIPO:
+                    if (pagar) itemProgramadoAplicacionService.aplicarFiniquito(refId, it.getMonto(), lf.getId());
+                    else itemProgramadoAplicacionService.revertirFiniquito(refId, lf.getId());
                     break;
                 case "CREDITO_CONVENIO_CUOTA":
                     // El cobro ya quedo registrado por el item. Reconciliamos el estado del
@@ -739,11 +785,35 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         repository.save(lf);
     }
 
+    /**
+     * Anula un finiquito PAGADO desde tesoreria cuyo pago ya no esta vivo: solo revierte los efectos
+     * cruzados (no hay plata que devolver). El funcionario no se reactiva, igual que en {@link #anular}.
+     */
+    @Transactional
+    public LiquidacionFinal anularSinPagoVivo(Long id) {
+        LiquidacionFinal lf = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion final no encontrada"));
+        if (lf.getEstado() != LiquidacionFinalEstado.PAGADA || lf.getSolicitudPagoId() == null) {
+            throw new GraphQLException("El finiquito #" + id + " no esta pagado desde tesoreria");
+        }
+        aplicarEfectosCruzados(lf, false);
+        lf.setCajaVirtualId(null);
+        lf.setMovimientoCajaVirtualId(null);
+        lf.setFechaPago(null);
+        lf.setEstado(LiquidacionFinalEstado.ANULADA);
+        return repository.save(lf);
+    }
+
     /** Anula un finiquito PAGADO: contra-asiento AJUSTE en la caja. */
     @Transactional
     public LiquidacionFinal anular(Long id) {
         LiquidacionFinal lf = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion final no encontrada"));
         if (lf.getEstado() == LiquidacionFinalEstado.ANULADA) return lf;
+        // Pagado desde el hub de tesoreria: se anula junto con su pago (AnulacionPagoRrhhService).
+        // Mismo motivo que en LiquidacionSueldoService.anular.
+        if (lf.getEstado() == LiquidacionFinalEstado.PAGADA && lf.getSolicitudPagoId() != null) {
+            throw new GraphQLException("El finiquito #" + lf.getId() + " se pago desde tesoreria:"
+                    + " hay que anularlo junto con su pago");
+        }
         if (lf.getEstado() == LiquidacionFinalEstado.PAGADA && lf.getCajaVirtualId() != null) {
             if (lf.getMovimientoCajaVirtualId() == null) {
                 throw new GraphQLException("El finiquito #" + lf.getId() + " esta pagado contra una caja"

@@ -10,8 +10,6 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -48,9 +46,9 @@ public class LiquidacionConceptoGraphQL implements GraphQLQueryResolver, GraphQL
         return service.findByCodigo(codigo);
     }
 
+    /** Ordenados por número de operación (los sin número al final). */
     public List<LiquidacionConcepto> liquidacionConceptos(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return service.findAll(pageable);
+        return service.findAllOrdenado(page, size);
     }
 
     public Long countLiquidacionConcepto() {
@@ -80,6 +78,8 @@ public class LiquidacionConceptoGraphQL implements GraphQLQueryResolver, GraphQL
                 usuarioService.findByNickname(authentication.getName()).ifPresent(e::setUsuario);
             }
         }
+        // 0 = sin número. Null (cliente viejo) no llega acá: skipNull ya conservó el existente.
+        if (input.getNumero() != null && input.getNumero() == 0) e.setNumero(null);
         return service.save(e);
     }
 

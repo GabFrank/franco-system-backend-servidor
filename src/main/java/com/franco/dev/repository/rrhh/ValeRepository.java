@@ -5,11 +5,14 @@ import com.franco.dev.domain.rrhh.enums.ValeEstado;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import javax.persistence.LockModeType;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface ValeRepository extends HelperRepository<Vale, Long> {
 
@@ -41,6 +44,14 @@ public interface ValeRepository extends HelperRepository<Vale, Long> {
 
     /** Vale que corresponde a una obligacion de pago de tesoreria (puente vale -> SolicitudPago RRHH). */
     Vale findBySolicitudPagoId(Long solicitudPagoId);
+
+    /**
+     * Toma el vale con lock pesimista al descontar o revertir una de sus cuotas: dos liquidaciones que
+     * pagan a la vez cuotas distintas del mismo vale se serializan y la segunda ve la primera commiteada.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select v from Vale v where v.id = :id")
+    Optional<Vale> lockById(@Param("id") Long id);
 
     /** Vales pagables desde tesoreria: SOLICITADO, del mas reciente al mas antiguo. */
     List<Vale> findByEstadoOrderByFechaDescIdDesc(ValeEstado estado);

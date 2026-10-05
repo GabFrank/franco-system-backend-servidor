@@ -32,6 +32,8 @@ type ProductoVencidoView {
     diasVencimientoTexto: String
     vencimientoColor: String
     diasVencimientoClase: String
+    # Foto en data:image/…;base64. Se resuelve solo si se pide.
+    imagenPrincipal: String
 }
 
 type ProductoVencidoViewPage {

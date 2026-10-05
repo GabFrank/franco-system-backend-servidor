@@ -20,7 +20,7 @@ class SifenEnvioSincronoServiceTest {
     @BeforeEach
     void setUp() {
         sifenService = mock(SifenService.class);
-        envio = new SifenEnvioSincronoService(sifenService);
+        envio = new SifenEnvioSincronoService(sifenService, mock(com.franco.dev.service.financiero.LoteDEService.class));
     }
 
     @Test

@@ -7,11 +7,16 @@ import com.franco.dev.service.empresarial.ConfiguracionGeneralService;
 import com.franco.dev.service.general.CiudadService;
 import com.franco.dev.utilitarios.NumeroALetrasService;
 import com.franco.dev.utilitarios.print.ReciboTicketEscPosTest;
+import com.itextpdf.text.pdf.PRStream;
+import com.itextpdf.text.pdf.PdfName;
+import com.itextpdf.text.pdf.PdfObject;
 import com.itextpdf.text.pdf.PdfReader;
 import com.itextpdf.text.pdf.parser.PdfTextExtractor;
+import com.franco.dev.service.utils.ImageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.awt.image.BufferedImage;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Base64;
@@ -39,10 +44,12 @@ class RecibosRrhhNumeroObservacionTest {
     private LiquidacionSueldoService liquidacionSueldoService;
     private ReporteRrhhService reportes;
     private ReciboLiquidacionService reciboLiquidacion;
+    private ImageService imageService;
 
     @BeforeEach
     void setUp() {
         valeRepository = mock(ValeRepository.class);
+        imageService = mock(ImageService.class);   // getMarcaAguaReporte() -> null: como un host sin logo.png
         penalizacionRepository = mock(PenalizacionRepository.class);
         aguinaldoRepository = mock(AguinaldoRepository.class);
         prestamoRepository = mock(PrestamoRepository.class);
@@ -58,11 +65,13 @@ class RecibosRrhhNumeroObservacionTest {
 
         reportes = new ReporteRrhhService(mock(LiquidacionSueldoRepository.class), configRrhh,
                 liquidacionFinalService, valeRepository, prestamoRepository, aguinaldoRepository,
-                penalizacionRepository, bonoRepository, letras, configGeneral, mock(CiudadService.class));
+                penalizacionRepository, bonoRepository, letras, configGeneral, mock(CiudadService.class),
+                mock(LiquidacionItemRepository.class), mock(LiquidacionFinalItemRepository.class),
+                imageService, mock(ValeService.class));
         reciboLiquidacion = new ReciboLiquidacionService(liquidacionSueldoService, configGeneral, letras,
                 valeRepository, bonoRepository, mock(VacacionVentaRepository.class),
                 mock(PrestamoCuotaRepository.class), penalizacionRepository, configRrhh,
-                mock(LiquidacionConceptoService.class));
+                mock(LiquidacionConceptoService.class), imageService, mock(ValeCuotaRepository.class));
     }
 
     @Test
@@ -199,12 +208,73 @@ class RecibosRrhhNumeroObservacionTest {
         assertTrue(ticket.contains(ultimo), "el ticket imprime la observacion entera: " + ticket);
     }
 
+    /**
+     * Los cuatro documentos A4 llevan la marca de agua que da ImageService (el sueldo, una por via);
+     * los tickets no. Los tests de plantilla
+     * no ven un service que se olvida el put: esto se mira en el PDF que devuelve cada camino.
+     */
+    @Test
+    void losA4LlevanMarcaDeAguaYLosTicketsNo() throws Exception {
+        when(imageService.getMarcaAguaReporte()).thenReturn(new BufferedImage(400, 242, BufferedImage.TYPE_INT_RGB));
+
+        Vale v = new Vale();
+        v.setId(12L);
+        v.setMonto(new BigDecimal("100000"));
+        when(valeRepository.findById(12L)).thenReturn(Optional.of(v));
+        assertEquals(1, imagenesPdf(reportes.reciboValeBase64(12L, null, false)), "vale A4");
+        assertEquals(0, imagenesPdf(reportes.reciboValeBase64(12L, 80, false)), "vale ticket 80");
+
+        LiquidacionFinal lf = new LiquidacionFinal();
+        lf.setId(7L);
+        lf.setTotalLiquidado(new BigDecimal("2500000"));
+        when(liquidacionFinalService.findById(7L)).thenReturn(Optional.of(lf));
+        when(liquidacionFinalService.findItems(7L)).thenReturn(Collections.emptyList());
+        assertEquals(1, imagenesPdf(reportes.finiquitoBase64(7L, null, false)), "finiquito A4");
+
+        Penalizacion adv = new Penalizacion();
+        adv.setId(8L);
+        adv.setTipo(com.franco.dev.domain.rrhh.enums.PenalizacionTipo.ADVERTENCIA);
+        when(penalizacionRepository.findById(8L)).thenReturn(Optional.of(adv));
+        assertEquals(1, imagenesPdf(reportes.actaAdvertenciaBase64(8L)), "acta");
+
+        LiquidacionSueldo liq = new LiquidacionSueldo();
+        liq.setId(486L);
+        liq.setPeriodo("2026-09");
+        when(liquidacionSueldoService.findById(486L)).thenReturn(Optional.of(liq));
+        when(liquidacionSueldoService.findItems(486L)).thenReturn(Collections.emptyList());
+        assertEquals(2, imagenesPdf(reciboLiquidacion.generarBase64(486L, null, false)),
+                "sueldo A4: una marca por via");
+        assertEquals(0, imagenesPdf(reciboLiquidacion.generarBase64(486L, 80, false)), "sueldo ticket 80");
+    }
+
+    @Test
+    void sinLogoEnElHostLosA4SalenIgual() throws Exception {
+        // setUp deja getMarcaAguaReporte() en null: un host sin logo.png.
+        Vale v = new Vale();
+        v.setId(12L);
+        v.setMonto(new BigDecimal("100000"));
+        when(valeRepository.findById(12L)).thenReturn(Optional.of(v));
+        assertEquals(0, imagenesPdf(reportes.reciboValeBase64(12L, null, false)));
+    }
+
     // ===== helpers =====
 
     private static void assertTicketContiene(String base64, String... esperados) {
         List<String> lineas = ReciboTicketEscPosTest.lineas(base64);
         String texto = String.join("\n", lineas);
         for (String e : esperados) assertTrue(texto.contains(e), "falta [" + e + "] en el ticket:\n" + texto);
+    }
+
+    /** Cantidad de imagenes embebidas en el PDF. */
+    private static int imagenesPdf(String base64) throws Exception {
+        PdfReader r = new PdfReader(Base64.getDecoder().decode(base64));
+        int n = 0;
+        for (int i = 0; i < r.getXrefSize(); i++) {
+            PdfObject o = r.getPdfObject(i);
+            if (o != null && o.isStream() && PdfName.IMAGE.equals(((PRStream) o).getAsName(PdfName.SUBTYPE))) n++;
+        }
+        r.close();
+        return n;
     }
 
     /** Texto de todas las paginas del PDF, con los saltos de linea como espacios. */

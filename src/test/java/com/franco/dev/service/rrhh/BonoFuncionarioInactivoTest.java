@@ -55,7 +55,9 @@ class BonoFuncionarioInactivoTest {
         b.setFuncionario(f);
         b.setTipo(BonoTipo.PRODUCTIVIDAD);
         b.setMonto(new BigDecimal("100000"));
-        b.setFecha(LocalDate.of(2026, 9, 12));
+        // Mes corriente: BonoService solo deja editar el bono del mes en curso (contra el reloj
+        // real), así que una fecha fija rompía el test apenas cambiaba el mes.
+        b.setFecha(LocalDate.now());
         if (bonoId != null) when(repository.findById(bonoId)).thenReturn(Optional.of(b));
         return b;
     }

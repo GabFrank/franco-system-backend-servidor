@@ -8,6 +8,9 @@ import com.franco.dev.domain.rrhh.Vale;
 import com.franco.dev.domain.rrhh.enums.ValeEstado;
 import com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository;
 import com.franco.dev.repository.rrhh.ValeRepository;
+import com.franco.dev.repository.rrhh.LiquidacionFinalItemRepository;
+import com.franco.dev.repository.rrhh.LiquidacionItemRepository;
+import com.franco.dev.repository.rrhh.ValeCuotaRepository;
 import com.franco.dev.service.financiero.CajaVirtualService;
 import com.franco.dev.service.financiero.MovimientoCajaVirtualService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -38,7 +41,9 @@ class ValeServiceSincronizacionTest {
         repository = mock(ValeRepository.class);
         detalleRepository = mock(PagoSolicitudDetalleRepository.class);
         service = new ValeService(repository, mock(CajaVirtualService.class),
-                mock(MovimientoCajaVirtualService.class), mock(UsuarioService.class), detalleRepository);
+                mock(MovimientoCajaVirtualService.class), mock(UsuarioService.class), detalleRepository,
+                mock(ValeCuotaRepository.class), mock(LiquidacionItemRepository.class),
+                mock(LiquidacionFinalItemRepository.class));
         when(repository.save(any(Vale.class))).thenAnswer(i -> i.getArgument(0));
         when(detalleRepository.findBySolicitudPagoIdOrderByCreadoEnAsc(anyLong())).thenReturn(List.of());
     }

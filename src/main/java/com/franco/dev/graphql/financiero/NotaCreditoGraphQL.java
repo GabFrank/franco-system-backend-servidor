@@ -140,8 +140,13 @@ public class NotaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutation
 
         DocumentoElectronico de = documentoElectronicoService.findByNotaCreditoId(id, sucursalId)
                 .orElseThrow(() -> new GraphQLException("La nota de crédito todavía no tiene documento electrónico"));
+        de = refrescarSiEnLote(de, id, sucursalId);
         if (de.getEstado() == EstadoDE.APROBADO) {
             throw new GraphQLException("La nota de crédito ya fue aprobada por SIFEN");
+        }
+        // Un segundo lote con el mismo CDC mientras el primero sigue vivo.
+        if (envioSincronoService.sigueEnProceso(de)) {
+            throw new GraphQLException("SIFEN todavía está procesando la nota de crédito: probá en unos minutos");
         }
         try {
             envioSincronoService.generarYEnviarSincrono(de);
@@ -162,9 +167,24 @@ public class NotaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutation
      */
     public NotaCredito anularNotaCredito(Long id, Long sucursalId) {
         seg.requireEmitir();
-        cancelarEnSifen(documentoElectronicoService.findByNotaCreditoId(id, sucursalId).orElse(null),
-                "Cancelación de nota de crédito solicitada por el usuario");
+        DocumentoElectronico de = refrescarSiEnLote(
+                documentoElectronicoService.findByNotaCreditoId(id, sucursalId).orElse(null), id, sucursalId);
+        // Sin respuesta de SIFEN la baja sería solo local, y la nota puede salir aprobada después.
+        if (envioSincronoService != null && envioSincronoService.sigueEnProceso(de)) {
+            throw new GraphQLException("La nota de crédito todavía no tiene respuesta de SIFEN: "
+                    + "no se puede anular hasta que la tenga. Probá en unos minutos");
+        }
+        cancelarEnSifen(de, "Cancelación de nota de crédito solicitada por el usuario");
         return service.anular(id, sucursalId);
+    }
+
+    /** Si el DE está EN_LOTE, le pregunta a SIFEN y devuelve el DE releído. */
+    private DocumentoElectronico refrescarSiEnLote(DocumentoElectronico de, Long id, Long sucursalId) {
+        if (de == null || de.getEstado() != EstadoDE.EN_LOTE || envioSincronoService == null) {
+            return de;
+        }
+        envioSincronoService.refrescarSiEnLote(de);
+        return documentoElectronicoService.findByNotaCreditoId(id, sucursalId).orElse(de);
     }
 
     /** Sin documento electrónico aprobado no hay nada que cancelar: la baja es solo local. */

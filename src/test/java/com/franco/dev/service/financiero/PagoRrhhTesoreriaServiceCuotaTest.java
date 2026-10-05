@@ -44,7 +44,8 @@ class PagoRrhhTesoreriaServiceCuotaTest {
         motor = mock(PagoProveedorService.class);
         descuento = mock(PrestamoCuotaDescuentoService.class);
         service = new PagoRrhhTesoreriaService(liquidacionRepository, mock(LiquidacionFinalRepository.class),
-                mock(AguinaldoRepository.class), solicitudPagoService, motor, mock(MonedaService.class), descuento);
+                mock(AguinaldoRepository.class), solicitudPagoService, motor, mock(MonedaService.class), descuento,
+                mock(com.franco.dev.service.rrhh.ValeCuotaDescuentoService.class), mock(com.franco.dev.service.rrhh.ItemProgramadoAplicacionService.class));
         gs = new Moneda();
         gs.setId(1L);
 

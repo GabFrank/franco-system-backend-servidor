@@ -19,10 +19,16 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -35,6 +41,8 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
 
     /** Ventana de SIFEN para cancelar un DE que no es factura. */
     public static final int HORAS_PARA_ANULAR = 168;
+
+    private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private final NotaRemisionRepository repository;
     private final NotaRemisionItemRepository itemRepository;
@@ -215,6 +223,89 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
                 throw new GraphQLException("La cantidad de cada ítem tiene que ser mayor a cero");
             }
         }
+        // Lo que sigue lo rechaza SIFEN, y un rechazo quema el número de la serie: se corta acá,
+        // antes de numerar. NRE 31, 41 y 42 de la sucursal 13 (2026-09-30).
+        validarFechasTraslado(nota);
+        validarCiudades(nota);
+    }
+
+    /**
+     * El fin del traslado no puede ser anterior al inicio. SIFEN lo rechaza con 2108 («fecha
+     * estimada de inicio de traslado es antigua»). Sin inicio, vale el que manda el builder: la
+     * fecha de la nota, o hoy.
+     */
+    private static void validarFechasTraslado(NotaRemision nota) {
+        if (nota.getFechaFinTraslado() == null) {
+            return;
+        }
+        LocalDate inicio = nota.getFechaInicioTraslado() != null ? nota.getFechaInicioTraslado()
+                : nota.getFecha() != null ? nota.getFecha().toLocalDate() : LocalDate.now();
+        if (nota.getFechaFinTraslado().isBefore(inicio)) {
+            throw new GraphQLException("La fecha de fin del traslado (" + FECHA.format(nota.getFechaFinTraslado())
+                    + ") es anterior a la de inicio (" + FECHA.format(inicio) + "): corregí la fecha de fin");
+        }
+    }
+
+    /**
+     * Ciudad y código tienen que corresponderse: SIFEN rechaza el par con 2208 (entrega) o 2203
+     * (salida). No hay tabla de ciudades SIFEN en el sistema, así que se valida contra los pares de
+     * los timbrados, que son los que SIFEN ya aceptó. Un código que ningún timbrado tiene no se
+     * valida: no hay con qué.
+     */
+    private void validarCiudades(NotaRemision nota) {
+        if (nota.getSalidaCodigoCiudad() == null && nota.getEntregaCodigoCiudad() == null) {
+            return;
+        }
+        Map<Integer, List<String>> conocidas = ciudadesConocidas();
+        validarCiudad("salida", nota.getSalidaCiudad(), nota.getSalidaCodigoCiudad(), conocidas);
+        validarCiudad("entrega", nota.getEntregaCiudad(), nota.getEntregaCodigoCiudad(), conocidas);
+    }
+
+    private static void validarCiudad(String tramo, String ciudad, Integer codigo,
+                                      Map<Integer, List<String>> conocidas) {
+        List<String> nombres = codigo != null ? conocidas.get(codigo) : null;
+        if (nombres == null || nombres.isEmpty()) {
+            return;
+        }
+        String buscada = normalizar(ciudad);
+        for (String nombre : nombres) {
+            if (normalizar(nombre).equals(buscada)) {
+                return;
+            }
+        }
+        throw new GraphQLException("La ciudad de " + tramo + " \"" + (ciudad != null ? ciudad : "")
+                + "\" no corresponde al código " + codigo + " (SIFEN lo tiene como " + nombres.get(0)
+                + "): elegí el local con el buscador o corregí la ciudad");
+    }
+
+    /** Código de ciudad → nombres con que figura en los timbrados. Varchar en la base: se parsea. */
+    private Map<Integer, List<String>> ciudadesConocidas() {
+        Map<Integer, List<String>> conocidas = new HashMap<>();
+        List<Object[]> filas = timbradoDetalleRepository.findCiudadesConCodigo();
+        if (filas == null) {
+            return conocidas;
+        }
+        for (Object[] fila : filas) {
+            if (fila == null || fila.length < 2 || fila[0] == null || fila[1] == null) {
+                continue;
+            }
+            try {
+                Integer codigo = Integer.parseInt(fila[0].toString().trim());
+                conocidas.computeIfAbsent(codigo, k -> new ArrayList<>()).add(fila[1].toString().trim());
+            } catch (NumberFormatException e) {
+                // Código no numérico en un timbrado: esa fila no sirve de referencia.
+            }
+        }
+        return conocidas;
+    }
+
+    /** Sin mayúsculas, acentos ni espacios de más. Los paréntesis se respetan: son parte del nombre SIFEN. */
+    static String normalizar(String texto) {
+        if (texto == null) {
+            return "";
+        }
+        String sinAcentos = Normalizer.normalize(texto, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        return sinAcentos.trim().replaceAll("\\s+", " ").toUpperCase(Locale.ROOT);
     }
 
     private static boolean esVacio(String valor) {

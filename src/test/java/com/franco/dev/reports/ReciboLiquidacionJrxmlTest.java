@@ -161,9 +161,9 @@ public class ReciboLiquidacionJrxmlTest {
      *
      * <p><b>Techo medido: 25 items.</b> A4 deja 802pt utiles; title (110) + columnHeader
      * (18) + summary con las dos vias, ambas con firma (292) = 420 fijos, y quedan 382
-     * para el detalle a 15pt por fila. Con 26 items se parte en dos hojas, verificado. El
-     * test corre hasta 20 para dejar margen: si alguien agranda una banda, salta aca y no
-     * en la impresora.</p>
+     * para el detalle a 15pt por fila. El borde exacto (25 entra, 26 no) lo fija
+     * MarcaAguaRecibosRrhhJrxmlTest.liquidacionTechoDeUnaHoja. Este corre hasta 20 para
+     * dejar margen: si alguien agranda una banda, salta aca y no en la impresora.</p>
      */
     @Test
     void lasDosViasEntranEnUnaHoja() throws Exception {

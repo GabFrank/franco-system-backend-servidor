@@ -345,4 +345,25 @@ class PagoProveedorServiceTest {
         verify(bancoLedgerService, never()).revertir(any(), any(), any());
         verify(chequeGestionService, never()).anularPorPago(anyLong(), any(), any());
     }
+
+    @Test
+    void anular_no_confia_en_el_estado_de_un_pago_que_ya_estaba_cargado() {
+        // Anular desde RRHH carga el pago antes de pedir el lock: lockById devuelve esa instancia,
+        // que sigue diciendo CONCLUIDO aunque otra transaccion lo haya anulado mientras se esperaba.
+        com.franco.dev.repository.operaciones.PagoRepository pagoRepo =
+                mock(com.franco.dev.repository.operaciones.PagoRepository.class);
+        when(pagoService.getRepository()).thenReturn(pagoRepo);
+        com.franco.dev.domain.operaciones.Pago viejo = new com.franco.dev.domain.operaciones.Pago();
+        viejo.setId(500L);
+        viejo.setEstado(com.franco.dev.domain.operaciones.enums.PagoEstado.CONCLUIDO);
+        when(pagoRepo.lockById(500L)).thenReturn(Optional.of(viejo));
+        when(pagoRepo.findEstadoById(500L))
+                .thenReturn(Optional.of(com.franco.dev.domain.operaciones.enums.PagoEstado.CANCELADO));
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anularPagoCpp(500L, "X", null));
+
+        assertTrue(e.getMessage().contains("ya está anulado"), e.getMessage());
+        verify(tesoreriaService, never()).revertir(any(), any(), any());
+        verify(bancoLedgerService, never()).revertir(any(), any(), any());
+    }
 }

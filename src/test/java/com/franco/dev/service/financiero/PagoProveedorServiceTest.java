@@ -321,4 +321,28 @@ class PagoProveedorServiceTest {
                 () -> service.pagarLoteMixto(Collections.singletonList(conLineas(99L)), null));
         assertTrue(e.getMessage().contains("no encontrada"), e.getMessage());
     }
+
+    // ── Anulación por evento ──
+
+    @Test
+    void anular_toma_el_pago_con_lock_y_un_pago_ya_anulado_no_toca_el_ledger() {
+        // Un pago se anula desde su fila de caja y desde su fila de banco: la segunda anulacion
+        // espera el lock, ve CANCELADO y corta antes de revertir nada.
+        com.franco.dev.repository.operaciones.PagoRepository pagoRepo =
+                mock(com.franco.dev.repository.operaciones.PagoRepository.class);
+        when(pagoService.getRepository()).thenReturn(pagoRepo);
+        com.franco.dev.domain.operaciones.Pago anulado = new com.franco.dev.domain.operaciones.Pago();
+        anulado.setId(500L);
+        anulado.setEstado(com.franco.dev.domain.operaciones.enums.PagoEstado.CANCELADO);
+        when(pagoRepo.lockById(500L)).thenReturn(Optional.of(anulado));
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anularPagoCpp(500L, "X", null));
+
+        assertTrue(e.getMessage().contains("ya está anulado"), e.getMessage());
+        verify(pagoRepo).lockById(500L);
+        verify(pagoService, never()).findById(anyLong());
+        verify(tesoreriaService, never()).revertir(any(), any(), any());
+        verify(bancoLedgerService, never()).revertir(any(), any(), any());
+        verify(chequeGestionService, never()).anularPorPago(anyLong(), any(), any());
+    }
 }

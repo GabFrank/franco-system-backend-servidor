@@ -206,10 +206,14 @@ class MarcacionGraphQLReintentoTest {
 
     @Test
     void conIdEnElInputCadaIntentoVuelveABuscarLaExistente() {
-        Marcacion existente = new Marcacion();
-        existente.setId(77L);
-        existente.setSucursalId(13L);
-        when(service.findById(any(EmbebedPrimaryKey.class))).thenReturn(Optional.of(existente));
+        // Cada busqueda devuelve un objeto distinto, como despues de un rollback que vacia la
+        // sesion: asi se ve si el segundo intento usa lo que volvio a buscar o lo que le quedo.
+        when(service.findById(any(EmbebedPrimaryKey.class))).thenAnswer(inv -> {
+            Marcacion existente = new Marcacion();
+            existente.setId(77L);
+            existente.setSucursalId(13L);
+            return Optional.of(existente);
+        });
         alGuardar(choqueEnSentencia());
         MarcacionInput input = entrada();
         input.setId(77L);
@@ -219,6 +223,7 @@ class MarcacionGraphQLReintentoTest {
         verify(service, times(2)).findById(any(EmbebedPrimaryKey.class));
         verify(service, times(2)).save(any(Marcacion.class));
         assertEquals(Long.valueOf(77L), idsAlEntrar.get(1));
+        assertNotSame(recibidas.get(0), recibidas.get(1));
     }
 
     @Test

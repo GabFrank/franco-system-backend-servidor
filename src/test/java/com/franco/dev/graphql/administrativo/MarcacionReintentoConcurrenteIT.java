@@ -55,6 +55,9 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * ser @Transactional, necesita commits concurrentes— pero en una fecha del anio 2001, donde no
  * hay datos reales, y borra lo suyo al terminar.
  *
+ * Va con el perfil dev y no es un detalle: sin perfil, application.properties deja prendidos los
+ * schedulers de replicacion, que se conectan a las filiales reales que figuren en la base.
+ *
  * Correr:  ./mvnw -DskipFlyway=true -Dit.marcacion=true -Dtest=MarcacionReintentoConcurrenteIT test
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
@@ -77,7 +80,8 @@ class MarcacionReintentoConcurrenteIT {
     @BeforeEach
     void setUp() {
         assumeTrue(contarMarcaciones() == 0 && contarJornadas() == 0,
-                "ya hay datos el " + DIA + ": no se toca nada que esta prueba no haya creado");
+                "ya hay datos alrededor del " + DIA + " (¿una corrida anterior que se corto?): no se toca nada"
+                        + " que esta prueba no haya creado. Revisar y borrar a mano.");
         logDelResolver = (Logger) LoggerFactory.getLogger(MarcacionGraphQL.class);
         avisos = new ListAppender<>();
         avisos.start();
@@ -88,20 +92,25 @@ class MarcacionReintentoConcurrenteIT {
     void limpiar() {
         if (logDelResolver != null) {
             logDelResolver.detachAppender(avisos);
-            // La jornada referencia a la marcacion: va primero.
-            jdbc.update("delete from administrativo.jornada where fecha = ?::date", DIA);
-            jdbc.update("delete from administrativo.marcacion where fecha_entrada::date = ?::date", DIA);
+            // La jornada referencia a la marcacion: va primero. Se borra con un dia de margen para
+            // cada lado —el mismo que se exigio vacio al empezar—: si una jornada cayera en el dia
+            // vecino, el borrado de marcaciones fallaria por la clave foranea y quedaria basura.
+            jdbc.update("delete from administrativo.jornada where fecha between ?::date - 1 and ?::date + 1", DIA, DIA);
+            jdbc.update("delete from administrativo.marcacion where fecha_entrada >= ?::date - 1"
+                    + " and fecha_entrada < ?::date + 2", DIA, DIA);
         }
     }
 
     private int contarMarcaciones() {
         return jdbc.queryForObject(
-                "select count(*) from administrativo.marcacion where fecha_entrada::date = ?::date", Integer.class, DIA);
+                "select count(*) from administrativo.marcacion where fecha_entrada >= ?::date - 1"
+                        + " and fecha_entrada < ?::date + 2", Integer.class, DIA, DIA);
     }
 
     private int contarJornadas() {
         return jdbc.queryForObject(
-                "select count(*) from administrativo.jornada where fecha = ?::date", Integer.class, DIA);
+                "select count(*) from administrativo.jornada where fecha between ?::date - 1 and ?::date + 1",
+                Integer.class, DIA, DIA);
     }
 
     /**

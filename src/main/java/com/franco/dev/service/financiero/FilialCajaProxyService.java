@@ -3,8 +3,10 @@ package com.franco.dev.service.financiero;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.Conteo;
+import com.franco.dev.domain.financiero.Maletin;
 import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.service.empresarial.SucursalService;
+import graphql.GraphQLException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -234,6 +236,60 @@ public class FilialCajaProxyService {
         log.info("[GUARDAR CONTEO FILIAL] <<< Conteo guardado en filial -> conteoId={}, cajaId={}",
                 resultado.getId(), cajaId);
         return resultado;
+    }
+
+    /**
+     * Maletines de la filial que se pueden elegir para abrir una caja: activos y que no
+     * esten en uso. Se consultan en la filial porque el maletin (y su estado `abierto`)
+     * vive alla; la tabla del central no se mantiene al dia.
+     *
+     * Lanza GraphQLException con un mensaje listo para mostrar: una lista vacia por un
+     * error de conexion se leeria como "no hay maletines" y no es lo mismo.
+     */
+    public List<Maletin> maletinesDisponiblesEnFilial(Long sucursalId) {
+        Sucursal sucursal = sucursalId != null ? sucursalService.findById(sucursalId).orElse(null) : null;
+        if (sucursal == null) {
+            throw new GraphQLException("Sucursal no encontrada.");
+        }
+        if (sucursal.getIp() == null || sucursal.getIp().isBlank()) {
+            throw new GraphQLException("La sucursal " + sucursal.getNombre() + " no tiene IP configurada.");
+        }
+        String url = buildFilialUrl(sucursal);
+        String query = "query($texto: String) { searchMaletin(texto: $texto) { id descripcion activo abierto } }";
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("texto", "");
+        Map<String, Object> data;
+        try {
+            data = executeGraphQL(url, buildAuthHeaders(), query, variables);
+        } catch (Exception e) {
+            log.warn("[MALETINES FILIAL] No se pudo consultar filial {} ({}): {}",
+                    sucursal.getNombre(), url, e.getMessage());
+            throw new GraphQLException("No se pudo conectar con " + sucursal.getNombre() + ". Intentá de nuevo.");
+        }
+        if (data == null) {
+            throw new GraphQLException(sucursal.getNombre() + " no pudo responder la lista de maletines.");
+        }
+        List<Maletin> result = new ArrayList<>();
+        List<Map<String, Object>> filas = (List<Map<String, Object>>) data.get("searchMaletin");
+        if (filas == null) {
+            return result;
+        }
+        for (Map<String, Object> fila : filas) {
+            if (fila == null || fila.get("id") == null) {
+                continue;
+            }
+            if (Boolean.FALSE.equals(fila.get("activo")) || Boolean.TRUE.equals(fila.get("abierto"))) {
+                continue;
+            }
+            Maletin maletin = new Maletin();
+            maletin.setId(Long.valueOf(fila.get("id").toString()));
+            maletin.setDescripcion((String) fila.get("descripcion"));
+            maletin.setActivo((Boolean) fila.get("activo"));
+            maletin.setAbierto((Boolean) fila.get("abierto"));
+            maletin.setSucursal(sucursal);
+            result.add(maletin);
+        }
+        return result;
     }
 
     public String buildFilialUrl(Sucursal sucursal) {

@@ -77,14 +77,14 @@ public class NotaRemisionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     /** La nota activa de una transferencia, para que el desktop deshabilite el botón si ya existe. */
     public NotaRemision notaRemisionPorTransferencia(Long transferenciaId, Long sucursalId) {
         seg.requireVerRemisionDeTransferencia();
-        List<NotaRemision> notas = service.findActivasByTransferencia(transferenciaId, sucursalId);
+        List<NotaRemision> notas = soloLasQueElRolPuedeVer(service.findActivasByTransferencia(transferenciaId, sucursalId));
         return notas.isEmpty() ? null : notas.get(0);
     }
 
     /** Las notas activas de las transferencias de una página de la lista, en una sola consulta. */
     public List<NotaRemision> notasRemisionPorTransferencias(List<Long> transferenciaIds) {
         seg.requireVerRemisionDeTransferencia();
-        return service.findActivasByTransferencias(transferenciaIds);
+        return soloLasQueElRolPuedeVer(service.findActivasByTransferencias(transferenciaIds));
     }
 
     public DocumentoElectronico documentoElectronicoDeNotaRemision(Long notaRemisionId, Long sucursalId) {
@@ -280,6 +280,18 @@ public class NotaRemisionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
      * Alcance del rol NOTA REMISION EMITIR. «No existe» y «no es de una transferencia» responden lo
      * mismo, para que el rol acotado no sirva para sondear qué notas hay.
      */
+    /** Una nota de otro origen puede llevar `transferenciaId`: el rol acotado tampoco la ve por esta vía. */
+    private List<NotaRemision> soloLasQueElRolPuedeVer(List<NotaRemision> notas) {
+        if (notas == null || notas.isEmpty() || !seg.veSoloNotasDeTransferencia()) {
+            return notas;
+        }
+        List<NotaRemision> visibles = new ArrayList<>();
+        for (NotaRemision nota : notas) {
+            if (nota.getOrigen() == OrigenNotaRemision.TRANSFERENCIA) visibles.add(nota);
+        }
+        return visibles;
+    }
+
     private void exigirNotaDeTransferencia(NotaRemision nota) {
         if (nota == null || nota.getOrigen() != OrigenNotaRemision.TRANSFERENCIA
                 || nota.getTransferenciaId() == null) {

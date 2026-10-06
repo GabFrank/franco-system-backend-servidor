@@ -206,6 +206,21 @@ class NotaRemisionGraphQLSeguridadTest {
         assertEquals("PDF", resolver.imprimirNotaRemision(1L, 1L, null, false));
     }
 
+    @Test
+    void elRolAcotadoNoVePorTransferenciaUnaNotaDeOtroOrigen() {
+        actorAcotado();
+        NotaRemision deTransferencia = nota(OrigenNotaRemision.TRANSFERENCIA, true);
+        NotaRemision deFactura = nota(OrigenNotaRemision.FACTURA, true);
+        deFactura.setTransferenciaId(51338L);
+        when(service.findActivasByTransferencias(Collections.singletonList(51338L)))
+                .thenReturn(java.util.Arrays.asList(deFactura, deTransferencia));
+        when(service.findActivasByTransferencia(51338L, 1L)).thenReturn(Collections.singletonList(deFactura));
+
+        assertEquals(Collections.singletonList(deTransferencia),
+                resolver.notasRemisionPorTransferencias(Collections.singletonList(51338L)));
+        assertEquals(null, resolver.notaRemisionPorTransferencia(51338L, 1L));
+    }
+
     private void actorAcotado() {
         doNothing().when(seg).requireVerRemisionDeTransferencia();
         doNothing().when(seg).requireEmitirAlgunaRemision();

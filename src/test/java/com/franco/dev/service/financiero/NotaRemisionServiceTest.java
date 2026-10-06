@@ -60,6 +60,7 @@ class NotaRemisionServiceTest {
 
         Timbrado cabecera = new Timbrado();
         cabecera.setRuc(RUC_EMPRESA);
+        cabecera.setIsElectronico(true);
         timbrado = new TimbradoDetalle();
         timbrado.setId(TIMBRADO);
         timbrado.setSucursalId(SUCURSAL);
@@ -285,6 +286,41 @@ class NotaRemisionServiceTest {
         timbrado.setSucursalId(13L);
 
         rechazaSinNumerar(notaDeTransferencia(), "timbrado");
+    }
+
+    @Test
+    void elRolAcotadoNoPisaUnaNotaExistenteMandandoSuId() {
+        // Con el id del input, save() hace merge: reescribiría o reactivaría la nota 5.
+        actorAcotado();
+        transferenciaDesde(SUCURSAL);
+        NotaRemision nota = notaDeTransferencia();
+        nota.setId(5L);
+        List<NotaRemisionItem> items = items();
+        items.get(0).setId(77L);
+
+        NotaRemision guardada = service.crear(nota, items);
+
+        assertEquals(500L, guardada.getId(), "el id sale de la secuencia, no del input");
+        assertEquals(900L, items.get(0).getId());
+    }
+
+    @Test
+    void elRolAcotadoNoEmiteConUnTimbradoQueNoEsElectronico() {
+        actorAcotado();
+        transferenciaDesde(SUCURSAL);
+        timbrado.getTimbrado().setIsElectronico(false);
+
+        rechazaSinNumerar(notaDeTransferencia(), "electrónico");
+    }
+
+    @Test
+    void elRolAcotadoNoEmiteUnaNotaAtadaAUnaFactura() {
+        actorAcotado();
+        transferenciaDesde(SUCURSAL);
+        NotaRemision nota = notaDeTransferencia();
+        nota.setFacturaLegalId(9L);
+
+        rechazaSinNumerar(nota, "No autorizado");
     }
 
     @Test

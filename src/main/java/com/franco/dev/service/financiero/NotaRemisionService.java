@@ -116,6 +116,12 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
         boolean acotado = seg.emiteSoloDesdeTransferencia();
         if (acotado) {
             validarAltaAcotada(nota);
+            // Es un alta: con el id del input, `save` haría merge sobre una nota existente y el rol
+            // acotado podría pisar o reactivar una que no es suya. Ídem los ítems.
+            nota.setId(null);
+            if (items != null) {
+                items.forEach(item -> item.setId(null));
+            }
         }
         validar(nota, items);
 
@@ -211,7 +217,10 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
         if (timbrado.getSucursalId() != null && !timbrado.getSucursalId().equals(nota.getSucursalId())) {
             throw new GraphQLException("No autorizado: el timbrado no es el de la sucursal que despacha");
         }
-        String rucEmpresa = timbrado.getTimbrado() != null ? timbrado.getTimbrado().getRuc() : null;
+        if (timbrado.getTimbrado() == null || !Boolean.TRUE.equals(timbrado.getTimbrado().getIsElectronico())) {
+            throw new GraphQLException("No autorizado: el timbrado no es electrónico");
+        }
+        String rucEmpresa = timbrado.getTimbrado().getRuc();
         if (rucEmpresa == null || nota.getReceptorRuc() == null
                 || !rucEmpresa.trim().equalsIgnoreCase(nota.getReceptorRuc().trim())) {
             throw new GraphQLException("No autorizado: un traslado entre locales se emite a nombre de la propia empresa");

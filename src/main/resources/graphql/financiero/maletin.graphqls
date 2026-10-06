@@ -26,6 +26,7 @@ extend type Query {
     maletinPorDescripcion(texto: String):Maletin
     maletinPorDescripcionPorSucursal(texto: String, sucId: Int!):Maletin
     searchMaletin(texto: String, sucId:ID):[Maletin]
+    maletinesDisponiblesPorSucursal(sucId: ID!):[Maletin]
 }
 
 extend type Mutation {

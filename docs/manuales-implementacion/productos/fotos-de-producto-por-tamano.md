@@ -41,8 +41,10 @@ original:  presentaciones/{id}.jpg -> archivo de imagen_master que exista -> nul
   `Producto.imagenPrincipal` migraba a `imagen_master` durante la lectura; eso dejó filas
   huérfanas, duplicadas y copias viejas, que ahora no afectan porque no se leen primero.
 
-`ImagenMasterService.getOrMigrateImageAsBase64` y los endpoints de `/api/imagen-migration`
-siguen existiendo para migración explícita, pero ningún resolver de producto los usa.
+La API propia de `imagen_master` —`ImagenMasterService`, las queries y mutations de
+`imagenMaster.graphqls` y los REST `/api/imagenes` y `/api/imagen-migration`— **se
+borró**: ningún cliente la usó nunca, y era la que migraba al leer. De `imagen_master`
+quedan la tabla, la entidad y el repositorio, solo para ese respaldo de lectura.
 
 ## La imagen mediana
 

@@ -7,19 +7,45 @@ import com.franco.dev.service.administrativo.MarcacionService;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.personas.UsuarioService;
+import graphql.GraphqlErrorException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Component
 public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    private static final Logger log = LoggerFactory.getLogger(MarcacionGraphQL.class);
+
+    /** Cuantas veces se intenta guardar una marcacion que choca con otra transaccion. */
+    static final int INTENTOS_GUARDADO = 5;
+
+    /**
+     * Techo de la espera antes del segundo intento; crece con cada uno. La espera real se sortea
+     * por debajo de ese techo, y el sorteo es lo que importa: con una espera fija, las que
+     * chocaron juntas reintentan juntas y vuelven a chocar. Medido contra una base real con 4
+     * marcaciones simultaneas (MarcacionReintentoConcurrenteIT): con 3 intentos y espera fija, 4
+     * de 24 se quedaban sin guardar.
+     */
+    static final long ESPERA_REINTENTO_MS = 120;
+
+    static final String MENSAJE_CHOQUE =
+            "No se pudo registrar la marcación porque se estaba guardando otra al mismo tiempo. Volvé a intentar.";
+
+    /** Lo que Postgres cancela para que la aplicacion reintente: fallo de serializacion y deadlock. */
+    private static final String SQLSTATE_SERIALIZACION = "40001";
+    private static final String SQLSTATE_DEADLOCK = "40P01";
 
     @Autowired
     private MarcacionService service;
@@ -63,7 +89,89 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         return service.findByUsuarioId(usuarioId, page, size);
     }
 
+    /**
+     * Guarda la marcacion, reintentando si choca con otra transaccion.
+     *
+     * MarcacionService.save corre en SERIALIZABLE y lee max(id) adentro: dos marcaciones casi
+     * simultaneas —aunque sean de sucursales distintas— hacen que Postgres cancele una con
+     * SQLState 40001 y "the transaction might succeed if retried". Nadie reintentaba, y a quien
+     * marcaba le salia el texto de Hibernate (bodega, 06/10/2026 08:00:48).
+     *
+     * El reintento va aca y no sobre el servicio porque tiene que envolver a la transaccion, y
+     * este metodo no es transaccional. Cada intento arma la entidad de nuevo desde el input: ver
+     * {@link #guardar}.
+     */
     public Marcacion saveMarcacion(MarcacionInput marcacion) {
+        for (int intento = 1; ; intento++) {
+            try {
+                return guardar(marcacion);
+            } catch (RuntimeException ex) {
+                if (!esChoqueDeTransacciones(ex)) {
+                    throw ex;
+                }
+                if (intento >= INTENTOS_GUARDADO) {
+                    log.error("Marcación no guardada tras {} intentos por choque de transacciones. usuario={} sucursal={}",
+                            intento, marcacion.getUsuarioId(), marcacion.getSucursalId(), ex);
+                    throw errorDeChoque(ex);
+                }
+                log.warn("Choque de transacciones al guardar marcación, reintentando ({}/{}). usuario={} sucursal={}",
+                        intento, INTENTOS_GUARDADO, marcacion.getUsuarioId(), marcacion.getSucursalId());
+                if (!esperar(ThreadLocalRandom.current().nextLong(10, ESPERA_REINTENTO_MS * intento))) {
+                    throw errorDeChoque(ex);
+                }
+            }
+        }
+    }
+
+    /**
+     * Si en la cadena de causas hay un fallo de serializacion o un deadlock de Postgres.
+     *
+     * Se mira el SQLState y no la clase de Spring: ConcurrencyFailureException tambien cubre el
+     * lock timeout y el bloqueo optimista, que no son este caso. Y se recorre la cadena porque
+     * el fallo llega envuelto distinto segun donde salte: MarcacionService.procesarJornada lo
+     * mete en un RuntimeException, y en el commit viene dentro de TransactionSystemException.
+     */
+    static boolean esChoqueDeTransacciones(Throwable ex) {
+        int saltos = 0;
+        for (Throwable causa = ex; causa != null && saltos < 20; causa = causa.getCause(), saltos++) {
+            if (causa instanceof SQLException) {
+                String estado = ((SQLException) causa).getSQLState();
+                if (SQLSTATE_SERIALIZACION.equals(estado) || SQLSTATE_DEADLOCK.equals(estado)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Error listo para mostrar: GraphqlExceptionHandler desanida los GraphQLError, asi que llega
+     * al cliente sin el prefijo "Exception while fetching data".
+     */
+    private static GraphqlErrorException errorDeChoque(RuntimeException causa) {
+        return GraphqlErrorException.newErrorException().message(MENSAJE_CHOQUE).cause(causa).build();
+    }
+
+    /** Devuelve false si el hilo fue interrumpido: ahi no se reintenta. */
+    private static boolean esperar(long ms) {
+        try {
+            Thread.sleep(ms);
+            return true;
+        } catch (InterruptedException interrupcion) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    /**
+     * Arma la entidad desde el input y la guarda. Un intento.
+     *
+     * Se arma de cero en cada intento, y no es un detalle: el intento fallido deja la entidad
+     * con el id que calculo, MarcacionService.prepararMarcacion solo asigna id si viene nulo, y
+     * guardar con un id ya puesto es un merge. Reusar el objeto mandaria un id viejo que otra
+     * transaccion pudo haber ocupado, y pisaria la marcacion de otra persona.
+     */
+    private Marcacion guardar(MarcacionInput marcacion) {
         Marcacion e = new Marcacion();
         if (marcacion.getId() != null && marcacion.getSucursalId() != null) {
             Optional<Marcacion> existing = service

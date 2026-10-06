@@ -183,10 +183,18 @@ public class TesoreriaService {
      */
     @Transactional
     public MovimientoCajaVirtual anular(Long movimientoId, String motivo, Usuario usuario) {
-        MovimientoCajaVirtual orig = movimientoRepository.findById(movimientoId)
+        // Con lock: sin él, dos anulaciones del mismo movimiento (dos usuarios, o un reintento tras
+        // una respuesta perdida) pasaban las dos y posteaban dos contra-movimientos.
+        MovimientoCajaVirtual orig = movimientoRepository.lockById(movimientoId)
                 .orElseThrow(() -> new GraphQLException("Movimiento no encontrado: " + movimientoId));
         // Anular mueve plata (contra-movimiento): mismo permiso que registrarla.
         seguridad.requireEscrituraCaja(orig.getCajaVirtual() != null ? orig.getCajaVirtual().getId() : null);
+
+        // revertir() no mira el estado del original (los módulos dueños se cuidan solos): acá es
+        // donde se corta la segunda anulación. Un activo nulo cuenta como activo, igual que en registrar().
+        if (Boolean.FALSE.equals(orig.getActivo())) {
+            throw new GraphQLException("El movimiento #" + orig.getId() + " ya está anulado.");
+        }
 
         OrigenMovimientoTipo origen = orig.getOrigenTipo();
         if (origen == OrigenMovimientoTipo.ANULACION) {

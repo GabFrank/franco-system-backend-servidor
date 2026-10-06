@@ -13,10 +13,4 @@ public interface ImagenMasterRepository extends JpaRepository<ImagenMaster, Long
 
     @Query("select i from ImagenMaster i where i.tipoReferencia = ?1 and i.referenciaId = ?2")
     List<ImagenMaster> findByTipoReferenciaAndReferenciaId(TipoReferencia tipoReferencia, Long referenciaId);
-
-    @Query("select i from ImagenMaster i where i.tipoReferencia = ?1 and i.referenciaId = ?2 and i.principal = true")
-    ImagenMaster findPrincipalByTipoReferenciaAndReferenciaId(TipoReferencia tipoReferencia, Long referenciaId);
-
-    @Query("select i from ImagenMaster i where i.usuario.id = ?1")
-    List<ImagenMaster> findByUsuarioId(Long id);
-} 
+}

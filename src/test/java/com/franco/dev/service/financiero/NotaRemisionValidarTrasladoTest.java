@@ -48,7 +48,8 @@ class NotaRemisionValidarTrasladoTest {
         NotaRemisionItemRepository itemRepository = mock(NotaRemisionItemRepository.class);
         timbradoDetalleRepository = mock(TimbradoDetalleRepository.class);
         service = new NotaRemisionService(repository, itemRepository, timbradoDetalleRepository,
-                mock(FacturacionSecurityService.class), mock(SerieDeNumeracionValidator.class));
+                mock(FacturacionSecurityService.class), mock(SerieDeNumeracionValidator.class),
+                mock(com.franco.dev.service.operaciones.TransferenciaService.class));
 
         TimbradoDetalle timbrado = new TimbradoDetalle();
         timbrado.setId(TIMBRADO);

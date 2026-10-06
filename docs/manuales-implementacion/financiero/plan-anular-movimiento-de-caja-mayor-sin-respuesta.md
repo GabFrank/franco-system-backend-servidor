@@ -170,3 +170,56 @@ Despliegue: central primero (cierra el agujero con cualquier desktop); el deskto
 | B | El lock no se prueba con mocks | media | dos anulaciones simultáneas en runtime |
 | A | `revertir` sin guard (vales, liquidaciones); pata suelta de transferencia; fila de banco | media | anotado para PRs propios |
 | A | `anular` no verifica `activo` ni lockea; solo lo llama la mutation; sin deadlock | — | verificado |
+
+## Implementación: desvíos (2026-10-06)
+
+- **Desktop**: no se agregó el helper `erroresDeRechazo`. No hizo falta: las tres ramas por `onSaveCustom` ya llegan
+  avisadas y la caja se relee con cualquier resultado, así que no hay que distinguir el rechazo. Queda para el 13b.
+- **Desktop**: los avisos pasajeros de «no se pudieron cargar los movimientos» se reemplazan por el cartel.
+- **Central**: se agregó un test del orden permiso → «ya anulado».
+- Sin tocar: la anulación desde la fila de banco no entra en el bloqueo (13f); un rechazo sin mensaje al anular un
+  pago dice «Error al registrar el pago» (previo).
+
+## Prueba de runtime (2026-10-06)
+
+Central local :8081 con la replicación apagada (schedulers verificados), caja mayor local «RRHH» (id 1).
+
+**Central sin el fix** (rama anterior): ingreso de 1.000, anulado dos veces por la mutation → **dos**
+contra-movimientos de −1.000; el saldo pasó de 8.300.000 a 8.299.000. Bug reproducido.
+
+**Central con el fix**:
+| Caso | Resultado |
+|---|---|
+| Tercera anulación del movimiento anterior | «El movimiento #45 ya está anulado.» |
+| Ingreso de 2.000, anulado dos veces seguidas | la primera lo revierte; la segunda, «ya está anulado»; saldo sin cambio |
+| Egreso de 3.000 con **cuatro anulaciones simultáneas** | un solo contra-movimiento y tres rechazos; saldo correcto |
+
+**Desktop** (contra el central con el fix):
+| Caso | Cómo | Resultado |
+|---|---|---|
+| Anular con cuerpo HTTP vacío real | petición desviada en el navegador | aviso del genérico; se relee; la fila vuelve anulable (no se había aplicado) |
+| Anulación en vuelo | servicio reemplazado (lento) | «Anular» deshabilitado; un segundo intento no abre la confirmación ni llama |
+| Sin respuesta y la relectura también falla | servicio reemplazado | la fila sigue bloqueada y aparece el cartel; con Reintentar se libera |
+| Resultado vacío sin error | servicio reemplazado | «No se pudo confirmar la anulación…» y relectura |
+| Anulación normal | real | «Movimiento anulado», fila tachada, saldo actualizado |
+| Lista vieja (anulado por fuera) | real | el central rechaza «ya está anulado», se relee y la fila queda tachada |
+| Central congelado al anular | real (`kill -STOP`) | corte a los 60 s con el aviso del link, sin aviso doble; la relectura falla → cartel y fila bloqueada; al volver el central se libera |
+| Pago a proveedor sin respuesta / rechazado | filas y servicio simulados | las dos patas del pago bloqueadas juntas; «No se pudo confirmar…» / mensaje del servidor |
+
+Los movimientos de prueba se anularon y la caja local quedó en su saldo original (8.300.000).
+
+Sin probar: las ramas de operación financiera y verificación de retiro con datos reales (comparten el camino de la
+manual); la anulación desde la fila de banco (no cambia).
+
+## Auditoría de los diffs (paso 8, 2026-10-06)
+
+Sin hallazgos altos ni medios en ninguno de los dos.
+
+| Lado | Hallazgo | Sev. | Qué se hizo |
+|---|---|---|---|
+| central | Sin test del orden permiso → «ya anulado» | baja | test agregado |
+| central | Deadlock teórico si un módulo dueño revirtiera un movimiento manual | baja | anotado para el PR de `revertir` |
+| desktop | La rama «sin cuenta» de banco no contaba como lectura | baja | cuenta |
+| desktop | La rama de pago nunca recibe «respuesta vacía» como error (llega como resultado nulo) | baja | comentario corregido |
+| desktop | Si falla la consulta previa del retiro se bloquea y relee sin necesidad | baja | se deja: es pasajero |
+| ambos | Transacción, lock, liberación del bloqueo, avisos por rama, reglas del repo | — | verificado |

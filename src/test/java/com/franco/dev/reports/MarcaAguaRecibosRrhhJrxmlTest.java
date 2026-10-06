@@ -140,15 +140,16 @@ class MarcaAguaRecibosRrhhJrxmlTest {
     }
 
     /**
-     * La marca es de fondo: el techo de una hoja del sueldo sigue siendo el de antes, 25 items
-     * (802 utiles - (110 + 18 + 292) = 382, a 15 pt por fila).
+     * La marca es de fondo y no mueve el techo de una hoja del sueldo: 23 items
+     * (802 utiles - (110 + 18 + 328) = 346, a 15 pt por fila). Eran 25 hasta que el summary
+     * crecio de 292 a 328 para dejar lugar a la firma en las dos vias.
      */
     @Test
     void liquidacionTechoDeUnaHoja() throws Exception {
-        assertEquals(1, llenar("reports/recibo-liquidacion.jrxml", params(imagen()), 25).getPages().size(),
-                "25 items tienen que entrar en una hoja");
-        assertEquals(2, llenar("reports/recibo-liquidacion.jrxml", params(imagen()), 26).getPages().size(),
-                "con 26 items ya no entra: si esto cambia, actualizar el techo documentado");
+        assertEquals(1, llenar("reports/recibo-liquidacion.jrxml", params(imagen()), 23).getPages().size(),
+                "23 items tienen que entrar en una hoja");
+        assertEquals(2, llenar("reports/recibo-liquidacion.jrxml", params(imagen()), 24).getPages().size(),
+                "con 24 items ya no entra: si esto cambia, actualizar el techo documentado");
     }
 
     /** Techo medido del finiquito: 21 conceptos, el mismo que sin marca de agua (con observacion larga o corta). */

@@ -208,6 +208,45 @@ rol aparece solo con la migración; ni el filial ni la PWA conocen roles de nota
 chofer y vehículo del diálogo no tienen control de rol; la impresión desde la lista no pide
 `documentoElectronicoDeNotaRemision`.
 
+## Prueba de runtime (2026-10-06)
+
+Central local con perfil `dev` (aplicó `V236.1`: rol con id 49) y desktop con `ng serve -c web`,
+usuario local `PRUEBANR` con solo `VER TRANSFERENCIA` + `NOTA REMISION EMITIR`.
+
+- Menú lateral: solo Horarios y Operaciones. Sin Financiero.
+- Lista de transferencias: la 51343 (Central → Rotonda) ofrece «Nota de remisión»; el diálogo abre
+  prellenado; al guardar se crea la nota (id 41, emisor el usuario autenticado) y, con SIFEN apagado
+  en local, aparece «Avisá a facturación para que la reenvíe». El menú pasa a «Imprimir nota de
+  remisión» y `imprimirNotaRemision` devuelve el PDF.
+- Por GraphQL con su token, rechazados: `notaRemisiones`, `notaRemision`, `notaRemisionItems`,
+  `documentoElectronicoDeNotaRemision`, `prellenar` con origen `MANUAL` o con sucursal ajena,
+  `imprimir` de una nota manual o inexistente (mismo mensaje), `reenviar`, `anular`, y `saveNotaRemision`
+  con origen `MANUAL`, transferencia inexistente, de otra sucursal, otro motivo o receptor ajeno.
+  Ninguno creó una nota.
+
+**No probado en runtime**: el primer envío real a SIFEN y el rechazo del segundo `generarYEnviar`
+(SIFEN está apagado en local; emitir de verdad consume un número de una serie real). Lo cubren los
+tests de `NotaRemisionGraphQLSeguridadTest`. Tampoco el usuario 2 (con `FACTURACION EMITIR`) por la
+pantalla: su camino no cambia de código y lo cubren los tests existentes.
+
+## Auditoría del diff (paso 8, 2026-10-06)
+
+Ejes fijos 1 (autorización), 2 (migración y espejo) y 3 (contrato). Sin condicionales: el diff no
+toca maquinaria de release ni DDL replicado.
+
+| Hallazgo | Eje | Qué se hizo |
+|---|---|---|
+| El alta guarda sobre el `id` del input: el rol acotado podía pisar o reactivar una nota existente | 1, alto | Corregido: en el alta acotada el id de la nota y de los ítems sale siempre de la secuencia. Con `FACTURACION EMITIR` el comportamiento previo no se toca (queda como deuda aparte) |
+| Las consultas por transferencia devuelven notas de otro origen que lleven `transferenciaId` | 1, medio | Corregido para el rol acotado. Que devuelvan notas de transferencias de otra sucursal no se cambia: es igual que con `FACTURACION VER` |
+| El alta acotada aceptaba un timbrado no electrónico | 1, bajo | Corregido |
+| `imprimir` acotado no mira `activo` | 1, bajo | No se cambia: es lectura, y ya estaba decidido |
+| `generarYEnviar` responde «SIFEN deshabilitado» antes que «No autorizado» por origen | 1, bajo | No se cambia: sin SIFEN no hay efecto posible |
+| Buscadores de chofer y vehículo del diálogo podrían exigir otro rol | 2-3, medio | Descartado: no tienen control de rol y el diálogo funcionó en la prueba |
+| Varias lecturas de roles por request | 2-3, bajo | No se cambia: acción manual y poco frecuente |
+
+Confirmado: sin ciclo de beans por inyectar `TransferenciaService`; el diff no toca ningún
+`.graphqls`; ni la PWA ni el mobile usan estas operaciones; nada cambia para quien no tiene el rol.
+
 ## Sin verificar todavía
 
 - Lo anterior está leído, no visto en red: se confirma en la prueba de runtime con el usuario 1.

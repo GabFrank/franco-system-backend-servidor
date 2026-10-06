@@ -8,6 +8,8 @@ type Presentacion {
     cantidad: Float
     creadoEn: Date
     imagenPrincipal: String
+    # Lado mayor de hasta 800 px, para vistas grandes. null si no hay foto.
+    imagenPrincipalMediana: String
     usuario: Usuario
     codigos: [Codigo]
     precios: [PrecioPorSucursal]
@@ -38,6 +40,13 @@ extend type Mutation {
     savePresentacion(presentacion:PresentacionInput!):Presentacion!
     deletePresentacion(id:ID!):Boolean!
     saveImagenPresentacion(image: String!, filename: String!): Boolean!
+    # Genera la imagen mediana de las fotos que no la tienen. Se puede repetir.
+    generarImagenesMedianas: ResumenMedianas!
 
 }
 
+type ResumenMedianas {
+    generadas: Int!
+    salteadas: Int!
+    fallidas: Int!
+}

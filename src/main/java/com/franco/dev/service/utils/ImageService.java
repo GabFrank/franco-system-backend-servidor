@@ -31,6 +31,7 @@ public class ImageService {
     boolean isMac = false;
     private String imagePresentaciones = "/FRC/resources/images/productos/presentaciones";
     private String imagePresentacionesThumb = "/FRC/resources/images/productos/presentaciones/thumbnails";
+    private String imagePresentacionesMediana = "/FRC/resources/images/productos/presentaciones/medianas";
     private String storageDirectoryPathReports = "/FRC/reports";
     private String imagePath = "/FRC/resources/images";
     @Autowired
@@ -127,6 +128,15 @@ public class ImageService {
             return "C:\\\\FRC\\resources\\images\\productos\\presentaciones\\thumbnails\\";
         } else {
             return getHomePath() + imagePresentacionesThumb + "/";
+        }
+    }
+
+    /** Donde vive la version de hasta {@link #LADO_MEDIANA} px de cada foto de presentacion. */
+    public String getImagePresentacionesMediana() {
+        if (isWindows) {
+            return "C:\\\\FRC\\resources\\images\\productos\\presentaciones\\medianas\\";
+        } else {
+            return getHomePath() + imagePresentacionesMediana + "/";
         }
     }
 
@@ -377,6 +387,100 @@ public class ImageService {
             }
         }
         return out;
+    }
+
+    /** Lado mayor de la imagen mediana: alcanza para una vista de 500 px en pantalla densa. */
+    public static final int LADO_MEDIANA = 800;
+
+    public enum ResultadoMediana { GENERADA, NO_HACE_FALTA, FALLIDA }
+
+    /**
+     * Escribe en {@code destino} la foto con su lado mayor en {@link #LADO_MEDIANA} px.
+     *
+     * <p>Una foto que ya entra en ese tamano no se agranda ni se copia: quien la pida cae al
+     * original. En ese caso se borra el {@code destino} que hubiera, que seria de una foto anterior.</p>
+     */
+    public ResultadoMediana guardarMediana(File original, File destino) {
+        BufferedImage image;
+        try {
+            image = ImageIO.read(original);
+        } catch (IOException | RuntimeException e) {
+            image = null;
+        }
+        if (image == null) {
+            return ResultadoMediana.FALLIDA;
+        }
+        if (Math.max(image.getWidth(), image.getHeight()) <= LADO_MEDIANA) {
+            FileUtils.deleteQuietly(destino);
+            return ResultadoMediana.NO_HACE_FALTA;
+        }
+        if (image.getColorModel().hasAlpha()) {
+            image = dropAlphaChannel(image);
+        }
+        try {
+            BufferedImage mediana = Scalr.resize(image, Scalr.Method.QUALITY, Scalr.Mode.AUTOMATIC, LADO_MEDIANA, LADO_MEDIANA);
+            File dir = destino.getParentFile();
+            if (dir != null && !dir.exists()) {
+                dir.mkdirs();
+            }
+            return ImageIO.write(mediana, "jpeg", destino) ? ResultadoMediana.GENERADA : ResultadoMediana.FALLIDA;
+        } catch (IOException | RuntimeException e) {
+            log.warn("No se pudo generar la imagen mediana de {}: {}", original.getName(), e.getMessage());
+            return ResultadoMediana.FALLIDA;
+        }
+    }
+
+    /** Genera la imagen mediana de la foto de presentacion recien guardada. */
+    public ResultadoMediana guardarMedianaPresentacion(String fileName) {
+        return guardarMediana(new File(getImagePresentaciones() + fileName),
+                new File(getImagePresentacionesMediana() + fileName));
+    }
+
+    /** Cuantas imagenes medianas se generaron, saltearon y fallaron en una pasada. */
+    public static class ResumenMedianas {
+        private final int generadas;
+        private final int salteadas;
+        private final int fallidas;
+
+        ResumenMedianas(int generadas, int salteadas, int fallidas) {
+            this.generadas = generadas;
+            this.salteadas = salteadas;
+            this.fallidas = fallidas;
+        }
+
+        public int getGeneradas() { return generadas; }
+        public int getSalteadas() { return salteadas; }
+        public int getFallidas() { return fallidas; }
+    }
+
+    /** Genera las imagenes medianas que faltan de las fotos de presentacion ya subidas. */
+    public ResumenMedianas generarMedianasFaltantes() {
+        return generarMedianasFaltantes(new File(getImagePresentaciones()), new File(getImagePresentacionesMediana()));
+    }
+
+    /**
+     * Recorre los originales de {@code dirOriginales} ({@code {id}.jpg}) y genera la mediana de los que
+     * no la tienen o la tienen mas vieja que el original. Se puede repetir: lo ya generado se saltea.
+     */
+    ResumenMedianas generarMedianasFaltantes(File dirOriginales, File dirMedianas) {
+        int generadas = 0, salteadas = 0, fallidas = 0;
+        File[] originales = dirOriginales.listFiles((dir, name) -> name.matches("\\d+\\.jpg"));
+        if (originales != null) {
+            for (File original : originales) {
+                File mediana = new File(dirMedianas, original.getName());
+                if (mediana.isFile() && mediana.lastModified() >= original.lastModified()) {
+                    salteadas++;
+                    continue;
+                }
+                switch (guardarMediana(original, mediana)) {
+                    case GENERADA: generadas++; break;
+                    case NO_HACE_FALTA: salteadas++; break;
+                    default: fallidas++;
+                }
+            }
+        }
+        log.info("Imagenes medianas: {} generadas, {} salteadas, {} fallidas", generadas, salteadas, fallidas);
+        return new ResumenMedianas(generadas, salteadas, fallidas);
     }
 
     public BufferedImage dropAlphaChannel(BufferedImage src) {

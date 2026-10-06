@@ -5,15 +5,27 @@ import com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import javax.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface MovimientoCajaVirtualRepository extends JpaRepository<MovimientoCajaVirtual, Long> {
+
+    /**
+     * Lee el movimiento bloqueándolo: dos anulaciones simultáneas del mismo movimiento se
+     * serializan, y la segunda lo relee ya inactivo. Tiene que ser la primera carga de la fila
+     * en la transacción.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from MovimientoCajaVirtual m where m.id = :id")
+    Optional<MovimientoCajaVirtual> lockById(@Param("id") Long id);
 
     Page<MovimientoCajaVirtual> findByCajaVirtualIdOrderByCreadoEnDesc(Long cajaVirtualId, Pageable pageable);
 

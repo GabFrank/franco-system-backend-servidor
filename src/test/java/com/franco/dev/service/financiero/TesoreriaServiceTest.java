@@ -134,7 +134,7 @@ class TesoreriaServiceTest {
         original.setSaldoAnterior(1000.0);
         original.setSaldoPosterior(700.0); // efecto = -300
         original.setOrigenTipo(OrigenMovimientoTipo.MANUAL);
-        when(movimientoRepository.findById(99L)).thenReturn(Optional.of(original));
+        when(movimientoRepository.lockById(99L)).thenReturn(Optional.of(original));
 
         service.anular(99L, "error de carga", null);
 
@@ -155,9 +155,10 @@ class TesoreriaServiceTest {
         MovimientoCajaVirtual rrhh = mov(CajaVirtualTipoMovimiento.EGRESO, 300);
         rrhh.setId(50L);
         rrhh.setOrigenTipo(OrigenMovimientoTipo.RRHH_VALE);
-        when(movimientoRepository.findById(50L)).thenReturn(Optional.of(rrhh));
+        when(movimientoRepository.lockById(50L)).thenReturn(Optional.of(rrhh));
 
-        assertThrows(GraphQLException.class, () -> service.anular(50L, "x", null));
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anular(50L, "x", null));
+        assertTrue(e.getMessage().contains("proviene de RRHH_VALE"), e.getMessage());
         verify(movimientoRepository, never()).save(any());
     }
 
@@ -166,9 +167,50 @@ class TesoreriaServiceTest {
         MovimientoCajaVirtual contra = mov(CajaVirtualTipoMovimiento.AJUSTE, 300);
         contra.setId(77L);
         contra.setOrigenTipo(OrigenMovimientoTipo.ANULACION);
-        when(movimientoRepository.findById(77L)).thenReturn(Optional.of(contra));
+        when(movimientoRepository.lockById(77L)).thenReturn(Optional.of(contra));
 
-        assertThrows(GraphQLException.class, () -> service.anular(77L, "x", null));
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anular(77L, "x", null));
+        assertTrue(e.getMessage().contains("contra-movimiento"), e.getMessage());
+        verify(movimientoRepository, never()).save(any());
+    }
+
+    @Test
+    void anular_dos_veces_el_mismo_movimiento_rechaza_la_segunda() {
+        MovimientoCajaVirtual original = mov(CajaVirtualTipoMovimiento.EGRESO, 300);
+        original.setId(99L);
+        original.setOrigenTipo(OrigenMovimientoTipo.MANUAL);
+        when(movimientoRepository.lockById(99L)).thenReturn(Optional.of(original));
+
+        service.anular(99L, "error de carga", null);
+        assertEquals(0, new BigDecimal("1300").compareTo(saldo.getSaldo())); // el egreso de 300 quedó revertido
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anular(99L, "otra vez", null));
+        assertTrue(e.getMessage().contains("ya está anulado"), e.getMessage());
+        // Un solo contra-movimiento: los 2 save son el contra y el original inactivo, de la primera.
+        verify(movimientoRepository, times(2)).save(any());
+        assertEquals(0, new BigDecimal("1300").compareTo(saldo.getSaldo()));
+    }
+
+    @Test
+    void anular_con_activo_nulo_lo_trata_como_activo() {
+        MovimientoCajaVirtual original = mov(CajaVirtualTipoMovimiento.INGRESO, 200);
+        original.setId(98L);
+        original.setActivo(null);
+        original.setOrigenTipo(OrigenMovimientoTipo.MANUAL);
+        when(movimientoRepository.lockById(98L)).thenReturn(Optional.of(original));
+
+        service.anular(98L, "x", null);
+
+        assertEquals(Boolean.FALSE, original.getActivo());
+        assertEquals(0, new BigDecimal("800").compareTo(saldo.getSaldo()));
+    }
+
+    @Test
+    void anular_un_movimiento_inexistente_lo_dice() {
+        when(movimientoRepository.lockById(404L)).thenReturn(Optional.empty());
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anular(404L, "x", null));
+        assertTrue(e.getMessage().contains("no encontrado"), e.getMessage());
     }
 
     @Test

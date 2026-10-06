@@ -1,12 +1,10 @@
 package com.franco.dev.graphql.productos.resolver;
 
-import com.franco.dev.domain.media.enums.TipoReferencia;
 import com.franco.dev.domain.operaciones.Pedido;
 import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.*;
 import com.franco.dev.domain.productos.enums.TipoConservacion;
-import com.franco.dev.service.media.ImagenMasterService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.operaciones.NotaRecepcionItemService;
 import com.franco.dev.service.operaciones.PedidoItemService;
@@ -65,9 +63,9 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
 
     @Autowired
     private ImageService imageService;
-    
+
     @Autowired
-    private ImagenMasterService imagenMasterService;
+    private FotoProductoService fotoProductoService;
 
     @Autowired
     private PresentacionService presentacionService;
@@ -143,19 +141,17 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
         return presentacionService.findByProductoId(p.getId());
     }
 
+    /** El original. Las listas piden {@code imagenPrincipalMiniatura}; las vistas grandes, la mediana. */
     public String imagenPrincipal(Producto p) {
-        // Get the principal presentation ID
-        String presentacionId = null;
-        Presentacion presentacionPrincipal = presentacionService.findByPrincipalAndProductoId(true, p.getId());
-        if(presentacionPrincipal != null) {
-            presentacionId = presentacionPrincipal.getId().toString();
-            
-            // Try to get the image using the new ImagenMasterService with backward compatibility
-            return imagenMasterService.getOrMigrateImageAsBase64(TipoReferencia.PRESENTACION, presentacionPrincipal.getId());
-        } else {
-            // If no principal presentation, try to get image directly for the product
-            return imagenMasterService.getOrMigrateImageAsBase64(TipoReferencia.PRODUCTO, p.getId());
-        }
+        return fotoProductoService.deProducto(p.getId(), FotoProductoService.Tamano.ORIGINAL);
+    }
+
+    public String imagenPrincipalMiniatura(Producto p) {
+        return fotoProductoService.deProducto(p.getId(), FotoProductoService.Tamano.MINIATURA);
+    }
+
+    public String imagenPrincipalMediana(Producto p) {
+        return fotoProductoService.deProducto(p.getId(), FotoProductoService.Tamano.MEDIANA);
     }
 
     public String codigoPrincipal(Producto p){

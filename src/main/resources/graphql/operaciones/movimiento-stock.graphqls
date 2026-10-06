@@ -66,6 +66,8 @@ type ProductoSaldoDto {
     sucursalId: ID!
     saldoTotal: Float
     imagenPrincipal: String
+    # 250x250, para listas. null si no hay foto.
+    imagenPrincipalMiniatura: String
 }
 
 type ProductoSaldoPage {

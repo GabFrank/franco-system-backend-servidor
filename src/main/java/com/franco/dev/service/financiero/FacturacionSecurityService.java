@@ -1,5 +1,6 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.financiero.enums.OrigenNotaRemision;
 import com.franco.dev.domain.personas.Role;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.service.personas.RoleService;
@@ -36,6 +37,11 @@ public class FacturacionSecurityService {
     public static final String ADMIN = "ADMIN";
     public static final String VER = "FACTURACION VER";
     public static final String EMITIR = "FACTURACION EMITIR";
+    /**
+     * Rol acotado: crear e imprimir la nota de remision de una transferencia, sin acceso al resto
+     * de Financiero. No reenvia ni anula (decision de Franco, 2026-10-06). Se siembra en V236.1.
+     */
+    public static final String REMISION_EMITIR = "NOTA REMISION EMITIR";
 
     /** Cualquiera de los dos roles habilita la lectura: quien emite tambien ve. */
     public static final String[] TODOS = {VER, EMITIR};
@@ -50,6 +56,32 @@ public class FacturacionSecurityService {
      * operacion necesita hoy. Quien puede emitir puede tambien anular lo que emitio.
      */
     public void requireEmitir() { requireAnyRole(EMITIR); }
+
+    /** Consultar o imprimir la nota de una transferencia: tambien con el rol acotado. */
+    public void requireVerRemisionDeTransferencia() { requireAnyRole(VER, EMITIR, REMISION_EMITIR); }
+
+    /**
+     * Puerta de las operaciones de emision que el rol acotado comparte. Quien entra solo por el rol
+     * acotado sigue limitado a notas de transferencia: ver {@link #emiteSoloDesdeTransferencia()}.
+     */
+    public void requireEmitirAlgunaRemision() { requireAnyRole(EMITIR, REMISION_EMITIR); }
+
+    /** Emitir una nota de remision de ese origen. El rol acotado solo pasa con TRANSFERENCIA. */
+    public void requireEmitirRemision(OrigenNotaRemision origen) {
+        if (hasAnyRole(EMITIR)) return;
+        if (origen == OrigenNotaRemision.TRANSFERENCIA && hasAnyRole(REMISION_EMITIR)) return;
+        throw new GraphQLException("No autorizado: se requiere el rol " + EMITIR + " para esta accion.");
+    }
+
+    /** true si el usuario emite solo por el rol acotado (sin FACTURACION EMITIR ni superusuario). */
+    public boolean emiteSoloDesdeTransferencia() {
+        return !hasAnyRole(EMITIR) && hasAnyRole(REMISION_EMITIR);
+    }
+
+    /** true si el usuario ve notas solo por el rol acotado (sin ningun rol de FACTURACION). */
+    public boolean veSoloNotasDeTransferencia() {
+        return !hasAnyRole(TODOS) && hasAnyRole(REMISION_EMITIR);
+    }
 
     private String currentNickname() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

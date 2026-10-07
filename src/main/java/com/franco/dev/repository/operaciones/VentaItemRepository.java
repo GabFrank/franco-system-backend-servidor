@@ -54,7 +54,25 @@ public interface VentaItemRepository extends HelperRepository<VentaItem, Embebed
                         @org.springframework.data.repository.query.Param("fin") java.time.LocalDateTime fin,
                         org.springframework.data.domain.Pageable pageable);
 
-        @Query(value = "SELECT " +
+        // Primero las ventas del rango; descuentos/aumentos y el costo de respaldo se buscan solo para
+        // ellas. Agrupar todo cobro_detalle y todo costo_por_producto tardaba ~23 s con 3 días.
+        @Query(value = "WITH ventas AS ( " +
+                        "  SELECT v.id, v.sucursal_id, v.usuario_id, v.cobro_id, v.total_gs " +
+                        "  FROM operaciones.venta v " +
+                        "  WHERE v.estado = 'CONCLUIDA' " +
+                        "  AND v.creado_en BETWEEN :startDate AND :endDate " +
+                        "  AND v.sucursal_id IN (:sucursalIdList) " +
+                        "  AND (:filtrarUsuario = false OR v.usuario_id IN (:usuarioIdList)) " +
+                        "), cd_agg AS ( " +
+                        "  SELECT cd.cobro_id, cd.sucursal_id, " +
+                        "    SUM(CASE WHEN cd.descuento = true THEN cd.valor * cd.cambio ELSE 0 END) AS desc_total, " +
+                        "    SUM(CASE WHEN cd.aumento = true THEN cd.valor * cd.cambio ELSE 0 END) AS aum_total " +
+                        "  FROM operaciones.cobro_detalle cd " +
+                        "  WHERE (cd.descuento = true OR cd.aumento = true) " +
+                        "  AND (cd.cobro_id, cd.sucursal_id) IN (SELECT cobro_id, sucursal_id FROM ventas) " +
+                        "  GROUP BY cd.cobro_id, cd.sucursal_id " +
+                        ") " +
+                        "SELECT " +
                         "u.id AS usuario_id, " +
                         "COALESCE(per.nombre, u.nickname, '') AS nombre_funcionario, " +
                         // Venta sin costo: el respaldo es el costo medio, no el precio de una sola compra.
@@ -65,27 +83,18 @@ public interface VentaItemRepository extends HelperRepository<VentaItem, Embebed
                         "THEN (vi.precio * vi.cantidad) / v.total_gs * COALESCE(cd_agg.desc_total, 0) ELSE 0 END) AS total_descuento, " +
                         "SUM(CASE WHEN v.total_gs > 0 " +
                         "THEN (vi.precio * vi.cantidad) / v.total_gs * COALESCE(cd_agg.aum_total, 0) ELSE 0 END) AS total_aumento " +
-                        "FROM operaciones.venta v " +
+                        "FROM ventas v " +
                         "INNER JOIN operaciones.venta_item vi ON vi.venta_id = v.id AND vi.sucursal_id = v.sucursal_id " +
                         "INNER JOIN personas.usuario u ON u.id = v.usuario_id " +
                         "LEFT JOIN personas.persona per ON per.id = u.persona_id " +
                         "INNER JOIN productos.presentacion pre ON pre.id = vi.presentacion_id " +
                         "INNER JOIN productos.producto pro ON pro.id = vi.producto_id " +
-                        "LEFT JOIN ( " +
-                        "  SELECT DISTINCT ON (producto_id) producto_id, ultimo_precio_compra, costo_medio " +
-                        "  FROM productos.costo_por_producto ORDER BY producto_id, id DESC " +
-                        ") cpp ON cpp.producto_id = pro.id " +
-                        "LEFT JOIN ( " +
-                        "  SELECT cobro_id, sucursal_id, " +
-                        "    SUM(CASE WHEN descuento = true THEN valor * cambio ELSE 0 END) AS desc_total, " +
-                        "    SUM(CASE WHEN aumento = true THEN valor * cambio ELSE 0 END) AS aum_total " +
-                        "  FROM operaciones.cobro_detalle GROUP BY cobro_id, sucursal_id " +
-                        ") cd_agg ON cd_agg.cobro_id = v.cobro_id AND cd_agg.sucursal_id = v.sucursal_id " +
-                        "WHERE v.estado = 'CONCLUIDA' " +
-                        "AND v.creado_en BETWEEN :startDate AND :endDate " +
-                        "AND v.sucursal_id IN (:sucursalIdList) " +
-                        "AND (:filtrarUsuario = false OR v.usuario_id IN (:usuarioIdList)) " +
-                        "AND (:filtrarProducto = false OR pro.id IN (:productoIdList)) " +
+                        "LEFT JOIN LATERAL ( " +
+                        "  SELECT c.ultimo_precio_compra, c.costo_medio FROM productos.costo_por_producto c " +
+                        "  WHERE c.producto_id = vi.producto_id ORDER BY c.id DESC LIMIT 1 " +
+                        ") cpp ON vi.costo_unitario IS NULL " +
+                        "LEFT JOIN cd_agg ON cd_agg.cobro_id = v.cobro_id AND cd_agg.sucursal_id = v.sucursal_id " +
+                        "WHERE (:filtrarProducto = false OR pro.id IN (:productoIdList)) " +
                         "AND (:subfamiliaId IS NULL OR pro.sub_familia_id = :subfamiliaId) " +
                         "AND (:familiaId IS NULL OR pro.sub_familia_id IN ( " +
                         "  SELECT sf.id FROM productos.subfamilia sf WHERE sf.familia_id = :familiaId " +

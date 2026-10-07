@@ -92,9 +92,18 @@ public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     public Boolean saveImagenPresentacion(String image, String filename) throws IOException {
         Boolean ok = imageService.saveImageToPath(image, filename, imageService.getImagePresentaciones(), imageService.getImagePresentacionesThumb(), true);
         if(ok){
+            imageService.guardarMedianaPresentacion(filename);
 //            propagacionService.propagarImagen(image, filename, TipoEntidad.PRESENTACION);
         }
         return ok;
+    }
+
+    /**
+     * Genera la imagen mediana de las fotos que no la tienen. Para correr una vez tras desplegar:
+     * las fotos nuevas ya la generan al subirse. Repetirla saltea lo que ya esta.
+     */
+    public ImageService.ResumenMedianas generarImagenesMedianas() {
+        return imageService.generarMedianasFaltantes();
     }
 
 }

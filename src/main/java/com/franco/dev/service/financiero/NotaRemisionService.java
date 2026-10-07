@@ -7,11 +7,14 @@ import com.franco.dev.domain.financiero.TimbradoDetalle;
 import com.franco.dev.domain.financiero.enums.MotivoEmisionNotaRemision;
 import com.franco.dev.domain.financiero.enums.OrigenNotaRemision;
 import com.franco.dev.domain.financiero.enums.ResponsableEmisionNr;
+import com.franco.dev.domain.operaciones.Transferencia;
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.repository.financiero.NotaRemisionItemRepository;
 import com.franco.dev.repository.financiero.NotaRemisionRepository;
 import com.franco.dev.repository.financiero.TimbradoDetalleRepository;
 import com.franco.dev.service.sifen.util.SerieDeNumeracionValidator;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.operaciones.TransferenciaService;
 import graphql.GraphQLException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -49,17 +52,20 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
     private final TimbradoDetalleRepository timbradoDetalleRepository;
     private final FacturacionSecurityService seg;
     private final SerieDeNumeracionValidator serieValidator;
+    private final TransferenciaService transferenciaService;
 
     public NotaRemisionService(NotaRemisionRepository repository,
                                NotaRemisionItemRepository itemRepository,
                                TimbradoDetalleRepository timbradoDetalleRepository,
                                FacturacionSecurityService seg,
-                               SerieDeNumeracionValidator serieValidator) {
+                               SerieDeNumeracionValidator serieValidator,
+                               TransferenciaService transferenciaService) {
         this.repository = repository;
         this.itemRepository = itemRepository;
         this.timbradoDetalleRepository = timbradoDetalleRepository;
         this.seg = seg;
         this.serieValidator = serieValidator;
+        this.transferenciaService = transferenciaService;
     }
 
     @Override
@@ -106,7 +112,17 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
      */
     @Transactional
     public NotaRemision crear(NotaRemision nota, List<NotaRemisionItem> items) {
-        seg.requireEmitir();
+        seg.requireEmitirRemision(nota.getOrigen());
+        boolean acotado = seg.emiteSoloDesdeTransferencia();
+        if (acotado) {
+            validarAltaAcotada(nota);
+            // Es un alta: con el id del input, `save` haría merge sobre una nota existente y el rol
+            // acotado podría pisar o reactivar una que no es suya. Ídem los ítems.
+            nota.setId(null);
+            if (items != null) {
+                items.forEach(item -> item.setId(null));
+            }
+        }
         validar(nota, items);
 
         // Lock pesimista sobre el timbrado: serializa la asignación del número entre emisiones
@@ -115,6 +131,9 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
                 .orElseThrow(() -> new GraphQLException("No existe el timbrado indicado"));
         if (Boolean.FALSE.equals(timbrado.getActivo())) {
             throw new GraphQLException("El timbrado no está activo");
+        }
+        if (acotado) {
+            validarTimbradoAcotado(nota, timbrado);
         }
 
         // El número sale del id de la fila, pero la serie ante la SET es establecimiento+punto:
@@ -164,6 +183,48 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
         }
         nota.setActivo(false);
         return repository.save(nota);
+    }
+
+    /**
+     * El rol NOTA REMISION EMITIR solo emite la nota de una transferencia real de la sucursal que
+     * despacha. Sin esto el origen sería una etiqueta que declara el cliente: `validar` solo mira
+     * que el id no venga nulo, y la comprobación contra la transferencia vive en el prellenado, que
+     * quien llama a la mutation directo se saltea. Los ítems no se cotejan: el diálogo los ajusta.
+     */
+    private void validarAltaAcotada(NotaRemision nota) {
+        if (nota.getTransferenciaId() == null) {
+            throw new GraphQLException("Falta la transferencia de origen");
+        }
+        Transferencia transferencia = transferenciaService.findById(nota.getTransferenciaId())
+                .orElseThrow(() -> new GraphQLException("No existe la transferencia " + nota.getTransferenciaId()));
+        if (transferencia.getSucursalOrigen() == null
+                || !transferencia.getSucursalOrigen().getId().equals(nota.getSucursalId())) {
+            throw new GraphQLException("La transferencia " + nota.getTransferenciaId()
+                    + " sale de otra sucursal: la nota de remisión la emite la sucursal de origen");
+        }
+        if (nota.getMotivoEmision() != MotivoEmisionNotaRemision.TRASLADO_ENTRE_LOCALES
+                || nota.getFacturaLegalId() != null) {
+            throw new GraphQLException("No autorizado: con el rol " + FacturacionSecurityService.REMISION_EMITIR
+                    + " la nota de una transferencia es un traslado entre locales");
+        }
+        // Quién emitió no lo declara el cliente.
+        Usuario usuario = seg.currentUsuario();
+        nota.setUsuarioId(usuario != null ? usuario.getId() : null);
+    }
+
+    /** Traslado entre locales: el timbrado es el de la sucursal que despacha y el receptor, la propia empresa. */
+    private void validarTimbradoAcotado(NotaRemision nota, TimbradoDetalle timbrado) {
+        if (timbrado.getSucursalId() != null && !timbrado.getSucursalId().equals(nota.getSucursalId())) {
+            throw new GraphQLException("No autorizado: el timbrado no es el de la sucursal que despacha");
+        }
+        if (timbrado.getTimbrado() == null || !Boolean.TRUE.equals(timbrado.getTimbrado().getIsElectronico())) {
+            throw new GraphQLException("No autorizado: el timbrado no es electrónico");
+        }
+        String rucEmpresa = timbrado.getTimbrado().getRuc();
+        if (rucEmpresa == null || nota.getReceptorRuc() == null
+                || !rucEmpresa.trim().equalsIgnoreCase(nota.getReceptorRuc().trim())) {
+            throw new GraphQLException("No autorizado: un traslado entre locales se emite a nombre de la propia empresa");
+        }
     }
 
     private void validar(NotaRemision nota, List<NotaRemisionItem> items) {

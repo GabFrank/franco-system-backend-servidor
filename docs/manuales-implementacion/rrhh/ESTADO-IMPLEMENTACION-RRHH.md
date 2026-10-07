@@ -581,6 +581,12 @@ Contenido común de los 7 recibos (2026-09-19), en los tres formatos:
   y, vacía, no se imprime. En el A4 de sueldo va en el hueco a la izquierda de los
   totales, en las dos vías, con `textAdjust="ScaleFont"`: ese layout tiene alto fijo
   para que las dos vías entren en una hoja.
+- **Lugar para firmar en el A4 de sueldo**: entre la cláusula «Recibi de…» y la línea de
+  firma quedan 28 pt (1 cm) en las dos vías; los demás recibos dejan 40 pt o más. El
+  `summary` mide 328 pt y es de alto fijo, así que la hoja admite **23 ítems** (22 si la
+  cláusula estira a una cuarta línea); con más, las dos vías pasan enteras a una segunda
+  hoja. Cada 15 pt que se le sumen a esa banda cuestan una fila. Lo vigilan
+  `ReciboLiquidacionJrxmlTest` y `MarcaAguaRecibosRrhhJrxmlTest.liquidacionTechoDeUnaHoja`.
 - **Ticket ESC/POS**: encabezado `Concepto … Monto` antes de las filas; el título se
   envuelve a las columnas del papel; ninguna línea supera 32/48 columnas.
 - **PDF A4 genérico**: concepto y monto del detalle con `isStretchWithOverflow`. Antes

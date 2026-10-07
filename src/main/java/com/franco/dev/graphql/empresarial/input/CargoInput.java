@@ -8,6 +8,6 @@ public class CargoInput {
     private String nombre;
     private String descripcion;
     private Long supervisadoPorId;
-    private Long sueldoBase;
+    private Float sueldoBase;
     private Long usuarioId;
 }

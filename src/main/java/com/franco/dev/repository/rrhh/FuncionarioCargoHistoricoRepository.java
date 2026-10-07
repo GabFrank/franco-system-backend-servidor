@@ -15,7 +15,7 @@ public interface FuncionarioCargoHistoricoRepository extends HelperRepository<Fu
         return FuncionarioCargoHistorico.class;
     }
 
-    List<FuncionarioCargoHistorico> findByFuncionarioIdOrderByFechaDesdeDesc(Long funcionarioId);
+    List<FuncionarioCargoHistorico> findByFuncionarioIdOrderByFechaDesdeDescIdDesc(Long funcionarioId);
 
     List<FuncionarioCargoHistorico> findByFuncionarioIdAndFechaHastaIsNull(Long funcionarioId);
 }

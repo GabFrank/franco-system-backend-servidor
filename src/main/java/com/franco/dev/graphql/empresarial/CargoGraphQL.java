@@ -55,13 +55,39 @@ public class CargoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
 
-    public Cargo saveCargo(CargoInput input){
+    /**
+     * "Depende de" (supervisadoPor) es opcional: un cargo se registra solo y la jerarquia se
+     * arma despues, editandolo. CrudService.findById devuelve null (no Optional.empty) cuando
+     * el id es null, por eso se chequea antes de encadenar.
+     */
+    public Cargo saveCargo(CargoInput input) throws GraphQLException {
         ModelMapper m = new ModelMapper();
         Cargo e = m.map(input, Cargo.class);
-        e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        e.setSupervisadoPor(service.findById(input.getSupervisadoPorId()).orElse(null));
+        e.setUsuario(input.getUsuarioId() != null
+                ? usuarioService.findById(input.getUsuarioId()).orElse(null)
+                : null);
+        Cargo superior = null;
+        if (input.getSupervisadoPorId() != null) {
+            superior = service.findById(input.getSupervisadoPorId())
+                    .orElseThrow(() -> new GraphQLException("El cargo superior seleccionado no existe"));
+            validarSinCiclo(input.getId(), superior);
+        }
+        e.setSupervisadoPor(superior);
         e = service.save(e);
         return e;
+    }
+
+    /** Sube por la cadena de superiores: si aparece el propio cargo, A dependeria de A. */
+    private void validarSinCiclo(Long cargoId, Cargo superior) {
+        if (cargoId == null) return;
+        java.util.Set<Long> visitados = new java.util.HashSet<>();
+        for (Cargo c = superior; c != null && visitados.add(c.getId()); c = c.getSupervisadoPor()) {
+            if (cargoId.equals(c.getId())) {
+                throw new GraphQLException(cargoId.equals(superior.getId())
+                        ? "Un cargo no puede depender de si mismo"
+                        : "No se puede: " + superior.getNombre() + " ya depende de este cargo");
+            }
+        }
     }
 
     /**

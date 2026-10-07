@@ -22,7 +22,7 @@ public class FuncionarioCargoHistoricoService
     }
 
     public List<FuncionarioCargoHistorico> findByFuncionarioId(Long funcionarioId) {
-        return repository.findByFuncionarioIdOrderByFechaDesdeDesc(funcionarioId);
+        return repository.findByFuncionarioIdOrderByFechaDesdeDescIdDesc(funcionarioId);
     }
 
     public List<FuncionarioCargoHistorico> findVigentes(Long funcionarioId) {

@@ -288,7 +288,8 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
     /**
      * Igual que {@link #calcularMontoNota} pero convertido a la moneda cabecera de la solicitud,
      * usando la cotización propia de la nota (fallback último Cambio de la moneda).
-     * Si moneda cabecera == moneda nota o cualquiera es null → retorna valor raw.
+     * Si moneda cabecera == moneda nota o cualquiera es null → no convierte.
+     * El resultado sale redondeado a los decimales de la moneda cabecera.
      */
     public Double calcularMontoNotaEnMoneda(NotaRecepcion nota, Moneda monedaCabecera) {
         Double valorRaw = calcularMontoNota(nota);
@@ -297,7 +298,7 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
         if (monedaCabecera == null || monedaNota == null
                 || monedaCabecera.getId() == null
                 || monedaCabecera.getId().equals(monedaNota.getId())) {
-            return valorRaw;
+            return SolicitudPagoNotaRecepcionService.redondearAMoneda(valorRaw, monedaCabecera);
         }
         boolean monedaNotaEsGs = MONEDA_GUARANI.equalsIgnoreCase(monedaNota.getDenominacion());
         boolean monedaCabEsGs = MONEDA_GUARANI.equalsIgnoreCase(monedaCabecera.getDenominacion());
@@ -305,10 +306,11 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
                 ? nota.getCotizacion()
                 : ultimoCambioEnGs(monedaNota);
         Double valorEnGs = monedaNotaEsGs ? valorRaw : valorRaw * cotNota;
-        if (monedaCabEsGs) return valorEnGs;
+        if (monedaCabEsGs) return SolicitudPagoNotaRecepcionService.redondearAMoneda(valorEnGs, monedaCabecera);
         // Caso defensivo: cabecera no-Gs distinta de la nota — convertir Gs → cabecera vía último Cambio.
         Double cambioCab = ultimoCambioEnGs(monedaCabecera);
-        return cambioCab > 0 ? valorEnGs / cambioCab : valorEnGs;
+        return SolicitudPagoNotaRecepcionService.redondearAMoneda(
+                cambioCab > 0 ? valorEnGs / cambioCab : valorEnGs, monedaCabecera);
     }
 
     /** Última cotización conocida (Cambio.valorEnGs) de la moneda; 1.0 si no se encuentra. */
@@ -359,9 +361,10 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
         }
         
         // Calculate total amount — converte a la moneda cabecera de la solicitud cuando difiere de la nota.
-        Double montoTotal = notas.stream()
+        // Cada nota ya viene redondeada a la moneda; la suma se redondea de nuevo por el ruido del double.
+        Double montoTotal = SolicitudPagoNotaRecepcionService.redondearAMoneda(notas.stream()
             .mapToDouble(n -> calcularMontoNotaEnMoneda(n, moneda))
-            .sum();
+            .sum(), moneda);
 
         // Create solicitud pago
         SolicitudPago solicitud = new SolicitudPago();

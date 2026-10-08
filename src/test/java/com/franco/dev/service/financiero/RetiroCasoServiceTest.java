@@ -301,4 +301,25 @@ class RetiroCasoServiceTest {
         assertEquals("Caso no encontrado: 404",
                 assertThrows(GraphQLException.class, () -> service.soltar(404L)).getMessage());
     }
+
+    @Test
+    void tomar_un_caso_que_figura_abierto_a_nombre_propio_lo_deja_en_investigacion() {
+        caso.setEstado(EstadoCasoRetiro.ABIERTO);   // dato incoherente: abierto pero con dueno
+
+        RetiroCaso r = service.asignar(10L, 1L, false);
+
+        assertEquals(EstadoCasoRetiro.EN_INVESTIGACION, r.getEstado());
+        verify(casoRepository).save(caso);
+    }
+
+    @Test
+    void las_tres_operaciones_corren_en_una_transaccion() {
+        // Sin ella el refresh con lock no tiene donde vivir y resolver no deshace el caso si la anulacion falla.
+        for (String nombre : new String[]{"asignar", "soltar", "resolver"}) {
+            assertTrue(java.util.Arrays.stream(RetiroCasoService.class.getDeclaredMethods())
+                    .filter(m -> m.getName().equals(nombre))
+                    .allMatch(m -> m.isAnnotationPresent(org.springframework.transaction.annotation.Transactional.class)),
+                    nombre + " no es @Transactional");
+        }
+    }
 }

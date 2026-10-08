@@ -81,10 +81,13 @@ public class RetiroCasoService {
         }
 
         Usuario actual = caso.getAsignadoA();
-        if (actual != null && actual.getId().equals(usuarioId)) {
+        boolean yaEsSuyo = actual != null && actual.getId().equals(usuarioId);
+        // Ya es suyo y está en investigación: nada que hacer. Si el estado no acompaña (un dato tocado a
+        // mano), sigue de largo y lo deja coherente.
+        if (yaEsSuyo && caso.getEstado() == EstadoCasoRetiro.EN_INVESTIGACION) {
             return caso;
         }
-        if (actual != null && !esSuperusuario) {
+        if (actual != null && !yaEsSuyo && !esSuperusuario) {
             throw new GraphQLException("El caso ya lo tomó " + nombreDe(actual) + ".");
         }
 

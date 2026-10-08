@@ -296,4 +296,17 @@ class RetiroCasoIT {
         assertEquals("El caso ya está resuelto", e.getMessage());
         assertEquals("RESUELTO", casoEnLaBase()[0]);
     }
+
+    @Test
+    void anularLaVerificacionCierraSinVeredictoElCasoQueSeguiaAbierto() {
+        verificacionService.anular(verificacionId, MARCA, investigador);
+
+        Object[] caso = casoEnLaBase();
+        assertEquals("RESUELTO", caso[0]);
+        assertNull(caso[1], "un cierre por anulación no lleva veredicto");
+        assertEquals("CERRADO POR ANULACION DE LA VERIFICACION: " + MARCA, caso[2]);
+        assertEquals(investigador.getId(), ((Number) caso[3]).longValue());
+        assertEquals(investigador.getId(), ((Number) caso[4]).longValue(), "el cierre no debe tocar a quién estaba asignado");
+        assertTrue(verificacionAnulada());
+    }
 }

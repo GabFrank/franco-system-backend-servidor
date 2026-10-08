@@ -166,6 +166,55 @@ farmacia estan deshabilitadas), asi que escribir un retiro local no sale de la m
 - Asignar un caso resuelto: rechazo. Asignar uno tomado por otro: rechazo. Volver a tomar el propio: pasa.
 - Desde el desktop (con su PR): rechazo con la anulacion pedida → el dialogo queda abierto con lo escrito.
 
+### Resultado (2026-10-08)
+
+**Tests de integracion** (`RetiroCasoIT`, base local): 5 en verde.
+
+- Con la anulacion imposible, `resolver(..., anular)` lanza «Saldo insuficiente» y el caso sigue en
+  investigacion, sin veredicto; con la plata de vuelta, la misma resolucion pasa y la verificacion queda
+  anulada.
+- Resolucion con su transaccion abierta + anulacion directa: la anulacion espera y el caso conserva veredicto,
+  informe y quien resolvio. **Con el cierre viejo (leer y guardar) el mismo test falla: «la anulacion piso el
+  veredicto: expected FALTANTE_PDV but was null».**
+- Tres resoluciones a la vez: una pasa. Asignar un caso resuelto: rechazo. Anular con el caso todavia abierto:
+  queda «CERRADO POR ANULACION», sin veredicto y sin tocar a quien estaba asignado.
+
+La atomicidad no se pudo «neutralizar» dentro del servicio para ver el test en rojo (sin `@Transactional` el
+`refresh` con lock ni siquiera corre); lo que la prueba es que el caso sigue sin resolver en la base.
+
+**Runtime por GraphQL** (central local, dos usuarios de prueba con rol de gestionar tesoreria: uno verifica,
+otro investiga):
+
+| Caso | Resultado |
+|---|---|
+| Resolver + anular con la anulacion imposible | «Saldo insuficiente en la caja virtual»; el caso sigue `EN_INVESTIGACION`, sin veredicto, verificacion vigente |
+| Seis resolver + anular simultaneos, ya posible | 1 exito, 5 «El caso ya está resuelto»; verificacion anulada; lo acreditado sale de la caja una vez |
+| Asignar un caso resuelto | «El caso ya está resuelto» |
+| Tomar un caso que tiene otro | «El caso ya lo tomó X.» |
+| Resolver un caso ajeno | «El caso lo está investigando X…» |
+| Soltar, tomar, volver a tomar | pasan los tres |
+| `resolverRetiroCaso` y `anularVerificacionRetiro` a la vez, tres rondas | el caso conserva `FALTANTE_PDV`, su informe y quien resolvio |
+| Pedir anular con otro veredicto | rechazo; el caso no cambia |
+| El verificador intenta tomar su propio caso | «El caso no puede asignarse a quien hizo la verificación» |
+
+Log sin `deadlock`.
+
+## Auditoria del diff (paso 8, 2026-10-08)
+
+Dos auditores (autorizacion + esquema; contrato + correccion). Ningun hallazgo alto. La logica salio del
+resolver sin perder validaciones ni mensajes; el control de rol sigue como primera linea; sin cambios de
+schema; `retiro_caso` y `retiro_verificacion` no se replican.
+
+| Hallazgo | Severidad | Que se hizo |
+|---|---|---|
+| Ningun IT ejercitaba el `UPDATE` de cierre sobre un caso abierto | media | test nuevo en `RetiroCasoIT` |
+| `asignar` devolvia sin guardar un caso `ABIERTO` que ya figuraba a nombre del destino (dato incoherente) | baja | solo es no-op si esta en investigacion. Test |
+| El test con mocks de «si la anulacion se rechaza» pasaria sin la transaccion | baja | test de que los tres metodos son `@Transactional` |
+| `refresh` sobre un caso borrado entre la lectura y el lock saldria como error interno | baja | no aplicado: ningun codigo borra casos |
+| El lock del retiro se toma antes de validar dueno y veredicto: un pedido que igual se rechaza lo retiene hasta el rollback | baja | se acepta; validar antes duplicaria logica |
+| `limpiar` del IT captura un fallo de anulacion y solo lo imprime | baja | se acepta |
+| `findByVerificacionId` quedo sin uso en `src/main` | baja | se deja |
+
 ## Despliegue y rollback
 
 - Central: sin migracion ni cambio de schema; rollback del JAR inocuo. Requiere reinicio (workflow Deploy;
@@ -180,9 +229,9 @@ farmacia estan deshabilitadas), asi que escribir un retiro local no sale de la m
   con la verificacion sin anular (que es tambien el estado legitimo de quien resolvio **sin** pedir la
   anulacion). Produccion no se miro.
 - El bloqueo real y el rollback solo se comprueban contra PostgreSQL (IT y runtime).
-- Tras un rollback, con open-in-view la instancia del caso queda en memoria como `RESUELTO` hasta que termina
-  la request. La excepcion corta la respuesta, asi que no llega al cliente; no se probo una request que
-  encadene dos mutations.
+- Tras un rollback, la instancia del caso en memoria: la excepcion corta la respuesta, asi que no llega al
+  cliente (visto en runtime: el caso se relee `EN_INVESTIGACION`). No se probo una request que encadene dos
+  mutations.
 - El retiro de reintegro solo se valida como no nulo; que exista no se verifica. Ya era asi.
 
 ## Auditoria del plan (paso 5, 2026-10-08)

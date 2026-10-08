@@ -80,6 +80,32 @@ antes de leer-modificar-escribir: `TesoreriaService`, `BancoLedgerService`, `Cli
 `ProveedorCuentaService`, `ChequeGestionService`, `AcreditacionPosService`, `CobroCreditoService`,
 `PagoProveedorService`. Transferencias/operaciones de dos lados lockean en **orden canónico (id asc)**.
 
+**Una reversa, una sola vez (issue #376).** El contra-movimiento se postea en `TesoreriaService.revertir`
+(caja) y en `BancoLedgerService.revertir` (banco), y ahí vive el control: exigen el permiso sobre la caja,
+toman el movimiento original con lock, leen su estado **de la base** y rechazan si ya está revertido («El
+movimiento #N ya está anulado.»). Cubre a todos los módulos dueños —vale, liquidación, finiquito, entrada
+varia, operación financiera, pago CPP, cheque, verificación de retiro— sin que cada uno tenga que acordarse.
+Para quien llama, un rechazo es el rollback completo de su anulación.
+
+- **Lock y después relectura, siempre en ese orden y con una proyección** (`findActivoById`,
+  `findAnuladoById`, `PagoRepository.findEstadoById`): `lockById` espera el lock, pero si la entidad ya
+  estaba cargada en la request devuelve esa misma instancia sin refrescar. Leer el estado de la entidad
+  después de un `lockById` es leer el de antes de esperar.
+- Los documentos que se anulan (`EntradaVaria`, `OperacionFinanciera`, `Pago`, el `Retiro` de una
+  verificación) se toman con lock antes de decidir, para que la segunda anulación reciba el mensaje del
+  documento. `ValeService.anular` y las liquidaciones no lockean su documento: dos anulaciones simultáneas
+  las corta `revertir`, con el mensaje del movimiento.
+- Orden: documento → movimiento → saldo / cuenta. Las patas de una operación financiera se revierten por
+  caja ascendente y después por cuenta ascendente, igual que se postean.
+- **Consecuencia:** un documento vivo cuyo movimiento ya está inactivo (dato inconsistente) no se puede
+  anular por el camino normal; hay que corregir el dato. Antes se «anulaba» devolviendo la plata otra vez.
+- Inversiones de orden que siguen existiendo (PostgreSQL aborta una de las dos transacciones; no corrompen
+  datos): `anularPagoCpp` toma los saldos antes que las solicitudes y `procesarEvento` al revés;
+  `anularPagoCpp` revierte los detalles en el orden del cliente, no caja → cuenta; y cada `registrar` en
+  Gs/Rs/Ds actualiza además la fila `caja_virtual` (el shim).
+- `ReversasIT` prueba lo que los mocks no ven (relectura real y reversas simultáneas). **No corre en CI**:
+  `./mvnw -Dit.financiero=true -Dtest=ReversasIT test`.
+
 ### 7.1 Idempotencia por clave (pedidos repetidos)
 
 El lock evita que dos pedidos **distintos** pisen el mismo saldo; no distingue un pedido de su

@@ -306,4 +306,17 @@ class TesoreriaServiceTest {
         assertThrows(GraphQLException.class, () -> service.revertir(sinId, "x", null));
         verify(movimientoRepository, never()).save(any());
     }
+
+    @Test
+    void revertir_sin_permiso_sobre_la_caja_no_revela_que_ya_estaba_anulado_ni_toma_el_lock() {
+        MovimientoCajaVirtual anulado = egresoDeVale(64L);
+        anulado.setActivo(false);
+        when(movimientoRepository.findActivoById(64L)).thenReturn(Optional.of(false));
+        doThrow(new GraphQLException("Sin permiso sobre la caja")).when(seguridad).requireEscrituraCaja(1L);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.revertir(anulado, "x", null));
+
+        assertTrue(e.getMessage().contains("Sin permiso"), e.getMessage());
+        verify(movimientoRepository, never()).lockById(anyLong());
+    }
 }

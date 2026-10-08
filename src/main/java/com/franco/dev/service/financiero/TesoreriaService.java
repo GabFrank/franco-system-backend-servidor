@@ -248,6 +248,10 @@ public class TesoreriaService {
         if (orig.getId() == null) {
             throw new GraphQLException("No se puede revertir un movimiento que no está registrado.");
         }
+        // El permiso sobre la caja va antes de mirar el estado, igual que en anular(): quien no puede mover
+        // plata en esta caja no tiene por qué enterarse de si el movimiento ya está anulado, ni esperar su
+        // lock. registrar() lo vuelve a exigir al postear el contra-movimiento.
+        seguridad.requireEscrituraCaja(orig.getCajaVirtual() != null ? orig.getCajaVirtual().getId() : null);
         // El lock serializa; el estado se lee después y de la base. lockById devuelve la instancia que el
         // llamador ya tuviera cargada (casi siempre: la buscó para pasarla acá), con el activo de antes de
         // esperar. Sin fila en la proyección vale el de la entidad; un activo nulo cuenta como activo.

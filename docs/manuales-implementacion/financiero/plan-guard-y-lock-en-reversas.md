@@ -150,6 +150,38 @@ Cada test de bug se corre con el fix neutralizado para ver que falla.
 - Anulacion normal, de a una, de cada documento: sin cambios.
 - Log sin deadlocks.
 
+### Resultado (2026-10-08)
+
+**Tests de integracion** (`ReversasIT`, base local; quedo en un archivo propio y no dentro de
+`FinancieroFixesIT`, que es `@Transactional` y no admite commits reales): 4 en verde.
+
+- El estado se lee de la base aunque la entidad ya cargada diga activo.
+- Tres reversas a la vez del mismo movimiento de caja, de una entrada varia y de un movimiento bancario,
+  cinco rondas cada una: siempre un exito y dos rechazos, un solo contra-movimiento, el saldo vuelve al
+  inicial.
+- **Con el guard de caja neutralizado, las tres reversas simultaneas dan tres exitos**: es el bug, visto
+  contra PostgreSQL.
+
+**Runtime por GraphQL** (central local `:8081`, perfil `dev`, seis anulaciones simultaneas por caso):
+
+| Caso | Resultado |
+|---|---|
+| Entrada varia (ingreso de 1.000) | 1 exito, 5 «La entrada/salida ya está anulada»; un contra-movimiento; la caja vuelve al saldo de antes |
+| Operacion financiera, deposito bancario de 2.000 (pata de caja + pata de banco) | 1 exito, 5 «La operación financiera #11 ya está anulada»; un contra por pata; caja y banco vuelven al saldo de antes |
+| Pago CPP mixto (caja 1.000 + banco 1.000), `anularPagoCpp` | 1 exito, 5 «El pago ya está anulado»; un contra por pata; saldos de vuelta |
+| Anulacion de a una de una entrada varia | pasa; la segunda, en secuencia, se rechaza |
+
+Log del central sin `deadlock` ni `ERROR` (salvo Firebase, preexistente).
+
+**Sin probar en runtime:** las anulaciones simultaneas de un vale y de una liquidacion pagados por el atajo
+de caja (las cubre `ReversasIT` a nivel de servicio, con `revertirMovimiento`), y la de una verificacion de
+retiro con una re-verificacion en el medio (solo el test con mocks).
+
+**Puerta en produccion, bodega (central, 2026-10-08, solo `SELECT`):** 0 vales, 0 liquidaciones, 0
+finiquitos, 0 entradas varias, 0 detalles de pago (caja y banco), 0 cheques cobrados y 0 operaciones
+financieras con su movimiento ya inactivo; 0 movimientos de caja y 0 bancarios con mas de un
+contra-movimiento. **Farmacia no se miro.**
+
 ## Despliegue y rollback
 
 Solo central. Sin migracion: rollback del JAR inocuo para el esquema (y reabre la doble reversa). Ningun
@@ -173,8 +205,7 @@ anulacion que da exito sin devolver la plata no se ve.
 
 ## Queda sin verificar
 
-- La puerta de arriba **no se corrio en produccion**. En la copia local: 0 vales, 0 finiquitos, 0 entradas
-  varias, 0 detalles de pago y 1 liquidacion, de pruebas.
+- La puerta de arriba se corrio en **bodega** (limpia) y **no en farmacia**.
 - Sin `lock_timeout`: una reversa que espera detras de una transaccion colgada retiene su conexion, igual
   que los `lockById` que ya existen. Se acepta.
 - `RetiroVerificacionGraphQL` (resolver un caso anulando la verificacion) guarda el caso y **despues** anula:
@@ -200,3 +231,17 @@ la verificacion de retiro; el de estado mostro la carrera con una re-verificacio
 | Rechazar o no-op | se rechaza; motivo arriba |
 | Inversiones de orden de locks preexistentes | anotadas, fuera de alcance |
 | Faltaban llamadores en la lista | cheque al dia dentro de un pago (`anularPorPago`) y `AnulacionPagoRrhhService`: los dos hacen rollback completo si la reversa se rechaza |
+
+## Auditoria del diff (paso 8, 2026-10-08)
+
+Dos auditores: autorizacion + esquema y replicacion (el diff no toca resolvers, schema ni migraciones, y se
+confirmo), y contrato + correccion y concurrencia. Ningun hallazgo alto ni medio.
+
+| Hallazgo | Severidad | Que se hizo |
+|---|---|---|
+| En `revertir`, «ya está anulado» salia antes del control de permiso sobre la caja (que recien corre en `registrar`): un usuario sin acceso a la caja podia enterarse del estado de un movimiento y esperar su lock | baja | el permiso va primero, como en `anular` (#373). Test nuevo. No cambia quien puede anular |
+| Cruce nuevo: T1 revierte M0 (tiene el saldo de la caja) y despues M; T2 revierte M (tiene M y espera el saldo). PostgreSQL aborta una con 40P01 en vez de «ya está anulado» | baja | se acepta: es el rollback buscado, con otro mensaje. Necesita dos flujos sin lock de documento comun sobre el mismo movimiento |
+| Si el id tiene valor pero la fila no existe, el fallback a la entidad deja seguir | baja | no aplicado: los llamadores buscan el movimiento con `findMovimiento`, que ya lanza «no encontrado» |
+| Nada prueba contra la base que los finders ordenen las patas | baja | no aplicado: la base local tiene una sola caja y una sola cuenta |
+| `ReversasIT` depende de que los hilos se solapen (cinco rondas de tres); y falla si algo mas mueve esa caja durante la prueba | baja | se acepta; la relectura tiene ademas su caso determinista |
+| Tests con mocks de «la anulacion se corta si la pata ya esta revertida» son de caracterizacion | baja | se dejan; el corte real lo prueban el IT y el runtime |

@@ -44,7 +44,7 @@ public class TesoreriaSecurityService {
 
     /**
      * Cargar la cotización de una moneda. No es un rol de tesorería (no habilita ver cajas): es el
-     * mismo que ya gatea la pantalla en el desktop (ROLES.CAMBIAR_COTIZACION) y ya existe en personas.role.
+     * mismo que ya gatea la pantalla en el desktop (ROLES.CAMBIAR_COTIZACION). Lo garantiza V237.3.
      */
     public static final String CAMBIAR_COTIZACION = "CAMBIAR COTIZACION";
 

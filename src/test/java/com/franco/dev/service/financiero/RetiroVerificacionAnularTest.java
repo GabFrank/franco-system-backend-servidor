@@ -32,6 +32,7 @@ class RetiroVerificacionAnularTest {
     private RetiroVerificacionRepository verificacionRepository;
     private MovimientoCajaVirtualRepository movimientoRepository;
     private TesoreriaService tesoreriaService;
+    private RetiroCasoRepository casoRepository;
     private RetiroVerificacionService service;
 
     private RetiroVerificacion verificacion;
@@ -44,7 +45,7 @@ class RetiroVerificacionAnularTest {
         verificacionRepository = mock(RetiroVerificacionRepository.class);
         movimientoRepository = mock(MovimientoCajaVirtualRepository.class);
         tesoreriaService = mock(TesoreriaService.class);
-        RetiroCasoRepository casoRepository = mock(RetiroCasoRepository.class);
+        casoRepository = mock(RetiroCasoRepository.class);
         service = new RetiroVerificacionService(retiroRepository, mock(RetiroDetalleService.class),
                 verificacionRepository, casoRepository, movimientoRepository, mock(CajaVirtualService.class),
                 mock(MonedaService.class), tesoreriaService, mock(TesoreriaSecurityService.class),
@@ -65,7 +66,6 @@ class RetiroVerificacionAnularTest {
         movimiento.setId(90L);
         when(movimientoRepository.findByOrigenTipoAndOrigenIdAndOrigenSucursalIdAndActivoTrue(
                 OrigenMovimientoTipo.RETIRO_CAJA, 700L, 5L)).thenReturn(Collections.singletonList(movimiento));
-        when(casoRepository.findByVerificacionId(30L)).thenReturn(Optional.empty());
     }
 
     @Test
@@ -101,5 +101,17 @@ class RetiroVerificacionAnularTest {
 
         assertTrue(e.getMessage().contains("ya está anulada"), e.getMessage());
         verify(tesoreriaService, never()).revertir(any(), any(), any());
+    }
+
+    @Test
+    void anular_cierra_el_caso_con_un_update_dirigido_y_no_leyendolo_para_guardarlo_entero() {
+        // Leer el caso y guardarlo le pisaba el veredicto a quien lo estuviera resolviendo en ese momento.
+        service.anular(30L, "conto mal", null);
+
+        verify(casoRepository).cerrarPorAnulacion(eq(30L),
+                eq(com.franco.dev.domain.financiero.enums.EstadoCasoRetiro.RESUELTO),
+                eq("CERRADO POR ANULACION DE LA VERIFICACION: CONTO MAL"), any(), any());
+        verify(casoRepository, never()).findByVerificacionId(any());
+        verify(casoRepository, never()).save(any());
     }
 }

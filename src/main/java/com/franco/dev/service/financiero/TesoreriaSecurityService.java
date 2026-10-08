@@ -42,6 +42,12 @@ public class TesoreriaSecurityService {
     /** Permiso dedicado para pagar cuentas por pagar / solicitudes (CPP). */
     public static final String CPP_PAGAR = "TESORERIA CPP PAGAR";
 
+    /**
+     * Cargar la cotización de una moneda. No es un rol de tesorería (no habilita ver cajas): es el
+     * mismo que ya gatea la pantalla en el desktop (ROLES.CAMBIAR_COTIZACION) y ya existe en personas.role.
+     */
+    public static final String CAMBIAR_COTIZACION = "CAMBIAR COTIZACION";
+
     /** Cualquier rol de tesorería habilita la lectura. */
     public static final String[] TODOS = {VER, GESTIONAR, CPC_COBRAR, CPP_PAGAR};
 
@@ -50,6 +56,16 @@ public class TesoreriaSecurityService {
 
     /** Pagar CPP: permiso dedicado, o GESTIONAR, o superusuario. */
     public void requirePagarCpp() { requireAnyRole(CPP_PAGAR, GESTIONAR); }
+
+    /** Cargar una cotización: permiso dedicado, o superusuario (issue #326). */
+    public void requireCambiarCotizacion() { requireAnyRole(CAMBIAR_COTIZACION); }
+
+    /** Solo superusuario: ningún rol de negocio alcanza. */
+    public void requireSuperusuario() {
+        if (!esSuperusuario()) {
+            throw new GraphQLException("No autorizado: esta acción es solo para un administrador.");
+        }
+    }
 
     private String currentNickname() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

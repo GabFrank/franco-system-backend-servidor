@@ -326,15 +326,26 @@ public class PagoProveedorService {
     static String huellaDe(List<SolicitudConLineas> pagos) {
         HuellaPedido h = new HuellaPedido();
         if (pagos == null) return h.calcular();
+        // chequeRef solo agrupa las partes de un mismo cheque: su valor sale de un contador del cliente que
+        // sigue avanzando si el pago se rearma. Cuenta el agrupamiento, no el numero.
+        Map<Long, Long> ordenDeCheque = new HashMap<>();
+        long sinRef = 0;
         for (SolicitudConLineas p : pagos) {
             h.texto("S").id(p.getSolicitudId());
             if (p.getLineas() == null) continue;
             for (LineaPago l : p.getLineas()) {
+                Long grupoCheque = null;
+                if (l.getFuente() == FuentePago.CHEQUE) {
+                    // Sin chequeRef cada linea es un cheque aparte, igual que en el motor.
+                    grupoCheque = l.getChequeRef() != null
+                            ? ordenDeCheque.computeIfAbsent(l.getChequeRef(), k -> (long) ordenDeCheque.size())
+                            : Long.valueOf(--sinRef);
+                }
                 h.texto("L").texto(l.getFuente() != null ? l.getFuente().name() : null)
                         .id(l.getCajaVirtualId()).id(l.getCuentaBancariaId()).id(l.getMonedaId())
                         .numero(l.getMonto()).numero(l.getCotizacion()).numero(l.getMontoSolicitud())
                         .bandera(l.getDescuento()).bandera(l.getAumento())
-                        .id(l.getChequeRef()).id(l.getChequeraId()).bandera(l.getDiferido())
+                        .id(grupoCheque).id(l.getChequeraId()).bandera(l.getDiferido())
                         .dia(l.getFechaPago()).texto(l.getBeneficiario())
                         // Nulo = nominal, igual que al emitir el cheque.
                         .bandera(l.getNominal() == null || l.getNominal());

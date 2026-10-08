@@ -43,7 +43,7 @@ public class IdempotenciaService {
     /**
      * Ejecuta {@code accion} una sola vez por clave.
      *
-     * @param clave     la que manda el cliente; nula o vacía = sin idempotencia (cliente viejo)
+     * @param claveRecibida la que manda el cliente; nula o vacía = sin idempotencia (cliente viejo)
      * @param operacion nombre fijo de la operación: una clave no vale para otra
      * @param huella    {@link HuellaPedido} del pedido: una clave no vale para otro contenido
      * @param accion    la operación; corre solo si la clave es nueva
@@ -51,9 +51,10 @@ public class IdempotenciaService {
      * @param cargar    lee lo ya creado cuando el pedido es una repetición
      */
     @Transactional(propagation = Propagation.MANDATORY)
-    public <T> T ejecutar(String clave, String operacion, String huella, Usuario usuario,
+    public <T> T ejecutar(String claveRecibida, String operacion, String huella, Usuario usuario,
                           Supplier<T> accion, Function<T, Long> idDe, Function<Long, T> cargar) {
-        if (clave == null || clave.trim().isEmpty()) return accion.get();
+        if (claveRecibida == null || claveRecibida.trim().isEmpty()) return accion.get();
+        String clave = claveRecibida.trim();
         if (clave.length() > LARGO_MAXIMO_CLAVE) {
             throw new GraphQLException("Clave de idempotencia inválida");
         }

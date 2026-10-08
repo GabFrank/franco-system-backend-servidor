@@ -102,7 +102,8 @@ antes de reclamar la clave. Sin enums nuevos.
 | Dato | Quien lo escribe | Quien lo lee |
 |---|---|---|
 | arg `claveIdempotencia` | **desktop**: `pagar-compras-dialog` (modo compras/gastos) y `emitir-cheque-dialog` — PR propio, fase 4 | `PagoProveedorGraphQL`, `ChequePosGraphQL` |
-| `operacion_idempotente.*` | `IdempotenciaService.reclamar` / `registrarResultado` | `IdempotenciaService.reclamar` (rama «ya existe») |
+| `operacion_idempotente.{clave, operacion, usuario_id, huella, resultado_id}` | `IdempotenciaService.ejecutar` (`INSERT` + `UPDATE`) | `IdempotenciaService.ejecutar` (rama «ya registrado») |
+| `operacion_idempotente.creado_en` + su indice | `DEFAULT now()` | **nadie todavia**: queda para la purga por antiguedad, que no entra en este PR. Excepcion consciente a la regla de las dos puntas; sirve tambien para diagnosticar a mano |
 
 El escritor del argumento es el desktop: sin la fase 4 el central queda con el mecanismo y nadie que lo
 use. Por eso el trabajo no se da por terminado con el PR del central solo.
@@ -156,6 +157,49 @@ Desktop (otro PR, en `frc-sistemas-integrados-angular`, despues de que el centra
   **anotar que comportamiento queda** (la fila del intento rechazado hizo rollback, asi que deberia
   pasar).
 - Dry-run de `V237.1` contra la copia local de `bodega` (paso 10).
+
+### Resultado (2026-10-08, central local `:8081`, perfil `dev`, base `bodega` local, usuario de prueba)
+
+| # | Caso | Resultado |
+|---|---|---|
+| 1 | Control **sin clave**: parcial de 1.000 dos veces | dos pagos (#17 y #18), caja -2.000, solicitud en 2.000 — el bug, y lo que sigue viendo un cliente viejo |
+| 2 | Parcial de 1.000 dos veces **con la misma clave** | el mismo pago (#19) las dos veces, caja -1.000, un movimiento |
+| 3 | Cuatro pedidos **simultaneos** con la misma clave (1.500) | los cuatro devuelven el pago #20; caja -1.500, un movimiento |
+| 4 | Misma clave con otro monto | rechazo «La clave de idempotencia ya se uso para otro pedido»; nada cambia |
+| 5 | Rechazo de negocio (excede saldo) y reintento corregido con la misma clave | el rechazo no deja la clave; el reintento paga (#21) |
+| 6 | Pago con linea de cheque diferido dos veces, misma clave y **distinta `fechaEmision`** | un pago (#22), un cheque, una reserva de 2.000, el correlativo avanza una vez |
+| 7 | Anular el pago de 2 y repetir su pedido | rechazo «El pago #19 de este pedido ya se registro y despues fue anulado»; sin movimientos nuevos |
+| 8 | `emitirCheque` al dia de 3.000 dos veces, misma clave | el mismo cheque (Nº 700002), un debito, un movimiento bancario |
+| 9 | `emitirCheque` diferido de 4.000, cuatro simultaneos, misma clave | los cuatro devuelven el cheque #5; una reserva |
+| 10 | Control `emitirCheque` **sin clave** dos veces | dos cheques (700004 y 700005) |
+| 11 | `emitirCheque` con la clave de 8 y otro monto | rechazo |
+
+Sin `deadlock` ni `ERROR` en el log del central (salvo Firebase, preexistente). `IdempotenciaIT` (7 tests,
+incluido el de dos hilos) en verde contra la misma base.
+
+`V237.1` aplico limpia sobre la copia local de `bodega` al levantar el contexto del IT (junto con
+`V236.1` y `V236.3`, que esa base no tenia): es el dry-run del paso 10 para bodega. **No se probo contra
+una copia de farmacia.**
+
+## Auditoria del diff (paso 8, 2026-10-08)
+
+Tres auditores: Fijo 1 (autorizacion), Fijo 2 + Condicional B (esquema y replicacion), Fijo 3 (contrato)
+mas correccion del comportamiento. Ningun hallazgo alto.
+
+| Hallazgo | Severidad | Que se hizo |
+|---|---|---|
+| `chequeRef` sale de un contador del desktop que no se reinicia: un pago rearmado igual daba otra huella y un falso «clave usada para otro pedido» | media | la huella cuenta el **agrupamiento** de las lineas en cheques (orden de aparicion), no el numero. Tests nuevos |
+| `IdempotenciaIT` no corre en CI | media | corrido a mano contra la base local: 8 en verde. Va como evidencia en el PR |
+| Clave con espacios: `" abc"` y `"abc"` eran claves distintas | baja | se recorta antes de guardar. Test en el IT |
+| La tabla de datos nuevos nombraba `reclamar` / `registrarResultado` | baja | corregida; `creado_en` anotado como excepcion sin lector |
+| La repeticion no revalida el ACL de caja del momento | baja | no aplicado: devuelve solo lo que ese usuario creo, y el rol si se revalida en el resolver |
+| La clave es global: el rechazo deja saber que una clave existe | baja | no aplicado: no revela de quien ni que; el cliente usa UUID |
+| Aceptar solo `CONCLUIDO` en la repeticion del pago | baja | no aplicado: el motor siempre deja `CONCLUIDO`, y el mensaje de «anulado» seria falso para otro estado |
+| Los tests con el mock de idempotencia prometen «sin mover plata» y prueban el cableado | baja | no renombrados: lo real lo prueban el IT y la prueba de runtime de arriba |
+| No hay mecanismo que obligue a clasificar una tabla nueva como replicada o central-only | baja, preexistente | fuera de este PR; la defensa es el control de `pg_publication` antes de desplegar |
+
+Bateria tras los ajustes: `./mvnw clean verify -B -DskipFlyway=true` → 1396 tests, 0 fallas, 1 salteado;
+`target/frc-central-server.jar` construido.
 
 ## Despliegue y rollback
 

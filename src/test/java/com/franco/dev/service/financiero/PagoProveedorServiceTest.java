@@ -475,4 +475,51 @@ class PagoProveedorServiceTest {
         otraSolicitud.setSolicitudId(2L);
         assertNotEquals(base, PagoProveedorService.huellaDe(Collections.singletonList(otraSolicitud)));
     }
+
+    private PagoProveedorService.SolicitudConLineas conCheques(Long refA, Long refB, Long refC) {
+        PagoProveedorService.SolicitudConLineas s = new PagoProveedorService.SolicitudConLineas();
+        s.setSolicitudId(1L);
+        java.util.List<PagoProveedorService.LineaPago> ls = new java.util.ArrayList<>();
+        for (Long ref : Arrays.asList(refA, refB, refC)) {
+            PagoProveedorService.LineaPago l = linea(FuentePago.CHEQUE, 10000);
+            l.setChequeraId(3L); l.setChequeRef(ref);
+            ls.add(l);
+        }
+        s.setLineas(ls);
+        return s;
+    }
+
+    @Test
+    void la_huella_cuenta_como_se_agrupan_los_cheques_y_no_el_numero_de_chequeRef() {
+        // El contador de chequeRef del cliente sigue avanzando si el pago se rearma: 1,1,2 pasa a ser 5,5,6.
+        assertEquals(PagoProveedorService.huellaDe(Collections.singletonList(conCheques(1L, 1L, 2L))),
+                PagoProveedorService.huellaDe(Collections.singletonList(conCheques(5L, 5L, 6L))));
+        // Otro agrupamiento es otro pedido: (20.000 + 10.000) no es (10.000 + 20.000) ni tres cheques.
+        assertNotEquals(PagoProveedorService.huellaDe(Collections.singletonList(conCheques(1L, 1L, 2L))),
+                PagoProveedorService.huellaDe(Collections.singletonList(conCheques(1L, 2L, 2L))));
+        assertNotEquals(PagoProveedorService.huellaDe(Collections.singletonList(conCheques(1L, 1L, 2L))),
+                PagoProveedorService.huellaDe(Collections.singletonList(conCheques(1L, 2L, 3L))));
+        // Sin chequeRef cada linea es un cheque aparte: no es lo mismo que un solo cheque en tres partes.
+        assertEquals(PagoProveedorService.huellaDe(Collections.singletonList(conCheques(null, null, null))),
+                PagoProveedorService.huellaDe(Collections.singletonList(conCheques(null, null, null))));
+        assertNotEquals(PagoProveedorService.huellaDe(Collections.singletonList(conCheques(null, null, null))),
+                PagoProveedorService.huellaDe(Collections.singletonList(conCheques(1L, 1L, 1L))));
+    }
+
+    @Test
+    void la_huella_cambia_con_la_chequera_el_tipo_o_el_dia_de_pago_del_cheque() {
+        String base = PagoProveedorService.huellaDe(Collections.singletonList(conCheques(1L, 1L, 2L)));
+
+        PagoProveedorService.SolicitudConLineas otraChequera = conCheques(1L, 1L, 2L);
+        otraChequera.getLineas().get(2).setChequeraId(4L);
+        assertNotEquals(base, PagoProveedorService.huellaDe(Collections.singletonList(otraChequera)));
+
+        PagoProveedorService.SolicitudConLineas diferido = conCheques(1L, 1L, 2L);
+        diferido.getLineas().get(2).setDiferido(true);
+        assertNotEquals(base, PagoProveedorService.huellaDe(Collections.singletonList(diferido)));
+
+        PagoProveedorService.SolicitudConLineas otroDia = conCheques(1L, 1L, 2L);
+        otroDia.getLineas().get(2).setFechaPago(java.time.LocalDateTime.of(2026, 11, 9, 0, 0));
+        assertNotEquals(base, PagoProveedorService.huellaDe(Collections.singletonList(otroDia)));
+    }
 }

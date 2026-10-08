@@ -82,6 +82,12 @@ class IdempotenciaIT {
     }
 
     @Test
+    void laClaveSeRecortaAntesDeGuardarse() {
+        assertEquals(77L, ejecutar("  " + clave + " ", OPERACION, HUELLA, usuario, () -> 77L));
+        assertEquals(77L, ejecutar(clave, OPERACION, HUELLA, usuario, () -> 99L));
+    }
+
+    @Test
     void sinClaveEjecutaSiempre() {
         AtomicInteger veces = new AtomicInteger();
         ejecutar(null, OPERACION, HUELLA, usuario, () -> (long) veces.incrementAndGet());

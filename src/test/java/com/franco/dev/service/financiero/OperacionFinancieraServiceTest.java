@@ -103,37 +103,84 @@ class OperacionFinancieraServiceTest {
         verifyNoInteractions(tesoreriaService);
     }
 
+    private static final com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo OP =
+            com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo.OPERACION_FINANCIERA;
+
+    private OperacionFinanciera operacionBloqueada(long id, Boolean anulado) {
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setId(id);
+        op.setAnulado(anulado);
+        when(repository.lockById(id)).thenReturn(java.util.Optional.of(op));
+        return op;
+    }
+
     @Test
     void anular_revierte_patas_de_caja_y_banco_y_marca_anulado() {
-        OperacionFinanciera op = new OperacionFinanciera();
-        op.setId(5L);
-        op.setAnulado(false);
-        when(repository.findById(5L)).thenReturn(java.util.Optional.of(op));
+        OperacionFinanciera op = operacionBloqueada(5L, false);
 
         MovimientoCajaVirtual cajaLeg = new MovimientoCajaVirtual();
         MovimientoBancario bancoLeg = new MovimientoBancario();
-        when(movimientoCajaVirtualRepository.findByOrigenTipoAndOrigenIdAndActivoTrue(
-                eq(com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo.OPERACION_FINANCIERA), eq(5L)))
-                .thenReturn(java.util.List.of(cajaLeg));
-        when(movimientoBancarioRepository.findByOrigenTipoAndOrigenIdAndAnuladoFalse(
-                eq("OPERACION_FINANCIERA"), eq(5L)))
-                .thenReturn(java.util.List.of(bancoLeg));
+        when(movimientoCajaVirtualRepository.findByOrigenTipoAndOrigenIdAndActivoTrueOrderByCajaVirtualIdAscIdAsc(
+                eq(OP), eq(5L))).thenReturn(java.util.List.of(cajaLeg));
+        when(movimientoBancarioRepository.findByOrigenTipoAndOrigenIdAndAnuladoFalseOrderByCuentaBancariaIdAscIdAsc(
+                eq("OPERACION_FINANCIERA"), eq(5L))).thenReturn(java.util.List.of(bancoLeg));
 
         service.anular(5L, "prueba", null);
 
-        verify(tesoreriaService).revertir(eq(cajaLeg), any(), any());
-        verify(bancoLedgerService).revertir(eq(bancoLeg), any(), any());
+        // La operacion se toma con lock y el estado se lee despues, antes de revertir nada.
+        org.mockito.InOrder orden = inOrder(repository, tesoreriaService, bancoLedgerService);
+        orden.verify(repository).lockById(5L);
+        orden.verify(repository).findAnuladoById(5L);
+        orden.verify(tesoreriaService).revertir(eq(cajaLeg), any(), any());
+        orden.verify(bancoLedgerService).revertir(eq(bancoLeg), any(), any());
         assertTrue(op.getAnulado());
         verify(repository).save(op);
     }
 
     @Test
     void anular_una_operacion_ya_anulada_falla() {
-        OperacionFinanciera op = new OperacionFinanciera();
-        op.setId(7L);
-        op.setAnulado(true);
-        when(repository.findById(7L)).thenReturn(java.util.Optional.of(op));
-        assertThrows(graphql.GraphQLException.class, () -> service.anular(7L, null, null));
+        operacionBloqueada(7L, true);
+
+        graphql.GraphQLException e = assertThrows(graphql.GraphQLException.class, () -> service.anular(7L, null, null));
+
+        assertTrue(e.getMessage().contains("#7") && e.getMessage().contains("ya está anulada"), e.getMessage());
+        verify(tesoreriaService, never()).revertir(any(), any(), any());
+        verify(bancoLedgerService, never()).revertir(any(), any(), any());
+    }
+
+    @Test
+    void anular_mira_el_estado_de_la_base_y_no_el_de_la_instancia_ya_cargada() {
+        // Otra anulacion commiteo mientras esta esperaba el lock: la instancia sigue diciendo que no.
+        OperacionFinanciera op = operacionBloqueada(8L, false);
+        when(repository.findAnuladoById(8L)).thenReturn(java.util.Optional.of(true));
+
+        graphql.GraphQLException e = assertThrows(graphql.GraphQLException.class, () -> service.anular(8L, null, null));
+
+        assertTrue(e.getMessage().contains("ya está anulada"), e.getMessage());
+        verify(tesoreriaService, never()).revertir(any(), any(), any());
+        verify(bancoLedgerService, never()).revertir(any(), any(), any());
+        verify(repository, never()).save(op);
+    }
+
+    @Test
+    void anular_una_operacion_inexistente_lo_dice() {
+        graphql.GraphQLException e = assertThrows(graphql.GraphQLException.class, () -> service.anular(404L, null, null));
+        assertTrue(e.getMessage().contains("no encontrada"), e.getMessage());
+    }
+
+    @Test
+    void si_una_pata_ya_esta_revertida_la_anulacion_se_corta_y_la_operacion_no_queda_anulada() {
+        OperacionFinanciera op = operacionBloqueada(9L, false);
+        MovimientoCajaVirtual cajaLeg = new MovimientoCajaVirtual();
+        when(movimientoCajaVirtualRepository.findByOrigenTipoAndOrigenIdAndActivoTrueOrderByCajaVirtualIdAscIdAsc(
+                eq(OP), eq(9L))).thenReturn(java.util.List.of(cajaLeg));
+        when(tesoreriaService.revertir(eq(cajaLeg), any(), any()))
+                .thenThrow(new graphql.GraphQLException("El movimiento #1 ya está anulado."));
+
+        assertThrows(graphql.GraphQLException.class, () -> service.anular(9L, null, null));
+
+        assertFalse(op.getAnulado());
+        verify(repository, never()).save(op);
     }
 
     @Test

@@ -225,6 +225,12 @@ public class RetiroVerificacionService {
         }
         Retiro retiro = retiroRepository.lockByIdAndSucursalId(v.getRetiroId(), v.getSucursalId())
                 .orElseThrow(() -> new GraphQLException("Retiro no encontrado"));
+        // El chequeo de arriba es anterior al lock. Si otra anulación de esta verificación commiteó mientras
+        // esta esperaba —y alguien volvió a verificar el retiro—, los movimientos activos que siguen son los
+        // de la verificación NUEVA: revertirlos descuadra la caja (issue #376).
+        if (verificacionRepository.findAnuladaById(verificacionId).orElse(Boolean.TRUE.equals(v.getAnulada()))) {
+            throw new GraphQLException("La verificación ya está anulada");
+        }
 
         List<MovimientoCajaVirtual> movimientos = movimientoRepository
                 .findByOrigenTipoAndOrigenIdAndOrigenSucursalIdAndActivoTrue(

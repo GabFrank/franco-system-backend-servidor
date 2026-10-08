@@ -42,8 +42,12 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
 
     List<MovimientoCajaVirtual> findByCajaVirtualIdAndActivoTrue(Long cajaVirtualId);
 
-    /** Patas de caja activas de una operación dueña (para revertir todas al anularla). */
-    List<MovimientoCajaVirtual> findByOrigenTipoAndOrigenIdAndActivoTrue(OrigenMovimientoTipo origenTipo, Long origenId);
+    /**
+     * Patas de caja activas de una operación dueña (para revertir todas al anularla), por caja ascendente:
+     * el mismo orden en que se postearon, para que dos anulaciones no tomen los saldos cruzados.
+     */
+    List<MovimientoCajaVirtual> findByOrigenTipoAndOrigenIdAndActivoTrueOrderByCajaVirtualIdAscIdAsc(
+            OrigenMovimientoTipo origenTipo, Long origenId);
 
     /**
      * Igual que el anterior pero acotado a la sucursal del documento de origen.

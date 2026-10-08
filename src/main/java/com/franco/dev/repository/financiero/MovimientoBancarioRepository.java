@@ -57,6 +57,7 @@ public interface MovimientoBancarioRepository extends JpaRepository<MovimientoBa
                                         @Param("tipo") String tipo,
                                         @Param("soloActivos") boolean soloActivos);
 
-    /** Patas bancarias no anuladas de una operación dueña (para revertir todas al anularla). */
-    List<MovimientoBancario> findByOrigenTipoAndOrigenIdAndAnuladoFalse(String origenTipo, Long origenId);
+    /** Patas bancarias no anuladas de una operación dueña (para revertir todas al anularla), por cuenta ascendente. */
+    List<MovimientoBancario> findByOrigenTipoAndOrigenIdAndAnuladoFalseOrderByCuentaBancariaIdAscIdAsc(
+            String origenTipo, Long origenId);
 }

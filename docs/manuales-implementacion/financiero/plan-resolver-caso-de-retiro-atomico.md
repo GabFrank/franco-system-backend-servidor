@@ -199,6 +199,11 @@ otro investiga):
 
 Log sin `deadlock`.
 
+**Desktop** (worktree propio, `ng serve` contra el central local, Chrome): resolver el caso con «Contó mal
+tesorería» y la anulacion pedida, con la anulacion imposible → aviso «Saldo insuficiente en la caja virtual»
+y el dialogo **queda abierto** con el veredicto y el informe; desmarcar la anulacion y resolver de nuevo → el
+caso queda resuelto con ese informe. `npm run check` sin errores.
+
 ## Auditoria del diff (paso 8, 2026-10-08)
 
 Dos auditores (autorizacion + esquema; contrato + correccion). Ningun hallazgo alto. La logica salio del

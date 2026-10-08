@@ -31,6 +31,7 @@ class PagoProveedorServiceTest {
     private MonedaRepository monedaRepository;
     private ChequeGestionService chequeGestionService;
     private com.franco.dev.repository.financiero.ChequeraRepository chequeraRepo;
+    private IdempotenciaService idempotenciaService;
     private PagoProveedorService service;
 
     private SolicitudPago sp;
@@ -69,11 +70,15 @@ class PagoProveedorServiceTest {
         GastoTesoreriaService gastoTesoreriaService = mock(GastoTesoreriaService.class);
         // El ACL de cajas acota detalleDePago; estos tests no lo ejercitan.
         TesoreriaSecurityService seguridad = mock(TesoreriaSecurityService.class);
+        // Por defecto la clave es nueva (o no hay): la idempotencia deja correr la operacion.
+        idempotenciaService = mock(IdempotenciaService.class);
+        when(idempotenciaService.ejecutar(any(), any(), any(), any(), any(), any(), any()))
+                .thenAnswer(inv -> inv.<java.util.function.Supplier<Object>>getArgument(4).get());
         service = new PagoProveedorService(solicitudPagoService, pagoService, tesoreriaService, bancoLedgerService,
                 chequeGestionService, chequeraRepo, cajaVirtualRepository, monedaRepository, detalleRepo,
                 seguridad, movBancarioRepo,
                 preGastoService, gastoTesoreriaService, valeService, liquidacionSueldoService,
-                liquidacionFinalService, aguinaldoService);
+                liquidacionFinalService, aguinaldoService, idempotenciaService);
 
         com.franco.dev.domain.personas.Persona persona = new com.franco.dev.domain.personas.Persona(); persona.setNombre("PROV X");
         Proveedor prov = new Proveedor(); prov.setId(7L); prov.setPersona(persona);
@@ -365,5 +370,109 @@ class PagoProveedorServiceTest {
         assertTrue(e.getMessage().contains("ya está anulado"), e.getMessage());
         verify(tesoreriaService, never()).revertir(any(), any(), any());
         verify(bancoLedgerService, never()).revertir(any(), any(), any());
+    }
+
+    // ── Idempotencia del pago mixto (issue #376) ──
+
+    private PagoProveedorService.SolicitudConLineas parcial(double monto) {
+        PagoProveedorService.SolicitudConLineas s = new PagoProveedorService.SolicitudConLineas();
+        s.setSolicitudId(1L);
+        s.setLineas(Collections.singletonList(linea(FuentePago.CAJA_MAYOR, monto)));
+        return s;
+    }
+
+    /** La clave ya esta registrada con el pago #500: la idempotencia no corre la accion, carga lo ya creado. */
+    private void claveYaUsadaPorElPago(com.franco.dev.domain.operaciones.enums.PagoEstado estado) {
+        com.franco.dev.domain.operaciones.Pago existente = new com.franco.dev.domain.operaciones.Pago();
+        existente.setId(500L);
+        existente.setEstado(estado);
+        com.franco.dev.repository.operaciones.PagoRepository pagoRepo =
+                mock(com.franco.dev.repository.operaciones.PagoRepository.class);
+        when(pagoService.getRepository()).thenReturn(pagoRepo);
+        when(pagoRepo.findById(500L)).thenReturn(Optional.of(existente));
+        // doAnswer y no when(...): al re-stubear, when invocaria la respuesta por defecto con argumentos nulos.
+        doAnswer(inv -> inv.<java.util.function.Function<Long, Object>>getArgument(6).apply(500L))
+                .when(idempotenciaService).ejecutar(eq("clave-1"), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void pago_parcial_repetido_con_la_misma_clave_devuelve_el_pago_original_sin_mover_plata() {
+        claveYaUsadaPorElPago(com.franco.dev.domain.operaciones.enums.PagoEstado.CONCLUIDO);
+
+        com.franco.dev.domain.operaciones.Pago r =
+                service.pagarLoteMixto(Collections.singletonList(parcial(40000)), null, "clave-1");
+
+        assertEquals(500L, r.getId());
+        verify(tesoreriaService, never()).registrar(any());
+        verify(bancoLedgerService, never()).registrar(anyLong(), any(), any(), any(), any(), any(), any());
+        verify(chequeGestionService, never()).emitir(any(), any());
+        verify(solicitudPagoService.getRepository(), never()).lockById(anyLong());
+        assertEquals(0, sp.getMontoPagado().signum());
+    }
+
+    @Test
+    void pago_repetido_de_un_evento_ya_anulado_se_rechaza_y_no_se_vuelve_a_ejecutar() {
+        claveYaUsadaPorElPago(com.franco.dev.domain.operaciones.enums.PagoEstado.CANCELADO);
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> service.pagarLoteMixto(Collections.singletonList(parcial(40000)), null, "clave-1"));
+
+        assertTrue(e.getMessage().contains("#500") && e.getMessage().contains("anulado"), e.getMessage());
+        verify(tesoreriaService, never()).registrar(any());
+    }
+
+    @Test
+    void pago_con_clave_nueva_se_procesa_bajo_la_operacion_del_pago_mixto() {
+        service.pagarLoteMixto(Collections.singletonList(parcial(40000)), null, "clave-2");
+
+        verify(idempotenciaService).ejecutar(eq("clave-2"), eq(PagoProveedorService.OPERACION_PAGAR_MIXTO),
+                eq(PagoProveedorService.huellaDe(Collections.singletonList(parcial(40000)))),
+                isNull(), any(), any(), any());
+        verify(tesoreriaService).registrar(any());
+        assertEquals(SolicitudPagoEstado.PARCIAL, sp.getEstado());
+    }
+
+    @Test
+    void la_guarda_de_rrhh_corre_dentro_de_la_operacion_idempotente() {
+        // Con la clave ya usada no se evalua nada del pedido: ni siquiera el tipo de la solicitud.
+        claveYaUsadaPorElPago(com.franco.dev.domain.operaciones.enums.PagoEstado.CONCLUIDO);
+        service.pagarLoteMixto(Collections.singletonList(parcial(40000)), null, "clave-1");
+        verify(solicitudPagoService.getRepository(), never()).findTipoById(anyLong());
+    }
+
+    @Test
+    void la_huella_no_cambia_si_el_cliente_rearma_el_mismo_pedido() {
+        PagoProveedorService.LineaPago a = linea(FuentePago.CHEQUE, 40000);
+        a.setChequeraId(3L);
+        a.setFechaEmision(java.time.LocalDateTime.of(2026, 10, 8, 9, 0, 1));
+        a.setFechaPago(java.time.LocalDateTime.of(2026, 11, 8, 0, 0));
+        a.setDescuento(false); a.setAumento(false);
+        PagoProveedorService.LineaPago b = linea(FuentePago.CHEQUE, 40000);
+        b.setMonto(new BigDecimal("40000.00"));
+        b.setChequeraId(3L);
+        b.setFechaEmision(java.time.LocalDateTime.of(2026, 10, 8, 9, 0, 47));   // «ahora», otra vez
+        b.setFechaPago(java.time.LocalDateTime.of(2026, 11, 8, 13, 30));
+        b.setNominal(true);                                                       // el default, explicito
+        PagoProveedorService.SolicitudConLineas sa = new PagoProveedorService.SolicitudConLineas();
+        sa.setSolicitudId(1L); sa.setLineas(Collections.singletonList(a));
+        PagoProveedorService.SolicitudConLineas sb = new PagoProveedorService.SolicitudConLineas();
+        sb.setSolicitudId(1L); sb.setLineas(Collections.singletonList(b));
+
+        assertEquals(PagoProveedorService.huellaDe(Collections.singletonList(sa)),
+                PagoProveedorService.huellaDe(Collections.singletonList(sb)));
+    }
+
+    @Test
+    void la_huella_cambia_con_el_monto_la_fuente_o_la_solicitud() {
+        String base = PagoProveedorService.huellaDe(Collections.singletonList(parcial(40000)));
+        assertNotEquals(base, PagoProveedorService.huellaDe(Collections.singletonList(parcial(40001))));
+
+        PagoProveedorService.SolicitudConLineas otraFuente = parcial(40000);
+        otraFuente.getLineas().get(0).setFuente(FuentePago.CUENTA_BANCARIA);
+        assertNotEquals(base, PagoProveedorService.huellaDe(Collections.singletonList(otraFuente)));
+
+        PagoProveedorService.SolicitudConLineas otraSolicitud = parcial(40000);
+        otraSolicitud.setSolicitudId(2L);
+        assertNotEquals(base, PagoProveedorService.huellaDe(Collections.singletonList(otraSolicitud)));
     }
 }

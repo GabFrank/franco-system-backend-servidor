@@ -111,7 +111,9 @@ use. Por eso el trabajo no se da por terminado con el PR del central solo.
 
 Central (un PR):
 
-1. **Migracion + entidad + repositorio + `IdempotenciaService`.**
+1. **Migracion + `IdempotenciaService` + `HuellaPedido`.** Sin entidad ni repositorio: las tres
+   sentencias son nativas por `EntityManager` y una entidad no agregaba nada (cambio respecto del plan
+   aprobado, que las nombraba).
    Tests unitarios de la huella: dos pedidos armados por rutas distintas (nulos vs `false`, distinta
    `fechaEmision`, distinta hora en `fechaPago`) dan la misma; otro monto da otra.
    `IdempotenciaIT` (Postgres real, `@EnabledIfSystemProperty(it.financiero)` como `FinancieroFixesIT`;

@@ -236,4 +236,87 @@ class TesoreriaServiceTest {
         assertEquals(gs, r.getMoneda());
         assertEquals(1100.0, r.getSaldoPosterior());
     }
+
+    // ── revertir: un movimiento se revierte una sola vez (issue #376) ──
+
+    private MovimientoCajaVirtual egresoDeVale(long id) {
+        MovimientoCajaVirtual m = mov(CajaVirtualTipoMovimiento.EGRESO, 300);
+        m.setId(id);
+        m.setOrigenTipo(OrigenMovimientoTipo.RRHH_VALE);
+        return m;
+    }
+
+    @Test
+    void revertir_dos_veces_el_mismo_movimiento_rechaza_la_segunda_y_no_devuelve_la_plata_otra_vez() {
+        MovimientoCajaVirtual original = egresoDeVale(60L);
+
+        service.revertir(original, "ANULACION VALE #1", null);
+        assertEquals(0, new BigDecimal("1300").compareTo(saldo.getSaldo()));
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> service.revertir(original, "ANULACION VALE #1", null));
+        assertTrue(e.getMessage().contains("#60") && e.getMessage().contains("ya está anulado"), e.getMessage());
+        verify(movimientoRepository, times(2)).save(any());   // el contra y el original inactivo, de la primera
+        assertEquals(0, new BigDecimal("1300").compareTo(saldo.getSaldo()));
+    }
+
+    @Test
+    void revertir_mira_el_estado_de_la_base_y_no_el_de_la_instancia_que_le_pasan() {
+        // Otra transaccion ya lo revirtio y commiteo mientras esta esperaba el lock: la instancia que trae
+        // el llamador sigue diciendo activo.
+        MovimientoCajaVirtual original = egresoDeVale(61L);
+        when(movimientoRepository.findActivoById(61L)).thenReturn(Optional.of(false));
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> service.revertir(original, "ANULACION VALE #2", null));
+
+        assertTrue(e.getMessage().contains("ya está anulado"), e.getMessage());
+        verify(movimientoRepository, never()).save(any());
+        assertEquals(0, new BigDecimal("1000").compareTo(saldo.getSaldo()));
+    }
+
+    @Test
+    void revertir_toma_el_lock_antes_de_leer_el_estado() {
+        MovimientoCajaVirtual original = egresoDeVale(62L);
+        when(movimientoRepository.findActivoById(62L)).thenReturn(Optional.of(true));
+
+        service.revertir(original, "ANULACION VALE #3", null);
+
+        org.mockito.InOrder orden = inOrder(movimientoRepository, saldoRepository);
+        orden.verify(movimientoRepository).lockById(62L);
+        orden.verify(movimientoRepository).findActivoById(62L);
+        orden.verify(saldoRepository).lockByCajaVirtualIdAndMonedaId(1L, 10L);
+    }
+
+    @Test
+    void revertir_con_activo_nulo_lo_trata_como_activo() {
+        MovimientoCajaVirtual original = egresoDeVale(63L);
+        original.setActivo(null);
+
+        service.revertir(original, "ANULACION VALE #4", null);
+
+        assertEquals(Boolean.FALSE, original.getActivo());
+        assertEquals(0, new BigDecimal("1300").compareTo(saldo.getSaldo()));
+    }
+
+    @Test
+    void revertir_un_movimiento_sin_registrar_se_rechaza() {
+        MovimientoCajaVirtual sinId = mov(CajaVirtualTipoMovimiento.EGRESO, 300);
+
+        assertThrows(GraphQLException.class, () -> service.revertir(sinId, "x", null));
+        verify(movimientoRepository, never()).save(any());
+    }
+
+    @Test
+    void revertir_sin_permiso_sobre_la_caja_no_revela_que_ya_estaba_anulado_ni_toma_el_lock() {
+        MovimientoCajaVirtual anulado = egresoDeVale(64L);
+        anulado.setActivo(false);
+        when(movimientoRepository.findActivoById(64L)).thenReturn(Optional.of(false));
+        doThrow(new GraphQLException("Sin permiso sobre la caja")).when(seguridad).requireEscrituraCaja(1L);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.revertir(anulado, "x", null));
+
+        assertTrue(e.getMessage().contains("Sin permiso"), e.getMessage());
+        verify(movimientoRepository, never()).lockById(anyLong());
+    }
 }

@@ -237,9 +237,30 @@ public class TesoreriaService {
      * Genera el contra-movimiento que revierte el efecto de {@code orig} (ledger
      * inmutable, nunca se edita/borra el original). Sin el guard cross-módulo: lo
      * invoca el módulo dueño de la operación al anularla.
+     *
+     * <p>Un movimiento se revierte <b>una sola vez</b> (issue #376): se toma con lock y se rechaza si ya
+     * está inactivo. El control vive acá y no en cada módulo dueño porque acá es donde se postea el
+     * contra-movimiento: dos anulaciones simultáneas del mismo vale, entrada o pago leían las dos el
+     * documento sin anular y cada una devolvía la plata.</p>
      */
     @Transactional
     public MovimientoCajaVirtual revertir(MovimientoCajaVirtual orig, String motivo, Usuario usuario) {
+        if (orig.getId() == null) {
+            throw new GraphQLException("No se puede revertir un movimiento que no está registrado.");
+        }
+        // El permiso sobre la caja va antes de mirar el estado, igual que en anular(): quien no puede mover
+        // plata en esta caja no tiene por qué enterarse de si el movimiento ya está anulado, ni esperar su
+        // lock. registrar() lo vuelve a exigir al postear el contra-movimiento.
+        seguridad.requireEscrituraCaja(orig.getCajaVirtual() != null ? orig.getCajaVirtual().getId() : null);
+        // El lock serializa; el estado se lee después y de la base. lockById devuelve la instancia que el
+        // llamador ya tuviera cargada (casi siempre: la buscó para pasarla acá), con el activo de antes de
+        // esperar. Sin fila en la proyección vale el de la entidad; un activo nulo cuenta como activo.
+        movimientoRepository.lockById(orig.getId());
+        boolean activo = movimientoRepository.findActivoById(orig.getId())
+                .orElse(!Boolean.FALSE.equals(orig.getActivo()));
+        if (!activo) {
+            throw new GraphQLException("El movimiento #" + orig.getId() + " ya está anulado.");
+        }
         // Recomputa el efecto con BigDecimal (no restando los snapshots Double, que arrastran
         // error de punto flotante en monedas con decimales). El contra-movimiento es el negado.
         BigDecimal cantidadOrig = orig.getCantidad() != null ? BigDecimal.valueOf(orig.getCantidad()) : BigDecimal.ZERO;

@@ -34,6 +34,48 @@ public class ChequeGestionService {
     private final com.franco.dev.repository.financiero.ChequeraRepository chequeraRepository;
     private final com.franco.dev.repository.financiero.MovimientoBancarioRepository movimientoBancarioRepository;
     private final BancoLedgerService bancoLedgerService;
+    private final IdempotenciaService idempotenciaService;
+
+    /** Nombre de la operacion en {@code financiero.operacion_idempotente}. */
+    static final String OPERACION_EMITIR_CHEQUE = "EMITIR_CHEQUE";
+
+    /**
+     * Emite un cheque suelto con clave de idempotencia (issue #376): repetir el pedido emitia otro cheque
+     * con el numero siguiente y volvia a debitar o reservar. Con la clave, el pedido repetido devuelve el
+     * cheque que emitio el original. Clave nula = cliente viejo, sin cambios.
+     *
+     * <p>Los cheques de un pago no pasan por aca: los cubre la clave del pago.</p>
+     */
+    @Transactional
+    public Cheque emitir(Cheque cheque, Usuario usuario, String claveIdempotencia) {
+        return idempotenciaService.ejecutar(claveIdempotencia, OPERACION_EMITIR_CHEQUE, huellaDe(cheque), usuario,
+                () -> emitir(cheque, usuario),
+                Cheque::getId,
+                this::chequeYaEmitido);
+    }
+
+    /** El cheque del pedido original. Si despues se anulo, se rechaza: ni exito ni otra emision. */
+    private Cheque chequeYaEmitido(Long chequeId) {
+        Cheque cheque = chequeRepository.findById(chequeId).orElse(null);
+        if (cheque != null && cheque.getEstado() == EstadoCheque.ANULADO) {
+            throw new GraphQLException("El cheque de este pedido ya se emitió y después fue anulado."
+                    + " Si corresponde, emita un cheque nuevo.");
+        }
+        return cheque;
+    }
+
+    /** Huella del pedido de emision. {@code fechaPago} cuenta solo por su dia. */
+    static String huellaDe(Cheque cheque) {
+        return new HuellaPedido()
+                .id(cheque.getChequera() != null ? cheque.getChequera().getId() : null)
+                .numero(cheque.getTotal() != null ? BigDecimal.valueOf(cheque.getTotal()) : null)
+                .bandera(cheque.getDiferido())
+                .id(cheque.getMoneda() != null ? cheque.getMoneda().getId() : null)
+                .id(cheque.getCuentaBancaria() != null ? cheque.getCuentaBancaria().getId() : null)
+                .dia(cheque.getFechaPago())
+                .texto(cheque.getConcepto())
+                .calcular();
+    }
 
     /** Emite un cheque. Avanza el correlativo de la chequera; agota la chequera si corresponde. */
     @Transactional

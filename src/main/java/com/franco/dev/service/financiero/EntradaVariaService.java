@@ -70,9 +70,12 @@ public class EntradaVariaService {
     /** Anula la entrada/salida y revierte su movimiento de caja. */
     @Transactional
     public EntradaVaria anular(Long id, String motivo, Usuario usuario) {
-        EntradaVaria e = repository.findById(id)
+        // Con lock: sin él, dos anulaciones simultáneas leían las dos la entrada sin anular (issue #376). El
+        // estado se relee después del lock y de la base: lockById devuelve la instancia que ya estuviera
+        // cargada en la request, con el anulado de antes de esperar.
+        EntradaVaria e = repository.lockById(id)
                 .orElseThrow(() -> new GraphQLException("Entrada varia no encontrada: " + id));
-        if (Boolean.TRUE.equals(e.getAnulado())) {
+        if (repository.findAnuladoById(id).orElse(Boolean.TRUE.equals(e.getAnulado()))) {
             throw new GraphQLException("La entrada/salida ya está anulada");
         }
         // Reversión desde el módulo dueño (EntradaVaria), vía el helper sin guard cross-módulo.

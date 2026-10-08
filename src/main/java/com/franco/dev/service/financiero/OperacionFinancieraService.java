@@ -173,9 +173,12 @@ public class OperacionFinancieraService {
      */
     @Transactional
     public OperacionFinanciera anular(Long operacionId, String motivo, Usuario usuario) {
-        OperacionFinanciera op = repository.findById(operacionId)
+        // Con lock: sin él, dos anulaciones simultáneas leían las dos la operación sin anular (issue #376).
+        // El estado se relee después del lock y de la base: lockById devuelve la instancia que ya estuviera
+        // cargada en la request, con el anulado de antes de esperar.
+        OperacionFinanciera op = repository.lockById(operacionId)
                 .orElseThrow(() -> new GraphQLException("Operación financiera no encontrada: " + operacionId));
-        if (Boolean.TRUE.equals(op.getAnulado())) {
+        if (repository.findAnuladoById(operacionId).orElse(Boolean.TRUE.equals(op.getAnulado()))) {
             throw new GraphQLException("La operación financiera #" + operacionId + " ya está anulada");
         }
         String razon = (motivo != null && !motivo.trim().isEmpty())
@@ -183,12 +186,14 @@ public class OperacionFinancieraService {
 
         // Patas de caja mayor (cambio divisa, transf. entre cajas, pata de caja de depósito/retiro, AJUSTE de diferencia).
         for (MovimientoCajaVirtual m : movimientoCajaVirtualRepository
-                .findByOrigenTipoAndOrigenIdAndActivoTrue(OrigenMovimientoTipo.OPERACION_FINANCIERA, operacionId)) {
+                .findByOrigenTipoAndOrigenIdAndActivoTrueOrderByCajaVirtualIdAscIdAsc(
+                        OrigenMovimientoTipo.OPERACION_FINANCIERA, operacionId)) {
             tesoreriaService.revertir(m, razon, usuario);
         }
         // Patas bancarias (depósito, retiro, transferencia bancaria).
         for (MovimientoBancario m : movimientoBancarioRepository
-                .findByOrigenTipoAndOrigenIdAndAnuladoFalse(OrigenMovimientoTipo.OPERACION_FINANCIERA.name(), operacionId)) {
+                .findByOrigenTipoAndOrigenIdAndAnuladoFalseOrderByCuentaBancariaIdAscIdAsc(
+                        OrigenMovimientoTipo.OPERACION_FINANCIERA.name(), operacionId)) {
             bancoLedgerService.revertir(m, razon, usuario);
         }
 

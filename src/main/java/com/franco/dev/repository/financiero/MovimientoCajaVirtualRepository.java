@@ -27,6 +27,14 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
     @Query("select m from MovimientoCajaVirtual m where m.id = :id")
     Optional<MovimientoCajaVirtual> lockById(@Param("id") Long id);
 
+    /**
+     * Solo si sigue activo, leido de la base: si el movimiento ya estaba en el contexto de persistencia,
+     * {@link #lockById} espera el lock pero devuelve esa instancia sin refrescar (estado viejo). Se llama
+     * <b>despues</b> del lock; antes, leeria lo mismo que la carrera que se quiere cortar.
+     */
+    @Query("select coalesce(m.activo, true) from MovimientoCajaVirtual m where m.id = :id")
+    Optional<Boolean> findActivoById(@Param("id") Long id);
+
     Page<MovimientoCajaVirtual> findByCajaVirtualIdOrderByCreadoEnDesc(Long cajaVirtualId, Pageable pageable);
 
     Page<MovimientoCajaVirtual> findByCajaVirtualIdAndCreadoEnBetweenOrderByCreadoEnDesc(
@@ -34,8 +42,12 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
 
     List<MovimientoCajaVirtual> findByCajaVirtualIdAndActivoTrue(Long cajaVirtualId);
 
-    /** Patas de caja activas de una operación dueña (para revertir todas al anularla). */
-    List<MovimientoCajaVirtual> findByOrigenTipoAndOrigenIdAndActivoTrue(OrigenMovimientoTipo origenTipo, Long origenId);
+    /**
+     * Patas de caja activas de una operación dueña (para revertir todas al anularla), por caja ascendente:
+     * el mismo orden en que se postearon, para que dos anulaciones no tomen los saldos cruzados.
+     */
+    List<MovimientoCajaVirtual> findByOrigenTipoAndOrigenIdAndActivoTrueOrderByCajaVirtualIdAscIdAsc(
+            OrigenMovimientoTipo origenTipo, Long origenId);
 
     /**
      * Igual que el anterior pero acotado a la sucursal del documento de origen.

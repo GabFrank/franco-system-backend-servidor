@@ -19,6 +19,13 @@ public interface RetiroVerificacionRepository extends JpaRepository<RetiroVerifi
     Optional<RetiroVerificacion> findVigente(@Param("retiroId") Long retiroId, @Param("sucId") Long sucId);
 
     /**
+     * Solo si esta anulada, leido de la base y no de la instancia ya cargada. Se llama <b>despues</b> de
+     * tomar el lock del retiro, que es lo que serializa las anulaciones de sus verificaciones.
+     */
+    @Query("select coalesce(v.anulada, false) from RetiroVerificacion v where v.id = :id")
+    Optional<Boolean> findAnuladaById(@Param("id") Long id);
+
+    /**
      * Verificaciones con diferencia, para la bandeja.
      *
      * Se filtra por resultado y no por la existencia de un caso: un caso puede haberse

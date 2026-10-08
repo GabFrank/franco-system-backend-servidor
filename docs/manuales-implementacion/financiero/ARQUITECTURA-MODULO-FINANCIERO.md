@@ -66,6 +66,13 @@ CAMBIO_DIVISA (egreso+ingreso caja), DEPOSITO_BANCARIO (egreso caja + entrada ba
 - **CPP** (`PagoProveedorService`): `SolicitudPago` como cuenta por pagar; pago **mixto**
   (varias líneas caja/banco), `PAGO_PROVEEDOR`, doble ledger (egreso + `MovimientoProveedor`),
   transición PENDIENTE→PARCIAL→CONCLUIDO.
+- **El monto de una solicitud de compra nunca tiene mas decimales que su moneda.** El motor rechaza
+  un exceso mayor a `0.005`, asi que una deuda de `899854.5` guaranies no se salda con ningun pago
+  (SP-001338, bodega, 2026-10-08). `SolicitudPagoNotaRecepcionService.redondearAMoneda` (HALF_UP a
+  `moneda.decimales`) se aplica al guardar el `monto_incluido` de cada nota y al recalcular el total;
+  el total es la **suma de lo incluido ya redondeado**, no el redondeo de la suma cruda. `V238.1`
+  normalizo las de compra abiertas y sin pagos. **No cubierto:** GASTO y RRHH (toman el monto del
+  documento de origen) y el plan de formas de pago (`solicitud_pago_detalle`).
 
 ## 6. Cheques + POS
 - **Cheque** (`ChequeGestionService`): diferido reserva saldo; contado debita + COBRADO; cobrar

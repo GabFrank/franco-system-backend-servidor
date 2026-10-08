@@ -71,10 +71,21 @@ public class BancoLedgerService {
      * Revierte un movimiento bancario posteando un AJUSTE compensatorio del signo opuesto
      * (ledger inmutable: no borra ni edita el original, solo lo marca anulado). Lo invoca el
      * módulo dueño al anular su operación. El compensatorio pasa por el control de descubierto.
+     *
+     * <p>Un movimiento se revierte <b>una sola vez</b> (issue #376). El rechazo ya existía, pero miraba la
+     * instancia recibida, leída sin lock: dos anulaciones simultáneas la veían sin anular las dos.</p>
      */
     @Transactional
     public MovimientoBancario revertir(MovimientoBancario orig, String motivo, Usuario usuario) {
-        if (Boolean.TRUE.equals(orig.getAnulado())) {
+        if (orig.getId() == null) {
+            throw new GraphQLException("No se puede revertir un movimiento bancario que no está registrado.");
+        }
+        // Lock y, después, el estado leído de la base: lockById devuelve la instancia que ya estuviera
+        // cargada, con el anulado de antes de esperar. Sin fila en la proyección vale el de la entidad.
+        movimientoRepository.lockById(orig.getId());
+        boolean anulado = movimientoRepository.findAnuladoById(orig.getId())
+                .orElse(Boolean.TRUE.equals(orig.getAnulado()));
+        if (anulado) {
             throw new GraphQLException("El movimiento bancario #" + orig.getId() + " ya está anulado");
         }
         // El original restó (egreso) → devolvemos con AJUSTE_POSITIVO; sumó (ingreso) → quitamos con AJUSTE_NEGATIVO.

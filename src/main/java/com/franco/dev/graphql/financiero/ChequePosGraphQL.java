@@ -27,7 +27,8 @@ public class ChequePosGraphQL implements GraphQLMutationResolver {
     private final TesoreriaSecurityService seg;
 
     public Cheque emitirCheque(Long chequeraId, Double total, Boolean diferido, Long monedaId,
-                               Long cuentaBancariaId, String fechaPago, String concepto) {
+                               Long cuentaBancariaId, String fechaPago, String concepto,
+                               String claveIdempotencia) {
         seg.requireGestionar();
         Cheque c = new Cheque();
         c.setChequera(chequeraRepository.findById(chequeraId).orElseThrow(() -> new GraphQLException("Chequera no encontrada")));
@@ -37,7 +38,7 @@ public class ChequePosGraphQL implements GraphQLMutationResolver {
         if (monedaId != null) c.setMoneda(monedaService.findById(monedaId).orElse(null));
         if (cuentaBancariaId != null) c.setCuentaBancaria(cuentaBancariaRepository.findById(cuentaBancariaId).orElse(null));
         if (fechaPago != null) c.setFechaPago(stringToDate(fechaPago));
-        return chequeGestionService.emitir(c, seg.currentUsuario());
+        return chequeGestionService.emitir(c, seg.currentUsuario(), claveIdempotencia);
     }
 
     public Cheque cobrarCheque(Long chequeId) {

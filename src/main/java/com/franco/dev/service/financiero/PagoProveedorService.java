@@ -69,6 +69,10 @@ public class PagoProveedorService {
     private final com.franco.dev.service.rrhh.LiquidacionSueldoService liquidacionSueldoService;
     private final com.franco.dev.service.rrhh.LiquidacionFinalService liquidacionFinalService;
     private final com.franco.dev.service.rrhh.AguinaldoService aguinaldoService;
+    private final IdempotenciaService idempotenciaService;
+
+    /** Nombre de la operacion en {@code financiero.operacion_idempotente}. */
+    static final String OPERACION_PAGAR_MIXTO = "PAGAR_SOLICITUDES_MIXTO";
 
     /** Una línea de pago (pago mixto). Puede ser fuente AJUSTE (diferencia de cambio). */
     @Data
@@ -282,9 +286,72 @@ public class PagoProveedorService {
      */
     @Transactional
     public Pago pagarLoteMixto(List<SolicitudConLineas> pagos, Usuario usuario) {
-        exigirSinObligacionesRrhh(pagos == null ? null
-                : pagos.stream().map(SolicitudConLineas::getSolicitudId).collect(Collectors.toList()));
-        return procesarEvento(pagos, usuario);
+        return pagarLoteMixto(pagos, usuario, null);
+    }
+
+    /**
+     * Idem, con clave de idempotencia (issue #376): un pago <b>parcial</b> repetido pasa todas las guardas
+     * del motor y volvia a mover la caja o el banco y a emitir cheques nuevos. Con la clave, el pedido
+     * repetido devuelve el evento que creo el original. Clave nula = cliente viejo, sin cambios.
+     */
+    @Transactional
+    public Pago pagarLoteMixto(List<SolicitudConLineas> pagos, Usuario usuario, String claveIdempotencia) {
+        return idempotenciaService.ejecutar(claveIdempotencia, OPERACION_PAGAR_MIXTO, huellaDe(pagos), usuario,
+                () -> {
+                    exigirSinObligacionesRrhh(pagos == null ? null
+                            : pagos.stream().map(SolicitudConLineas::getSolicitudId).collect(Collectors.toList()));
+                    return procesarEvento(pagos, usuario);
+                },
+                Pago::getId,
+                this::pagoYaRegistrado);
+    }
+
+    /**
+     * El evento que creo el pedido original. Si despues se anulo no se devuelve como exito — el cliente lo
+     * mostraria como un pago registrado — ni se vuelve a ejecutar: se rechaza diciendo que paso.
+     */
+    private Pago pagoYaRegistrado(Long pagoId) {
+        Pago pago = pagoService.getRepository().findById(pagoId).orElse(null);
+        if (pago != null && pago.getEstado() == PagoEstado.CANCELADO) {
+            throw new GraphQLException("El pago #" + pagoId + " de este pedido ya se registró y después fue anulado."
+                    + " Si corresponde pagarlo de nuevo, arme un pago nuevo.");
+        }
+        return pago;
+    }
+
+    /**
+     * Huella del pedido: lo que define que se paga y con que. Sin {@code fechaEmision}, que el cliente
+     * arma con la hora del momento de confirmar, y con {@code fechaPago} solo por su dia.
+     */
+    static String huellaDe(List<SolicitudConLineas> pagos) {
+        HuellaPedido h = new HuellaPedido();
+        if (pagos == null) return h.calcular();
+        // chequeRef solo agrupa las partes de un mismo cheque: su valor sale de un contador del cliente que
+        // sigue avanzando si el pago se rearma. Cuenta el agrupamiento, no el numero.
+        Map<Long, Long> ordenDeCheque = new HashMap<>();
+        long sinRef = 0;
+        for (SolicitudConLineas p : pagos) {
+            h.texto("S").id(p.getSolicitudId());
+            if (p.getLineas() == null) continue;
+            for (LineaPago l : p.getLineas()) {
+                Long grupoCheque = null;
+                if (l.getFuente() == FuentePago.CHEQUE) {
+                    // Sin chequeRef cada linea es un cheque aparte, igual que en el motor.
+                    grupoCheque = l.getChequeRef() != null
+                            ? ordenDeCheque.computeIfAbsent(l.getChequeRef(), k -> (long) ordenDeCheque.size())
+                            : Long.valueOf(--sinRef);
+                }
+                h.texto("L").texto(l.getFuente() != null ? l.getFuente().name() : null)
+                        .id(l.getCajaVirtualId()).id(l.getCuentaBancariaId()).id(l.getMonedaId())
+                        .numero(l.getMonto()).numero(l.getCotizacion()).numero(l.getMontoSolicitud())
+                        .bandera(l.getDescuento()).bandera(l.getAumento())
+                        .id(grupoCheque).id(l.getChequeraId()).bandera(l.getDiferido())
+                        .dia(l.getFechaPago()).texto(l.getBeneficiario())
+                        // Nulo = nominal, igual que al emitir el cheque.
+                        .bandera(l.getNominal() == null || l.getNominal());
+            }
+        }
+        return h.calcular();
     }
 
     /**

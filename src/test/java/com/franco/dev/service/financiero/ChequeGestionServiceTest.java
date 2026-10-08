@@ -27,6 +27,7 @@ class ChequeGestionServiceTest {
     private com.franco.dev.repository.financiero.ChequeRepository chequeRepository;
     private com.franco.dev.repository.financiero.ChequeraRepository chequeraRepository;
     private BancoLedgerService bancoLedgerService;
+    private IdempotenciaService idempotenciaService;
     private ChequeGestionService service;
 
     private Chequera chequera;
@@ -41,7 +42,12 @@ class ChequeGestionServiceTest {
         com.franco.dev.repository.financiero.MovimientoBancarioRepository movBancarioRepo =
                 mock(com.franco.dev.repository.financiero.MovimientoBancarioRepository.class);
         bancoLedgerService = mock(BancoLedgerService.class);
-        service = new ChequeGestionService(chequeService, chequeraService, chequeRepository, chequeraRepository, movBancarioRepo, bancoLedgerService);
+        // Por defecto la clave es nueva (o no hay): la idempotencia deja correr la operacion.
+        idempotenciaService = mock(IdempotenciaService.class);
+        when(idempotenciaService.ejecutar(any(), any(), any(), any(), any(), any(), any()))
+                .thenAnswer(inv -> inv.<java.util.function.Supplier<Object>>getArgument(4).get());
+        service = new ChequeGestionService(chequeService, chequeraService, chequeRepository, chequeraRepository,
+                movBancarioRepo, bancoLedgerService, idempotenciaService);
 
         cuenta = new CuentaBancaria(); cuenta.setId(4L);
         chequera = new Chequera(); chequera.setId(1L); chequera.setSiguienteNumero(100L);
@@ -98,5 +104,64 @@ class ChequeGestionServiceTest {
         chequera.setSiguienteNumero(105L);
         service.emitir(nuevo(false), null);
         assertEquals(EstadoChequera.AGOTADA, chequera.getEstado());
+    }
+
+    // ── Idempotencia de la emision (issue #376) ──
+
+    /** La clave ya esta registrada con el cheque #77: la idempotencia no corre la accion, carga lo ya emitido. */
+    private void claveYaUsadaPorElCheque(EstadoCheque estado) {
+        Cheque existente = new Cheque();
+        existente.setId(77L);
+        existente.setEstado(estado);
+        when(chequeRepository.findById(77L)).thenReturn(Optional.of(existente));
+        // doAnswer y no when(...): al re-stubear, when invocaria la respuesta por defecto con argumentos nulos.
+        doAnswer(inv -> inv.<java.util.function.Function<Long, Object>>getArgument(6).apply(77L))
+                .when(idempotenciaService).ejecutar(eq("clave-1"), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void emitir_repetido_con_la_misma_clave_devuelve_el_cheque_original_sin_emitir_otro() {
+        claveYaUsadaPorElCheque(EstadoCheque.COBRADO);
+
+        Cheque c = service.emitir(nuevo(false), null, "clave-1");
+
+        assertEquals(77L, c.getId());
+        assertEquals(100L, chequera.getSiguienteNumero());   // el correlativo no avanza
+        verify(chequeraRepository, never()).lockById(anyLong());
+        verify(bancoLedgerService, never()).registrar(anyLong(), any(), any(), any(), any(), any(), any());
+        verify(bancoLedgerService, never()).ajustarReservado(anyLong(), any());
+        verify(chequeService, never()).save(any());
+    }
+
+    @Test
+    void emitir_repetido_de_un_cheque_ya_anulado_se_rechaza_y_no_emite_otro() {
+        claveYaUsadaPorElCheque(EstadoCheque.ANULADO);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.emitir(nuevo(true), null, "clave-1"));
+
+        assertTrue(e.getMessage().contains("anulado"), e.getMessage());
+        assertEquals(100L, chequera.getSiguienteNumero());
+        verify(bancoLedgerService, never()).ajustarReservado(anyLong(), any());
+    }
+
+    @Test
+    void emitir_con_clave_nueva_emite_bajo_la_operacion_de_emision() {
+        Cheque c = service.emitir(nuevo(true), null, "clave-2");
+
+        assertEquals(EstadoCheque.DIFERIDO, c.getEstado());
+        assertEquals(101L, chequera.getSiguienteNumero());
+        verify(idempotenciaService).ejecutar(eq("clave-2"), eq(ChequeGestionService.OPERACION_EMITIR_CHEQUE),
+                eq(ChequeGestionService.huellaDe(nuevo(true))), isNull(), any(), any(), any());
+    }
+
+    @Test
+    void la_huella_de_emision_distingue_monto_y_tipo_y_no_la_hora_de_la_fecha_de_pago() {
+        Cheque a = nuevo(true); a.setFechaPago(java.time.LocalDateTime.of(2026, 11, 8, 0, 0));
+        Cheque b = nuevo(true); b.setFechaPago(java.time.LocalDateTime.of(2026, 11, 8, 15, 45));
+        assertEquals(ChequeGestionService.huellaDe(a), ChequeGestionService.huellaDe(b));
+
+        Cheque otroMonto = nuevo(true); otroMonto.setTotal(500001.0);
+        assertNotEquals(ChequeGestionService.huellaDe(nuevo(true)), ChequeGestionService.huellaDe(otroMonto));
+        assertNotEquals(ChequeGestionService.huellaDe(nuevo(true)), ChequeGestionService.huellaDe(nuevo(false)));
     }
 }

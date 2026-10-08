@@ -73,8 +73,11 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
         return service.pagar(solicitudId, mapLineas(lineas), seg.currentUsuario());
     }
 
-    /** Pago mixto de varias solicitudes como un único evento consolidado. Devuelve el evento (Pago). */
-    public Pago pagarSolicitudesMixto(List<SolicitudConLineasWrapper> pagos) {
+    /**
+     * Pago mixto de varias solicitudes como un único evento consolidado. Devuelve el evento (Pago).
+     * Con {@code claveIdempotencia}, un pedido repetido devuelve el evento ya creado (issue #376).
+     */
+    public Pago pagarSolicitudesMixto(List<SolicitudConLineasWrapper> pagos, String claveIdempotencia) {
         seg.requirePagarCpp();
         List<PagoProveedorService.SolicitudConLineas> ls = new ArrayList<>();
         for (SolicitudConLineasWrapper w : pagos) {
@@ -83,7 +86,7 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
             s.setLineas(mapLineas(w.getLineas()));
             ls.add(s);
         }
-        return service.pagarLoteMixto(ls, seg.currentUsuario());
+        return service.pagarLoteMixto(ls, seg.currentUsuario(), claveIdempotencia);
     }
 
     /** Anula todo un evento de pago (revierte los movimientos consolidados y reabre sus solicitudes). */

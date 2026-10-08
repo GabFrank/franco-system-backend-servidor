@@ -113,6 +113,26 @@ Para quien llama, un rechazo es el rollback completo de su anulación.
 - `ReversasIT` prueba lo que los mocks no ven (relectura real y reversas simultáneas). **No corre en CI**:
   `./mvnw -Dit.financiero=true -Dtest=ReversasIT test`.
 
+**Casos de diferencia de un retiro (issue #376).** Tomar, soltar y resolver un caso viven en
+`RetiroCasoService`: cada operación es una transacción y toma el caso con lock y con su estado recién leído
+(`entityManager.refresh(caso, PESSIMISTIC_WRITE)`; nada puede modificar el caso antes, porque el `refresh`
+descarta lo que no se haya escrito).
+
+- **Resolver y anular la verificación van juntos.** Si la anulación se rechaza —la caja ya no tiene lo
+  acreditado, sin permiso sobre la caja, ya anulada— el caso tampoco queda resuelto y se puede resolver de
+  nuevo. Pedir anular sobre un caso sin verificación se rechaza.
+- Cuando se va a anular, el **retiro se toma antes que el caso**: `RetiroVerificacionService.anular` arranca
+  por el retiro, y al revés se trabarían. Solo en ese caso: el retiro llega por replicación y un lock sobre su
+  fila frena al apply worker mientras dure.
+- **Asignar** no reabre un caso resuelto ni se lo saca a quien lo investiga (salvo el superusuario); volver a
+  tomar el propio no hace nada.
+- `anular` cierra el caso de su verificación con un **UPDATE dirigido** (`cerrarPorAnulacion`), no leyéndolo y
+  guardándolo: guardar la entidad escribe todas sus columnas con lo leído antes, y le pisaba el veredicto a
+  quien estuviera resolviendo el caso en ese momento.
+- Sigue sin control: quién puede soltar un caso ajeno, y a quién se le puede asignar uno por API.
+- `RetiroCasoIT` prueba la atomicidad y la carrera con una anulación directa. **No corre en CI**:
+  `./mvnw -Dit.financiero=true -Dtest=RetiroCasoIT test`.
+
 ### 7.1 Idempotencia por clave (pedidos repetidos)
 
 El lock evita que dos pedidos **distintos** pisen el mismo saldo; no distingue un pedido de su

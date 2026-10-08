@@ -5,6 +5,7 @@ import com.franco.dev.domain.financiero.enums.EstadoCasoRetiro;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -25,6 +26,26 @@ public interface RetiroCasoRepository extends JpaRepository<RetiroCaso, Long> {
      * dejando la anulación rota para ese retiro hasta tocar la base a mano.
      */
     Optional<RetiroCaso> findByVerificacionId(Long verificacionId);
+
+    /**
+     * Cierra sin veredicto el caso de una verificación que se anuló, <b>solo si sigue sin resolver</b>.
+     *
+     * <p>Es un UPDATE dirigido y no «leer, modificar y guardar»: guardar la entidad escribe todas sus
+     * columnas con lo que se leyó antes, y si alguien resolvía el caso en ese momento le pisaba el
+     * veredicto, el responsable y el informe. Acá PostgreSQL espera el lock de esa resolución y vuelve a
+     * evaluar el WHERE al despertar: un caso recién resuelto queda afuera (issue #376).</p>
+     *
+     * @return cuántos casos cerró (0 si ya estaba resuelto, o si la verificación no abrió caso)
+     */
+    @Modifying
+    @Query("update RetiroCaso c set c.estado = :resuelto, c.resolucion = :resolucion, "
+            + "c.resueltoPor = :usuario, c.resueltoEn = :cuando "
+            + "where c.verificacion.id = :verificacionId and c.estado <> :resuelto")
+    int cerrarPorAnulacion(@Param("verificacionId") Long verificacionId,
+                           @Param("resuelto") EstadoCasoRetiro resuelto,
+                           @Param("resolucion") String resolucion,
+                           @Param("usuario") com.franco.dev.domain.personas.Usuario usuario,
+                           @Param("cuando") java.time.LocalDateTime cuando);
 
     /**
      * La bandeja, con sus filtros. Todos opcionales.

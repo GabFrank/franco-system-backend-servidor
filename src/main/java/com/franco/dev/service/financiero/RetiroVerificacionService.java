@@ -252,16 +252,12 @@ public class RetiroVerificacionService {
         // Si todavía estaba abierto se cierra sin veredicto — nadie determinó nada, la
         // verificación se deshizo y al recontar se abrirá uno nuevo. Si ya venía resuelto (el
         // investigador concluyó "contó mal tesorería" y pidió anular), se deja intacto.
-        casoRepository.findByVerificacionId(v.getId())
-                .ifPresent(caso -> {
-                    if (caso.getEstado() == EstadoCasoRetiro.RESUELTO) return;
-                    caso.setEstado(EstadoCasoRetiro.RESUELTO);
-                    caso.setResolucion("CERRADO POR ANULACION DE LA VERIFICACION"
-                            + (motivo != null && !motivo.isEmpty() ? ": " + motivo.toUpperCase() : ""));
-                    caso.setResueltoPor(usuario);
-                    caso.setResueltoEn(LocalDateTime.now());
-                    casoRepository.save(caso);
-                });
+        // Con un UPDATE dirigido, no leyendo el caso y guardándolo: así no le pisa el veredicto a quien
+        // lo esté resolviendo en este mismo momento (ver RetiroCasoRepository.cerrarPorAnulacion).
+        casoRepository.cerrarPorAnulacion(v.getId(), EstadoCasoRetiro.RESUELTO,
+                "CERRADO POR ANULACION DE LA VERIFICACION"
+                        + (motivo != null && !motivo.isEmpty() ? ": " + motivo.toUpperCase() : ""),
+                usuario, LocalDateTime.now());
 
         return v;
     }

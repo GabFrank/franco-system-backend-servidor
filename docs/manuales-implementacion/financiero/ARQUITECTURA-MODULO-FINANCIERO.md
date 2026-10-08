@@ -80,6 +80,35 @@ antes de leer-modificar-escribir: `TesoreriaService`, `BancoLedgerService`, `Cli
 `ProveedorCuentaService`, `ChequeGestionService`, `AcreditacionPosService`, `CobroCreditoService`,
 `PagoProveedorService`. Transferencias/operaciones de dos lados lockean en **orden canónico (id asc)**.
 
+### 7.1 Idempotencia por clave (pedidos repetidos)
+
+El lock evita que dos pedidos **distintos** pisen el mismo saldo; no distingue un pedido de su
+**reintento**. Para eso está `IdempotenciaService` (issue #376): el cliente genera una clave por cada
+intento del usuario, la manda en el argumento opcional `claveIdempotencia` y la reenvía si reintenta.
+
+- La clave se inserta en `financiero.operacion_idempotente` **dentro de la transacción de la operación**
+  (`INSERT ... ON CONFLICT DO NOTHING`), y al terminar se guarda el id de lo creado. Si la operación se
+  rechaza, la clave se va con el rollback y el reintento corre como un pedido nuevo.
+- Un pedido repetido con la misma clave **no ejecuta nada**: devuelve lo que creó el original. Dos pedidos
+  simultáneos se serializan en la clave primaria, que es lo primero que toman los dos, antes de cualquier
+  lock del negocio.
+- La fila guarda operación, usuario y una **huella** del pedido (`HuellaPedido`). Si alguno no coincide,
+  se rechaza: «La clave de idempotencia ya se usó para otro pedido». La huella lleva solo lo que define
+  el pedido y lo normaliza (monto sin ceros finales, bandera nula = `false`, fecha por día, cheques por
+  cómo se agrupan y no por su `chequeRef`), para que un reintento rearmado por el cliente dé la misma.
+- Si lo que creó el original **se anuló después** (pago `CANCELADO`, cheque `ANULADO`), la repetición se
+  rechaza diciéndolo: ni se devuelve como éxito ni se vuelve a ejecutar.
+- Clave nula o vacía = cliente que no la manda: la operación corre como siempre.
+- Tabla **solo del central**: no está en `configuraciones.replication_table` y no debe publicarse.
+- Asume READ COMMITTED; no llamar a `ejecutar` desde una transacción `SERIALIZABLE`.
+
+Hoy la usan `pagarSolicitudesMixto` (`PagoProveedorService.pagarLoteMixto`) y `emitirCheque`
+(`ChequeGestionService.emitir`). Para sumar otra mutation: argumento opcional `claveIdempotencia` al
+final en el `.graphqls` y en el resolver, y en el servicio `@Transactional` envolver la operación con
+`idempotenciaService.ejecutar(clave, "NOMBRE_OPERACION", huella, usuario, accion, idDe, cargar)`.
+El semántico de PostgreSQL lo prueba `IdempotenciaIT`, que **no corre en CI**:
+`./mvnw -Dit.financiero=true -Dtest=IdempotenciaIT test` contra una base con `V237.1`.
+
 ## 8. Seguridad por rol
 `TesoreriaSecurityService` (patrón self-contained, issue #177): resuelve el usuario por el nickname del
 SecurityContext, lee roles de DB, bypass ADMIN. Roles `TESORERIA VER`/`TESORERIA GESTIONAR` (migración

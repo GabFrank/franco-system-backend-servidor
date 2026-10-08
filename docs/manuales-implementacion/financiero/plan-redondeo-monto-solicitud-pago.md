@@ -76,8 +76,12 @@ no valida su suma contra el total). Es idempotente. Sin DDL: `monto_total` es `n
 `monto_incluido` `numeric(15,2)`, `round(numeric,int)` aplica directo. PK simple `(id)` en las dos
 tablas. Sin espejo en filial (tablas no publicadas, verificado en `pg_publication_tables` de bodega).
 
-Dry-run (paso 10): contra la copia local `bodega@5551`, contando filas antes y despues, y
-comprobando que ninguna solicitud con pagos cambia.
+Dry-run (paso 10), hecho el 2026-10-08: las tres tablas de bodega copiadas a una base local
+descartable y el archivo de la migracion corrido tal cual. Resultado: 23 solicitudes y 22 notas
+cambiadas, diferencia maxima 0,50, ninguna fuera de alcance (ni con pagos, ni GASTO/RRHH, ni en
+otra moneda), cada total igual a la suma de sus notas, 0 abiertas en Gs con decimales despues.
+Segunda corrida: 0 cambios. Con un total alterado a mano en +50,5 la guarda aborta nombrando el id.
+Farmacia medida en produccion (solo lectura): 0 filas alcanzadas.
 
 Rollback: el JAR anterior convive con montos redondeados (son montos validos). Los datos no se
 revierten solos: antes del deploy a cada instancia se guarda un CSV con `id, monto_total` y
@@ -106,7 +110,9 @@ Ninguno: no nacen columnas, campos GraphQL ni claves de configuracion.
 
 ## Que queda sin verificar
 
-- Farmacia: no se midio cuantas solicitudes con decimales tiene; la migracion aplica la misma regla.
+- Alpha (mauro): no se midio. Si ahi hubiera una solicitud abierta cuyo total no es la suma de
+  sus notas, la guarda frena el arranque del JAR y el deploy hace rollback: se corrige esa fila y
+  se redespliega.
 - Gastos y RRHH: no pasan por `calcularMontoNotaEnMoneda`. En bodega no hay ninguno en Gs con
   decimales; un gasto cargado a mano con decimales en Gs seguiria entrando. Fuera de alcance.
 - `create-edit-solicitud-pago-dialog` (desktop) suma las notas crudas y redondea el total; el

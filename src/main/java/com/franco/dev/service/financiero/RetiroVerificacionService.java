@@ -82,6 +82,13 @@ public class RetiroVerificacionService {
         verificacionRepository.findVigente(retiroId, sucursalId).ifPresent(v -> {
             throw new GraphQLException("El retiro #" + retiroId + " ya fue verificado");
         });
+        // Cancelado, la plata volvió a la caja del PDV: acreditarla además en la caja mayor la cuenta dos
+        // veces (issue #376). Leído de la base, después del lock.
+        if (retiroRepository.findSituacion(retiroId, sucursalId)
+                .map(com.franco.dev.repository.financiero.RetiroSituacion::estaCancelado)
+                .orElse(retiro.getEstado() == com.franco.dev.domain.financiero.enums.EstadoRetiro.CANCELADO)) {
+            throw new GraphQLException("El retiro #" + retiroId + " está cancelado: habilitalo antes de verificarlo.");
+        }
 
         CajaVirtual caja = cajaVirtualService.findById(cajaVirtualId)
                 .orElseThrow(() -> new GraphQLException("Caja mayor no encontrada: " + cajaVirtualId));
@@ -231,6 +238,9 @@ public class RetiroVerificacionService {
         if (verificacionRepository.findAnuladaById(verificacionId).orElse(Boolean.TRUE.equals(v.getAnulada()))) {
             throw new GraphQLException("La verificación ya está anulada");
         }
+        // Límite de antigüedad sobre la fecha de la verificación, antes de revertir nada. Al resolver un caso
+        // el rechazo deshace también el veredicto: el caso se resuelve sin anular la verificación (issue #370).
+        tesoreriaService.requireDentroDelLimiteDeAnulacion(v.getCreadoEn(), "La verificación #" + verificacionId);
 
         List<MovimientoCajaVirtual> movimientos = movimientoRepository
                 .findByOrigenTipoAndOrigenIdAndOrigenSucursalIdAndActivoTrue(
@@ -245,7 +255,14 @@ public class RetiroVerificacionService {
         // Vuelve a flotar: sin caja asignada y sin movimiento, listo para verificarse de nuevo.
         retiro.setMovimientoCajaVirtualId(null);
         retiro.setCajaVirtualId(null);
-        retiro.setEstado(com.franco.dev.domain.financiero.enums.EstadoRetiro.CONCLUIDO);
+        // Un retiro cancelado sigue cancelado: anular su verificación no es habilitarlo. Solo puede pasar
+        // con datos anteriores a que cancelar un verificado se rechazara.
+        boolean cancelado = retiroRepository.findSituacion(v.getRetiroId(), v.getSucursalId())
+                .map(com.franco.dev.repository.financiero.RetiroSituacion::estaCancelado)
+                .orElse(retiro.getEstado() == com.franco.dev.domain.financiero.enums.EstadoRetiro.CANCELADO);
+        retiro.setEstado(cancelado
+                ? com.franco.dev.domain.financiero.enums.EstadoRetiro.CANCELADO
+                : com.franco.dev.domain.financiero.enums.EstadoRetiro.CONCLUIDO);
         retiroRepository.save(retiro);
 
         // El caso NO se borra: es el registro de que hubo una diferencia y de quién la miró.

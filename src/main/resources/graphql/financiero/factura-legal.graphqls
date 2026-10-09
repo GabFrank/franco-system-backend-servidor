@@ -121,6 +121,8 @@ extend type Mutation {
     updateFacturaLegal(input: FacturaLegalInput!): FacturaLegal!
     nominarFacturaElectronica(facturaLegalId: ID!, sucursalId: ID!, clienteId: ID!): Boolean!
     cancelarFacturaLegal(facturaLegalId: ID!, sucursalId: ID!, cancelarVenta: Boolean!): String!
+    # Envia ahora el PDF de la factura (y el XML si es electronica) a la direccion indicada.
+    enviarFacturaLegalPorCorreo(id: ID!, sucId: ID!, email: String!): Boolean!
     saveFacturaLegalToFilial(entity: FacturaLegalInput!, detalleList: [FacturaLegalItemInput], sucursalId: ID!, timbradoDetalleId: ID!, monedaId: ID, tipoCambio: Float): SaveFacturaLegalToFilialResponse!
 }
 

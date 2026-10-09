@@ -27,7 +27,24 @@ Modelo portado de **frc-gourmet** (app hermana), adaptado a JPA/Postgres multi-u
   control de descubierto (`permite_saldo_negativo`, CN2), sincroniza el shim.
 - `transferir(...)` — 2 movimientos, **lock en orden canónico (id caja asc)** → sin deadlock.
 - `anular(id)` — bloquea si el movimiento no es MANUAL (**anulación cross-módulo**: se anula desde
-  el dominio dueño); valida CN4 (límite de antigüedad). `revertir(mov)` — hook para los módulos dueños.
+  el dominio dueño). `revertir(mov)` — hook para los módulos dueños.
+- **Límite de antigüedad para anular (CN4)** — `LimiteAnulacionService` es el único dueño de la regla
+  (`configuracion_general.dias_limite_anulacion`; sin fila, `null` o `0` = sin tope). Vale para **toda**
+  anulación que postea un contra-movimiento, en dos capas:
+  - *el movimiento*: `TesoreriaService.revertir` y `BancoLedgerService.revertir` miden `creadoEn` del
+    movimiento. Por ahí pasan todas las anulaciones (también las de RRHH por el egreso directo), así que
+    una anulación nueva queda cubierta sin llamar a nada.
+  - *el documento*: `anularPagoCpp`, `OperacionFinancieraService.anular`, `EntradaVariaService.anular` y
+    `RetiroVerificacionService.anular` miden su propia fecha al entrar, antes de tocar nada. Hace falta
+    porque el débito de un cheque nace al cobrarlo: un pago viejo con un cheque cobrado hace poco tiene
+    ese movimiento dentro del límite, y un diferido sin cobrar no postea ninguna reversa.
+  - El rechazo nombra el documento y su fecha. **No hay vía de autorización**: quien autoriza es quien
+    sube el límite. Hoy el límite **solo se carga por SQL** (no está en `ConfiguracionGeneralInput` ni en
+    el desktop) y está en `NULL` en bodega y farmacia (2026-10-09).
+  - Lo que el tope frena además de pagos y operaciones: anular una liquidación, un finiquito o un vale
+    con pago viejo, y resolver un caso de retiro **anulando** una verificación vieja (el caso se resuelve
+    con el mismo veredicto sin anularla). Anular un cheque suelto, sin pago, no postea contra-movimiento
+    y queda fuera.
 - `recalcularSaldos(caja)` — red de seguridad (reconstruye desde movimientos activos, con lock).
 - **Ledger inmutable:** nunca se edita/borra un movimiento; se revierte con contra-movimiento `AJUSTE` firmado.
 - **Trazabilidad:** `origen_tipo` (`OrigenMovimientoTipo`) + `origen_id` → habilita el bloqueo cross-módulo.
@@ -184,6 +201,34 @@ un rechazo de la segunda dejaba la primera adentro.
   acepta cualquier tipo de movimiento y montos sin validar.
 - `MovimientosCajaEnLoteIT` prueba la atomicidad, el repetido y la concurrencia. **No corre en CI**:
   `./mvnw -Dit.financiero=true -Dtest=MovimientosCajaEnLoteIT test`.
+
+**Cancelar un retiro o un gasto no es un interruptor (issue #376).** `cancelarRetiro` y `cancelarGasto`
+reciben `cancelar: Boolean` —`true` cancela, `false` habilita— y dejan el estado pedido: repetirlos no cambia
+nada. Antes invertían el estado en cada llamada y un reintento o un doble clic deshacía la cancelación.
+
+- **Sin el argumento** (un desktop anterior al cambio) significa cancelar y **nunca habilita**: sobre uno ya
+  cancelado se rechaza. «Habilitar» necesita el desktop que manda el argumento.
+- Las dos exigen superusuario en el central (`requireSuperusuario`); el desktop ya escondía el botón.
+- Lock (`lockByIdAndSucursalId`) → estado por proyección (`RetiroSituacion`, `findCanceladoYSolicitud`) →
+  **UPDATE dirigido** de la columna (`marcarCancelado`, `marcarConcluido`), que además limpia el contexto de
+  persistencia. No se guarda la entidad: `Retiro` y `Gasto` no tienen `@DynamicUpdate` y un `save` reescribe
+  la fila entera con lo que hubiera cargado. Tampoco se pasa por el `save` del servicio, que publica la
+  notificación de «retiro / gasto realizado».
+- **Un retiro que ya entró a la caja mayor no se cancela** (lista blanca: estado nulo o `CONCLUIDO`, sin caja
+  mayor, sin movimiento, sin verificación vigente). Cancelado deja de descontar de la caja del PDV; si además
+  está acreditado, la plata queda contada dos veces. Primero se anula la verificación.
+- **Un retiro cancelado no entra a la caja mayor:** `verificar` e `ingresarACajaMayor` lo rechazan,
+  `RetiroTesoreriaProcesador.procesar` no lo postea y `findFlotantes` no lo lista. Los cuatro —y cancelar—
+  toman el mismo lock del retiro, lo primero. Anular una verificación no habilita un retiro cancelado.
+- Habilitar deja el retiro en `CONCLUIDO` y no tiene guarda: un cancelado que quedó con su ingreso en la caja
+  mayor (dato anterior a este cambio) se corrige habilitándolo.
+- Un gasto pagado desde la caja mayor (`solicitud_pago_id`) no se cancela ni se habilita acá: se anula su pago.
+- **Rollback del JAR:** la versión anterior vuelve a listar los cancelados como flotantes y a dejarlos
+  verificar. Antes de volver atrás, mirar los retiros `CANCELADO` sin caja mayor.
+- Sigue sin control: `saveRetiro` guarda la entidad entera desde el input y puede pisar estado, caja y
+  movimiento de un retiro existente; y cancelar un retiro de una caja de PDV ya cerrada cambia su balance.
+- `CancelarRetiroIT` prueba los UPDATE contra el enum de PostgreSQL y la carrera cancelar × ingresar. **No
+  corre en CI**: `./mvnw -Dit.financiero=true -Dtest=CancelarRetiroIT test`.
 
 ### 7.1 Idempotencia por clave (pedidos repetidos)
 

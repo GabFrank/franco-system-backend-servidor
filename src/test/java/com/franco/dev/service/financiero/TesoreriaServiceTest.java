@@ -56,7 +56,8 @@ class TesoreriaServiceTest {
         // aritmetica de saldos, no los permisos: el mock deja pasar todo (requireEscrituraCaja
         // es void y no hace nada por default en un mock).
         seguridad = mock(TesoreriaSecurityService.class);
-        service = new TesoreriaService(saldoRepository, seguridad, cajaVirtualRepository, monedaRepository, movimientoRepository, configRepository);
+        service = new TesoreriaService(saldoRepository, seguridad, cajaVirtualRepository, monedaRepository, movimientoRepository,
+                new LimiteAnulacionService(configRepository));
 
         caja = new CajaVirtual();
         caja.setId(1L);
@@ -299,6 +300,69 @@ class TesoreriaServiceTest {
 
         assertEquals(Boolean.FALSE, original.getActivo());
         assertEquals(0, new BigDecimal("1300").compareTo(saldo.getSaldo()));
+    }
+
+    private void conLimiteDeDias(int dias) {
+        com.franco.dev.domain.empresarial.ConfiguracionGeneral config = new com.franco.dev.domain.empresarial.ConfiguracionGeneral();
+        config.setDiasLimiteAnulacion(dias);
+        when(configRepository.findAll()).thenReturn(java.util.Collections.singletonList(config));
+    }
+
+    // Issue #370: el tope de antigüedad estaba solo en anular() (movimiento manual). Un vale, un pago o
+    // una operación llegan directo a revertir(), y se anulaban sin importar la fecha.
+    @Test
+    void anular_un_movimiento_manual_mas_viejo_que_el_limite_se_sigue_rechazando() {
+        conLimiteDeDias(5);
+        MovimientoCajaVirtual original = mov(CajaVirtualTipoMovimiento.EGRESO, 300);
+        original.setId(67L);
+        original.setOrigenTipo(OrigenMovimientoTipo.MANUAL);
+        original.setCreadoEn(java.time.LocalDateTime.now().minusDays(9));
+        when(movimientoRepository.lockById(67L)).thenReturn(Optional.of(original));
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anular(67L, "error de carga", null));
+
+        assertTrue(e.getMessage().contains("límite de 5 días"), e.getMessage());
+        verify(movimientoRepository, never()).save(any());
+    }
+
+    @Test
+    void revertir_un_movimiento_de_modulo_dueno_mas_viejo_que_el_limite_se_rechaza_y_no_postea_nada() {
+        conLimiteDeDias(5);
+        MovimientoCajaVirtual original = egresoDeVale(64L);
+        original.setCreadoEn(java.time.LocalDateTime.now().minusDays(9));
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> service.revertir(original, "ANULACION VALE #1", null));
+
+        assertTrue(e.getMessage().contains("El movimiento de caja #64")
+                && e.getMessage().contains("límite de 5 días"), e.getMessage());
+        assertFalse(e.getMessage().contains("autorización"), e.getMessage());
+        assertEquals(0, new BigDecimal("1000").compareTo(saldo.getSaldo()));
+        verify(movimientoRepository, never()).save(any());
+    }
+
+    @Test
+    void revertir_un_movimiento_dentro_del_limite_lo_revierte() {
+        conLimiteDeDias(5);
+        MovimientoCajaVirtual original = egresoDeVale(65L);
+        original.setCreadoEn(java.time.LocalDateTime.now().minusDays(2));
+
+        service.revertir(original, "ANULACION VALE #1", null);
+
+        assertEquals(0, new BigDecimal("1300").compareTo(saldo.getSaldo()));
+    }
+
+    @Test
+    void revertir_un_movimiento_ya_anulado_y_viejo_dice_que_esta_anulado_y_no_que_supera_el_limite() {
+        conLimiteDeDias(5);
+        MovimientoCajaVirtual original = egresoDeVale(66L);
+        original.setCreadoEn(java.time.LocalDateTime.now().minusDays(9));
+        original.setActivo(false);
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> service.revertir(original, "ANULACION VALE #1", null));
+
+        assertTrue(e.getMessage().contains("ya está anulado"), e.getMessage());
     }
 
     @Test

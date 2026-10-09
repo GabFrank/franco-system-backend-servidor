@@ -49,6 +49,16 @@ public class RrhhSecurityService {
         return usuarioService.findByNickname(auth.getName()).orElse(null);
     }
 
+    /**
+     * Id de la persona del usuario autenticado, o null. El vinculo empleado<->login es la
+     * persona compartida (usuario.persona_id == funcionario.persona_id), no
+     * funcionario.usuario_id, que es auditoria.
+     */
+    public Long currentPersonaId() {
+        Usuario u = currentUsuario();
+        return u != null && u.getPersona() != null ? u.getPersona().getId() : null;
+    }
+
     private String currentNickname() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         return auth != null ? auth.getName() : null;

@@ -136,13 +136,14 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         }
     }
 
-    public Boolean cancelarRetiro(Long id, Long sucId) {
-        Retiro retiro = retiro(id, sucId);
-        if (retiro != null) {
-            return service.cancelarRetiro(retiro);
-        } else {
-            throw new GraphQLException("No se pudo cancelar el retiro");
-        }
+    /**
+     * {@code cancelar}: true cancela, false habilita; nulo (desktop anterior) cancela y nunca habilita.
+     * No se carga el retiro acá: el servicio lo toma con lock y lee su estado de la base.
+     */
+    public Boolean cancelarRetiro(Long id, Long sucId, Boolean cancelar) {
+        // El desktop solo muestra el botón a un ADMIN; el central no pedía nada.
+        seg.requireSuperusuario();
+        return service.cancelarRetiro(id, sucId, cancelar);
     }
 
     public Long countRetiro() {

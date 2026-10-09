@@ -43,7 +43,7 @@ public class TesoreriaService {
     private final CajaVirtualRepository cajaVirtualRepository;
     private final MonedaRepository monedaRepository;
     private final MovimientoCajaVirtualRepository movimientoRepository;
-    private final com.franco.dev.repository.empresarial.ConfiguracionGeneralRepository configRepository;
+    private final LimiteAnulacionService limiteAnulacion;
 
     /** Los tipos que restan del saldo (además de AJUSTE, que ya llega firmado). */
     static boolean esEgreso(CajaVirtualTipoMovimiento tipo) {
@@ -227,13 +227,7 @@ public class TesoreriaService {
             throw new GraphQLException("Este movimiento proviene de " + origen
                     + "; anúlelo desde su módulo de origen, no desde la caja mayor.");
         }
-        // CN4: límite de anulación por antigüedad (null = sin límite).
-        Integer diasLimite = diasLimiteAnulacion();
-        if (diasLimite != null && diasLimite > 0 && orig.getCreadoEn() != null
-                && orig.getCreadoEn().isBefore(java.time.LocalDateTime.now().minusDays(diasLimite))) {
-            throw new GraphQLException("El movimiento supera el límite de " + diasLimite
-                    + " días para anular. Requiere autorización.");
-        }
+        // El límite de antigüedad (CN4) lo aplica revertir(), igual que a los módulos dueños.
         return revertir(orig, motivo, usuario);
     }
 
@@ -292,13 +286,8 @@ public class TesoreriaService {
         }
 
         // CN4 sobre la pata más vieja: que no dependa de por cuál de las dos se entra.
-        Integer diasLimite = diasLimiteAnulacion();
-        java.time.LocalDateTime creada = masVieja(pedida.getCreadoEn(), otra.getCreadoEn());
-        if (diasLimite != null && diasLimite > 0 && creada != null
-                && creada.isBefore(java.time.LocalDateTime.now().minusDays(diasLimite))) {
-            throw new GraphQLException("El movimiento supera el límite de " + diasLimite
-                    + " días para anular. Requiere autorización.");
-        }
+        limiteAnulacion.requireDentroDelLimite(masVieja(pedida.getCreadoEn(), otra.getCreadoEn()),
+                "La transferencia");
 
         String razon = motivo != null ? motivo : "";
         if (!otraActiva) {
@@ -343,15 +332,13 @@ public class TesoreriaService {
         return a.isBefore(b) ? a : b;
     }
 
-    /** Días límite de anulación configurados (CN4), o null si no hay config/límite. */
-    private Integer diasLimiteAnulacion() {
-        try {
-            return configRepository.findAll().stream().findFirst()
-                    .map(com.franco.dev.domain.empresarial.ConfiguracionGeneral::getDiasLimiteAnulacion)
-                    .orElse(null);
-        } catch (Exception e) {
-            return null;
-        }
+    /**
+     * Límite de antigüedad para anular (CN4) medido sobre la fecha de un documento. Lo llama el módulo
+     * dueño al entrar, antes de tocar nada: {@link #revertir} mide cada movimiento, y un pago viejo con un
+     * cheque cobrado hace poco tiene el débito bancario dentro del límite.
+     */
+    public void requireDentroDelLimiteDeAnulacion(java.time.LocalDateTime fecha, String queCosa) {
+        limiteAnulacion.requireDentroDelLimite(fecha, queCosa);
     }
 
     /** Busca un movimiento para revertirlo. Lo usan los servicios dueños al anular su operación. */
@@ -388,6 +375,10 @@ public class TesoreriaService {
         if (!activo) {
             throw new GraphQLException("El movimiento #" + orig.getId() + " ya está anulado.");
         }
+        // CN4 acá y no en cada módulo dueño, por lo mismo que el control de arriba: acá se postea el
+        // contra-movimiento. Estaba solo en anular(), y un pago o una operación de la misma fecha que un
+        // ingreso manual sí se podían anular (issue #370).
+        limiteAnulacion.requireDentroDelLimite(orig.getCreadoEn(), "El movimiento de caja #" + orig.getId());
         // Recomputa el efecto con BigDecimal (no restando los snapshots Double, que arrastran
         // error de punto flotante en monedas con decimales). El contra-movimiento es el negado.
         BigDecimal cantidadOrig = orig.getCantidad() != null ? BigDecimal.valueOf(orig.getCantidad()) : BigDecimal.ZERO;

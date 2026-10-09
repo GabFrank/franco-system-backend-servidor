@@ -101,7 +101,8 @@ class LiquidacionSueldoNetoNegativoTest {
         });
 
         TesoreriaService tesoreria = new TesoreriaService(saldoRepository, mock(TesoreriaSecurityService.class),
-                cajaVirtualRepository, monedaRepository, movimientoRepository, configRepository);
+                cajaVirtualRepository, monedaRepository, movimientoRepository,
+                new com.franco.dev.service.financiero.LimiteAnulacionService(configRepository));
         movimientoCajaVirtualService =
                 new MovimientoCajaVirtualService(movimientoRepository, tesoreria);
 

@@ -33,6 +33,9 @@ public interface LiquidacionSueldoRepository extends HelperRepository<Liquidacio
     List<LiquidacionSueldo> findByFuncionarioIdAndEstadoOrderByPeriodoDesc(
             Long funcionarioId, LiquidacionSueldoEstado estado, Pageable pageable);
 
+    /** La liquidacion existe, esta en ese estado y es del funcionario de esa persona. */
+    boolean existsByIdAndEstadoAndFuncionarioPersonaId(Long id, LiquidacionSueldoEstado estado, Long personaId);
+
     Optional<LiquidacionSueldo> findByFuncionarioIdAndPeriodo(Long funcionarioId, String periodo);
 
     List<LiquidacionSueldo> findByPeriodoOrderByIdAsc(String periodo);

@@ -44,6 +44,27 @@ public interface RetiroRepository extends HelperRepository<Retiro, EmbebedPrimar
     java.util.Optional<Retiro> lockByIdAndSucursalId(@org.springframework.data.repository.query.Param("id") Long id,
                                                      @org.springframework.data.repository.query.Param("sucId") Long sucId);
 
+    /** Estado y vínculo con la caja mayor, de la base (ver {@link RetiroSituacion}). Vacío si el retiro no existe. */
+    @Query("select new com.franco.dev.repository.financiero.RetiroSituacion(r.estado, r.movimientoCajaVirtualId, r.cajaVirtualId) "
+            + "from Retiro r where r.id = :id and r.sucursalId = :sucId")
+    java.util.Optional<RetiroSituacion> findSituacion(@Param("id") Long id, @Param("sucId") Long sucId);
+
+    /**
+     * Cambian solo el estado. No se guarda la entidad: sin {@code @DynamicUpdate} eso reescribe la fila
+     * entera con lo que la request tuviera cargado, y pisaría la caja mayor que asignó una verificación.
+     * Limpian el contexto de persistencia: la instancia que quedó cargada tiene el estado anterior, y si
+     * algo más la guardara en la misma request (dos mutations en un mismo pedido) lo volvería a escribir.
+     */
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Retiro r set r.estado = com.franco.dev.domain.financiero.enums.EstadoRetiro.CANCELADO "
+            + "where r.id = :id and r.sucursalId = :sucId")
+    int marcarCancelado(@Param("id") Long id, @Param("sucId") Long sucId);
+
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Retiro r set r.estado = com.franco.dev.domain.financiero.enums.EstadoRetiro.CONCLUIDO "
+            + "where r.id = :id and r.sucursalId = :sucId")
+    int marcarConcluido(@Param("id") Long id, @Param("sucId") Long sucId);
+
     public List<Retiro> findByCajaSalidaId(Long id);
 
     /** Retiros destinados a una caja mayor, aún no posteados y ya concluidos (poller de tesorería, F3). */
@@ -82,12 +103,16 @@ public interface RetiroRepository extends HelperRepository<Retiro, EmbebedPrimar
     /**
      * Retiros "flotantes": replicados desde el PDV pero aún NO asignados a una caja mayor
      * ({@code cajaVirtualId IS NULL}) y sin postear ({@code movimientoCajaVirtualId IS NULL}).
-     * Se excluyen los EN_PROCESO (retiro todavía abierto en el PDV). Filtrable por sucursal,
+     * Se excluyen los EN_PROCESO (retiro todavía abierto en el PDV) y los CANCELADO (la plata volvió a
+     * la caja del PDV: no hay nada que ingresar). El {@code estado is null} va aparte porque un
+     * {@code not in} descartaría los nulos, que son casi todos los retiros. Filtrable por sucursal,
      * caja de salida (PdvCaja) y rango de fechas (creado_en).
      */
     @Query("select r from Retiro r " +
             "where r.cajaVirtualId is null and r.movimientoCajaVirtualId is null " +
-            "and (r.estado is null or r.estado <> com.franco.dev.domain.financiero.enums.EstadoRetiro.EN_PROCESO) " +
+            "and (r.estado is null or r.estado not in (" +
+            "com.franco.dev.domain.financiero.enums.EstadoRetiro.EN_PROCESO, " +
+            "com.franco.dev.domain.financiero.enums.EstadoRetiro.CANCELADO)) " +
             "and (:sucId is null or r.sucursalId = :sucId) " +
             "and (:cajaId is null or r.cajaSalidaId = :cajaId) " +
             "and (cast(:desde as timestamp) is null or r.creadoEn >= :desde) " +

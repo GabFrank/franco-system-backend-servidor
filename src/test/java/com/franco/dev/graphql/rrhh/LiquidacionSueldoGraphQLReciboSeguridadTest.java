@@ -56,7 +56,7 @@ class LiquidacionSueldoGraphQLReciboSeguridadTest {
 
     @Test
     void con_rol_rrhh_se_genera_sin_mirar_de_quien_es() {
-        when(seg.hasAnyRole(any())).thenReturn(true);
+        when(seg.hasAnyRole(RrhhSecurityService.TODOS)).thenReturn(true);
 
         assertEquals("recibo", resolver.imprimirReciboLiquidacion(LIQUIDACION_ID, null, null));
 
@@ -65,7 +65,6 @@ class LiquidacionSueldoGraphQLReciboSeguridadTest {
 
     @Test
     void sin_rol_el_dueno_baja_el_recibo_de_su_liquidacion_pagada() {
-        when(seg.hasAnyRole(any())).thenReturn(false);
         when(seg.currentPersonaId()).thenReturn(PERSONA_ID);
         when(service.esReciboPagadoDe(LIQUIDACION_ID, PERSONA_ID)).thenReturn(true);
 
@@ -74,7 +73,6 @@ class LiquidacionSueldoGraphQLReciboSeguridadTest {
 
     @Test
     void sin_rol_el_recibo_ajeno_o_no_pagado_se_rechaza_sin_generarlo() {
-        when(seg.hasAnyRole(any())).thenReturn(false);
         when(seg.currentPersonaId()).thenReturn(PERSONA_ID);
         when(service.esReciboPagadoDe(LIQUIDACION_ID, PERSONA_ID)).thenReturn(false);
 
@@ -83,7 +81,6 @@ class LiquidacionSueldoGraphQLReciboSeguridadTest {
 
     @Test
     void sin_rol_y_sin_persona_se_rechaza_sin_generarlo() {
-        when(seg.hasAnyRole(any())).thenReturn(false);
         when(seg.currentPersonaId()).thenReturn(null);
 
         rechazaSinGenerar();

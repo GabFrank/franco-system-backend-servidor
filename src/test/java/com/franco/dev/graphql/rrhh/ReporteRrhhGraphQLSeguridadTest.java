@@ -11,6 +11,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -73,6 +77,28 @@ class ReporteRrhhGraphQLSeguridadTest {
         rechaza(() -> resolver.imprimirReciboFinal(500L, null, null));
 
         verify(seg, times(6)).requireVer();
+        verifyNoInteractions(service);
+    }
+
+    /**
+     * Recorre el resolver entero: un recibo o reporte que se agregue sin control de rol hace
+     * fallar este test aunque nadie lo sume a las listas de arriba.
+     */
+    @Test
+    void sin_rol_ningun_metodo_publico_del_resolver_llega_al_servicio() throws Exception {
+        sinRol();
+        int publicos = 0;
+
+        for (Method m : ReporteRrhhGraphQL.class.getDeclaredMethods()) {
+            if (!Modifier.isPublic(m.getModifiers())) continue;
+            publicos++;
+            InvocationTargetException e = assertThrows(InvocationTargetException.class,
+                    () -> m.invoke(resolver, new Object[m.getParameterCount()]), m.getName());
+            assertTrue(e.getCause() instanceof GraphQLException, m.getName() + ": " + e.getCause());
+        }
+
+        assertTrue(publicos >= 14, "metodos publicos encontrados: " + publicos);
+        verify(seg, times(publicos)).requireVer();
         verifyNoInteractions(service);
     }
 

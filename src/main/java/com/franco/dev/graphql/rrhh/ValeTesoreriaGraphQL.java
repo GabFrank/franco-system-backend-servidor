@@ -30,6 +30,7 @@ public class ValeTesoreriaGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     private final ValeTesoreriaService service;
     private final RrhhSecurityService seg;
+    private final com.franco.dev.service.financiero.AltaIdempotenteService altaIdempotente;
 
     /** Vales pagables (estado SOLICITADO) con su saldo. */
     public List<ValePendienteDto> valesPendientes() {
@@ -38,12 +39,16 @@ public class ValeTesoreriaGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     /** Alta de un vale listo para pagar: queda SOLICITADO, sin mover plata. */
-    public Vale crearValeParaPago(ValeParaPagoWrapper input) {
+    public Vale crearValeParaPago(ValeParaPagoWrapper input, String claveIdempotencia) {
         seg.requireAnyRole(seg.APROBAR);
-        return service.crearValeParaPago(
-                input.getFuncionarioId(), input.getMotivoId(), input.getMonedaId(),
-                input.getMonto() != null ? BigDecimal.valueOf(input.getMonto()) : null,
-                input.getEsAdelanto(), input.getObservacion(), seg.currentUsuario());
+        BigDecimal monto = com.franco.dev.service.financiero.AltaIdempotenteService.monto(input.getMonto());
+        String huella = new com.franco.dev.service.financiero.HuellaPedido()
+                .id(input.getFuncionarioId()).id(input.getMotivoId()).id(input.getMonedaId()).numero(monto)
+                .bandera(input.getEsAdelanto()).texto(input.getObservacion()).calcular();
+        com.franco.dev.domain.personas.Usuario usuario = seg.currentUsuario();
+        return altaIdempotente.valeParaPago(claveIdempotencia, huella, usuario, () -> service.crearValeParaPago(
+                input.getFuncionarioId(), input.getMotivoId(), input.getMonedaId(), monto,
+                input.getEsAdelanto(), input.getObservacion(), usuario));
     }
 
     /** Paga N vales como un único evento consolidado (caja mayor / banco / cheque). */

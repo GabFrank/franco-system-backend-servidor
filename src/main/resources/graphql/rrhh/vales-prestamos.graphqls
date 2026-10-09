@@ -199,7 +199,8 @@ extend type Mutation {
     # vale entregado en bienes (ej. uniforme): nace CONFIRMADO, sin caja
     crearValeEnEspecie(vale: ValeRrhhInput!, autorizadoPorId: ID): Vale
 
-    crearPrestamo(prestamo: PrestamoInput!, cajaVirtualId: ID!): Prestamo
+    # claveIdempotencia: la genera el cliente por cada intento del usuario y la reenvia al reintentar.
+    crearPrestamo(prestamo: PrestamoInput!, cajaVirtualId: ID!, claveIdempotencia: String): Prestamo
     # montoPagadoEsperado: el monto pagado que mostraba la pantalla. Si la cuota cambio, se rechaza (#299).
     cobrarCuota(cuotaId: ID!, cajaVirtualId: ID!, montoPago: Float, montoPagadoEsperado: Float): PrestamoCuota
 }

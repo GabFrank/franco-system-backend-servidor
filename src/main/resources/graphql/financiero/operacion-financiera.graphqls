@@ -103,6 +103,7 @@ extend type Query {
 }
 
 extend type Mutation {
-    registrarOperacionFinanciera(input: OperacionFinancieraInput!): OperacionFinanciera!
+    # claveIdempotencia: la genera el cliente por cada intento del usuario y la reenvia al reintentar.
+    registrarOperacionFinanciera(input: OperacionFinancieraInput!, claveIdempotencia: String): OperacionFinanciera!
     anularOperacionFinanciera(id: ID!, motivo: String): OperacionFinanciera!
 }

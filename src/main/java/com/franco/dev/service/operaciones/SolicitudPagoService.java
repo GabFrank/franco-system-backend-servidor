@@ -65,6 +65,7 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
     private final MonedaRepository monedaRepository;
     private final FormaPagoRepository formaPagoRepository;
     private final CambioService cambioService;
+    private final com.franco.dev.service.financiero.BloqueoTransaccionalService bloqueo;
 
     @Override
     public SolicitudPagoRepository getRepository() {
@@ -90,6 +91,12 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
      * Generate unique numero solicitud
      */
     private String generateNumeroSolicitud() {
+        // El número sale de contar: dos altas simultáneas contaban lo mismo y una chocaba contra el índice
+        // único (issue #376). El lock por nombre las pone en fila; la que espera cuenta después del commit
+        // de la otra. Fuera de una transacción no hay a qué atar el lock y queda como antes.
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            bloqueo.tomar("SOLICITUD_PAGO_NUMERO");
+        }
         // Get current count of solicitudes for sequential numbering
         long count = repository.count();
         return "SP-" + String.format("%06d", count + 1);

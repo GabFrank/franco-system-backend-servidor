@@ -56,6 +56,14 @@ class RetiroTesoreriaProcesadorTest {
         return r;
     }
 
+    /** El retiro tal como está en la base: lo que devuelve el lock y lo que lee la proyección. */
+    private void enLaBase(Retiro r) {
+        when(retiroRepository.lockByIdAndSucursalId(1L, 2L)).thenReturn(Optional.of(r));
+        when(retiroRepository.findSituacion(1L, 2L)).thenAnswer(i -> Optional.of(
+                new com.franco.dev.repository.financiero.RetiroSituacion(
+                        r.getEstado(), r.getMovimientoCajaVirtualId(), r.getCajaVirtualId())));
+    }
+
     private RetiroDetalle detalle(double cantidad) {
         RetiroDetalle d = new RetiroDetalle(); d.setCantidad(cantidad); d.setMoneda(gs);
         return d;
@@ -64,7 +72,7 @@ class RetiroTesoreriaProcesadorTest {
     @Test
     void postea_ingreso_y_marca_procesado() {
         Retiro r = retiro(null);
-        when(retiroRepository.findByIdAndSucursalId(1L, 2L)).thenReturn(r);
+        enLaBase(r);
         when(retiroDetalleService.findByRetiroId(1L, 2L)).thenReturn(Arrays.asList(detalle(100000), detalle(50000)));
 
         assertTrue(procesador.procesar(1L, 2L, null));
@@ -80,7 +88,7 @@ class RetiroTesoreriaProcesadorTest {
     @Test
     void ya_procesado_no_reingresa() {
         Retiro r = retiro(777L);
-        when(retiroRepository.findByIdAndSucursalId(1L, 2L)).thenReturn(r);
+        enLaBase(r);
         assertFalse(procesador.procesar(1L, 2L, null));
         verify(tesoreriaService, never()).registrar(any());
     }
@@ -88,10 +96,35 @@ class RetiroTesoreriaProcesadorTest {
     @Test
     void sin_detalles_marca_para_no_reintentar() {
         Retiro r = retiro(null);
-        when(retiroRepository.findByIdAndSucursalId(1L, 2L)).thenReturn(r);
+        enLaBase(r);
         when(retiroDetalleService.findByRetiroId(1L, 2L)).thenReturn(Collections.emptyList());
         assertTrue(procesador.procesar(1L, 2L, null));
         verify(tesoreriaService, never()).registrar(any());
         assertEquals(-1L, r.getMovimientoCajaVirtualId());
+    }
+
+    @Test
+    void un_retiro_cancelado_no_se_ingresa_aunque_la_instancia_cargada_diga_otra_cosa() {
+        Retiro r = retiro(null);   // la instancia que devuelve el lock sigue CONCLUIDO
+        when(retiroRepository.lockByIdAndSucursalId(1L, 2L)).thenReturn(Optional.of(r));
+        when(retiroRepository.findSituacion(1L, 2L)).thenReturn(Optional.of(
+                new com.franco.dev.repository.financiero.RetiroSituacion(EstadoRetiro.CANCELADO, null, 5L)));
+
+        assertFalse(procesador.procesar(1L, 2L, null));
+
+        verify(tesoreriaService, never()).registrar(any());
+        verify(retiroRepository, never()).save(any());
+    }
+
+    @Test
+    void toma_el_retiro_con_lock_antes_de_leer_su_estado() {
+        enLaBase(retiro(null));
+        when(retiroDetalleService.findByRetiroId(1L, 2L)).thenReturn(Arrays.asList(detalle(100000)));
+
+        procesador.procesar(1L, 2L, null);
+
+        org.mockito.InOrder orden = inOrder(retiroRepository);
+        orden.verify(retiroRepository).lockByIdAndSucursalId(1L, 2L);
+        orden.verify(retiroRepository).findSituacion(1L, 2L);
     }
 }

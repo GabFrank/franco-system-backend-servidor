@@ -114,4 +114,45 @@ class RetiroVerificacionAnularTest {
         verify(casoRepository, never()).findByVerificacionId(any());
         verify(casoRepository, never()).save(any());
     }
+
+    // ── Retiros cancelados (issue #376) ──────────────────────────────────────────────────────────
+
+    private void enLaBase(com.franco.dev.domain.financiero.enums.EstadoRetiro estado) {
+        when(retiroRepository.findSituacion(700L, 5L)).thenReturn(Optional.of(
+                new com.franco.dev.repository.financiero.RetiroSituacion(estado, null, null)));
+    }
+
+    @Test
+    void anular_deja_el_retiro_concluido() {
+        enLaBase(com.franco.dev.domain.financiero.enums.EstadoRetiro.VERIFICADO_CONCLUIDO_SIN_PROBLEMA);
+
+        service.anular(30L, "conto mal", null);
+
+        assertEquals(com.franco.dev.domain.financiero.enums.EstadoRetiro.CONCLUIDO, retiro.getEstado());
+    }
+
+    @Test
+    void anular_la_verificacion_de_un_retiro_cancelado_no_lo_habilita() {
+        // La instancia cargada no lo sabe: el estado sale de la base.
+        enLaBase(com.franco.dev.domain.financiero.enums.EstadoRetiro.CANCELADO);
+
+        service.anular(30L, "conto mal", null);
+
+        assertEquals(com.franco.dev.domain.financiero.enums.EstadoRetiro.CANCELADO, retiro.getEstado());
+        assertTrue(verificacion.getAnulada());
+    }
+
+    @Test
+    void verificar_un_retiro_cancelado_se_rechaza_antes_de_acreditar_nada() {
+        enLaBase(com.franco.dev.domain.financiero.enums.EstadoRetiro.CANCELADO);
+        when(verificacionRepository.findVigente(700L, 5L)).thenReturn(Optional.empty());
+
+        graphql.GraphQLException e = assertThrows(graphql.GraphQLException.class,
+                () -> service.verificar(700L, 5L, 1L, Collections.emptyList(), true, null, null));
+
+        assertTrue(e.getMessage().contains("está cancelado"), e.getMessage());
+        verify(verificacionRepository, never()).save(any());
+        verify(tesoreriaService, never()).registrar(any());
+        verify(retiroRepository, never()).save(any());
+    }
 }

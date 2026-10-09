@@ -4,6 +4,8 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Retiro;
 import com.franco.dev.domain.financiero.enums.EstadoRetiro;
 import com.franco.dev.repository.financiero.RetiroRepository;
+import com.franco.dev.repository.financiero.RetiroSituacion;
+import com.franco.dev.repository.financiero.RetiroVerificacionRepository;
 import com.franco.dev.service.CrudService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
@@ -21,6 +23,7 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
 
     private final RetiroRepository repository;
     private final ApplicationEventPublisher publisher;
+    private final RetiroVerificacionRepository verificacionRepository;
 
     @Override
     public RetiroRepository getRepository() {
@@ -69,30 +72,59 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
     }
 
     /**
-     * Cancela o rehabilita un retiro, igual que VentaService.cancelarVenta: es un
-     * toggle CANCELADO <-> CONCLUIDO.
+     * Cancela ({@code cancelar = true}) o habilita ({@code false}) un retiro. El pedido dice cómo tiene
+     * que quedar, así que repetirlo no cambia nada: antes era un interruptor y un reintento o un doble
+     * clic deshacía la cancelación (issue #376).
      *
-     * No recalcula ningun balance. El monto vuelve a la caja porque
-     * PdvCajaService.generarBalance ignora los detalles de retiros cancelados, y la
-     * filial hace lo mismo cuando el nuevo estado le llega por replicacion.
+     * <p>Sin el argumento —un desktop anterior— significa cancelar y nunca habilita: sobre un retiro ya
+     * cancelado se rechaza, porque ese pedido puede ser tanto un «Habilitar» como la repetición de un
+     * «Cancelar», y adivinar mal vuelve a descontar la plata de la caja.</p>
      *
-     * Persiste con repository.save() a proposito, y no con this.save(): el override
-     * de save() publica RetiroRealizadoEvent, que dispara la push notification
-     * "RETIRO REALIZADO". Cancelar no es realizar un retiro.
+     * <p>El retiro se toma con el mismo lock que la verificación y el ingreso a caja mayor, y su estado
+     * se lee de la base. Solo se cancela un retiro que todavía no entró a la caja mayor: cancelado deja
+     * de descontar de la caja del PDV ({@code PdvCajaService.generarBalance} lo ignora) y, si además
+     * está acreditado en la caja mayor, la plata queda contada dos veces.</p>
+     *
+     * <p>No recalcula ningún balance, y la filial hace lo mismo cuando el estado le llega por
+     * replicación. No pasa por {@link #save}: su override publica RetiroRealizadoEvent («RETIRO
+     * REALIZADO»), y cancelar no es realizar un retiro.</p>
      */
     @Transactional
-    public Boolean cancelarRetiro(Retiro retiro) {
-        try {
-            if (retiro.getEstado() == EstadoRetiro.CANCELADO) {
-                retiro.setEstado(EstadoRetiro.CONCLUIDO);
-            } else {
-                retiro.setEstado(EstadoRetiro.CANCELADO);
-            }
-            repository.save(retiro);
+    public Boolean cancelarRetiro(Long id, Long sucId, Boolean cancelar) {
+        repository.lockByIdAndSucursalId(id, sucId)
+                .orElseThrow(() -> new GraphQLException("Retiro no encontrado: " + id + "/" + sucId));
+        RetiroSituacion s = repository.findSituacion(id, sucId)
+                .orElseThrow(() -> new GraphQLException("Retiro no encontrado: " + id + "/" + sucId));
+
+        if (Boolean.FALSE.equals(cancelar)) {
+            if (s.estaCancelado()) repository.marcarConcluido(id, sucId);
             return true;
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw new GraphQLException("No se pudo cancelar el retiro");
         }
+        if (s.estaCancelado()) {
+            if (cancelar == null) {
+                throw new GraphQLException("El retiro #" + id + " ya está cancelado. Si querías habilitarlo, actualizá el sistema.");
+            }
+            return true;
+        }
+        if (s.getMovimientoCajaVirtualId() != null
+                || esVerificado(s.getEstado())
+                || verificacionRepository.findVigente(id, sucId).isPresent()) {
+            throw new GraphQLException("El retiro #" + id + " ya entró a la caja mayor: anulá primero su verificación.");
+        }
+        if (s.getCajaVirtualId() != null) {
+            throw new GraphQLException("El retiro #" + id + " ya tiene una caja mayor asignada: no se puede cancelar.");
+        }
+        // Lista blanca: un retiro EN_PROCESO todavía está abierto en el PDV, y habilitarlo después lo
+        // dejaría CONCLUIDO y verificable a medio cargar.
+        if (s.getEstado() != null && s.getEstado() != EstadoRetiro.CONCLUIDO) {
+            throw new GraphQLException("El retiro #" + id + " está en estado " + s.getEstado() + ": no se puede cancelar.");
+        }
+        repository.marcarCancelado(id, sucId);
+        return true;
+    }
+
+    private static boolean esVerificado(EstadoRetiro estado) {
+        return estado == EstadoRetiro.VERIFICADO_CONCLUIDO_SIN_PROBLEMA
+                || estado == EstadoRetiro.VERIFICADO_CONCLUIDO_CON_PROBLEMA;
     }
 }

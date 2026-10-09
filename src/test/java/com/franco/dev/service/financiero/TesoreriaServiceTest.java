@@ -429,6 +429,41 @@ class TesoreriaServiceTest {
     }
 
     @Test
+    void anular_una_transferencia_hecha_de_la_caja_de_id_mayor_a_la_de_id_menor_tambien_la_anula_completa() {
+        conDosCajas();
+        service.transferir(2L, 1L, 300.0, gs, "PASE", null);   // acá la entrada se registra primero
+        assertSaldos("1300", "100");
+        MovimientoCajaVirtual salida = guardados.values().stream()
+                .filter(m -> m.getTipoMovimiento() == CajaVirtualTipoMovimiento.TRANSFERENCIA_SALIDA).findFirst().get();
+        assertEquals(2L, salida.getCajaVirtual().getId());
+        assertNotNull(salida.getReferenciaId());
+
+        service.anular(salida.getId(), "ERROR", null);
+
+        assertSaldos("1000", "400");
+        assertEquals(2, contras());
+    }
+
+    @Test
+    void un_vinculo_mutuo_entre_patas_de_otra_moneda_o_de_otras_cajas_no_alcanza_para_anular() {
+        MovimientoCajaVirtual[] t = transferencia();
+        Moneda rs = new Moneda();
+        rs.setId(11L);
+        t[1].setMoneda(rs);
+        GraphQLException otraMoneda = assertThrows(GraphQLException.class, () -> service.anular(t[0].getId(), "ERROR", null));
+        assertTrue(otraMoneda.getMessage().contains("no se anula a medias"), otraMoneda.getMessage());
+
+        t[1].setMoneda(gs);
+        CajaVirtual cajaC = new CajaVirtual();
+        cajaC.setId(3L);
+        t[1].setCajaDestino(cajaC);
+        GraphQLException otraCaja = assertThrows(GraphQLException.class, () -> service.anular(t[0].getId(), "ERROR", null));
+        assertTrue(otraCaja.getMessage().contains("no se anula a medias"), otraCaja.getMessage());
+        assertEquals(0, contras());
+        assertSaldos("700", "700");
+    }
+
+    @Test
     void anular_una_transferencia_dos_veces_rechaza_la_segunda_entre_por_la_pata_que_entre() {
         MovimientoCajaVirtual[] t = transferencia();
         service.anular(t[0].getId(), "ERROR", null);

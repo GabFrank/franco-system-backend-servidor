@@ -23,7 +23,6 @@ import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -56,22 +55,18 @@ public class MovimientoStockLoteService
      * Asigna el id antes de guardar siguiendo el esquema par/impar de operaciones.movimiento_stock:
      * el central genera SIEMPRE ids IMPARES y la filial PARES. Sin esto, ambos servidores
      * colisionarían en la PK (id, sucursal_id) apenas la filial empiece a descontar por venta.
+     * El impar sale de la secuencia del central (V242.5), no de MAX(id) + 1.
      *
      * Espejo exacto de {@link MovimientoStockService#save(MovimientoStock)}.
      */
     @Override
-    @Transactional(isolation = Isolation.SERIALIZABLE)
+    @Transactional
     public MovimientoStockLote save(MovimientoStockLote entity) {
         if (entity.getId() == null) {
             if (entity.getCreadoEn() == null) {
                 entity.setCreadoEn(LocalDateTime.now());
             }
-            Long lastId = repository.findMaxId(entity.getSucursalId());
-            if (lastId == null) {
-                lastId = 0L;
-            }
-            // lastId par -> +1 (impar); lastId impar -> +2 (sigue impar).
-            entity.setId(lastId % 2 != 0 ? lastId + 2 : lastId + 1);
+            entity.setId(repository.siguienteId());
         }
         return super.save(entity);
     }

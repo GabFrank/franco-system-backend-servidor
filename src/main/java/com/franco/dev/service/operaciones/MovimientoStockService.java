@@ -23,7 +23,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -200,21 +199,12 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
     }
 
     @Override
-    @Transactional(isolation = Isolation.SERIALIZABLE)
+    @Transactional
     public MovimientoStock save(MovimientoStock entity) {
         boolean esNuevo = entity.getId() == null;
         if (esNuevo) {
             entity.setCreadoEn(LocalDateTime.now());
-            Long newId = Long.valueOf(1);
-            Long lastId = repository.findMaxId(entity.getSucursalId());
-            if (lastId == null)
-                lastId = Long.valueOf(0);
-            if (lastId % 2 != 0) {
-                newId = lastId + 2;
-            } else {
-                newId = lastId + 1;
-            }
-            entity.setId(newId);
+            entity.setId(repository.siguienteId());
         }
         MovimientoStock e = super.save(entity);
 

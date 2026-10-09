@@ -217,8 +217,13 @@ public interface MovimientoStockRepository
         @Query("SELECT MAX(m.id) FROM MovimientoStock m WHERE m.sucursalId = :sucursalId AND m.id % 2 = 1")
         Long findMaxOddIdByProductoIdAndSucursalId(@Param("sucursalId") Long sucursalId);
 
-        @Query("SELECT MAX(e.id) FROM MovimientoStock e WHERE e.sucursalId = :sucursalId")
-        Long findMaxId(@Param("sucursalId") Long sucursalId);
+        /**
+         * Proximo id del central: impar, porque la secuencia avanza de a 2 (V242.5) y los pares
+         * son de los filiales. Sale de la secuencia y no de MAX(id) + 1 porque dos transacciones
+         * simultaneas leian el mismo maximo y la segunda chocaba con la clave primaria (#153).
+         */
+        @Query(value = "SELECT nextval('operaciones.movimiento_stock_id_seq')", nativeQuery = true)
+        Long siguienteId();
 
         @Query("SELECT new com.franco.dev.domain.operaciones.dto.ProductoSaldoDto(ms.producto.id, ms.producto.descripcion, ms.sucursalId, SUM(ms.cantidad)) "
                         +

@@ -28,6 +28,7 @@ public class MovimientoCajaVirtualGraphQL implements GraphQLQueryResolver, Graph
     private final MonedaService monedaService;
     private final UsuarioService usuarioService;
     private final TesoreriaSecurityService seg;
+    private final com.franco.dev.service.financiero.MovimientosCajaEnLoteService loteService;
 
     public MovimientoCajaVirtual movimientoCajaVirtual(Long id) {
         seg.requireVer();
@@ -95,6 +96,40 @@ public class MovimientoCajaVirtualGraphQL implements GraphQLQueryResolver, Graph
     public MovimientoCajaVirtual anularMovimientoCajaVirtual(Long id, String motivo) {
         seg.requireGestionar();
         return service.anularMovimiento(id, motivo, seg.currentUsuario());
+    }
+
+    /**
+     * Ingreso, egreso o ajuste en varias monedas, en un solo pedido: entra todo o no entra nada
+     * (issue #376). No se carga nada acá: el servicio resuelve todo dentro de su transacción. El
+     * movimiento queda a nombre del usuario de la sesión.
+     */
+    public Boolean registrarMovimientosCajaVirtual(Long cajaVirtualId,
+                                                   com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento tipoMovimiento,
+                                                   java.util.List<com.franco.dev.graphql.financiero.input.MontoCajaVirtualInput> montos,
+                                                   String descripcion, String claveIdempotencia) {
+        seg.requireGestionar();
+        return loteService.registrarMovimientos(cajaVirtualId, tipoMovimiento, aMontos(montos), descripcion,
+                seg.currentUsuario(), claveIdempotencia);
+    }
+
+    /** Transferencia entre dos cajas en varias monedas, en un solo pedido: todo o nada (issue #376). */
+    public Boolean realizarTransferenciasCajaVirtual(Long origenId, Long destinoId,
+                                                     java.util.List<com.franco.dev.graphql.financiero.input.MontoCajaVirtualInput> montos,
+                                                     String descripcion, String claveIdempotencia) {
+        seg.requireGestionar();
+        return loteService.transferir(origenId, destinoId, aMontos(montos), descripcion,
+                seg.currentUsuario(), claveIdempotencia);
+    }
+
+    private static java.util.List<com.franco.dev.service.financiero.MovimientosCajaEnLoteService.Monto> aMontos(
+            java.util.List<com.franco.dev.graphql.financiero.input.MontoCajaVirtualInput> montos) {
+        if (montos == null) return null;
+        java.util.List<com.franco.dev.service.financiero.MovimientosCajaEnLoteService.Monto> salida = new java.util.ArrayList<>();
+        for (com.franco.dev.graphql.financiero.input.MontoCajaVirtualInput m : montos) {
+            salida.add(m == null ? null
+                    : new com.franco.dev.service.financiero.MovimientosCajaEnLoteService.Monto(m.getMonedaId(), m.getCantidad()));
+        }
+        return salida;
     }
 
     public Boolean realizarTransferenciaCajaVirtual(Long origenId, Long destinoId, Double cantidad,

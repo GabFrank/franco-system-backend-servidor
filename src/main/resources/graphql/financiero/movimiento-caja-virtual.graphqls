@@ -63,6 +63,12 @@ input MovimientoCajaVirtualInput {
     activo: Boolean
 }
 
+"""Un monto en una moneda, para los pedidos que llevan varias monedas a la vez."""
+input MontoCajaVirtualInput {
+    monedaId: ID!
+    cantidad: Float!
+}
+
 type MovimientoCajaVirtualPage {
     getTotalPages: Int
     getTotalElements: Int
@@ -85,6 +91,13 @@ extend type Mutation {
     saveMovimientoCajaVirtual(input: MovimientoCajaVirtualInput!): MovimientoCajaVirtual!
     realizarTransferenciaCajaVirtual(origenId: ID!, destinoId: ID!, cantidad: Float!, monedaId: ID!, descripcion: String, usuarioId: ID): Boolean!
     anularMovimientoCajaVirtual(id: ID!, motivo: String): MovimientoCajaVirtual!
+    """
+    Ingreso, egreso o ajuste en una o mas monedas, todo o nada. El ajuste lleva signo. Con
+    claveIdempotencia, el mismo pedido repetido no se registra de nuevo.
+    """
+    registrarMovimientosCajaVirtual(cajaVirtualId: ID!, tipoMovimiento: CajaVirtualTipoMovimiento!, montos: [MontoCajaVirtualInput!]!, descripcion: String, claveIdempotencia: String): Boolean!
+    """Transferencia entre dos cajas en una o mas monedas, todo o nada."""
+    realizarTransferenciasCajaVirtual(origenId: ID!, destinoId: ID!, montos: [MontoCajaVirtualInput!]!, descripcion: String, claveIdempotencia: String): Boolean!
 }
 
 enum CajaVirtualTipoMovimiento {

@@ -416,3 +416,42 @@ UI desktop de tesorería completa; notificaciones (reusar `PushNotificationServi
 reportes cierre-mes (aging CPC/CPP, flujo de caja); `pago_solicitud_detalle` persistencia línea-a-línea;
 "toda compra → CPP" wiring en Compras (DA2); migrar `VentaTarjeta.estado` a enum; wiring venta-tarjeta →
 `crearAcreditacionPos`; cobro consolidado por convenio; permisos `CPP_*` dedicados (DA6); limpieza dead-code.
+
+## 13. Cancelación de venta (la cadena de `VentaService.cancelarVenta`)
+
+Una venta se cancela **siempre** por `VentaService.cancelarVenta`. Es el único camino que deja todo
+coherente: estado de la venta, `movimiento_caja` (activo), `movimiento_stock` (estado),
+`venta_tarjeta`, `delivery`, `venta_credito`, evento de cancelación del DE en SIFEN y
+`factura_legal.activo = false`. Nada más cambia el estado de una venta con un `save` directo
+(issue #339: `cancelarVentaCredito` lo hacía y dejaba caja, stock y factura vivos).
+
+Puertas de entrada, las dos con `seg.requireCancelarVenta()` (#340):
+
+| Mutation | Qué hace |
+|---|---|
+| `cancelarVenta(id, sucId)` | **Alterna**: cancela una venta CONCLUIDA y reactiva una CANCELADA |
+| `cancelarVentaCredito(id, sucId)` | **Solo cancela**, por la misma cadena; sobre una venta ya cancelada da error. Ningún cliente la llama desde el desktop 3.1.0 |
+
+`VentaCreditoService.cancelarVentaCredito(id, sucId, venta)` es un paso de la cadena (sincroniza la
+venta crédito con el estado de la venta), no una entrada: exige la venta.
+
+Lo que hay que saber antes de tocar la cadena:
+
+- **Reactivar no es el inverso de cancelar.** El bloque de la factura no mira hacia dónde va la
+  venta: al reactivar también pide la cancelación del DE y deja la factura inactiva. Y la venta
+  crédito vuelve a ABIERTO aunque antes estuviera FINALIZADO.
+- **SIFEN no se revierte.** `SifenEventoService.cancelarDE` corre en `REQUIRES_NEW`: el evento queda
+  enviado aunque después falle el resto y la transacción de la venta haga rollback. Si SIFEN falla,
+  el error se traga y la factura queda inactiva con el DE vivo.
+- **No hay lock.** Dos llamadas simultáneas leen el mismo estado.
+- **Tres tablas de la cadena no bajan a la filial.** Todas son `BRANCH_TO_MAIN`; solo vuelven a la
+  filial dueña las que tienen `replicate_central_to_branch_with_filter` (V113, V150.1, V161.3):
+
+  | El cambio del central llega a la filial | No llega |
+  |---|---|
+  | `operaciones.venta`, `financiero.factura_legal`, `operaciones.movimiento_stock`, `financiero.venta_tarjeta` | `financiero.movimiento_caja`, `operaciones.delivery`, `financiero.venta_credito` |
+
+  Una venta cancelada desde el central sigue con su movimiento de caja activo en la filial.
+
+Tests: `CancelarVentaYFacturaRolTest`, `VentaCreditoServiceCancelarTest`,
+`VentaServiceTarjetaCancelacionTest`.

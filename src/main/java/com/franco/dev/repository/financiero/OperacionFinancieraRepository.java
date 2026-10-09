@@ -25,4 +25,13 @@ public interface OperacionFinancieraRepository extends JpaRepository<OperacionFi
      */
     @Query("select coalesce(o.anulado, false) from OperacionFinanciera o where o.id = :id")
     Optional<Boolean> findAnuladoById(@Param("id") Long id);
+
+    /**
+     * ¿Otro documento no anulado ya tiene este comprobante? {@code numero} llega normalizado (sin espacios,
+     * en mayúsculas); la columna se compara igual porque los datos anteriores no lo están. Ignora los
+     * comprobantes nulos o vacíos, y un {@code anulado} nulo cuenta como no anulado.
+     */
+    @Query("select count(x) > 0 from OperacionFinanciera x where upper(trim(x.numeroComprobante)) = :numero "
+            + "and coalesce(x.anulado, false) = false")
+    boolean existeComprobante(@Param("numero") String numero);
 }

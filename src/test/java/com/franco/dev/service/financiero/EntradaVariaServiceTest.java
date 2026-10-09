@@ -20,6 +20,7 @@ class EntradaVariaServiceTest {
 
     private EntradaVariaRepository repository;
     private TesoreriaService tesoreriaService;
+    private ComprobanteNumeracionService numeracion;
     private EntradaVariaService service;
 
     private MovimientoCajaVirtual movimiento;
@@ -28,7 +29,8 @@ class EntradaVariaServiceTest {
     void setUp() {
         repository = mock(EntradaVariaRepository.class);
         tesoreriaService = mock(TesoreriaService.class);
-        service = new EntradaVariaService(repository, tesoreriaService, mock(ComprobanteSerieService.class));
+        numeracion = mock(ComprobanteNumeracionService.class);
+        service = new EntradaVariaService(repository, tesoreriaService, numeracion);
         when(repository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         movimiento = new MovimientoCajaVirtual();
@@ -126,5 +128,44 @@ class EntradaVariaServiceTest {
     void anular_una_entrada_inexistente_lo_dice() {
         GraphQLException e = assertThrows(GraphQLException.class, () -> service.anular(404L, null, null));
         assertTrue(e.getMessage().contains("no encontrada"), e.getMessage());
+    }
+
+    @Test
+    void registrar_guarda_el_comprobante_que_resuelve_la_numeracion_y_lo_pide_antes_de_guardar() {
+        com.franco.dev.domain.financiero.CajaVirtual caja = new com.franco.dev.domain.financiero.CajaVirtual();
+        caja.setId(1L);
+        EntradaVaria e = new EntradaVaria();
+        e.setCajaVirtual(caja);
+        e.setEsIngreso(true);
+        e.setMonto(java.math.BigDecimal.TEN);
+        e.setNumeroComprobante("");   // lo que manda el desktop cuando no se tipea nada
+        when(numeracion.resolver(eq("ENTRADA_VARIA"), eq(""), any(), eq("una entrada varia"))).thenReturn("EV-0007");
+        when(tesoreriaService.registrar(any())).thenReturn(movimiento);
+
+        EntradaVaria guardada = service.registrar(e, null);
+
+        assertEquals("EV-0007", guardada.getNumeroComprobante());
+        org.mockito.InOrder orden = inOrder(numeracion, repository, tesoreriaService);
+        orden.verify(numeracion).resolver(eq("ENTRADA_VARIA"), eq(""), any(), eq("una entrada varia"));
+        orden.verify(repository).save(any());
+        orden.verify(tesoreriaService).registrar(any());
+    }
+
+    @Test
+    void registrar_con_un_comprobante_repetido_no_guarda_nada() {
+        com.franco.dev.domain.financiero.CajaVirtual caja = new com.franco.dev.domain.financiero.CajaVirtual();
+        caja.setId(1L);
+        EntradaVaria e = new EntradaVaria();
+        e.setCajaVirtual(caja);
+        e.setEsIngreso(true);
+        e.setMonto(java.math.BigDecimal.TEN);
+        e.setNumeroComprobante("REC-1");
+        when(numeracion.resolver(any(), any(), any(), any()))
+                .thenThrow(new graphql.GraphQLException("Ya existe una entrada varia con el comprobante REC-1."));
+
+        assertThrows(graphql.GraphQLException.class, () -> service.registrar(e, null));
+
+        verify(repository, never()).save(any());
+        verify(tesoreriaService, never()).registrar(any());
     }
 }

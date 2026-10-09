@@ -152,6 +152,12 @@ public class ChequeGestionService {
                     + ") está fuera de su rango (" + rango + ").");
         }
 
+        // Al día: su fecha de pago es la de emisión. Sin ella no aparecía en el dashboard de cheques, que
+        // filtra por esa fecha.
+        if (!esDiferido && cheque.getFechaPago() == null) {
+            cheque.setFechaPago(cheque.getFechaEntrega() != null ? cheque.getFechaEntrega() : LocalDateTime.now());
+        }
+
         cheque.setNumero((double) numero);
         cheque.setChequera(chequera);
         cheque.setUsuario(usuario);
@@ -176,7 +182,17 @@ public class ChequeGestionService {
             chequera.setEstado(EstadoChequera.AGOTADA);
         }
         chequeraService.save(chequera);
-        return chequeService.save(cheque);
+        try {
+            return chequeService.save(cheque);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // El índice único de (chequera, número): no debería pasar, pero si pasa que se entienda. La
+            // transacción ya quedó marcada para deshacerse.
+            if (String.valueOf(e.getMostSpecificCause().getMessage()).contains("uq_cheque_chequera_numero")) {
+                throw new GraphQLException("El número " + numero + " de la chequera " + nombreChequera
+                        + " ya existe. Revisá su correlativo.");
+            }
+            throw e;
+        }
     }
 
     /** Cobra un cheque diferido: debita el saldo real y libera la reserva. */

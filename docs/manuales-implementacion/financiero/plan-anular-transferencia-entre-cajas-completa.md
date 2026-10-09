@@ -57,16 +57,10 @@ movimiento `MANUAL` (el desktop solo lo mira en pagos consolidados y en operacio
 3. **Ubicar la otra pata:**
    - con vinculo: el movimiento `referenciaId`, que tiene que ser del tipo opuesto, con las mismas caja
      origen, caja destino, moneda y cantidad, y **apuntar de vuelta** a este;
-   - sin vinculo (transferencias anteriores): entre las patas del tipo opuesto con las mismas cajas, moneda y
-     cantidad y sin referencia —**activas o no**—, la **contigua por id**: para la pata que se registro primero,
-     la de menor id mayor que el suyo; para la que se registro segunda, la de mayor id menor. Cual se registro
-     primero lo dice el orden de las cajas (`transferir` registra primero la de la caja de menor id). Y se
-     exige **simetria**: desde la candidata, la misma busqueda tiene que devolver esta pata.
-     Por que el orden de id y no «la unica candidata dentro de 5 segundos»: `transferir` retiene el saldo de la
-     primera caja hasta el commit, asi que dos transferencias identicas no pueden intercalar sus patas; en
-     cambio la segunda pata se inserta **despues** de esperar el saldo de la segunda caja, que con contencion
-     puede tardar mas que cualquier ventana. Y «unica candidata sin referencia» empareja mal cuando conviven una
-     transferencia vieja y una nueva identicas.
+   - sin vinculo valido (transferencias anteriores al cambio, o un `referenciaId` escrito por un cliente):
+     **rechazo**, no se empareja por aproximacion. Decidido el 2026-10-09 con el conteo de bodega: no hay
+     ninguna transferencia manual en produccion, asi que la busqueda por firma no tenia a quien servir y si
+     podia emparejar mal.
 4. **Lock de los dos movimientos por id ascendente** (no «el pedido y despues el otro»: dos anulaciones que
    entran cada una por una pata se cruzarian). Despues, relectura de `activo` de los dos por proyeccion, y
    revalidar que la contraparte sigue siendo la elegida.
@@ -112,17 +106,14 @@ Central (un PR):
    - anular una pata vinculada con la otra activa → dos contra-movimientos, las dos inactivas, los dos saldos
      de vuelta; igual entrando por la entrada o por la salida;
    - contraparte ya anulada con su contra → solo la pedida; inactiva sin contra → rechazo;
-   - sin vinculo: dos transferencias identicas consecutivas → cada pata empareja con la suya, tambien en el
-     sentido B→A; una vieja y una nueva identicas → no se cruzan; sin candidata → rechazo;
+   - sin vinculo → rechazo, sin tomar locks ni escribir nada;
    - vinculo que no vuelve, o que apunta a algo que no es la contraparte → rechazo;
    - sin permiso sobre la otra caja → rechazo con el mensaje propio, sin tomar locks;
    - un ingreso manual comun (origen **nulo**, que es como entran) se anula como hoy.
    Los de «contraparte ya anulada» y «ingreso comun» son de regresion: pasan tambien con el codigo viejo.
-2. **Tests de integracion** en `ReversasIT` (`-Dit.financiero=true`; no corren en CI), con dos cajas propias
-   reutilizables: tres anulaciones a la vez repartidas entre las dos patas, en A→B y en B→A → un exito, dos
-   contra-movimientos, los dos saldos de vuelta; gastar el destino y anular → rechazo con el mensaje nuevo, las
-   dos patas siguen activas; entrada ya anulada suelta → se anula la salida sola; y que el estado se lee de la
-   base aunque las entidades ya esten cargadas.
+2. **Test de integracion** en `ReversasIT` (`-Dit.financiero=true`; no corre en CI): cuatro anulaciones a la
+   vez repartidas entre las dos patas → un exito, un contra-movimiento por pata, los dos saldos de vuelta. De
+   paso prueba la proyeccion contra la base real.
 
 Desktop (otro PR, despues del despliegue del central):
 
@@ -136,7 +127,7 @@ Cada test de bug se corre con el fix neutralizado para ver que falla.
 - Idem anulando la entrada.
 - Seis anulaciones simultaneas, tres por pata: una pasa, cinco «ya está anulado»; sin deadlock.
 - Usuario con acceso a una sola de las dos cajas: rechazo.
-- Una transferencia sin vinculo (creada a mano, como las anteriores al cambio): se anula completa.
+- Una transferencia sin vinculo (creada a mano, como las anteriores al cambio): rechazo, las dos patas siguen activas.
 - Ingreso manual: se anula como siempre.
 
 ## Despliegue y rollback
@@ -145,21 +136,16 @@ Solo central. Sin migracion ni cambio de schema; rollback del JAR inocuo (las pa
 `referencia_id` que la version anterior ignora). Requiere reinicio del central (workflow Deploy; mergear a
 `develop` no despliega).
 
-## Decisiones abiertas
+## Decisiones tomadas (Franco, 2026-10-09)
 
-1. **Transferencias con el origen nulo** (anteriores a `V177.5`, o creadas por API). Los dos auditores no
-   coinciden: uno propone dejarlas fuera y declararlo como limite; el otro, tratarlas igual que las `MANUAL`,
-   porque si no el defecto sigue vivo justo en las transferencias viejas. **Arbitra Franco.** Recomendacion:
-   tratarlas igual; la busqueda por firma y simetria ya filtra lo que no es una transferencia.
-2. **Cuanto pesa el camino sin vinculo.** Depende de cuantas transferencias manuales hay en produccion, que no
-   se miro. Si hay muy pocas o ninguna, se puede reemplazar toda la busqueda sin vinculo por un rechazo y
-   resolver esas a mano.
+1. **Las patas con el origen nulo entran en la regla**, igual que las `MANUAL`.
+2. **Sin vinculo valido se rechaza.** Bodega (solo lectura, 2026-10-09): 0 transferencias manuales; la unica
+   transferencia que existe es de una operacion financiera, que se anula desde su modulo.
 
 ## Queda sin verificar
 
-- En produccion: cuantas transferencias manuales hay, cuantas tienen el origen nulo, cuantas quedaron con una
-  sola pata anulada (plata duplicada o perdida, que este cambio no corrige pero si permite completar), y
-  cuantas son emparejables o ambiguas con la regla de arriba. Es una consulta de solo lectura.
+- **Farmacia no se conto.** Antes de desplegar ahi: contar las patas `TRANSFERENCIA_*` con origen `MANUAL` o
+  nulo. Si hay, las anteriores al cambio no se podran anular desde la pantalla y se resuelven a mano.
 - `transferir` no valida que el monto sea positivo. Fuera de este cambio.
 - `recalcularSaldos` suma los movimientos activos, y un original anulado queda inactivo con su contra activo:
   reconstruye mal. Es anterior a este cambio.

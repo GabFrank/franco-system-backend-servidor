@@ -35,6 +35,16 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
     @Query("select coalesce(m.activo, true) from MovimientoCajaVirtual m where m.id = :id")
     Optional<Boolean> findActivoById(@Param("id") Long id);
 
+    /** Los datos de vínculo de un movimiento, sin cargar la entidad (ver {@link MovimientoCajaVirtualVinculo}). */
+    @Query("select new com.franco.dev.repository.financiero.MovimientoCajaVirtualVinculo("
+            + "m.id, m.tipoMovimiento, m.origenTipo, cv.id, co.id, cd.id, mo.id, m.cantidad, m.referenciaId, m.creadoEn) "
+            + "from MovimientoCajaVirtual m join m.cajaVirtual cv left join m.cajaOrigen co "
+            + "left join m.cajaDestino cd left join m.moneda mo where m.id = :id")
+    Optional<MovimientoCajaVirtualVinculo> findVinculoById(@Param("id") Long id);
+
+    /** ¿Existe el contra-movimiento de este movimiento? Un inactivo sin contra es un dato roto, no una anulación. */
+    boolean existsByOrigenTipoAndOrigenId(OrigenMovimientoTipo origenTipo, Long origenId);
+
     Page<MovimientoCajaVirtual> findByCajaVirtualIdOrderByCreadoEnDesc(Long cajaVirtualId, Pageable pageable);
 
     Page<MovimientoCajaVirtual> findByCajaVirtualIdAndCreadoEnBetweenOrderByCreadoEnDesc(

@@ -2,6 +2,7 @@ package com.franco.dev.service.financiero;
 
 import com.franco.dev.domain.financiero.Retiro;
 import com.franco.dev.repository.financiero.RetiroRepository;
+import com.franco.dev.repository.financiero.RetiroSituacion;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,12 +34,18 @@ public class RetiroIngresoService {
         if (cajaVirtualId == null) {
             throw new GraphQLException("Debe indicar la caja mayor destino");
         }
-        Retiro r = retiroRepository.findByIdAndSucursalId(retiroId, sucursalId);
-        if (r == null) {
-            throw new GraphQLException("Retiro no encontrado: " + retiroId + "/" + sucursalId);
-        }
-        if (r.getMovimientoCajaVirtualId() != null) {
+        // Con lock, el mismo que toman la verificación y la cancelación: leyendo sin él, un ingreso y una
+        // cancelación simultáneos pasaban los dos y el retiro quedaba cancelado con la plata acreditada.
+        // El estado se lee después, de la base (issue #376).
+        Retiro r = retiroRepository.lockByIdAndSucursalId(retiroId, sucursalId)
+                .orElseThrow(() -> new GraphQLException("Retiro no encontrado: " + retiroId + "/" + sucursalId));
+        RetiroSituacion s = retiroRepository.findSituacion(retiroId, sucursalId)
+                .orElseThrow(() -> new GraphQLException("Retiro no encontrado: " + retiroId + "/" + sucursalId));
+        if (s.getMovimientoCajaVirtualId() != null) {
             throw new GraphQLException("El retiro #" + retiroId + " ya fue ingresado a una caja mayor");
+        }
+        if (s.estaCancelado()) {
+            throw new GraphQLException("El retiro #" + retiroId + " está cancelado: habilitalo antes de ingresarlo.");
         }
         cajaVirtualService.findById(cajaVirtualId)
                 .orElseThrow(() -> new GraphQLException("Caja mayor no encontrada: " + cajaVirtualId));

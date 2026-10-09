@@ -107,6 +107,20 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
 
         public Gasto findByIdAndSucursalId(Long id, Long sucId);
 
+        /** Toma el gasto con lock para cancelarlo o habilitarlo: dos pedidos a la vez se serializan. */
+        @org.springframework.data.jpa.repository.Lock(javax.persistence.LockModeType.PESSIMISTIC_WRITE)
+        @Query("select g from Gasto g where g.id = :id and g.sucursalId = :sucId")
+        java.util.Optional<Gasto> lockByIdAndSucursalId(@Param("id") Long id, @Param("sucId") Long sucId);
+
+        /** [cancelado, solicitudPagoId] de la base; el lock devuelve la instancia ya cargada, sin refrescar. */
+        @Query("select g.cancelado, g.solicitudPagoId from Gasto g where g.id = :id and g.sucursalId = :sucId")
+        List<Object[]> findCanceladoYSolicitud(@Param("id") Long id, @Param("sucId") Long sucId);
+
+        /** Cambia solo el flag: guardar la entidad reescribiría la fila entera con lo ya cargado. */
+        @org.springframework.data.jpa.repository.Modifying
+        @Query("update Gasto g set g.cancelado = :cancelado where g.id = :id and g.sucursalId = :sucId")
+        int marcarCancelado(@Param("id") Long id, @Param("sucId") Long sucId, @Param("cancelado") boolean cancelado);
+
         Gasto findFirstByPreGastoIdAndPreGastoSucursalIdOrderByCreadoEnDescIdDesc(Long preGastoId,
                         Long preGastoSucursalId);
 

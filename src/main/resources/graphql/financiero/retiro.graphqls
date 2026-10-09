@@ -58,7 +58,8 @@ extend type Mutation {
     saveRetiro(retiro:RetiroInput!, retiroDetalleInputList: [RetiroDetalleInput], printerName: String, local: String):Retiro!
     deleteRetiro(id:ID!, sucId: ID):Boolean!
     ingresarRetiroACajaMayor(retiroId:ID!, sucId:ID!, cajaVirtualId:ID!):Retiro!
-    cancelarRetiro(id:ID!, sucId: ID):Boolean!
+    # cancelar: true cancela, false habilita. Sin el argumento (desktop anterior) cancela y nunca habilita.
+    cancelarRetiro(id:ID!, sucId: ID, cancelar: Boolean):Boolean!
 }
 
 enum EstadoRetiro {

@@ -227,4 +227,36 @@ class ValidacionesFinancieroIT {
             for (Cheque c : emitidos) chequeGestionService.anular(c.getId(), MARCA, null);
         }
     }
+
+    @Test
+    void dosChequesDeLaMismaChequeraEnUnaSolaTransaccionSalenConNumerosConsecutivos() {
+        // Como un pago a proveedores con dos cheques: la chequera queda modificada por el primero y sin
+        // volcar cuando el segundo la toma. El lock la vuelca antes de releerla; si no, el refresh pisaría
+        // el avance y el segundo repetiría el número.
+        List<?> chequeras = tx.execute(s -> em.createNativeQuery(
+                "select id from financiero.chequera where cast(estado as text) = 'ACTIVA' and cuenta_bancaria_id is not null "
+                        + "and coalesce(siguiente_numero, rango_desde) + 1 <= rango_hasta order by id")
+                .setMaxResults(1).getResultList());
+        assumeTrue(!chequeras.isEmpty(), "la base no tiene una chequera activa con números libres");
+        Long chequeraId = ((Number) chequeras.get(0)).longValue();
+
+        List<Cheque> emitidos = tx.execute(s -> {
+            List<Cheque> lista = new ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                Cheque c = new Cheque();
+                c.setChequera(chequeraRepository.findById(chequeraId).orElseThrow(IllegalStateException::new));
+                c.setTotal(1.0);
+                c.setDiferido(true);
+                c.setFechaPago(LocalDateTime.now().plusDays(30));
+                c.setConcepto(MARCA);
+                lista.add(chequeGestionService.emitir(c, null));
+            }
+            return lista;
+        });
+        try {
+            assertEquals(emitidos.get(0).getNumero() + 1, emitidos.get(1).getNumero());
+        } finally {
+            for (Cheque c : emitidos) chequeGestionService.anular(c.getId(), MARCA, null);
+        }
+    }
 }

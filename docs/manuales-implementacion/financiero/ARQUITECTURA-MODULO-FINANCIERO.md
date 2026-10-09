@@ -27,7 +27,24 @@ Modelo portado de **frc-gourmet** (app hermana), adaptado a JPA/Postgres multi-u
   control de descubierto (`permite_saldo_negativo`, CN2), sincroniza el shim.
 - `transferir(...)` — 2 movimientos, **lock en orden canónico (id caja asc)** → sin deadlock.
 - `anular(id)` — bloquea si el movimiento no es MANUAL (**anulación cross-módulo**: se anula desde
-  el dominio dueño); valida CN4 (límite de antigüedad). `revertir(mov)` — hook para los módulos dueños.
+  el dominio dueño). `revertir(mov)` — hook para los módulos dueños.
+- **Límite de antigüedad para anular (CN4)** — `LimiteAnulacionService` es el único dueño de la regla
+  (`configuracion_general.dias_limite_anulacion`; sin fila, `null` o `0` = sin tope). Vale para **toda**
+  anulación que postea un contra-movimiento, en dos capas:
+  - *el movimiento*: `TesoreriaService.revertir` y `BancoLedgerService.revertir` miden `creadoEn` del
+    movimiento. Por ahí pasan todas las anulaciones (también las de RRHH por el egreso directo), así que
+    una anulación nueva queda cubierta sin llamar a nada.
+  - *el documento*: `anularPagoCpp`, `OperacionFinancieraService.anular`, `EntradaVariaService.anular` y
+    `RetiroVerificacionService.anular` miden su propia fecha al entrar, antes de tocar nada. Hace falta
+    porque el débito de un cheque nace al cobrarlo: un pago viejo con un cheque cobrado hace poco tiene
+    ese movimiento dentro del límite, y un diferido sin cobrar no postea ninguna reversa.
+  - El rechazo nombra el documento y su fecha. **No hay vía de autorización**: quien autoriza es quien
+    sube el límite. Hoy el límite **solo se carga por SQL** (no está en `ConfiguracionGeneralInput` ni en
+    el desktop) y está en `NULL` en bodega y farmacia (2026-10-09).
+  - Lo que el tope frena además de pagos y operaciones: anular una liquidación, un finiquito o un vale
+    con pago viejo, y resolver un caso de retiro **anulando** una verificación vieja (el caso se resuelve
+    con el mismo veredicto sin anularla). Anular un cheque suelto, sin pago, no postea contra-movimiento
+    y queda fuera.
 - `recalcularSaldos(caja)` — red de seguridad (reconstruye desde movimientos activos, con lock).
 - **Ledger inmutable:** nunca se edita/borra un movimiento; se revierte con contra-movimiento `AJUSTE` firmado.
 - **Trazabilidad:** `origen_tipo` (`OrigenMovimientoTipo`) + `origen_id` → habilita el bloqueo cross-módulo.

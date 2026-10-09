@@ -133,6 +133,29 @@ descarta lo que no se haya escrito).
 - `RetiroCasoIT` prueba la atomicidad y la carrera con una anulación directa. **No corre en CI**:
   `./mvnw -Dit.financiero=true -Dtest=RetiroCasoIT test`.
 
+**Una transferencia entre cajas se anula completa (issue #376).** `TesoreriaService.transferir` deja las dos
+patas apuntándose entre sí por `referencia_id`, y `anular` sobre cualquiera de las dos —`TRANSFERENCIA_SALIDA`
+o `TRANSFERENCIA_ENTRADA` con origen `MANUAL` o vacío— anula las dos en la misma transacción. Antes revertía
+solo la pata pedida: la plata volvía al origen sin salir del destino.
+
+- Orden: permiso de escritura sobre **las dos cajas** → la otra pata, por su vínculo → lock de los dos
+  movimientos por **id ascendente** (dos anulaciones que entran cada una por una pata se cruzarían si cada
+  una tomara primero la suya) → estado de las dos, de la base → reversas por caja ascendente, como
+  `transferir` toma los saldos.
+- El vínculo solo no alcanza (`saveMovimientoCajaVirtual` acepta el `referenciaId` del cliente): la otra pata
+  tiene que ser del tipo opuesto, con las mismas cajas, moneda y monto, estar en su caja y apuntar de vuelta
+  (`MovimientoCajaVirtualVinculo.esContraparteDe`).
+- Si la otra pata ya estaba anulada **y tiene su contra-movimiento**, se anula solo la pedida: completa una
+  transferencia que había quedado a medias.
+- **Sin vínculo válido se rechaza** («No se pudo identificar la otra pata…»); no se empareja por cajas, monto
+  y fecha. Vale para las transferencias anteriores a este cambio: se resuelven a mano. En bodega no había
+  ninguna al 2026-10-09.
+- Si la caja destino ya gastó lo recibido, no se anula nada y el rechazo nombra la caja. El límite de días
+  (CN4) se mide sobre la pata más vieja.
+- Las patas de una **operación financiera** llevan su propio origen y se siguen anulando desde la operación.
+- En un movimiento con origen `MANUAL` el `referencia_id` es el id de la otra pata; con origen
+  `OPERACION_FINANCIERA`, el de la operación. Quien lo lea tiene que mirar el origen.
+
 ### 7.1 Idempotencia por clave (pedidos repetidos)
 
 El lock evita que dos pedidos **distintos** pisen el mismo saldo; no distingue un pedido de su

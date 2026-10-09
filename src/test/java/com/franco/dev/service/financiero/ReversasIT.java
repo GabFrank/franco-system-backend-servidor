@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  *
  * NO corre en CI (no hay DB): se activa con -Dit.financiero=true.
  * No es @Transactional: las pruebas de concurrencia necesitan commits reales. Lo que commitean son
- * ingresos de 1 con su reversa (saldo neto cero), con descripción "IT REVERSAS".
+ * ingresos y transferencias de 1 con su reversa (saldo neto cero), con descripción "IT REVERSAS".
  *
  * Correr:  ./mvnw -Dit.financiero=true -Dtest=ReversasIT test
  */
@@ -212,6 +212,52 @@ class ReversasIT {
             assertEquals(1, ajustes);
             assertEquals(0, saldoInicial.compareTo(saldoCuenta(cuentaId)), "el saldo no volvió al inicial");
         }
+    }
+
+    @Test
+    void dosAnulacionesSimultaneasDeUnaTransferenciaCadaUnaPorUnaPataLaAnulanUnaSolaVezYCompleta() throws Exception {
+        List<?> otras = tx.execute(s -> em.createNativeQuery(
+                "select id from financiero.caja_virtual where id <> :c order by id")
+                .setParameter("c", cajaId).setMaxResults(1).getResultList());
+        assumeTrue(otras != null && !otras.isEmpty(), "la base no tiene una segunda caja");
+        Long destinoId = ((Number) otras.get(0)).longValue();
+
+        for (int ronda = 0; ronda < RONDAS; ronda++) {
+            BigDecimal origenInicial = saldoCaja();
+            BigDecimal destinoInicial = saldoDe(destinoId);
+            String marca = MARCA + " T" + System.nanoTime();
+            tesoreriaService.transferir(cajaId, destinoId, 1.0, tx.execute(s -> em.find(Moneda.class, monedaId)), marca, null);
+            List<?> patas = tx.execute(s -> em.createNativeQuery(
+                    "select id, referencia_id from financiero.movimiento_caja_virtual where descripcion = :d order by id")
+                    .setParameter("d", marca).getResultList());
+            assertEquals(2, patas.size());
+            Long unaId = ((Number) ((Object[]) patas.get(0))[0]).longValue();
+            Long otraId = ((Number) ((Object[]) patas.get(1))[0]).longValue();
+            // Las dos patas quedan apuntándose entre sí.
+            assertEquals(otraId, ((Number) ((Object[]) patas.get(0))[1]).longValue());
+            assertEquals(unaId, ((Number) ((Object[]) patas.get(1))[1]).longValue());
+
+            // Cada hilo entra por una pata distinta: si cada uno tomara «la suya» primero, se cruzarían.
+            java.util.concurrent.atomic.AtomicInteger turno = new java.util.concurrent.atomic.AtomicInteger();
+            int[] r = aLaVez(4, () -> tesoreriaService.anular(
+                    turno.getAndIncrement() % 2 == 0 ? unaId : otraId, MARCA, null));
+
+            assertEquals(1, r[0], "éxitos en la ronda " + ronda);
+            assertEquals(3, r[1], "rechazos en la ronda " + ronda);
+            assertEquals(1, contrasDe(unaId));
+            assertEquals(1, contrasDe(otraId));
+            assertEquals(0, origenInicial.compareTo(saldoCaja()), "el saldo de la caja origen no volvió al inicial");
+            assertEquals(0, destinoInicial.compareTo(saldoDe(destinoId)), "el saldo de la caja destino no volvió al inicial");
+        }
+    }
+
+    private BigDecimal saldoDe(Long caja) {
+        return tx.execute(s -> {
+            List<?> f = em.createNativeQuery(
+                    "select saldo from financiero.caja_virtual_saldo where caja_virtual_id = :c and moneda_id = :m")
+                    .setParameter("c", caja).setParameter("m", monedaId).getResultList();
+            return f.isEmpty() ? BigDecimal.ZERO : (BigDecimal) f.get(0);
+        });
     }
 
     private BigDecimal saldoCuenta(Long cuentaId) {

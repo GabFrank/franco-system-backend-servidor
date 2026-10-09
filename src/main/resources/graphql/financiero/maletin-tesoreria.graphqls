@@ -1,6 +1,8 @@
 type ValorMaletinItem {
     moneda: Moneda
     total: Float
+    # El cierre ya se ingreso a la caja mayor en esta moneda.
+    ingresado: Boolean
 }
 
 extend type Query {

@@ -135,6 +135,14 @@ public class TesoreriaService {
     @Transactional
     public Boolean transferir(Long origenId, Long destinoId, Double cantidad,
                               Moneda moneda, String descripcion, Usuario usuario) {
+        transferirYDevolverSalida(origenId, destinoId, cantidad, moneda, descripcion, usuario);
+        return true;
+    }
+
+    /** {@link #transferir}, devolviendo la pata de salida: quien registra un lote necesita su id. */
+    @Transactional
+    public MovimientoCajaVirtual transferirYDevolverSalida(Long origenId, Long destinoId, Double cantidad,
+                                                           Moneda moneda, String descripcion, Usuario usuario) {
         if (origenId.equals(destinoId)) throw new GraphQLException("La caja origen y destino no pueden ser la misma");
         // Mover plata entre cajas exige permiso en las dos: es un egreso y un ingreso.
         seguridad.requireEscrituraCaja(origenId);
@@ -156,9 +164,9 @@ public class TesoreriaService {
         // (issue #376). Mutuo y no de un solo sentido porque así la otra pata se busca por clave.
         salida.setReferenciaId(entrada.getId());
         entrada.setReferenciaId(salida.getId());
-        movimientoRepository.save(salida);
+        salida = movimientoRepository.save(salida);
         movimientoRepository.save(entrada);
-        return true;
+        return salida;
     }
 
     private MovimientoCajaVirtual build(CajaVirtual caja, CajaVirtual origen, CajaVirtual destino,

@@ -1,6 +1,7 @@
 package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.operaciones.MovimientoStock;
+import com.franco.dev.domain.operaciones.MovimientoStockLote;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.productos.Producto;
 import org.junit.jupiter.api.AfterEach;
@@ -23,6 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.function.IntFunction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -53,6 +55,7 @@ class MovimientoStockIdConcurrenteIT {
     private static final int MOVIMIENTOS = Integer.getInteger("it.movimientoStock.cantidad", 64);
 
     @Autowired private MovimientoStockService service;
+    @Autowired private MovimientoStockLoteService loteService;
     @Autowired private JdbcTemplate jdbc;
 
     private boolean limpiar;
@@ -92,29 +95,24 @@ class MovimientoStockIdConcurrenteIT {
         return service.save(ms);
     }
 
-    @Test
-    void movimientosSimultaneosDeUnaSucursalNoRepitenId() throws Exception {
-        List<Long> sucursales = jdbc.queryForList(
-                "select id from empresarial.sucursal order by id limit 1", Long.class);
-        List<Long> productos = jdbc.queryForList(
-                "select id from productos.producto order by id limit 1", Long.class);
-        assumeTrue(sucursales.size() == 1 && productos.size() == 1, "falta una sucursal o un producto de referencia");
-        Long sucursalId = sucursales.get(0);
-        Long productoId = productos.get(0);
-
+    /**
+     * Larga {@code cantidad} guardados en tandas de HILOS, todos juntos dentro de cada tanda —es lo
+     * que provocaba el choque—, y exige que ninguno falle ni repita id, y que todos sean impares.
+     */
+    private void guardarALaVez(int cantidad, IntFunction<Long> guardarYDevolverId) throws Exception {
         Queue<Long> ids = new ConcurrentLinkedQueue<>();
         Queue<Throwable> fallas = new ConcurrentLinkedQueue<>();
 
         ExecutorService pool = Executors.newFixedThreadPool(HILOS);
-        // Se largan de a tandas de HILOS, todas juntas: es lo que provocaba el choque.
-        for (int desde = 0; desde < MOVIMIENTOS; desde += HILOS) {
+        for (int desde = 0; desde < cantidad; desde += HILOS) {
             CountDownLatch largada = new CountDownLatch(1);
             List<Future<Void>> enCurso = new ArrayList<>();
-            for (int i = desde; i < Math.min(desde + HILOS, MOVIMIENTOS); i++) {
+            for (int i = desde; i < Math.min(desde + HILOS, cantidad); i++) {
+                int n = i;
                 enCurso.add(pool.submit((Callable<Void>) () -> {
                     largada.await();
                     try {
-                        ids.add(guardar(sucursalId, productoId).getId());
+                        ids.add(guardarYDevolverId.apply(n));
                     } catch (Throwable t) {
                         fallas.add(t);
                     }
@@ -129,8 +127,71 @@ class MovimientoStockIdConcurrenteIT {
         pool.shutdown();
 
         assertTrue(fallas.isEmpty(), fallas.size() + " guardados fallaron; el primero: " + fallas.peek());
-        assertEquals(MOVIMIENTOS, new HashSet<>(ids).size(), "hay ids repetidos");
+        assertEquals(cantidad, new HashSet<>(ids).size(), "hay ids repetidos");
         assertTrue(ids.stream().allMatch(id -> id % 2 == 1), "el central genero un id par: " + ids);
+    }
+
+    private Long unProducto() {
+        List<Long> productos = jdbc.queryForList("select id from productos.producto order by id limit 1", Long.class);
+        assumeTrue(productos.size() == 1, "falta un producto de referencia");
+        return productos.get(0);
+    }
+
+    private List<Long> sucursales(int cuantas) {
+        List<Long> sucursales = jdbc.queryForList(
+                "select id from empresarial.sucursal order by id limit ?", Long.class, cuantas);
+        assumeTrue(sucursales.size() == cuantas, "faltan sucursales de referencia");
+        return sucursales;
+    }
+
+    @Test
+    void movimientosSimultaneosDeUnaSucursalNoRepitenId() throws Exception {
+        Long sucursalId = sucursales(1).get(0);
+        Long productoId = unProducto();
+
+        guardarALaVez(MOVIMIENTOS, n -> guardar(sucursalId, productoId).getId());
+
         assertEquals(MOVIMIENTOS, contarMovimientos(), "no todos los movimientos quedaron en la base");
+    }
+
+    /**
+     * La secuencia es una sola para todas las sucursales: guardados simultaneos en sucursales
+     * distintas tampoco se estorban, y el id no se repite ni siquiera entre sucursales.
+     */
+    @Test
+    void movimientosSimultaneosDeVariasSucursalesNoRepitenId() throws Exception {
+        List<Long> sucursales = sucursales(4);
+        Long productoId = unProducto();
+
+        guardarALaVez(MOVIMIENTOS, n -> guardar(sucursales.get(n % sucursales.size()), productoId).getId());
+
+        assertEquals(MOVIMIENTOS, contarMovimientos(), "no todos los movimientos quedaron en la base");
+    }
+
+    /** El desglose por lote tenia el mismo MAX(id) + 1: varias filas del mismo movimiento a la vez. */
+    @Test
+    void filasDeLoteSimultaneasNoRepitenId() throws Exception {
+        Long sucursalId = sucursales(1).get(0);
+        Long productoId = unProducto();
+        // Las filas de lote se van con su movimiento (ON DELETE CASCADE) cuando limpiar() lo borra.
+        Long movimientoId = guardar(sucursalId, productoId).getId();
+
+        guardarALaVez(MOVIMIENTOS, n -> {
+            Producto producto = new Producto();
+            producto.setId(productoId);
+            MovimientoStockLote fila = new MovimientoStockLote();
+            fila.setSucursalId(sucursalId);
+            fila.setMovimientoStockId(movimientoId);
+            fila.setProducto(producto);
+            fila.setNumeroLote("IT-153-" + n);
+            fila.setCantidad(0.0);
+            fila.setEstado(false);
+            fila.setReferencia(REFERENCIA);
+            return loteService.save(fila).getId();
+        });
+
+        assertEquals(MOVIMIENTOS, jdbc.queryForObject(
+                "select count(*) from operaciones.movimiento_stock_lote where movimiento_stock_id = ? and sucursal_id = ?",
+                Integer.class, movimientoId, sucursalId), "no todas las filas de lote quedaron en la base");
     }
 }

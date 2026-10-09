@@ -26,6 +26,7 @@ class OperacionFinancieraServiceTest {
     private BancoLedgerService bancoLedgerService;
     private MovimientoCajaVirtualRepository movimientoCajaVirtualRepository;
     private MovimientoBancarioRepository movimientoBancarioRepository;
+    private ComprobanteNumeracionService numeracion;
     private OperacionFinancieraService service;
 
     @BeforeEach
@@ -35,8 +36,9 @@ class OperacionFinancieraServiceTest {
         bancoLedgerService = mock(BancoLedgerService.class);
         movimientoCajaVirtualRepository = mock(MovimientoCajaVirtualRepository.class);
         movimientoBancarioRepository = mock(MovimientoBancarioRepository.class);
+        numeracion = mock(ComprobanteNumeracionService.class);
         service = new OperacionFinancieraService(repository, tesoreriaService, bancoLedgerService,
-                movimientoCajaVirtualRepository, movimientoBancarioRepository);
+                movimientoCajaVirtualRepository, movimientoBancarioRepository, numeracion);
         when(repository.save(any())).thenAnswer(i -> {
             OperacionFinanciera o = i.getArgument(0);
             if (o.getId() == null) o.setId(1L);
@@ -335,5 +337,39 @@ class OperacionFinancieraServiceTest {
         assertThrows(RuntimeException.class, () -> service.registrar(op, null));
         verifyNoInteractions(tesoreriaService);
         verifyNoInteractions(bancoLedgerService);
+    }
+
+    @Test
+    void registrar_guarda_el_comprobante_que_resuelve_la_numeracion_y_lo_pide_antes_de_guardar() {
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setTipoOperacion(TipoOperacionFinanciera.CAMBIO_DIVISA);
+        op.setCajaMayorOrigen(caja(1)); op.setMontoOrigen(new BigDecimal("100"));
+        op.setCajaMayorDestino(caja(1)); op.setMontoDestino(new BigDecimal("14"));
+        op.setNumeroComprobante("  op-9 ");
+        when(numeracion.resolver(eq("OPERACION_FINANCIERA"), eq("  op-9 "), any(), eq("una operación financiera")))
+                .thenReturn("OP-9");
+
+        service.registrar(op, null);
+
+        assertEquals("OP-9", op.getNumeroComprobante());
+        org.mockito.InOrder orden = inOrder(numeracion, repository, tesoreriaService);
+        orden.verify(numeracion).resolver(eq("OPERACION_FINANCIERA"), eq("  op-9 "), any(), eq("una operación financiera"));
+        orden.verify(repository).save(any());
+        orden.verify(tesoreriaService, atLeastOnce()).registrar(any());
+    }
+
+    @Test
+    void registrar_con_un_comprobante_repetido_no_guarda_ni_mueve_nada() {
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setTipoOperacion(TipoOperacionFinanciera.CAMBIO_DIVISA);
+        op.setCajaMayorOrigen(caja(1)); op.setMontoOrigen(new BigDecimal("100"));
+        op.setCajaMayorDestino(caja(1)); op.setMontoDestino(new BigDecimal("14"));
+        when(numeracion.resolver(any(), any(), any(), any()))
+                .thenThrow(new graphql.GraphQLException("Ya existe una operación financiera con el comprobante OP-9."));
+
+        assertThrows(graphql.GraphQLException.class, () -> service.registrar(op, null));
+
+        verify(repository, never()).save(any());
+        verifyNoInteractions(tesoreriaService, bancoLedgerService);
     }
 }

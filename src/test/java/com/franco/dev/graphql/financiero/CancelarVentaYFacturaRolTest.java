@@ -9,6 +9,7 @@ import com.franco.dev.graphql.operaciones.VentaGraphQL;
 import com.franco.dev.service.financiero.DocumentoElectronicoService;
 import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.financiero.TesoreriaSecurityService;
+import com.franco.dev.service.financiero.VentaCreditoService;
 import com.franco.dev.service.operaciones.VentaService;
 import com.franco.dev.service.personas.RoleService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -49,7 +50,9 @@ class CancelarVentaYFacturaRolTest {
     private DocumentoElectronicoService documentoElectronicoService;
     private UsuarioService usuarioService;
     private RoleService roleService;
+    private VentaCreditoService ventaCreditoService;
     private VentaGraphQL ventaGraphQL;
+    private VentaCreditoGraphQL ventaCreditoGraphQL;
     private FacturaLegalGraphQL facturaLegalGraphQL;
 
     @BeforeEach
@@ -68,6 +71,11 @@ class CancelarVentaYFacturaRolTest {
         ventaGraphQL = new VentaGraphQL();
         ReflectionTestUtils.setField(ventaGraphQL, "service", ventaService);
         ReflectionTestUtils.setField(ventaGraphQL, "seg", seg);
+
+        ventaCreditoService = mock(VentaCreditoService.class);
+        ventaCreditoGraphQL = new VentaCreditoGraphQL();
+        ReflectionTestUtils.setField(ventaCreditoGraphQL, "service", ventaCreditoService);
+        ReflectionTestUtils.setField(ventaCreditoGraphQL, "seg", seg);
 
         facturaLegalGraphQL = new FacturaLegalGraphQL();
         ReflectionTestUtils.setField(facturaLegalGraphQL, "service", facturaLegalService);
@@ -155,6 +163,25 @@ class CancelarVentaYFacturaRolTest {
 
         assertTrue(factura.getActivo());
         verifyNoInteractions(facturaLegalService, ventaService, sifenEventoService, documentoElectronicoService);
+    }
+
+    @Test
+    @DisplayName("sin el rol tampoco se cancela por la venta a credito, que alterna el estado de la venta")
+    void sinRolNoCancelaPorLaVentaACredito() {
+        autenticar("ana", "ANALISIS DE CAJA");
+
+        assertThrows(GraphQLException.class, () -> ventaCreditoGraphQL.cancelarVentaCredito(9L, SUCURSAL_ID));
+
+        verifyNoInteractions(ventaCreditoService);
+    }
+
+    @Test
+    @DisplayName("con el rol la venta a credito se cancela")
+    void conRolCancelaLaVentaACredito() {
+        autenticar("ana", "CANCELACION DE VENTA");
+        when(ventaCreditoService.cancelarVentaCredito(9L, SUCURSAL_ID, null)).thenReturn(true);
+
+        assertTrue(ventaCreditoGraphQL.cancelarVentaCredito(9L, SUCURSAL_ID));
     }
 
     @Test

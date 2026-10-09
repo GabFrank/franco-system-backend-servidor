@@ -112,7 +112,27 @@ Los dos ejes no se contradicen.
 - Una sesion cuyo token lo emitio el filial (el PDV): el central la resuelve por el `nickname` del
   token. Se prueba en runtime cancelando desde el PDV.
 
+## Auditoria del diff (paso 8, 2026-10-09)
+
+| Eje | Hallazgo | Que se hizo |
+|---|---|---|
+| Autorizacion | la mutation `cancelarVentaCredito`, llamada sin venta, alterna el estado de la venta sin pasar por `cancelarVenta` | verificado en `VentaCreditoService.cancelarVentaCredito`; se le sumo el mismo chequeo y dos casos de test. Ningun cliente la llama (el desktop la declara y no la usa) |
+| Autorizacion | `cancelarDocumentoElectronico` y `cancelarVentaTarjetaPorVentaId` tampoco miran rol | fuera de alcance, ver abajo |
+| Autorizacion | `ultimas-ventas-dialog` seguiria ofreciendo cancelar sin el rol | descartado: el boton exige `data.cancelacion`, y el dialogo solo se abre asi desde `utilitarios-dialog`, que ya mira el rol |
+| Esquema | el rol no tiene migracion que lo siembre (precedente: `V237.3` para CAMBIAR COTIZACION) | no se agrega: el rol existe desde antes (id 2 en bodega) y sin el la falla es cerrada, solo ADMIN cancela. Queda en la nota de despliegue |
+| Contrato | `list-venta-credito` no mira el rol | descartado: su boton ya exige `ADMIN` |
+| Contrato | firmas y tipos de retorno sin cambio; PWA y mobile sin llamadores | sin cambio |
+
+## Hecho
+
+- Central: bateria completa `clean verify` (1588 tests, 0 fallos) antes del chequeo de
+  `cancelarVentaCredito`; despues, los tests de la zona. Test nuevo comprobado contra el codigo
+  viejo: 4 casos fallan sin el chequeo.
+- Runtime, central local `:8081` con PRUEBANR: sin el rol las dos mutations responden «No autorizado:
+  se requiere el rol CANCELACION DE VENTA» y no cambian nada; con el rol, cancela y reactiva.
+- Desktop: `npm run check` sin errores.
+
 ## Fuera de alcance
 
-`cancelarVentaTarjetaPorVentaId`, `cancelarVentaItens` y `cancelarVentaCredito` tienen el mismo
-patron. Van en otro trabajo.
+`cancelarVentaTarjetaPorVentaId`, `cancelarVentaItens` y `cancelarDocumentoElectronico` tienen el
+mismo patron. Van en otro trabajo.

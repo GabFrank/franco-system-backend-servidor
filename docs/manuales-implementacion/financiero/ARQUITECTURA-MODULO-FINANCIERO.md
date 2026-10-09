@@ -258,11 +258,44 @@ nada. Antes invertían el estado en cada llamada y un reintento o un doble clic 
   la cuenta es la de la chequera, la moneda es la de la cuenta, un diferido lleva fecha de pago y no anterior
   al día de su emisión (no «a hoy»: el pago a proveedores registra cheques ya entregados), y el número está
   dentro del rango de la chequera.
-- Sigue sin control: `saveChequera` deja escribir cualquier `siguiente_numero` (es lo que puede dejar una
-  chequera fuera de rango), no hay unicidad de (chequera, número), y el límite de una caja chica es solo un
-  aviso del desktop.
+- Sigue sin control: el límite de una caja chica es solo un aviso del desktop.
 - `ValidacionesFinancieroIT` prueba el lock contra PostgreSQL y las tres carreras. **No corre en CI**:
   `./mvnw -Dit.financiero=true -Dtest=ValidacionesFinancieroIT test`.
+
+**Cheques y chequeras (issue #376).** Un número de cheque no se repite dentro de una chequera, y lo cuidan
+tres cosas:
+
+- **La emisión** toma la chequera con lock y la relee (arriba).
+- **Guardar una chequera** (`ChequeraGestionService`) ya no arma la fila con lo que manda el formulario: toma
+  la chequera con el mismo lock que la emisión, la relee y decide sobre lo que hay en la base. El desktop manda
+  siempre el `siguienteNumero` que tenía en pantalla —también al «Desactivar» desde la lista—, y antes eso
+  hacía retroceder el correlativo.
+  - **El correlativo solo va hacia adelante:** se aplica el que llega si es mayor que el de la base; si no,
+    se conserva, **sin rechazar** (rechazar haría fallar a cualquier pantalla abierta desde antes). Deshacer
+    un salto hecho de más no se puede desde la pantalla.
+  - El rango tiene que contener los cheques ya emitidos y al correlativo (`desde <= siguiente <= hasta + 1`);
+    con `siguiente = hasta + 1` queda `AGOTADA`, venga lo que venga.
+  - **`ANULADA` es terminal.** Una pantalla vieja no reactiva una chequera que otro anuló. De una anulada solo
+    se corrigen nombre y firmantes.
+  - La cuenta no cambia si la chequera ya emitió. Fecha de retiro, fecha de alta y usuario creador no se tocan
+    si no vienen.
+  - **Rangos de una cuenta:** al dar de alta, o al cambiar el rango o la cuenta, se rechaza si otra chequera no
+    anulada de esa cuenta comparte algún número. Lock por nombre `CHEQUERAS_CUENTA:<cuenta>` antes de buscar.
+    Orden: lock por nombre (de las dos cuentas, por id, si cambia) → fila de la chequera → relectura. `emitir`
+    toma la chequera y después la cuenta bancaria, sin el lock por nombre: no hay ciclo.
+- **El índice único** `uq_cheque_chequera_numero` sobre `cheque (chequera_id, numero)`, anulados incluidos, es
+  el respaldo. La migración `V241.1` **no puede fallar**: si hay números repetidos captura el error, deja un
+  `WARNING` y sigue sin el índice; `ChequeUnicoVerificador` lo avisa con `ERROR` en el log al arrancar. Si una
+  emisión choca con el índice, el rechazo dice el número y la chequera.
+- `saveCheque` y `deleteCheque` **se rechazan**: eran un alta, edición y borrado planos de la tabla (cualquier
+  número, pisar un cheque cobrado, borrar uno emitido). Siguen en el schema; ninguna pantalla las usa.
+- Un cheque al día se guarda con la fecha de emisión como fecha de pago: el dashboard filtra por esa fecha.
+- **Rollback del JAR con el índice creado:** la versión anterior vuelve a pisar el correlativo al editar, y la
+  emisión siguiente falla contra el índice hasta corregir `siguiente_numero`. Revisar con
+  `select id from financiero.chequera c where siguiente_numero <= (select max(numero) from financiero.cheque
+  where chequera_id = c.id)`.
+- `ChequerasIT` prueba la edición con la fila vieja y dos altas simultáneas. **No corre en CI**:
+  `./mvnw -Dit.financiero=true -Dtest=ChequerasIT test`.
 
 **Ajustes de saldo con saldo esperado (issue #376).** El ajuste por conteo de una caja y el de saldo de una
 cuenta bancaria se calculaban en el desktop con el saldo que tenía en pantalla, y el central aplicaba la

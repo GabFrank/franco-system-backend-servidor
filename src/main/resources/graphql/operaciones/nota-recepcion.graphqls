@@ -1,7 +1,6 @@
 type NotaRecepcion {
     id: ID!
     pedido: Pedido
-    compra: Compra
     documento: Documento
     numero: Int
     tipoBoleta: String
@@ -20,7 +19,6 @@ type NotaRecepcion {
 input NotaRecepcionInput {
     id: ID
     pedidoId: Int
-    compraId: Int
     documentoId: Int
     numero: Int
     tipoBoleta: String

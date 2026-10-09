@@ -1,9 +1,7 @@
 package com.franco.dev.graphql.operaciones.resolver;
 
-import com.franco.dev.domain.operaciones.CompraItem;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.service.empresarial.SucursalService;
-import com.franco.dev.service.operaciones.CompraItemService;
 import com.franco.dev.service.operaciones.NotaRecepcionItemService;
 import com.franco.dev.service.operaciones.NotaRecepcionService;
 import com.franco.dev.service.operaciones.PedidoItemService;
@@ -12,8 +10,6 @@ import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLResolver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
 
 @Component
 public class NotaRecepcionResolver implements GraphQLResolver<NotaRecepcion> {
@@ -35,9 +31,6 @@ public class NotaRecepcionResolver implements GraphQLResolver<NotaRecepcion> {
 
     @Autowired
     private PedidoItemService pedidoItemService;
-
-    @Autowired
-    private CompraItemService compraItemService;
 
     /**
      * Retorna el valor persistido de la nota (legacy; el tipo GraphQL expone valorTotal).
@@ -67,15 +60,6 @@ public class NotaRecepcionResolver implements GraphQLResolver<NotaRecepcion> {
             System.err.println("Error calculando valor total de nota recepción: " + ex.getMessage());
             return 0.0;
         }
-    }
-
-    public Double descuento(NotaRecepcion e){
-        Double valor = 0.0;
-        List<CompraItem> compraItemList = compraItemService.findByNotaRecepcionId(e.getId());
-        for(CompraItem item: compraItemList){
-            valor += item.getDescuentoUnitario() * item.getCantidad();
-        }
-        return valor;
     }
 
     /**

@@ -71,9 +71,19 @@ desktop decidio para esta pantalla en #390 («no ofrece reactivar»).
   (ventana chica: es lo ultimo antes del save). Y si SIFEN falla, el error se traga y la factura
   queda inactiva con el DE vivo.
 - **Reactivar no reactiva la factura** ni el DE (motivo de «Solo cancela»).
-- Tablas que el central pasa a escribir desde esta mutation: `movimiento_caja`, `movimiento_stock`,
-  `venta_tarjeta`, `delivery`, `venta_credito`, `factura_legal`. Es exactamente lo que ya escribe
-  `cancelarVenta` desde el desktop; no se verifico la direccion de replicacion tabla por tabla.
+- **Tres de las siete tablas que escribe la cadena no bajan a la filial.** Todas son
+  `BRANCH_TO_MAIN`; solo vuelven a la filial duena las que tienen
+  `replicate_central_to_branch_with_filter` (V113, V150.1, V161.3). Verificado contra
+  `configuraciones.replication_table` de la copia local de bodega:
+
+  | Tabla | El UPDATE del central llega a la filial |
+  |---|---|
+  | `operaciones.venta`, `financiero.factura_legal`, `operaciones.movimiento_stock`, `financiero.venta_tarjeta` | si |
+  | `financiero.movimiento_caja`, `operaciones.delivery`, `financiero.venta_credito` | **no** |
+
+  La filial sigue viendo activo el movimiento de caja de una venta cancelada desde el central. Es
+  lo que ya pasa con `cancelarVenta` desde el desktop; esta mutation solo es otra puerta al mismo
+  camino. No se verifico contra `replication_table` de produccion.
 
 ## Tests
 
@@ -99,9 +109,18 @@ desktop decidio para esta pantalla en #390 («no ofrece reactivar»).
 | La seccion Rollback decia que todo se deshace reactivando | A | Corregido |
 | SIFEN en `REQUIRES_NEW` no se revierte con el rollback | A y B | Anotado como heredado. Mover la llamada al final o a `afterCommit` toca `cancelarVenta`, el camino que usa todo el sistema: otro PR |
 | `venta.getCobro().getId()` sin null: la mutation fallaria en ventas a credito sin cobro | B | Descartado con datos: 0 de 78.864 ventas a credito sin cobro en la copia local de bodega (datos al 2026-09-07) |
-| Direccion de replicacion de las tablas que ahora se escriben | A | Anotado; mismo camino que `cancelarVenta`. Se mira en la prueba de runtime |
+| Direccion de replicacion de las tablas que ahora se escriben | A, Fijo 2 | Verificado en migraciones y en la copia local: 3 de 7 no bajan a la filial. Heredado de `cancelarVenta`, anotado arriba |
 | Buscar la venta con la sucursal de la venta credito, no con el argumento | A | Aplicado |
 | Probar con una venta sin factura electronica | A y B | Aplicado en «Que queda sin verificar» (en `dev`, `sifen.enabled=false`) |
+
+## Auditoria del diff (paso 8, 2026-10-09)
+
+| Hallazgo | Eje | Que se hizo |
+|---|---|---|
+| Sin escalada: el rol va primero y la mutation queda como subconjunto de `cancelarVenta` | Fijo 1 | Nada que aplicar |
+| Dos llamadas simultaneas pasan las dos el chequeo de «ya cancelada» (no hay lock); el evento a SIFEN se intentaria dos veces | Fijo 1 | Anotado: misma carrera que `cancelarVenta`. El segundo `cancelarDE` corta por «ya tiene cancelacion aprobada» si el primero ya se aprobo |
+| `movimiento_caja`, `delivery` y `venta_credito` no bajan a la filial | Fijo 2 | Anotado como heredado |
+| Ningun cliente llama a la mutation en `develop`, `release/beta` ni `master`; el camino `cancelarVenta` no cambia | Fijo 3 | Nada que aplicar |
 
 ## Tabla de datos nuevos
 

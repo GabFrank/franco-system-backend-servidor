@@ -113,28 +113,22 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
         return super.save(entity);
     }
 
+    /**
+     * Deja la venta credito en el estado que le corresponde por su venta, que ya viene con el estado
+     * nuevo: es un paso de {@code VentaService.cancelarVenta}, no cancela la venta por su cuenta
+     * (issue #339).
+     */
     public Boolean cancelarVentaCredito(Long id, Long sucId, Venta venta) {
+        if (venta == null) {
+            throw new GraphQLException("Falta la venta: la venta credito se cancela desde cancelarVenta");
+        }
         VentaCredito ventaCredito = findById(new EmbebedPrimaryKey(id, sucId)).orElse(null);
         if (ventaCredito != null) {
             try {
-                if (venta == null) {
-                    venta = ventaService.findById(new EmbebedPrimaryKey(ventaCredito.getVenta().getId(), sucId))
-                            .orElse(null);
-                    if (venta.getEstado() != VentaEstado.CANCELADA) {
-                        venta.setEstado(VentaEstado.CANCELADA);
-                        venta = ventaService.save(venta);
-                        ventaCredito.setEstado(EstadoVentaCredito.CANCELADO);
-                    } else {
-                        venta.setEstado(VentaEstado.CONCLUIDA);
-                        venta = ventaService.save(venta);
-                        ventaCredito.setEstado(EstadoVentaCredito.ABIERTO);
-                    }
+                if (venta.getEstado() == VentaEstado.CANCELADA) {
+                    ventaCredito.setEstado(EstadoVentaCredito.CANCELADO);
                 } else {
-                    if (venta.getEstado() == VentaEstado.CANCELADA) {
-                        ventaCredito.setEstado(EstadoVentaCredito.CANCELADO);
-                    } else {
-                        ventaCredito.setEstado(EstadoVentaCredito.ABIERTO);
-                    }
+                    ventaCredito.setEstado(EstadoVentaCredito.ABIERTO);
                 }
                 this.save(ventaCredito);
                 return true;

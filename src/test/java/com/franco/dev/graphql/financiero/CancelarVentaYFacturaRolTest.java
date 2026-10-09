@@ -1,6 +1,7 @@
 package com.franco.dev.graphql.financiero;
 
 import com.franco.dev.domain.financiero.FacturaLegal;
+import com.franco.dev.domain.financiero.VentaCredito;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.domain.personas.Role;
@@ -42,6 +43,7 @@ class CancelarVentaYFacturaRolTest {
     private static final Long USUARIO_ID = 7L;
     private static final Long VENTA_ID = 40L;
     private static final Long FACTURA_ID = 300L;
+    private static final Long VENTA_CREDITO_ID = 9L;
     private static final Long SUCURSAL_ID = 1L;
 
     private VentaService ventaService;
@@ -75,6 +77,7 @@ class CancelarVentaYFacturaRolTest {
         ventaCreditoService = mock(VentaCreditoService.class);
         ventaCreditoGraphQL = new VentaCreditoGraphQL();
         ReflectionTestUtils.setField(ventaCreditoGraphQL, "service", ventaCreditoService);
+        ReflectionTestUtils.setField(ventaCreditoGraphQL, "ventaService", ventaService);
         ReflectionTestUtils.setField(ventaCreditoGraphQL, "seg", seg);
 
         facturaLegalGraphQL = new FacturaLegalGraphQL();
@@ -109,6 +112,15 @@ class CancelarVentaYFacturaRolTest {
         when(ventaService.findByIdAndSucursalId(VENTA_ID, SUCURSAL_ID)).thenReturn(venta);
         when(ventaService.cancelarVenta(venta)).thenReturn(true);
         return venta;
+    }
+
+    private VentaCredito ventaCreditoDe(Venta venta) {
+        VentaCredito ventaCredito = new VentaCredito();
+        ventaCredito.setId(VENTA_CREDITO_ID);
+        ventaCredito.setSucursalId(SUCURSAL_ID);
+        ventaCredito.setVenta(venta);
+        when(ventaCreditoService.findByIdAndSucursalId(VENTA_CREDITO_ID, SUCURSAL_ID)).thenReturn(ventaCredito);
+        return ventaCredito;
     }
 
     private FacturaLegal facturaEnPapel() {
@@ -166,22 +178,84 @@ class CancelarVentaYFacturaRolTest {
     }
 
     @Test
-    @DisplayName("sin el rol tampoco se cancela por la venta a credito, que alterna el estado de la venta")
+    @DisplayName("sin el rol tampoco se cancela por la venta a credito")
     void sinRolNoCancelaPorLaVentaACredito() {
         autenticar("ana", "ANALISIS DE CAJA");
 
-        assertThrows(GraphQLException.class, () -> ventaCreditoGraphQL.cancelarVentaCredito(9L, SUCURSAL_ID));
+        assertThrows(GraphQLException.class,
+                () -> ventaCreditoGraphQL.cancelarVentaCredito(VENTA_CREDITO_ID, SUCURSAL_ID));
 
-        verifyNoInteractions(ventaCreditoService);
+        verifyNoInteractions(ventaCreditoService, ventaService);
     }
 
     @Test
-    @DisplayName("con el rol la venta a credito se cancela")
-    void conRolCancelaLaVentaACredito() {
+    @DisplayName("con el rol la venta a credito se cancela por la cadena de cancelarVenta, no por un atajo (issue #339)")
+    void conRolCancelaLaVentaACreditoPorLaCadena() {
         autenticar("ana", "CANCELACION DE VENTA");
-        when(ventaCreditoService.cancelarVentaCredito(9L, SUCURSAL_ID, null)).thenReturn(true);
+        Venta venta = venta(VentaEstado.CONCLUIDA);
+        ventaCreditoDe(venta);
 
-        assertTrue(ventaCreditoGraphQL.cancelarVentaCredito(9L, SUCURSAL_ID));
+        assertTrue(ventaCreditoGraphQL.cancelarVentaCredito(VENTA_CREDITO_ID, SUCURSAL_ID));
+
+        verify(ventaService, times(1)).cancelarVenta(venta);
+        verify(ventaService, never()).save(any());
+        verify(ventaCreditoService, never()).cancelarVentaCredito(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("por la venta a credito no se reactiva una venta ya cancelada: solo cancela")
+    void porLaVentaACreditoNoSeReactiva() {
+        autenticar("ana", "CANCELACION DE VENTA");
+        Venta cancelada = venta(VentaEstado.CANCELADA);
+        ventaCreditoDe(cancelada);
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> ventaCreditoGraphQL.cancelarVentaCredito(VENTA_CREDITO_ID, SUCURSAL_ID));
+
+        assertTrue(e.getMessage().contains("ya esta cancelada"), e.getMessage());
+        assertEquals(VentaEstado.CANCELADA, cancelada.getEstado());
+        verify(ventaService, never()).cancelarVenta(any());
+        verify(ventaService, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("venta a credito inexistente: error y no se cancela nada")
+    void ventaACreditoInexistente() {
+        autenticar("ana", "CANCELACION DE VENTA");
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> ventaCreditoGraphQL.cancelarVentaCredito(VENTA_CREDITO_ID, SUCURSAL_ID));
+
+        assertTrue(e.getMessage().contains("Venta credito no encontrada"), e.getMessage());
+        verifyNoInteractions(ventaService);
+    }
+
+    @Test
+    @DisplayName("venta a credito sin venta: error y no se cancela nada")
+    void ventaACreditoSinVenta() {
+        autenticar("ana", "CANCELACION DE VENTA");
+        ventaCreditoDe(null);
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> ventaCreditoGraphQL.cancelarVentaCredito(VENTA_CREDITO_ID, SUCURSAL_ID));
+
+        assertTrue(e.getMessage().contains("No se encontro la venta"), e.getMessage());
+        verifyNoInteractions(ventaService);
+    }
+
+    @Test
+    @DisplayName("venta a credito cuya venta no existe: error y no se cancela nada")
+    void ventaDeLaVentaACreditoInexistente() {
+        autenticar("ana", "CANCELACION DE VENTA");
+        Venta huerfana = new Venta();
+        huerfana.setId(VENTA_ID);
+        ventaCreditoDe(huerfana);
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> ventaCreditoGraphQL.cancelarVentaCredito(VENTA_CREDITO_ID, SUCURSAL_ID));
+
+        assertTrue(e.getMessage().contains("No se encontro la venta"), e.getMessage());
+        verify(ventaService, never()).cancelarVenta(any());
     }
 
     @Test

@@ -183,6 +183,32 @@ jobs:
             deploy@${{ secrets.DEPLOY_HOST }}:${FIREBASE_REMOTE_PATH}
           rm -f firebase-credentials.json
 
+      # Cuenta que envia las facturas por correo. Sale de los secrets del environment de GitHub
+      # (hoy solo `production`): el repo es publico y la contrasena no puede ir en el codigo.
+      # Sin los secrets no se sube nada y el .env de la instancia queda como esta.
+      - name: Upload mail settings
+        env:
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          FACTURA_CORREO_ENABLED: ${{ vars.FACTURA_CORREO_ENABLED }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          if [[ -z "${MAIL_USERNAME}" || -z "${MAIL_PASSWORD}" ]]; then
+            echo "MAIL_USERNAME / MAIL_PASSWORD not set for this environment. Skipping mail settings."
+            exit 0
+          fi
+          MAIL_REMOTE_PATH="/tmp/mail-${{ inputs.instance }}-${VERSION}.env"
+          umask 077
+          {
+            printf 'MAIL_USERNAME=%s\n' "${MAIL_USERNAME}"
+            printf 'MAIL_PASSWORD=%s\n' "${MAIL_PASSWORD}"
+            printf 'FACTURA_CORREO_ENABLED=%s\n' "${FACTURA_CORREO_ENABLED:-true}"
+          } > mail-settings.env
+          scp -i ~/.ssh/deploy_key \
+            mail-settings.env \
+            deploy@${{ secrets.DEPLOY_HOST }}:${MAIL_REMOTE_PATH}
+          rm -f mail-settings.env
+
       - name: Upload JAR to server
         env:
           VERSION: ${{ steps.resolve.outputs.version }}
@@ -207,8 +233,9 @@ jobs:
           FIREBASE_TARGET_PATH: ${{ steps.firebase.outputs.target_path }}
         run: |
           FIREBASE_REMOTE_PATH="/tmp/firebase-${{ inputs.instance }}-${VERSION}.json"
+          MAIL_REMOTE_PATH="/tmp/mail-${{ inputs.instance }}-${VERSION}.env"
           ssh -i ~/.ssh/deploy_key deploy@${{ secrets.DEPLOY_HOST }} \
-            "chmod +x /tmp/deploy.sh && /tmp/deploy.sh '${VERSION}' '${{ inputs.instance }}' '${FIREBASE_REMOTE_PATH}' '${FIREBASE_TARGET_PATH}'"
+            "chmod +x /tmp/deploy.sh && /tmp/deploy.sh '${VERSION}' '${{ inputs.instance }}' '${FIREBASE_REMOTE_PATH}' '${FIREBASE_TARGET_PATH}' '${MAIL_REMOTE_PATH}'"
 
       - name: Summary
         if: always()

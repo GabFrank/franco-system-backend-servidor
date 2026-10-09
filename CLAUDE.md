@@ -300,15 +300,17 @@ Si los tests fallan, NO abrir PR — comentar en el issue explicando el fallo.
 
 Se sondea en vez de reaccionar a un evento porque las facturas llegan al central por replicacion logica, sin pasar por codigo de la aplicacion.
 
-**Configuracion por instancia**, en `/opt/frc-backend-central/<instancia>/.env` (despues `sudo systemctl restart frc-<instancia>.service`):
+**Configuracion por instancia.** El repo es publico: la contrasena NO va en `application.properties`. Sale de los secrets del environment de GitHub y el deploy la escribe sola en `/opt/frc-backend-central/<instancia>/.env` (`deploy.yml` -> `deploy.sh`):
 
-```
-MAIL_USERNAME=<cuenta que envia>
-MAIL_PASSWORD=<contrasena de aplicacion>
-FACTURA_CORREO_ENABLED=true
-```
+| Donde (environment) | Nombre | Valor |
+|---|---|---|
+| Secret | `MAIL_USERNAME` | cuenta que envia |
+| Secret | `MAIL_PASSWORD` | contrasena de aplicacion |
+| Variable (opcional) | `FACTURA_CORREO_ENABLED` | `false` para dejar solo el envio manual; sin la variable queda en `true` |
+
+Hoy solo los tiene `production` (bodega). `beta` cubre tambien a `farmacia`, que es otra empresa: no copiar ahi la cuenta de Bodega. Un environment sin los secrets no envia nada y su `.env` no se toca.
 
 - `MAIL_HOST` (default `smtp.gmail.com`) y `MAIL_PORT` (default `587`) solo si no es Gmail.
-- Sin `FACTURA_CORREO_ENABLED=true` solo funciona el envio manual. Al prenderlo salen las facturas aprobadas de las ultimas 48 h que tengan correo.
+- En el primer deploy con el envio automatico prendido salen las facturas aprobadas de las ultimas 48 h que tengan correo.
 - **Pruebas de envio: solo con el cliente DIEGO PAULINHO AMARILLA MERCADO.** Las bases dev son copias de produccion con correos reales de clientes.
 

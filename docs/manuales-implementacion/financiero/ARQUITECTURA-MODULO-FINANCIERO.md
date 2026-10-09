@@ -168,6 +168,11 @@ un rechazo de la segunda dejaba la primera adentro.
   (A,Gs), (B,Gs), (A,Rs)… y se cruza con un pago mixto. Además cada `registrar` en Gs/Rs/Ds escribe la fila
   `caja_virtual` (el shim) antes de pedir el saldo de la moneda siguiente, y se cruza con cualquier movimiento
   suelto de esa moneda. `MovimientosCajaEnLoteIT` lo reproduce si se saca ese paso.
+- Después de tomar los saldos relee la fila de cada caja: el chequeo de permiso ya la había cargado, y el
+  shim se guarda con la fila entera (`CajaVirtual` no tiene `@DynamicUpdate`).
+- Inversión que queda: `RetiroVerificacionService.acreditar` y los grupos de un pago mixto recorren las
+  monedas de una misma caja en el orden en que vienen, no ascendente. Contra un lote de varias monedas sobre
+  esa caja pueden cruzarse; PostgreSQL aborta una de las dos y no corrompe nada.
 - Validaciones, todas antes de tocar nada: de 1 a 10 montos, monedas existentes (una inexistente no cae a
   guaraníes) y sin repetir, monto finito de hasta 4 decimales, mayor que cero —o distinto de cero y con signo
   en el ajuste—. El movimiento queda a nombre del **usuario de la sesión**.

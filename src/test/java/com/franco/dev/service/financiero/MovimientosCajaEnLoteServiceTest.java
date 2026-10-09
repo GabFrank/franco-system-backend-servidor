@@ -77,6 +77,7 @@ class MovimientosCajaEnLoteServiceTest {
         for (long id : new long[]{1L, 2L, 3L}) {
             Moneda m = new Moneda();
             m.setId(id);
+            m.setDenominacion(id == 1 ? "GUARANI" : id == 2 ? "REAL" : "DOLAR");
             when(monedaRepository.findById(id)).thenReturn(Optional.of(m));
         }
         for (long id : new long[]{7L, 9L}) {
@@ -173,7 +174,9 @@ class MovimientosCajaEnLoteServiceTest {
         GraphQLException e = assertThrows(GraphQLException.class, () -> service.registrarMovimientos(7L,
                 CajaVirtualTipoMovimiento.EGRESO, montos(1, 500000, 2, 300, 3, 20), "X", usuario, "clave"));
 
-        assertTrue(e.getMessage().contains("Saldo insuficiente"), e.getMessage());
+        // Dice en qué moneda (la segunda del pedido) y que no quedó nada.
+        assertTrue(e.getMessage().contains("Saldo insuficiente") && e.getMessage().contains("(REAL)")
+                && e.getMessage().contains("No se registró nada"), e.getMessage());
         verify(tesoreria, times(2)).registrar(any());   // la tercera no se intenta
     }
 

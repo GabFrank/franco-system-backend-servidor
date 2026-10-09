@@ -34,8 +34,8 @@ import java.util.TreeMap;
  * <b>todos</b> los saldos del lote con lock, por (caja, moneda) ascendente → recién ahí registrar. Los
  * saldos se toman antes y juntos porque registrar de a una moneda se cruza con el resto del módulo, que
  * ordena por caja, y porque cada {@code registrar} escribe además la fila de la caja (el shim
- * {@code saldo_gs/rs/ds}): tomándolos antes, esa fila se escribe siempre después de tener los saldos,
- * igual que en un movimiento de una sola moneda.</p>
+ * {@code saldo_gs/rs/ds}): tomándolos antes, esa fila se escribe siempre después de tener los saldos
+ * del lote, igual que en un movimiento de una sola moneda.</p>
  *
  * <p>Cada moneda queda como un movimiento —o un par de patas vinculadas— independiente: se anulan por
  * separado, como siempre.</p>
@@ -59,6 +59,10 @@ public class MovimientosCajaEnLoteService {
     private final CajaVirtualSaldoRepository saldoRepository;
     private final MonedaRepository monedaRepository;
     private final MovimientoCajaVirtualRepository movimientoRepository;
+
+    /** Nulo en los tests unitarios, que arman el servicio a mano. */
+    @javax.persistence.PersistenceContext
+    private javax.persistence.EntityManager entityManager;
 
     /** Un monto del pedido: moneda y cantidad, como llegan. */
     @lombok.Value
@@ -92,9 +96,9 @@ public class MovimientosCajaEnLoteService {
                 () -> {
                     Map<Long, Moneda> monedas = monedas(porMoneda);
                     seguridad.requireEscrituraCaja(cajaVirtualId);
+                    tomarSaldos(java.util.Collections.singletonList(cajaVirtualId), porMoneda);
                     CajaVirtual caja = cajaVirtualRepository.findById(cajaVirtualId)
                             .orElseThrow(() -> new GraphQLException("Caja virtual no encontrada: " + cajaVirtualId));
-                    tomarSaldos(java.util.Collections.singletonList(cajaVirtualId), porMoneda);
 
                     Long primero = null;
                     for (Map.Entry<Long, BigDecimal> e : porMoneda.entrySet()) {
@@ -107,7 +111,7 @@ public class MovimientosCajaEnLoteService {
                         m.setUsuario(usuario);
                         m.setOrigenTipo(OrigenMovimientoTipo.MANUAL);
                         m.setActivo(true);
-                        Long id = tesoreriaService.registrar(m).getId();
+                        Long id = conMoneda(monedas.get(e.getKey()), () -> tesoreriaService.registrar(m)).getId();
                         if (primero == null) primero = id;
                     }
                     return primero;
@@ -142,8 +146,9 @@ public class MovimientosCajaEnLoteService {
 
                     Long primero = null;
                     for (Map.Entry<Long, BigDecimal> e : porMoneda.entrySet()) {
-                        Long id = tesoreriaService.transferirYDevolverSalida(origenId, destinoId,
-                                e.getValue().doubleValue(), monedas.get(e.getKey()), descripcion, usuario).getId();
+                        Moneda moneda = monedas.get(e.getKey());
+                        Long id = conMoneda(moneda, () -> tesoreriaService.transferirYDevolverSalida(origenId,
+                                destinoId, e.getValue().doubleValue(), moneda, descripcion, usuario)).getId();
                         if (primero == null) primero = id;
                     }
                     return primero;
@@ -151,6 +156,20 @@ public class MovimientosCajaEnLoteService {
                 id -> id,
                 this::loteYaRegistrado);
         return true;
+    }
+
+    /**
+     * En un pedido de varias monedas, «Saldo insuficiente» a secas no dice en cuál. Se relanza: la
+     * transacción ya quedó marcada para deshacerse, y el lote no sigue.
+     */
+    private static MovimientoCajaVirtual conMoneda(Moneda moneda, java.util.function.Supplier<MovimientoCajaVirtual> registro) {
+        try {
+            return registro.get();
+        } catch (GraphQLException e) {
+            String nombre = moneda != null ? moneda.getDenominacion() : null;
+            if (nombre == null || e.getMessage() == null || !e.getMessage().startsWith("Saldo insuficiente")) throw e;
+            throw new GraphQLException(e.getMessage() + " (" + nombre + "). No se registró nada.");
+        }
     }
 
     private static void exigirUsuario(Usuario usuario) {
@@ -196,8 +215,25 @@ public class MovimientosCajaEnLoteService {
         return monedas;
     }
 
-    /** Lock de todos los saldos del lote, por (caja, moneda) ascendente. {@code cajas} llega ordenada. */
+    /**
+     * Lock de todos los saldos del lote, por (caja, moneda) ascendente. {@code cajas} llega ordenada.
+     *
+     * <p>Después relee cada caja: el chequeo de permiso ya la cargó, antes de esperar los locks, y
+     * {@code sincronizarShim} guarda la fila entera (sin {@code @DynamicUpdate}): con la instancia vieja
+     * volvería a escribir {@code saldo_gs/rs/ds} como estaban antes de la espera.</p>
+     */
     private void tomarSaldos(List<Long> cajas, Map<Long, BigDecimal> porMoneda) {
+        // Antes de ensureRow: una caja inexistente rompería ahí por la clave foránea, con un error de base.
+        List<CajaVirtual> entidades = new ArrayList<>();
+        for (Long cajaId : cajas) {
+            entidades.add(cajaVirtualRepository.findById(cajaId)
+                    .orElseThrow(() -> new GraphQLException("Caja virtual no encontrada: " + cajaId)));
+        }
+        tomarSaldosDe(cajas, porMoneda);
+        if (entityManager != null) entidades.forEach(entityManager::refresh);
+    }
+
+    private void tomarSaldosDe(List<Long> cajas, Map<Long, BigDecimal> porMoneda) {
         for (Long cajaId : cajas) {
             for (Long monedaId : porMoneda.keySet()) {
                 saldoRepository.ensureRow(cajaId, monedaId);
@@ -221,7 +257,7 @@ public class MovimientosCajaEnLoteService {
         boolean otraActiva = otraPata == null || movimientoRepository.findActivoById(otraPata).orElse(true);
         if (!activo || !otraActiva) {
             throw new GraphQLException("Este pedido ya se registró y después fue anulado."
-                    + " Si corresponde, cargalo de nuevo.");
+                    + " Revisá los movimientos de la caja antes de cargarlo de nuevo.");
         }
         return movimientoId;
     }

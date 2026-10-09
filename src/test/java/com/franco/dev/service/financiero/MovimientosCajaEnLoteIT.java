@@ -173,6 +173,25 @@ class MovimientosCajaEnLoteIT {
     }
 
     @Test
+    void unPedidoRechazadoNoGastaSuClaveYLaTransferenciaRepetidaNoSeRepite() {
+        String clave = "it-lote-t-" + System.nanoTime();
+        List<Monto> pedido = montos(gs, 100, rs, 50);
+        ingreso(cajaA, gs, 1000);
+
+        // Sin reales no entra, y la clave se va con el rollback...
+        assertThrows(GraphQLException.class, () -> loteService.transferir(cajaA, cajaB, pedido, marca, usuario, clave));
+        // ...así que el reintento, ya con saldo, corre como un pedido nuevo.
+        ingreso(cajaA, rs, 50);
+        assertTrue(loteService.transferir(cajaA, cajaB, pedido, marca, usuario, clave));
+        String despues = saldos();
+        long movimientosDespues = movimientos();
+
+        assertTrue(loteService.transferir(cajaA, cajaB, pedido, marca, usuario, clave));
+        assertEquals(despues, saldos());
+        assertEquals(movimientosDespues, movimientos());
+    }
+
+    @Test
     void unaTransferenciaEnDosMonedasDejaCadaParDePatasVinculado() {
         ingreso(cajaA, gs, 1000, rs, 100);
 

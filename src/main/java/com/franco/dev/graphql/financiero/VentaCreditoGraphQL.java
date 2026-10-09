@@ -25,6 +25,7 @@ import com.franco.dev.security.Unsecured;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.CambioService;
 import com.franco.dev.service.financiero.MovimientoPersonasService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.financiero.VentaCreditoCuotaService;
 import com.franco.dev.service.financiero.VentaCreditoService;
 import com.franco.dev.service.general.PaisService;
@@ -81,6 +82,9 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Autowired
     private VentaCreditoService service;
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private UsuarioService usuarioService;
@@ -221,6 +225,8 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean cancelarVentaCredito(Long id, Long sucId) {
+        // Sin venta, el servicio alterna el estado de la venta por su cuenta: mismo rol que cancelarVenta (issue #340).
+        seg.requireCancelarVenta();
         return service.cancelarVentaCredito(id, sucId, null);
     }
 

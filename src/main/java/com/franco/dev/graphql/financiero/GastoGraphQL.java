@@ -31,6 +31,9 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     private GastoService service;
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private UsuarioService usuarioService;
 
     @Autowired
@@ -130,14 +133,14 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         }
     }
 
-    public Boolean cancelarGasto(Long id, Long sucId) {
-        Gasto gasto = service.findByIdAndSucursalId(id, sucId);
-        if (gasto != null) {
-            validarNoEsDeCajaMayor(gasto, "cancelar");
-            return service.cancelarGasto(gasto);
-        } else {
-            throw new GraphQLException("No se pudo cancelar el gasto");
-        }
+    /**
+     * {@code cancelar}: true cancela, false habilita; nulo (desktop anterior) cancela y nunca habilita.
+     * La guarda de caja mayor de esta mutation vive en el servicio, después del lock.
+     */
+    public Boolean cancelarGasto(Long id, Long sucId, Boolean cancelar) {
+        // El desktop solo muestra el botón a un ADMIN; el central no pedía nada.
+        seg.requireSuperusuario();
+        return service.cancelarGasto(id, sucId, cancelar);
     }
 
     /**

@@ -173,6 +173,34 @@ solo la pata pedida: la plata volvía al origen sin salir del destino.
 - En un movimiento con origen `MANUAL` el `referencia_id` es el id de la otra pata; con origen
   `OPERACION_FINANCIERA`, el de la operación. Quien lo lea tiene que mirar el origen.
 
+**Cancelar un retiro o un gasto no es un interruptor (issue #376).** `cancelarRetiro` y `cancelarGasto`
+reciben `cancelar: Boolean` —`true` cancela, `false` habilita— y dejan el estado pedido: repetirlos no cambia
+nada. Antes invertían el estado en cada llamada y un reintento o un doble clic deshacía la cancelación.
+
+- **Sin el argumento** (un desktop anterior al cambio) significa cancelar y **nunca habilita**: sobre uno ya
+  cancelado se rechaza. «Habilitar» necesita el desktop que manda el argumento.
+- Las dos exigen superusuario en el central (`requireSuperusuario`); el desktop ya escondía el botón.
+- Lock (`lockByIdAndSucursalId`) → estado por proyección (`RetiroSituacion`, `findCanceladoYSolicitud`) →
+  **UPDATE dirigido** de la columna (`marcarCancelado`, `marcarConcluido`), que además limpia el contexto de
+  persistencia. No se guarda la entidad: `Retiro` y `Gasto` no tienen `@DynamicUpdate` y un `save` reescribe
+  la fila entera con lo que hubiera cargado. Tampoco se pasa por el `save` del servicio, que publica la
+  notificación de «retiro / gasto realizado».
+- **Un retiro que ya entró a la caja mayor no se cancela** (lista blanca: estado nulo o `CONCLUIDO`, sin caja
+  mayor, sin movimiento, sin verificación vigente). Cancelado deja de descontar de la caja del PDV; si además
+  está acreditado, la plata queda contada dos veces. Primero se anula la verificación.
+- **Un retiro cancelado no entra a la caja mayor:** `verificar` e `ingresarACajaMayor` lo rechazan,
+  `RetiroTesoreriaProcesador.procesar` no lo postea y `findFlotantes` no lo lista. Los cuatro —y cancelar—
+  toman el mismo lock del retiro, lo primero. Anular una verificación no habilita un retiro cancelado.
+- Habilitar deja el retiro en `CONCLUIDO` y no tiene guarda: un cancelado que quedó con su ingreso en la caja
+  mayor (dato anterior a este cambio) se corrige habilitándolo.
+- Un gasto pagado desde la caja mayor (`solicitud_pago_id`) no se cancela ni se habilita acá: se anula su pago.
+- **Rollback del JAR:** la versión anterior vuelve a listar los cancelados como flotantes y a dejarlos
+  verificar. Antes de volver atrás, mirar los retiros `CANCELADO` sin caja mayor.
+- Sigue sin control: `saveRetiro` guarda la entidad entera desde el input y puede pisar estado, caja y
+  movimiento de un retiro existente; y cancelar un retiro de una caja de PDV ya cerrada cambia su balance.
+- `CancelarRetiroIT` prueba los UPDATE contra el enum de PostgreSQL y la carrera cancelar × ingresar. **No
+  corre en CI**: `./mvnw -Dit.financiero=true -Dtest=CancelarRetiroIT test`.
+
 ### 7.1 Idempotencia por clave (pedidos repetidos)
 
 El lock evita que dos pedidos **distintos** pisen el mismo saldo; no distingue un pedido de su

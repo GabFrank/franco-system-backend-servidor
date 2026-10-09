@@ -25,6 +25,7 @@ public class BancoLedgerService {
 
     private final CuentaBancariaRepository cuentaRepository;
     private final MovimientoBancarioRepository movimientoRepository;
+    private final LimiteAnulacionService limiteAnulacion;
 
     /** Package-private: el reporte de movimientos totaliza con la misma regla de signo. */
     static boolean esEgreso(MovimientoBancarioTipo t) {
@@ -88,6 +89,8 @@ public class BancoLedgerService {
         if (anulado) {
             throw new GraphQLException("El movimiento bancario #" + orig.getId() + " ya está anulado");
         }
+        // Límite de antigüedad (CN4), igual que en la caja mayor: acá se postea el compensatorio (issue #370).
+        limiteAnulacion.requireDentroDelLimite(orig.getCreadoEn(), "El movimiento bancario #" + orig.getId());
         // El original restó (egreso) → devolvemos con AJUSTE_POSITIVO; sumó (ingreso) → quitamos con AJUSTE_NEGATIVO.
         MovimientoBancarioTipo compensa = esEgreso(orig.getTipoMovimiento())
                 ? MovimientoBancarioTipo.AJUSTE_POSITIVO

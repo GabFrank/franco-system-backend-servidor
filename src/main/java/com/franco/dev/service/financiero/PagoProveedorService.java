@@ -696,6 +696,10 @@ public class PagoProveedorService {
         // transaccion antes de llegar aca, y en ese caso lockById devuelve la instancia vieja.
         PagoEstado estado = pagoService.getRepository().findEstadoById(pagoId).orElse(pago.getEstado());
         if (estado == PagoEstado.CANCELADO) throw new GraphQLException("El pago ya está anulado");
+        // Límite de antigüedad sobre la fecha del pago, antes de tocar nada. Las reversas miden cada
+        // movimiento, pero el débito de un cheque nace al cobrarlo: un pago viejo con un cheque cobrado
+        // hace poco pasaba, y uno con un diferido sin cobrar no postea ninguna reversa (issue #370).
+        tesoreriaService.requireDentroDelLimiteDeAnulacion(pago.getCreadoEn(), "El pago #" + pagoId);
 
         List<PagoSolicitudDetalle> detalles = detalleRepository.findByPagoIdOrderByCreadoEnAsc(pagoId)
                 .stream().filter(d -> !Boolean.TRUE.equals(d.getAnulado())).collect(Collectors.toList());

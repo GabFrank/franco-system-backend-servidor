@@ -138,6 +138,24 @@ class OperacionFinancieraServiceTest {
     }
 
     @Test
+    void anular_una_operacion_mas_vieja_que_el_limite_se_rechaza_antes_de_revertir_ninguna_pata() {
+        // Issue #370: se mide la fecha de la operacion, despues del lock y antes de buscar sus patas.
+        OperacionFinanciera op = operacionBloqueada(6L, false);
+        java.time.LocalDateTime fecha = java.time.LocalDateTime.now().minusDays(40);
+        op.setCreadoEn(fecha);
+        org.mockito.Mockito.doThrow(new graphql.GraphQLException("TOPE")).when(tesoreriaService)
+                .requireDentroDelLimiteDeAnulacion(eq(fecha), eq("La operación financiera #6"));
+
+        graphql.GraphQLException e = assertThrows(graphql.GraphQLException.class, () -> service.anular(6L, null, null));
+
+        assertEquals("TOPE", e.getMessage());
+        verify(tesoreriaService, never()).revertir(any(), any(), any());
+        verify(bancoLedgerService, never()).revertir(any(), any(), any());
+        assertFalse(op.getAnulado());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
     void anular_una_operacion_ya_anulada_falla() {
         operacionBloqueada(7L, true);
 

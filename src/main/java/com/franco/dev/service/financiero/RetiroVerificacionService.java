@@ -238,6 +238,9 @@ public class RetiroVerificacionService {
         if (verificacionRepository.findAnuladaById(verificacionId).orElse(Boolean.TRUE.equals(v.getAnulada()))) {
             throw new GraphQLException("La verificación ya está anulada");
         }
+        // Límite de antigüedad sobre la fecha de la verificación, antes de revertir nada. Al resolver un caso
+        // el rechazo deshace también el veredicto: el caso se resuelve sin anular la verificación (issue #370).
+        tesoreriaService.requireDentroDelLimiteDeAnulacion(v.getCreadoEn(), "La verificación #" + verificacionId);
 
         List<MovimientoCajaVirtual> movimientos = movimientoRepository
                 .findByOrigenTipoAndOrigenIdAndOrigenSucursalIdAndActivoTrue(

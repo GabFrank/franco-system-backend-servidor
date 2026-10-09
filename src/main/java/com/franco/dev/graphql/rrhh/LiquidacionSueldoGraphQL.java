@@ -38,6 +38,12 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
 
     /** Recibo de sueldo. anchoMm null = PDF A4; 58/80 = ticket; escpos=true = payload ESC/POS. */
     public String imprimirReciboLiquidacion(Long id, Integer anchoMm, Boolean escpos) {
+        // Rol RRHH, o autoservicio: el funcionario baja el recibo de su propia liquidacion
+        // pagada (la PWA lo pide con usuarios sin rol). El rechazo no distingue "no existe",
+        // "es de otro" ni "no esta pagada", para no confirmar ids.
+        if (!seg.hasAnyRole(seg.TODOS) && !service.esReciboPagadoDe(id, seg.currentPersonaId())) {
+            throw new graphql.GraphQLException("No autorizado: el recibo no está disponible para este usuario.");
+        }
         return reciboLiquidacionService.generarBase64(id, anchoMm, Boolean.TRUE.equals(escpos));
     }
 

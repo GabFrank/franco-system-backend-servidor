@@ -591,12 +591,11 @@ Contenido común de los 7 recibos (2026-09-19), en los tres formatos:
   envuelve a las columnas del papel; ninguna línea supera 32/48 columnas.
 - **PDF A4 genérico**: concepto y monto del detalle con `isStretchWithOverflow`. Antes
   un concepto largo (préstamo o bono con descripción larga) se cortaba en silencio.
-- **Pendiente (seguridad, deuda previa)**: los 7 `imprimirRecibo*`
-  (`ReporteRrhhGraphQL`, `LiquidacionSueldoGraphQL.imprimirReciboLiquidacion`) no llaman
-  a `seg.*` ni validan que el recibo sea del usuario: cualquier usuario autenticado que
-  recorra ids baja el recibo de otro, y la PWA pide el de sueldo por id. Solo el acta de
-  amonestación gatea (`requireVer`). Sin verificar además: `SecurityConfig` usa
-  `antMatchers("**/graphql/**")` sin `/` inicial. Va en un fix aparte.
+- **Acceso (issue #346)**: todo `ReporteRrhhGraphQL` exige `requireVer()`. El recibo de
+  sueldo (`LiquidacionSueldoGraphQL.imprimirReciboLiquidacion`) es el único con
+  autoservicio; la regla está en §Seguridad por roles.
+- **Pendiente (sin verificar)**: `SecurityConfig` usa `antMatchers("**/graphql/**")` sin
+  `/` inicial.
 
 Los **reportes agregados** (nómina del mes, resumen IPS, vales pendientes,
 préstamos activos, aguinaldo anual) quedan **solo PDF** (no tiene sentido un
@@ -664,8 +663,21 @@ acceso self-contained que resuelve al usuario autenticado desde el principal del
 - **Queries sensibles**: `requireVer()` (cualquier rol RRHH) — liquidaciones,
   finiquitos, aguinaldos, dashboard, configuración, historial de cargo/salario,
   documentos, y los listados de vale/préstamo/vacación/bono/HE/penalización. Los
-  recibos por-id y los endpoints `*Mobile` **no** se gatean (self-service; el mobile
-  además ignora el `usuarioId` del cliente y usa el autenticado).
+  endpoints `*Mobile` **no** se gatean (self-service; el mobile ignora el `usuarioId`
+  del cliente y usa el autenticado).
+- **Recibos y reportes (issue #346)**: los cinco reportes de nómina y los recibos de
+  vale, penalización, aguinaldo, préstamo, bono, finiquito, por ítem y el acta exigen
+  `requireVer()`. El **recibo de sueldo** (`imprimirReciboLiquidacion`) se baja con rol
+  RRHH o, sin rol, solo si es de una liquidación **PAGADA** del funcionario autenticado
+  (`LiquidacionSueldoService.esReciboPagadoDe`: `usuario.persona_id ==
+  funcionario.persona_id`). Es lo mismo que lista `misRecibosMobile`: si uno cambia, el
+  otro también, o la PWA lista recibos que no puede abrir. El rechazo no distingue «no
+  existe», «es de otro» ni «no está pagada». Un recibo nuevo que la PWA quiera mostrar
+  necesita su propia regla de dueño: `requireVer()` solo lo deja fuera del autoservicio.
+- **Lecturas todavía sin control de rol**: `FeriadoGraphQL`, `MotivoValeGraphQL`,
+  `LiquidacionConceptoGraphQL`, `TipoJustificativoGraphQL`, `JustificativoGraphQL` (datos
+  personales) y, fuera del módulo, `FuncionarioGraphQL` (devuelve `sueldo`) y
+  `MarcacionGraphQL.imprimirReporteMarcaciones`.
 - **Frontend**: el menú ya gateaba por `visibilityRoles`; se agregó gating de
   **botones** (Aprobar/Pagar/Anular en liquidación/finiquito, pagar aguinaldo,
   confirmar vale, aprobar vacaciones, cambiar cargo/salario/egresar en el legajo,

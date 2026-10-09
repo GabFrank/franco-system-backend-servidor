@@ -430,6 +430,18 @@ Leyenda de estado: ⬜ pendiente · 🟡 implementado, pendiente de test manual 
   6. Configuración → Conceptos: columna N° ordenada; poner a una operación un número de otra activa → "El número 3
      ya lo usa BONO MANUAL"; vaciar el número lo quita.
 
+### 🟡 T24 — Acceso a recibos y reportes *(issue #346; pendiente de prueba)*
+- **Pasos y esperado:**
+  1. Usuario **con** un rol RRHH, desktop: imprimir un recibo de vale, préstamo, bono, penalización, aguinaldo,
+     sueldo y finiquito, y los cinco reportes del dashboard → todos abren.
+  2. Usuario **sin** rol RRHH y con legajo, PWA → Mi trabajo → Recibos: abre el PDF de cada recibo de la lista.
+  3. Ese mismo usuario, por GraphQL, pide `imprimirReciboLiquidacion` con el id de la liquidación de otro
+     funcionario, de una propia sin pagar y de una que no existe → las tres responden "No autorizado: el recibo no
+     está disponible para este usuario."
+  4. Ese mismo usuario pide `imprimirReciboVale`, `reporteNominaMes` o cualquier otro recibo o reporte → "No
+     autorizado: se requiere un rol de RRHH para ver estos datos."
+  5. Usuario solo de tesorería: caja virtual → "Ir a Vales (RRHH)" → la lista no carga y no hay nada que imprimir.
+
 ---
 
 ## Mejoras futuras detectadas durante el testeo (TODO — NO implementado)

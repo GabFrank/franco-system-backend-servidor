@@ -42,7 +42,7 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
         // pagada (la PWA lo pide con usuarios sin rol). El rechazo no distingue "no existe",
         // "es de otro" ni "no esta pagada", para no confirmar ids.
         if (!seg.hasAnyRole(seg.TODOS) && !service.esReciboPagadoDe(id, seg.currentPersonaId())) {
-            throw new graphql.GraphQLException("No autorizado: el recibo no esta disponible para este usuario.");
+            throw new graphql.GraphQLException("No autorizado: el recibo no está disponible para este usuario.");
         }
         return reciboLiquidacionService.generarBase64(id, anchoMm, Boolean.TRUE.equals(escpos));
     }

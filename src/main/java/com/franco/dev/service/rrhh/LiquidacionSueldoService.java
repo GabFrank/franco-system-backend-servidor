@@ -96,6 +96,19 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         return repository;
     }
 
+    /**
+     * Autoservicio: el recibo es de una liquidacion PAGADA del funcionario de esa persona.
+     *
+     * ⚠️ Tiene que aceptar exactamente lo que lista RrhhMobileService.misRecibos (funcionario
+     * por persona + PAGADA). Si uno cambia sin el otro, el mobile lista recibos que despues
+     * no puede abrir.
+     */
+    public boolean esReciboPagadoDe(Long liquidacionId, Long personaId) {
+        if (liquidacionId == null || personaId == null) return false;
+        return repository.existsByIdAndEstadoAndFuncionarioPersonaId(
+                liquidacionId, LiquidacionSueldoEstado.PAGADA, personaId);
+    }
+
     public List<LiquidacionSueldo> findByFuncionarioId(Long funcionarioId) {
         return repository.findByFuncionarioIdOrderByPeriodoDesc(funcionarioId);
     }

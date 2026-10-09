@@ -22,6 +22,7 @@ class BancoLedgerServiceTest {
 
     private CuentaBancariaRepository cuentaRepository;
     private MovimientoBancarioRepository movimientoRepository;
+    private com.franco.dev.repository.empresarial.ConfiguracionGeneralRepository configRepository;
     private BancoLedgerService service;
 
     private CuentaBancaria cuenta;
@@ -30,7 +31,9 @@ class BancoLedgerServiceTest {
     void setUp() {
         cuentaRepository = mock(CuentaBancariaRepository.class);
         movimientoRepository = mock(MovimientoBancarioRepository.class);
-        service = new BancoLedgerService(cuentaRepository, movimientoRepository);
+        configRepository = mock(com.franco.dev.repository.empresarial.ConfiguracionGeneralRepository.class);
+        when(configRepository.findAll()).thenReturn(java.util.Collections.emptyList());
+        service = new BancoLedgerService(cuentaRepository, movimientoRepository, new LimiteAnulacionService(configRepository));
 
         cuenta = new CuentaBancaria();
         cuenta.setId(4L);
@@ -116,5 +119,39 @@ class BancoLedgerServiceTest {
 
         assertThrows(GraphQLException.class, () -> service.revertir(sinId, "x", null));
         verify(movimientoRepository, never()).save(any());
+    }
+
+    private void conLimiteDeDias(int dias) {
+        com.franco.dev.domain.empresarial.ConfiguracionGeneral config = new com.franco.dev.domain.empresarial.ConfiguracionGeneral();
+        config.setDiasLimiteAnulacion(dias);
+        when(configRepository.findAll()).thenReturn(java.util.Collections.singletonList(config));
+    }
+
+    // Issue #370: el tope de antiguedad no se miraba en ninguna reversa bancaria.
+    @Test
+    void revertir_un_movimiento_mas_viejo_que_el_limite_se_rechaza_sin_postear_ni_marcarlo_anulado() {
+        conLimiteDeDias(5);
+        MovimientoBancario original = salida(25L, "300");
+        original.setCreadoEn(java.time.LocalDateTime.now().minusDays(9));
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> service.revertir(original, "ANULACION PAGO #6", null));
+
+        assertTrue(e.getMessage().contains("El movimiento bancario #25")
+                && e.getMessage().contains("límite de 5 días"), e.getMessage());
+        verify(movimientoRepository, never()).save(any());
+        assertEquals(Boolean.FALSE, original.getAnulado());
+        assertEquals(0, new BigDecimal("1000").compareTo(cuenta.getSaldo()));
+    }
+
+    @Test
+    void revertir_un_movimiento_dentro_del_limite_lo_revierte() {
+        conLimiteDeDias(5);
+        MovimientoBancario original = salida(26L, "300");
+        original.setCreadoEn(java.time.LocalDateTime.now().minusDays(2));
+
+        service.revertir(original, "ANULACION PAGO #7", null);
+
+        assertEquals(0, new BigDecimal("1300").compareTo(cuenta.getSaldo()));
     }
 }

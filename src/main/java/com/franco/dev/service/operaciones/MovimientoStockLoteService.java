@@ -55,7 +55,7 @@ public class MovimientoStockLoteService
      * Asigna el id antes de guardar siguiendo el esquema par/impar de operaciones.movimiento_stock:
      * el central genera SIEMPRE ids IMPARES y la filial PARES. Sin esto, ambos servidores
      * colisionarían en la PK (id, sucursal_id) apenas la filial empiece a descontar por venta.
-     * El impar sale de la secuencia del central (V242.5), no de MAX(id) + 1.
+     * El impar sale de la secuencia del central (V242.3), no de MAX(id) + 1.
      *
      * Espejo exacto de {@link MovimientoStockService#save(MovimientoStock)}.
      */

@@ -218,7 +218,7 @@ public interface MovimientoStockRepository
         Long findMaxOddIdByProductoIdAndSucursalId(@Param("sucursalId") Long sucursalId);
 
         /**
-         * Proximo id del central: impar, porque la secuencia avanza de a 2 (V242.5) y los pares
+         * Proximo id del central: impar, porque la secuencia avanza de a 2 (V242.3) y los pares
          * son de los filiales. Sale de la secuencia y no de MAX(id) + 1 porque dos transacciones
          * simultaneas leian el mismo maximo y la segunda chocaba con la clave primaria (#153).
          */

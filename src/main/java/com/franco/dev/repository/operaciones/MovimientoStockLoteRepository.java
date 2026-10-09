@@ -24,7 +24,7 @@ public interface MovimientoStockLoteRepository
     }
 
     /**
-     * Proximo id del central: impar, de la secuencia (V242.5). Mismo motivo que
+     * Proximo id del central: impar, de la secuencia (V242.3). Mismo motivo que
      * {@link MovimientoStockRepository#siguienteId()}.
      */
     @Query(value = "SELECT nextval('operaciones.movimiento_stock_lote_id_seq')", nativeQuery = true)

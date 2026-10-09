@@ -300,15 +300,15 @@ Si los tests fallan, NO abrir PR — comentar en el issue explicando el fallo.
 
 Se sondea en vez de reaccionar a un evento porque las facturas llegan al central por replicacion logica, sin pasar por codigo de la aplicacion.
 
-**Configuracion.** El repo es publico: la contrasena NO va en `application.properties`. Sale de los secrets del repo (Settings > Secrets and variables > Actions) y el deploy la escribe sola en `/opt/frc-backend-central/bodega/.env` (`deploy.yml` -> `deploy.sh`):
+**Configuracion.** El repo es publico: la contrasena NO va en `application.properties`. Sale de los secrets del repo (Settings > Secrets and variables > Actions) y cada deploy la escribe sola en `/opt/frc-backend-central/<instancia>/.env` (`deploy.yml` -> `deploy.sh`):
 
 | Tipo | Nombre | Valor |
 |---|---|---|
-| Secret | `MAIL_USERNAME_PROD` | cuenta que envia |
-| Secret | `MAIL_PASSWORD_PROD` | contrasena de aplicacion |
+| Secret | `MAIL_USERNAME` | cuenta que envia |
+| Secret | `MAIL_PASSWORD` | contrasena de aplicacion |
 | Variable (opcional) | `FACTURA_CORREO_ENABLED` | `false` para dejar solo el envio manual; sin la variable queda en `true` |
 
-Los `_PROD` se leen solo al desplegar `bodega`. Las demas instancias no reciben nada y su `.env` no se toca: `farmacia` es otra empresa, y `alpha`/`beta` son de prueba con datos reales. Para darle correo a otra instancia, agregarle sus propios secrets y su rama en `deploy.yml`; no reusar la cuenta de Bodega.
+Es la misma cuenta para **todas las instancias** (alpha, beta, farmacia, bodega), por decision del negocio. Para apagar el envio automatico en una sola, definir la variable `FACTURA_CORREO_ENABLED=false` en su environment de GitHub (`alpha`, `beta` o `production`). Sin los secrets no se envia nada y el `.env` no se toca.
 
 - `MAIL_HOST` (default `smtp.gmail.com`) y `MAIL_PORT` (default `587`) solo si no es Gmail.
 - En el primer deploy con el envio automatico prendido salen las facturas aprobadas de las ultimas 48 h que tengan correo.

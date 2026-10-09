@@ -1545,6 +1545,16 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public String descargarPdfFacturaElectronica(Long id, Long sucId) {
+        return Base64.getEncoder().encodeToString(generarPdfFacturaElectronica(id, sucId));
+    }
+
+    /**
+     * Los bytes del mismo PDF que baja el desktop. Lo usa tambien el envio por correo
+     * ({@code FacturaCorreoService}), que corre en un hilo sin usuario logueado: por eso
+     * {@code @Unsecured}. No esta en el schema GraphQL, asi que no queda expuesto.
+     */
+    @com.franco.dev.security.Unsecured
+    public byte[] generarPdfFacturaElectronica(Long id, Long sucId) {
         try {
             // Obtener factura legal con todas las relaciones necesarias
             FacturaLegal factura = service.findByIdAndSucursalId(id, sucId);
@@ -1909,9 +1919,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     // Ignorar errores al eliminar el archivo temporal
                 }
             }
-            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
-            String base64String = Base64.getEncoder().encodeToString(pdfBytes);
-            return base64String;
+            return JasperExportManager.exportReportToPdf(jasperPrint);
 
         } catch (Exception e) {
             e.printStackTrace();

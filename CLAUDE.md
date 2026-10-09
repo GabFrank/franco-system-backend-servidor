@@ -290,3 +290,27 @@ Si los tests fallan, NO abrir PR — comentar en el issue explicando el fallo.
 - `DROP TABLE`, `DROP COLUMN`, `RENAME COLUMN` sin estrategia 2 versiones
 - Nombre de artefacto `frc-central-server.jar`
 - Codigo de auth en `security/TokenController.java` o `security/jwt/JwtGenerator.java` (ver REPORTE_VULNERABILIDADES.md)
+
+## Correo de facturas (KuDE por correo)
+
+`FacturaCorreoService` envia el PDF de la factura (y el XML si es electronica) al correo guardado del cliente. Dos caminos:
+
+- **Automatico** (`FacturaCorreoScheduler`, cada minuto): facturas electronicas APROBADAS por SIFEN de las ultimas `factura.correo.ventana-horas` (48) cuyo cliente tiene correo. Sin correo no se envia. Una sola vez por factura: tabla central-only `financiero.factura_legal_correo` (V240.1).
+- **Manual**: mutation `enviarFacturaLegalPorCorreo`, desde "Enviar por correo" en el listado de facturas del desktop.
+
+Se sondea en vez de reaccionar a un evento porque las facturas llegan al central por replicacion logica, sin pasar por codigo de la aplicacion.
+
+**Configuracion.** El repo es publico: la contrasena NO va en `application.properties`. Sale de los secrets del repo (Settings > Secrets and variables > Actions) y cada deploy la escribe sola en `/opt/frc-backend-central/<instancia>/.env` (`deploy.yml` -> `deploy.sh`):
+
+| Tipo | Nombre | Valor |
+|---|---|---|
+| Secret | `MAIL_USERNAME` | cuenta que envia |
+| Secret | `MAIL_PASSWORD` | contrasena de aplicacion |
+| Variable (opcional) | `FACTURA_CORREO_ENABLED` | `false` para dejar solo el envio manual; sin la variable queda en `true` |
+
+Es la misma cuenta para **todas las instancias** (alpha, beta, farmacia, bodega), por decision del negocio. Para apagar el envio automatico en una sola, definir la variable `FACTURA_CORREO_ENABLED=false` en su environment de GitHub (`alpha`, `beta` o `production`). Sin los secrets no se envia nada y el `.env` no se toca.
+
+- `MAIL_HOST` (default `smtp.gmail.com`) y `MAIL_PORT` (default `587`) solo si no es Gmail.
+- En el primer deploy con el envio automatico prendido salen las facturas aprobadas de las ultimas 48 h que tengan correo.
+- **Pruebas de envio: solo con el cliente DIEGO PAULINHO AMARILLA MERCADO.** Las bases dev son copias de produccion con correos reales de clientes.
+

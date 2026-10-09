@@ -52,13 +52,15 @@ public interface RetiroRepository extends HelperRepository<Retiro, EmbebedPrimar
     /**
      * Cambian solo el estado. No se guarda la entidad: sin {@code @DynamicUpdate} eso reescribe la fila
      * entera con lo que la request tuviera cargado, y pisaría la caja mayor que asignó una verificación.
+     * Limpian el contexto de persistencia: la instancia que quedó cargada tiene el estado anterior, y si
+     * algo más la guardara en la misma request (dos mutations en un mismo pedido) lo volvería a escribir.
      */
-    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Retiro r set r.estado = com.franco.dev.domain.financiero.enums.EstadoRetiro.CANCELADO "
             + "where r.id = :id and r.sucursalId = :sucId")
     int marcarCancelado(@Param("id") Long id, @Param("sucId") Long sucId);
 
-    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Retiro r set r.estado = com.franco.dev.domain.financiero.enums.EstadoRetiro.CONCLUIDO "
             + "where r.id = :id and r.sucursalId = :sucId")
     int marcarConcluido(@Param("id") Long id, @Param("sucId") Long sucId);

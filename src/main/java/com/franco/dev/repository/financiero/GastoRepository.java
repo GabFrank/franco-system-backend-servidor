@@ -117,7 +117,7 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
         List<Object[]> findCanceladoYSolicitud(@Param("id") Long id, @Param("sucId") Long sucId);
 
         /** Cambia solo el flag: guardar la entidad reescribiría la fila entera con lo ya cargado. */
-        @org.springframework.data.jpa.repository.Modifying
+        @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
         @Query("update Gasto g set g.cancelado = :cancelado where g.id = :id and g.sucursalId = :sucId")
         int marcarCancelado(@Param("id") Long id, @Param("sucId") Long sucId, @Param("cancelado") boolean cancelado);
 

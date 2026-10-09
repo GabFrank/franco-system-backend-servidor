@@ -93,7 +93,7 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
         }
         if (cancelado) {
             if (cancelar == null) {
-                throw new GraphQLException("El gasto #" + id + " ya está cancelado. Para habilitarlo actualizá el sistema.");
+                throw new GraphQLException("El gasto #" + id + " ya está cancelado. Si querías habilitarlo, actualizá el sistema.");
             }
             return true;
         }

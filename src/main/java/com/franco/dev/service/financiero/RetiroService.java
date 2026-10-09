@@ -102,7 +102,7 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
         }
         if (s.estaCancelado()) {
             if (cancelar == null) {
-                throw new GraphQLException("El retiro #" + id + " ya está cancelado. Para habilitarlo actualizá el sistema.");
+                throw new GraphQLException("El retiro #" + id + " ya está cancelado. Si querías habilitarlo, actualizá el sistema.");
             }
             return true;
         }

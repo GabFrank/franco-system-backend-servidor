@@ -201,6 +201,30 @@ nada. Antes invertían el estado en cada llamada y un reintento o un doble clic 
 - `CancelarRetiroIT` prueba los UPDATE contra el enum de PostgreSQL y la carrera cancelar × ingresar. **No
   corre en CI**: `./mvnw -Dit.financiero=true -Dtest=CancelarRetiroIT test`.
 
+**Ajustes de saldo con saldo esperado (issue #376).** El ajuste por conteo de una caja y el de saldo de una
+cuenta bancaria se calculaban en el desktop con el saldo que tenía en pantalla, y el central aplicaba la
+diferencia sobre el saldo de ese momento. `AjusteDeSaldoService` hace que el pedido diga contra qué saldo se
+hizo: saldo con lock → **refresh de la entidad** → comparar → registrar.
+
+- **Conteo** (`ajustarCajaVirtualPorConteo`): el cliente manda el saldo que vio y lo que contó; la diferencia la
+  calcula el central y el saldo queda exactamente en lo contado. Si ya coincide con lo contado se rechaza (es
+  lo que recibe el reintento de un ajuste que había entrado), y si cambió desde que se abrió el conteo,
+  también. Es absoluto: no necesita clave de idempotencia. Lo contado se redondea a 4 decimales, no se rechaza
+  (llega como una suma hecha en JavaScript). El `AJUSTE` lleva origen `MANUAL`, el usuario de la sesión y la
+  descripción armada en el central.
+- **Banco** (`ajustarSaldoCuentaBancaria`, argumentos opcionales `saldoEsperado` y `claveIdempotencia`): es
+  relativo, así que lleva las dos cosas. El saldo esperado cubre el saldo viejo en pantalla y a dos personas
+  ajustando; **no cubre el reintento**: si después del ajuste entra un movimiento opuesto por el mismo monto,
+  el saldo vuelve al esperado y repetir el pedido lo aplicaría otra vez. Eso lo cubre la clave (§7.1).
+- **El refresh no es opcional.** El lock devuelve la instancia ya cargada y `registrar` calcula con ella: con
+  solo una proyección, la comprobación y el registro podrían mirar saldos distintos.
+- `saldoEsperado` coincide si es igual a 4 decimales o igual como `Double` (en saldos muy grandes el `Double`
+  por el que viajó no guarda los 4 decimales).
+- Sin los argumentos, el ajuste bancario se comporta como antes; `saveMovimientoCajaVirtual` sigue dejando
+  postear un `AJUSTE` suelto.
+- `AjusteDeSaldoIT` prueba la concurrencia, la entidad vieja y el reintento con el saldo de vuelta en el
+  esperado. **No corre en CI**: `./mvnw -Dit.financiero=true -Dtest=AjusteDeSaldoIT test`.
+
 ### 7.1 Idempotencia por clave (pedidos repetidos)
 
 El lock evita que dos pedidos **distintos** pisen el mismo saldo; no distingue un pedido de su
@@ -223,8 +247,8 @@ intento del usuario, la manda en el argumento opcional `claveIdempotencia` y la 
 - Tabla **solo del central**: no está en `configuraciones.replication_table` y no debe publicarse.
 - Asume READ COMMITTED; no llamar a `ejecutar` desde una transacción `SERIALIZABLE`.
 
-Hoy la usan `pagarSolicitudesMixto` (`PagoProveedorService.pagarLoteMixto`) y `emitirCheque`
-(`ChequeGestionService.emitir`). Para sumar otra mutation: argumento opcional `claveIdempotencia` al
+Hoy la usan `pagarSolicitudesMixto` (`PagoProveedorService.pagarLoteMixto`), `emitirCheque`
+(`ChequeGestionService.emitir`) y `ajustarSaldoCuentaBancaria` (`AjusteDeSaldoService.ajustarSaldoBancario`). Para sumar otra mutation: argumento opcional `claveIdempotencia` al
 final en el `.graphqls` y en el resolver, y en el servicio `@Transactional` envolver la operación con
 `idempotenciaService.ejecutar(clave, "NOMBRE_OPERACION", huella, usuario, accion, idDe, cargar)`.
 El semántico de PostgreSQL lo prueba `IdempotenciaIT`, que **no corre en CI**:

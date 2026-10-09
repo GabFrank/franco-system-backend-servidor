@@ -89,12 +89,17 @@ class ChequerasIT {
 
     @Test
     void guardarLaChequeraConLaFilaViejaNoHaceQueElProximoChequeRepitaNumero() {
-        List<?> chequeras = tx.execute(s -> em.createNativeQuery(
-                "select id from financiero.chequera where cast(estado as text) = 'ACTIVA' and cuenta_bancaria_id is not null "
-                        + "and coalesce(siguiente_numero, rango_desde) + 1 <= rango_hasta order by id")
-                .setMaxResults(1).getResultList());
-        assumeTrue(!chequeras.isEmpty(), "la base no tiene una chequera activa con números libres");
-        Long chequeraId = ((Number) chequeras.get(0)).longValue();
+        // Una chequera propia de esta corrida: no gasta números de una chequera real.
+        List<?> cuentas = tx.execute(s -> em.createNativeQuery(
+                "select id from financiero.cuenta_bancaria order by id").setMaxResults(1).getResultList());
+        assumeTrue(!cuentas.isEmpty(), "la base no tiene ninguna cuenta bancaria");
+        long desde = 700_000_000L + (System.nanoTime() % 1_000_000L) * 100;
+        ChequeraInput nueva = new ChequeraInput();
+        nueva.setCuentaBancariaId(((Number) cuentas.get(0)).longValue());
+        nueva.setNombre(MARCA);
+        nueva.setRangoDesde((double) desde);
+        nueva.setRangoHasta((double) (desde + 9));
+        Long chequeraId = chequeraGestionService.guardar(nueva, null).getId();
 
         // La pantalla se carga acá, antes de emitir.
         ChequeraInput pantallaVieja = fila(chequeraId, null);
@@ -113,6 +118,9 @@ class ChequerasIT {
             assertEquals(primero.getNumero() + 1, segundo.getNumero());
         } finally {
             for (Cheque c : emitidos) chequeGestionService.anular(c.getId(), MARCA, null);
+            ChequeraInput baja = fila(chequeraId, null);
+            baja.setEstado(EstadoChequera.ANULADA);
+            chequeraGestionService.guardar(baja, null);
         }
     }
 

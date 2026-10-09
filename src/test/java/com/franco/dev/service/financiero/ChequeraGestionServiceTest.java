@@ -145,6 +145,84 @@ class ChequeraGestionServiceTest {
     }
 
     @Test
+    void desactivar_solo_anula_no_aplica_el_rango_ni_la_cuenta_de_la_fila_vieja() {
+        ChequeraInput vieja = pantalla(105, EstadoChequera.ANULADA);
+        vieja.setRangoHasta(120.0);          // otro lo había ampliado a 150
+        vieja.setCuentaBancariaId(4L);
+
+        Chequera r = service.guardar(vieja, null);
+
+        assertEquals(EstadoChequera.ANULADA, r.getEstado());
+        assertEquals(150.0, r.getRangoHasta());
+        assertEquals(112L, r.getSiguienteNumero());
+        verify(chequeraRepository, never()).findSuperpuestas(anyLong(), any(), any(), any());
+    }
+
+    @Test
+    void una_chequera_mal_cargada_desde_antes_se_puede_anular_y_renombrar() {
+        enLaBase.setSiguienteNumero(900L);                                        // fuera del rango
+        when(chequeRepository.maxNumeroPorChequera(1L)).thenReturn(400.0);        // emitidos fuera del rango
+
+        ChequeraInput nombre = pantalla(900, EstadoChequera.ACTIVA);
+        nombre.setNombre("CORREGIDA");
+        Chequera r = service.guardar(nombre, null);
+        assertEquals("CORREGIDA", r.getNombre());
+        assertEquals(EstadoChequera.AGOTADA, r.getEstado());   // sin números: no queda activa
+
+        assertEquals(EstadoChequera.ANULADA, service.guardar(pantalla(900, EstadoChequera.ANULADA), null).getEstado());
+    }
+
+    @Test
+    void un_correlativo_que_quedo_detras_de_lo_emitido_se_repara_al_editar() {
+        enLaBase.setSiguienteNumero(103L);   // la versión anterior lo hizo retroceder; se emitió hasta el 111
+
+        assertEquals(112L, service.guardar(pantalla(107, EstadoChequera.ACTIVA), null).getSiguienteNumero());
+
+        enLaBase.setSiguienteNumero(null);
+        assertEquals(112L, service.guardar(pantalla(100, EstadoChequera.ACTIVA), null).getSiguienteNumero());
+    }
+
+    @Test
+    void corregir_el_rango_de_una_chequera_sin_emitir_lleva_el_correlativo_al_rango_nuevo() {
+        when(chequeRepository.minNumeroPorChequera(1L)).thenReturn(null);
+        when(chequeRepository.maxNumeroPorChequera(1L)).thenReturn(null);
+        enLaBase.setSiguienteNumero(100L);
+
+        ChequeraInput haciaAbajo = pantalla(100, EstadoChequera.ACTIVA);
+        haciaAbajo.setRangoDesde(50.0);
+        haciaAbajo.setRangoHasta(99.0);
+        Chequera r = service.guardar(haciaAbajo, null);
+        assertEquals(50L, r.getSiguienteNumero());
+        assertEquals(EstadoChequera.ACTIVA, r.getEstado());
+
+        enLaBase.setRangoDesde(100.0);
+        enLaBase.setRangoHasta(150.0);
+        enLaBase.setSiguienteNumero(100L);
+        ChequeraInput haciaArriba = pantalla(320, EstadoChequera.ACTIVA);
+        haciaArriba.setRangoDesde(300.0);
+        haciaArriba.setRangoHasta(400.0);
+        assertEquals(320L, service.guardar(haciaArriba, null).getSiguienteNumero());
+    }
+
+    @Test
+    void ampliar_el_rango_de_una_agotada_la_reactiva_aunque_la_pantalla_mande_agotada() {
+        enLaBase.setSiguienteNumero(151L);
+        enLaBase.setEstado(EstadoChequera.AGOTADA);
+        when(chequeRepository.maxNumeroPorChequera(1L)).thenReturn(150.0);
+        ChequeraInput in = pantalla(151, EstadoChequera.AGOTADA);
+        in.setRangoHasta(200.0);
+
+        assertEquals(EstadoChequera.ACTIVA, service.guardar(in, null).getEstado());
+    }
+
+    @Test
+    void una_chequera_marcada_agotada_a_mano_sigue_agotada() {
+        enLaBase.setEstado(EstadoChequera.AGOTADA);   // con números libres: la marcó alguien
+
+        assertEquals(EstadoChequera.AGOTADA, service.guardar(pantalla(112, EstadoChequera.AGOTADA), null).getEstado());
+    }
+
+    @Test
     void la_edicion_toma_el_lock_y_relee_la_base_antes_de_decidir() {
         // Mientras esperaba el lock se emitió otro cheque: la instancia cargada decía 112, la base ya 113.
         doAnswer(i -> { ((Chequera) i.getArgument(0)).setSiguienteNumero(113L); return null; }).when(em).refresh(enLaBase);

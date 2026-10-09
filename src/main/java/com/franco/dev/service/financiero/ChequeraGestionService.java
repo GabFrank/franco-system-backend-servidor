@@ -109,6 +109,16 @@ public class ChequeraGestionService {
             return chequeraRepository.save(chequera);
         }
 
+        if (pedido.getEstado() == EstadoChequera.ANULADA) {
+            // Anular es solo anular: «Desactivar» manda la fila entera como la tenía la pantalla, y aplicarla
+            // pisaría el rango o el correlativo que otro corrigió. Tampoco se valida nada: una chequera mal
+            // cargada desde antes tiene que poder anularse.
+            chequera.setNombre(pedido.getNombre());
+            chequera.setFirmantes(pedido.getFirmantes());
+            chequera.setEstado(EstadoChequera.ANULADA);
+            return chequeraRepository.save(chequera);
+        }
+
         Long primerEmitido = aLong(chequeRepository.minNumeroPorChequera(id));
         Long ultimoEmitido = aLong(chequeRepository.maxNumeroPorChequera(id));
         boolean emitio = ultimoEmitido != null;
@@ -125,26 +135,43 @@ public class ChequeraGestionService {
         long hasta = pedido.getRangoHasta() != null ? entero(pedido.getRangoHasta(), "hasta") : hastaBase;
         validarRango(desde, hasta);
         boolean cambiaRango = desde != desdeBase || hasta != hastaBase;
-        if (emitio && (primerEmitido < desde || ultimoEmitido > hasta)) {
+        // Solo si toca el rango: un dato viejo que ya estaba mal no frena una corrección de nombre.
+        if (cambiaRango && emitio && (primerEmitido < desde || ultimoEmitido > hasta)) {
             throw new GraphQLException("El rango tiene que incluir los cheques ya emitidos (" + primerEmitido + "–" + ultimoEmitido + ").");
         }
 
         // El correlativo solo va hacia adelante. Lo que llega menor o igual al de la base se ignora sin
         // rechazar: es lo que manda una pantalla abierta desde antes, y aplicarlo repetiría números.
-        long siguienteBase = chequera.getSiguienteNumero() != null ? chequera.getSiguienteNumero() : desdeBase;
+        long siguienteGuardado = chequera.getSiguienteNumero() != null ? chequera.getSiguienteNumero() : desdeBase;
+        // Si la base quedó detrás de lo emitido (el retroceso que hacía la versión anterior), se repara acá:
+        // medir «hacia adelante» contra ese valor dejaría elegir un número ya usado.
+        long siguienteBase = emitio ? Math.max(siguienteGuardado, ultimoEmitido + 1) : siguienteGuardado;
         long siguiente = pedido.getSiguienteNumero() != null && pedido.getSiguienteNumero() > siguienteBase
                 ? pedido.getSiguienteNumero() : siguienteBase;
-        if (siguiente < desde || siguiente > hasta + 1) {
+        if (cambiaRango && !emitio && (siguiente < desde || siguiente > hasta)) {
+            // Corrige el rango de una chequera que todavía no emitió: el correlativo acompaña al rango nuevo
+            // en vez de dejarla agotada o rechazar por el número que quedó en pantalla.
+            Long pedida = pedido.getSiguienteNumero();
+            siguiente = pedida != null && pedida >= desde && pedida <= hasta ? pedida : desde;
+        }
+        // Solo si toca el rango o el correlativo: un dato viejo que ya estaba mal no frena lo demás.
+        boolean cambiaSiguiente = siguiente != siguienteBase;
+        if ((cambiaRango || cambiaSiguiente) && (siguiente < desde || siguiente > hasta + 1)) {
             throw new GraphQLException("El próximo número (" + siguiente + ") queda fuera del rango " + desde + "–" + hasta + ".");
         }
 
         EstadoChequera estado = pedido.getEstado() != null ? pedido.getEstado() : chequera.getEstado();
-        if (estado != EstadoChequera.ANULADA && siguiente > hasta) {
+        if (siguiente > hasta) {
             estado = EstadoChequera.AGOTADA;   // sin números: una pantalla vieja no la deja activa
+        } else if (estado == EstadoChequera.AGOTADA && chequera.getEstado() == EstadoChequera.AGOTADA
+                && siguienteGuardado > hastaBase) {
+            // Estaba agotada por falta de números y se le amplió el rango: vuelve a servir. La pantalla
+            // manda «agotada» porque es lo que tenía cargado, y dejarla así la escondía de la emisión.
+            estado = EstadoChequera.ACTIVA;
         }
         if (estado == null) estado = EstadoChequera.ACTIVA;
 
-        if ((cambiaRango || cambiaCuenta) && estado != EstadoChequera.ANULADA) {
+        if (cambiaRango || cambiaCuenta) {
             rechazarSiSeSuperpone(cuentaPedidaId, desde, hasta, id);
         }
 

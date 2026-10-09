@@ -114,4 +114,20 @@ class RetiroVerificacionAnularTest {
         verify(casoRepository, never()).findByVerificacionId(any());
         verify(casoRepository, never()).save(any());
     }
+
+    @Test
+    void anular_una_verificacion_mas_vieja_que_el_limite_se_rechaza_sin_revertir_ni_cerrar_el_caso() {
+        // Issue #370. Al resolver un caso anulando la verificacion, este rechazo deshace tambien el veredicto.
+        java.time.LocalDateTime fecha = java.time.LocalDateTime.now().minusDays(40);
+        verificacion.setCreadoEn(fecha);
+        org.mockito.Mockito.doThrow(new GraphQLException("TOPE")).when(tesoreriaService)
+                .requireDentroDelLimiteDeAnulacion(eq(fecha), eq("La verificación #30"));
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anular(30L, "conto mal", null));
+
+        assertEquals("TOPE", e.getMessage());
+        verify(tesoreriaService, never()).revertir(any(), any(), any());
+        verify(verificacionRepository, never()).save(any());
+        verify(casoRepository, never()).cerrarPorAnulacion(any(), any(), any(), any(), any());
+    }
 }

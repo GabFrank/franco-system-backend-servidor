@@ -78,6 +78,8 @@ public class EntradaVariaService {
         if (repository.findAnuladoById(id).orElse(Boolean.TRUE.equals(e.getAnulado()))) {
             throw new GraphQLException("La entrada/salida ya está anulada");
         }
+        // Límite de antigüedad sobre la fecha de la entrada (issue #370).
+        tesoreriaService.requireDentroDelLimiteDeAnulacion(e.getCreadoEn(), "La entrada/salida #" + id);
         // Reversión desde el módulo dueño (EntradaVaria), vía el helper sin guard cross-módulo.
         if (e.getMovimientoCajaVirtualId() != null) {
             MovimientoCajaVirtual orig = tesoreriaService.findMovimiento(e.getMovimientoCajaVirtualId());

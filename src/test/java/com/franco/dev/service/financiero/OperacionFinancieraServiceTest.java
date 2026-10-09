@@ -36,7 +36,8 @@ class OperacionFinancieraServiceTest {
         movimientoCajaVirtualRepository = mock(MovimientoCajaVirtualRepository.class);
         movimientoBancarioRepository = mock(MovimientoBancarioRepository.class);
         service = new OperacionFinancieraService(repository, tesoreriaService, bancoLedgerService,
-                movimientoCajaVirtualRepository, movimientoBancarioRepository);
+                movimientoCajaVirtualRepository, movimientoBancarioRepository,
+                mock(ComprobanteNumeracionService.class));
         when(repository.save(any())).thenAnswer(i -> {
             OperacionFinanciera o = i.getArgument(0);
             if (o.getId() == null) o.setId(1L);

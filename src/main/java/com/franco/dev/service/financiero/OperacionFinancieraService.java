@@ -37,6 +37,7 @@ public class OperacionFinancieraService {
     private final BancoLedgerService bancoLedgerService;
     private final MovimientoCajaVirtualRepository movimientoCajaVirtualRepository;
     private final MovimientoBancarioRepository movimientoBancarioRepository;
+    private final ComprobanteNumeracionService comprobanteNumeracionService;
 
     public Page<OperacionFinanciera> findAll(Pageable pageable) {
         return repository.findAllByOrderByCreadoEnDesc(pageable);
@@ -51,6 +52,10 @@ public class OperacionFinancieraService {
         validarDestinoDeDiferencia(op);
         op.setUsuario(usuario);
         op.setAnulado(false);
+        // Antes del save: el tipeado no puede repetirse, y vacío es «sin número», que se autonumera si la
+        // serie OPERACION_FINANCIERA existe (issue #376).
+        op.setNumeroComprobante(comprobanteNumeracionService.resolver("OPERACION_FINANCIERA", op.getNumeroComprobante(),
+                repository::existeComprobante, "una operación financiera"));
         OperacionFinanciera saved = repository.save(op);
 
         TipoOperacionFinanciera t = op.getTipoOperacion();

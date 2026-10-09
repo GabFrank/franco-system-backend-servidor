@@ -28,7 +28,7 @@ class EntradaVariaServiceTest {
     void setUp() {
         repository = mock(EntradaVariaRepository.class);
         tesoreriaService = mock(TesoreriaService.class);
-        service = new EntradaVariaService(repository, tesoreriaService, mock(ComprobanteSerieService.class));
+        service = new EntradaVariaService(repository, tesoreriaService, mock(ComprobanteNumeracionService.class));
         when(repository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         movimiento = new MovimientoCajaVirtual();

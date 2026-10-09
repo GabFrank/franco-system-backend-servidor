@@ -183,18 +183,19 @@ jobs:
             deploy@${{ secrets.DEPLOY_HOST }}:${FIREBASE_REMOTE_PATH}
           rm -f firebase-credentials.json
 
-      # Cuenta que envia las facturas por correo. Sale de los secrets del environment de GitHub
-      # (hoy solo `production`): el repo es publico y la contrasena no puede ir en el codigo.
+      # Cuenta que envia las facturas por correo. Sale de los secrets del repo: es publico y la
+      # contrasena no puede ir en el codigo. Los `_PROD` se leen SOLO al desplegar `bodega`: las
+      # demas instancias (otra empresa, o de prueba con datos reales) no deben enviar con esa cuenta.
       # Sin los secrets no se sube nada y el .env de la instancia queda como esta.
       - name: Upload mail settings
         env:
-          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
-          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          MAIL_USERNAME: ${{ inputs.instance == 'bodega' && secrets.MAIL_USERNAME_PROD || '' }}
+          MAIL_PASSWORD: ${{ inputs.instance == 'bodega' && secrets.MAIL_PASSWORD_PROD || '' }}
           FACTURA_CORREO_ENABLED: ${{ vars.FACTURA_CORREO_ENABLED }}
           VERSION: ${{ steps.resolve.outputs.version }}
         run: |
           if [[ -z "${MAIL_USERNAME}" || -z "${MAIL_PASSWORD}" ]]; then
-            echo "MAIL_USERNAME / MAIL_PASSWORD not set for this environment. Skipping mail settings."
+            echo "No mail account for instance ${{ inputs.instance }}. Skipping mail settings."
             exit 0
           fi
           MAIL_REMOTE_PATH="/tmp/mail-${{ inputs.instance }}-${VERSION}.env"

@@ -52,11 +52,13 @@ Verificacion del test: revertir las dos lineas de los resolvers y comprobar que 
 
 - `list-venta` y `generic-list-venta`: el item «Cancelar / Habilitar» del menu solo se muestra con
   `CANCELACION DE VENTA` o `ADMIN`.
-- `list-venta-credito`: idem para «Cancelar» (llama a la misma mutation).
+- `list-venta-credito`: sin cambio. Llama a la misma mutation, pero su «Cancelar» ya se muestra
+  solo a `ADMIN`, que pasa el chequeo del central.
 - `list-factura-legal`: idem para «Cancelar factura».
 - El permiso se calcula una vez en `ngOnInit` a una propiedad (no funcion en el HTML).
-- En esas pantallas, un rechazo «No autorizado» del central se muestra como tal. Hoy el handler lo
-  trata como «sin respuesta»: avisa que no se pudo confirmar y relee la venta.
+- En esas pantallas, un rechazo del central se muestra con su motivo. Hoy las listas de ventas lo
+  tratan como «sin respuesta» (avisan que no se pudo confirmar y releen la venta) y la de facturas
+  muestra un texto generico.
 - No cambia ninguna operacion GraphQL.
 
 ## Orden y compatibilidad
@@ -92,7 +94,7 @@ instancia (alpha, farmacia, bodega) con ese nombre exacto.
 
 | Eje | Hallazgo | Que se hizo |
 |---|---|---|
-| A | `list-venta-credito` tambien llama a `cancelarVenta` y el plan no la listaba | sumada a la fase del desktop |
+| A | `list-venta-credito` tambien llama a `cancelarVenta` y el plan no la listaba | verificado: su boton ya exige `ADMIN` (`list-venta-credito.component.html:344`); listada sin cambio |
 | A | con desktop viejo, el rechazo se muestra como «no se pudo confirmar» | descrito en «Orden y compatibilidad»; el desktop pasa a mostrar el motivo |
 | A | conviene desktop antes o junto con el central | anotado en «Orden y compatibilidad» |
 | A | el rol es un dato, no una migracion; farmacia sin medir | anotado en «Nota de despliegue» |

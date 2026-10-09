@@ -2,15 +2,11 @@ package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.CobroDetalle;
-import com.franco.dev.domain.operaciones.CompraItem;
 import com.franco.dev.graphql.operaciones.input.CobroDetalleInput;
-import com.franco.dev.graphql.operaciones.input.CompraItemInput;
 import com.franco.dev.service.financiero.FormaPagoService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.operaciones.CobroDetalleService;
 import com.franco.dev.service.operaciones.CobroService;
-import com.franco.dev.service.operaciones.CompraItemService;
-import com.franco.dev.service.operaciones.CompraService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.ProductoService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -39,10 +35,6 @@ public class CobroDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private FormaPagoService formaPagoService;
     @Autowired
     private CobroService cobroService;
-
-
-    @Autowired
-    private CompraService compraService;
 
     public Optional<CobroDetalle> cobroDetalle(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
 

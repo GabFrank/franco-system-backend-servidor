@@ -21,6 +21,7 @@ import com.franco.dev.service.financiero.DocumentoElectronicoService;
 import com.franco.dev.service.financiero.FacturaLegalItemService;
 import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.financiero.FacturaLegalFilialService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.financiero.TimbradoDetalleService;
 import com.franco.dev.graphql.financiero.dto.SaveFacturaLegalToFilialResponse;
 import com.franco.dev.service.financiero.dto.FacturaLegalFilialResponse;
@@ -90,6 +91,9 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Autowired
     private FacturaLegalService service;
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private com.franco.dev.service.financiero.FacturaSimilarService facturaSimilarService;
@@ -1368,6 +1372,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public String cancelarFacturaLegal(Long facturaLegalId, Long sucursalId, Boolean cancelarVenta) {
+        // Fuera del try a proposito: adentro el catch lo devolveria como un string "ERROR: ..." (issue #340).
+        seg.requireCancelarVenta();
         try {
             // Buscar la factura
             FacturaLegal factura = service.findByIdAndSucursalId(facturaLegalId, sucursalId);

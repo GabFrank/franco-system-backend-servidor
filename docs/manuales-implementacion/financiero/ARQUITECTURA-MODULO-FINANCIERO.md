@@ -173,6 +173,35 @@ solo la pata pedida: la plata volvía al origen sin salir del destino.
 - En un movimiento con origen `MANUAL` el `referencia_id` es el id de la otra pata; con origen
   `OPERACION_FINANCIERA`, el de la operación. Quien lo lea tiene que mirar el origen.
 
+**Movimientos y transferencias de caja en varias monedas (issue #376).** Los diálogos de la caja mayor dejan
+cargar Gs, Rs y Ds a la vez. `registrarMovimientosCajaVirtual` (ingreso, egreso o ajuste) y
+`realizarTransferenciasCajaVirtual` reciben todos los montos y los registran en **una transacción**
+(`MovimientosCajaEnLoteService`): entra todo o no entra nada. Antes el desktop mandaba un pedido por moneda y
+un rechazo de la segunda dejaba la primera adentro.
+
+- Orden: validar el pedido → clave de idempotencia (§7.1) → permiso sobre las cajas → **todos los saldos del
+  lote con lock, por (caja, moneda) ascendente** → registrar, moneda por moneda, con `TesoreriaService`.
+- **Los saldos se toman antes y juntos.** El orden del módulo es por caja; registrar de a una moneda toma
+  (A,Gs), (B,Gs), (A,Rs)… y se cruza con un pago mixto. Además cada `registrar` en Gs/Rs/Ds escribe la fila
+  `caja_virtual` (el shim) antes de pedir el saldo de la moneda siguiente, y se cruza con cualquier movimiento
+  suelto de esa moneda. `MovimientosCajaEnLoteIT` lo reproduce si se saca ese paso.
+- Después de tomar los saldos relee la fila de cada caja: el chequeo de permiso ya la había cargado, y el
+  shim se guarda con la fila entera (`CajaVirtual` no tiene `@DynamicUpdate`).
+- Inversión que queda: `RetiroVerificacionService.acreditar` y los grupos de un pago mixto recorren las
+  monedas de una misma caja en el orden en que vienen, no ascendente. Contra un lote de varias monedas sobre
+  esa caja pueden cruzarse; PostgreSQL aborta una de las dos y no corrompe nada.
+- Validaciones, todas antes de tocar nada: de 1 a 10 montos, monedas existentes (una inexistente no cae a
+  guaraníes) y sin repetir, monto finito de hasta 4 decimales, mayor que cero —o distinto de cero y con signo
+  en el ajuste—. El movimiento queda a nombre del **usuario de la sesión**.
+- Cada moneda queda como un movimiento, o un par de patas vinculadas, independiente: **se anulan por
+  separado**. Los movimientos de un lote no comparten ninguna columna.
+- El pedido repetido sobre un lote cuyo primer movimiento se anuló se rechaza; solo mira el primero.
+- `saveMovimientoCajaVirtual` y `realizarTransferenciaCajaVirtual` (una moneda) siguen existiendo para los
+  desktops anteriores y el ajuste por conteo. Siguen tomando el usuario que manda el cliente, y la primera
+  acepta cualquier tipo de movimiento y montos sin validar.
+- `MovimientosCajaEnLoteIT` prueba la atomicidad, el repetido y la concurrencia. **No corre en CI**:
+  `./mvnw -Dit.financiero=true -Dtest=MovimientosCajaEnLoteIT test`.
+
 **Cancelar un retiro o un gasto no es un interruptor (issue #376).** `cancelarRetiro` y `cancelarGasto`
 reciben `cancelar: Boolean` —`true` cancela, `false` habilita— y dejan el estado pedido: repetirlos no cambia
 nada. Antes invertían el estado en cada llamada y un reintento o un doble clic deshacía la cancelación.
@@ -223,8 +252,10 @@ intento del usuario, la manda en el argumento opcional `claveIdempotencia` y la 
 - Tabla **solo del central**: no está en `configuraciones.replication_table` y no debe publicarse.
 - Asume READ COMMITTED; no llamar a `ejecutar` desde una transacción `SERIALIZABLE`.
 
-Hoy la usan `pagarSolicitudesMixto` (`PagoProveedorService.pagarLoteMixto`) y `emitirCheque`
-(`ChequeGestionService.emitir`). Para sumar otra mutation: argumento opcional `claveIdempotencia` al
+Hoy la usan `pagarSolicitudesMixto` (`PagoProveedorService.pagarLoteMixto`), `emitirCheque`
+(`ChequeGestionService.emitir`) y los dos lotes de caja de `MovimientosCajaEnLoteService`
+(`registrarMovimientosCajaVirtual`, `realizarTransferenciasCajaVirtual`), que guardan como resultado el id de
+su primer movimiento. Para sumar otra mutation: argumento opcional `claveIdempotencia` al
 final en el `.graphqls` y en el resolver, y en el servicio `@Transactional` envolver la operación con
 `idempotenciaService.ejecutar(clave, "NOMBRE_OPERACION", huella, usuario, accion, idDe, cargar)`.
 El semántico de PostgreSQL lo prueba `IdempotenciaIT`, que **no corre en CI**:

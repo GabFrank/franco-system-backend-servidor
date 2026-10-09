@@ -49,6 +49,16 @@ class LimiteAnulacionServiceTest {
     }
 
     @Test
+    void con_un_limite_de_un_dia_el_mensaje_va_en_singular() {
+        conLimite(1);
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> service.requireDentroDelLimite(hace(3), "El pago #12"));
+
+        assertTrue(e.getMessage().endsWith("supera el límite de 1 día para anular."), e.getMessage());
+    }
+
+    @Test
     void dentro_del_limite_pasa() {
         conLimite(5);
         assertDoesNotThrow(() -> service.requireDentroDelLimite(hace(4), "El pago #12"));

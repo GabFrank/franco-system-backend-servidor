@@ -36,7 +36,7 @@ public class LimiteAnulacionService {
         if (diasLimite == null || diasLimite <= 0) return;
         if (fecha.isBefore(LocalDateTime.now().minusDays(diasLimite))) {
             throw new GraphQLException(queCosa + " del " + fecha.format(FECHA) + " supera el límite de "
-                    + diasLimite + " días para anular.");
+                    + diasLimite + (diasLimite == 1 ? " día" : " días") + " para anular.");
         }
     }
 

@@ -308,7 +308,7 @@ Se sondea en vez de reaccionar a un evento porque las facturas llegan al central
 | Secret | `MAIL_PASSWORD` | contrasena de aplicacion |
 | Variable (opcional) | `FACTURA_CORREO_ENABLED` | `false` para dejar solo el envio manual; sin la variable queda en `true` |
 
-Hoy solo los tiene `production` (bodega). `beta` cubre tambien a `farmacia`, que es otra empresa: no copiar ahi la cuenta de Bodega. Un environment sin los secrets no envia nada y su `.env` no se toca.
+Se cargan solo en `production` (bodega). `beta` cubre tambien a `farmacia`, que es otra empresa: no copiar ahi la cuenta de Bodega. Un environment sin los secrets no envia nada y su `.env` no se toca.
 
 - `MAIL_HOST` (default `smtp.gmail.com`) y `MAIL_PORT` (default `587`) solo si no es Gmail.
 - En el primer deploy con el envio automatico prendido salen las facturas aprobadas de las ultimas 48 h que tengan correo.

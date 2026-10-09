@@ -75,8 +75,10 @@ class LimiteAnulacionServiceTest {
     }
 
     @Test
-    void si_no_se_puede_leer_la_configuracion_no_bloquea() {
+    void si_no_se_puede_leer_la_configuracion_la_falla_no_se_esconde() {
         when(configRepository.findAll()).thenThrow(new RuntimeException("sin base"));
-        assertDoesNotThrow(() -> service.requireDentroDelLimite(hace(900), "El pago #12"));
+        RuntimeException e = assertThrows(RuntimeException.class,
+                () -> service.requireDentroDelLimite(hace(900), "El pago #12"));
+        assertEquals("sin base", e.getMessage());
     }
 }

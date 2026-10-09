@@ -4,7 +4,6 @@ import com.franco.dev.domain.empresarial.ConfiguracionGeneral;
 import com.franco.dev.repository.empresarial.ConfiguracionGeneralRepository;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -20,7 +19,6 @@ import java.time.format.DateTimeFormatter;
  */
 @Service
 @AllArgsConstructor
-@Slf4j
 public class LimiteAnulacionService {
 
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -44,14 +42,10 @@ public class LimiteAnulacionService {
 
     /** Días límite configurados, o null si no hay config/límite. */
     private Integer diasLimite() {
-        try {
-            return configRepository.findAll().stream().findFirst()
-                    .map(ConfiguracionGeneral::getDiasLimiteAnulacion)
-                    .orElse(null);
-        } catch (Exception e) {
-            // Sin poder leer la configuración no se bloquea la tesorería, pero que no pase en silencio.
-            log.warn("No se pudo leer el límite de anulación; se anula sin tope de antigüedad", e);
-            return null;
-        }
+        // Sin try/catch: tragarse una falla de esta lectura no dejaba anular sin tope, porque la transacción
+        // de la anulación ya quedaba marcada para deshacerse y fallaba igual al commitear, con otro error.
+        return configRepository.findAll().stream().findFirst()
+                .map(ConfiguracionGeneral::getDiasLimiteAnulacion)
+                .orElse(null);
     }
 }

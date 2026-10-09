@@ -201,6 +201,38 @@ nada. Antes invertían el estado en cada llamada y un reintento o un doble clic 
 - `CancelarRetiroIT` prueba los UPDATE contra el enum de PostgreSQL y la carrera cancelar × ingresar. **No
   corre en CI**: `./mvnw -Dit.financiero=true -Dtest=CancelarRetiroIT test`.
 
+**Validaciones que viven en el central (issue #376).** Tres cosas que solo cuidaba el desktop, o nadie:
+
+- **Lock por nombre** (`BloqueoTransaccionalService`, `pg_advisory_xact_lock`): serializa dos pedidos sobre «lo
+  mismo» cuando no hay una fila propia que tomar (un número de comprobante que todavía no existe) o cuando
+  tomarla hace daño (la fila de un maletín llega por replicación desde la filial: un `FOR UPDATE` frenaría al
+  apply worker). Dura la transacción; se toma antes de cualquier `save`.
+- **El cierre de un maletín se ingresa una sola vez** (`MaletinTesoreriaService.ingresarMaletinCierre`). Cada
+  ingreso queda marcado con la caja de PDV del cierre: `referencia_id` = caja y `origen_sucursal_id` = su
+  sucursal (la clave de la caja es compuesta). Mientras ese movimiento siga activo, la misma moneda de ese
+  cierre no vuelve a entrar; anularlo desde la caja mayor la habilita. Pedidas una por una, no entra ninguna
+  si alguna ya entró; con «todas» se ingresan las que faltan. Los ingresos a mano
+  (`ingresarMaletinCajaMayor`) no llevan la marca ni la miran. La marca es por **caja**, no por conteo: si se
+  corrige el conteo de cierre después del ingreso (el conteo es versionado), sigue bloqueando y hay que anular
+  y reingresar; por conteo, dejaría ingresar el valor entero otra vez.
+- **Número de comprobante** (`ComprobanteNumeracionService`; entradas varias y operaciones financieras):
+  vacío es «sin número» (el desktop manda `''`) y se guarda sin espacios y en mayúsculas. Lo tipeado no se
+  repite entre documentos no anulados de la misma tabla. Sin número se pide a la serie (`ENTRADA_VARIA`,
+  `OPERACION_FINANCIERA`); sin serie configurada el documento queda sin número. Si la serie da un número ya
+  usado **salta al siguiente**: rechazar ahí la trabaría, porque el rollback deshace el avance del correlativo.
+  No hay índice único: la carrera la cierra el lock por nombre.
+- **Emitir cheque** (`ChequeGestionService.emitir`, lo usan la emisión suelta y el pago a proveedores): la
+  chequera se toma con lock y **se relee de la base** —quien llama ya la cargó, y con el número siguiente de
+  antes de esperar dos emisiones simultáneas salían con el mismo número—. Después valida: total mayor a cero,
+  la cuenta es la de la chequera, la moneda es la de la cuenta, un diferido lleva fecha de pago y no anterior
+  al día de su emisión (no «a hoy»: el pago a proveedores registra cheques ya entregados), y el número está
+  dentro del rango de la chequera.
+- Sigue sin control: `saveChequera` deja escribir cualquier `siguiente_numero` (es lo que puede dejar una
+  chequera fuera de rango), no hay unicidad de (chequera, número), y el límite de una caja chica es solo un
+  aviso del desktop.
+- `ValidacionesFinancieroIT` prueba el lock contra PostgreSQL y las tres carreras. **No corre en CI**:
+  `./mvnw -Dit.financiero=true -Dtest=ValidacionesFinancieroIT test`.
+
 ### 7.1 Idempotencia por clave (pedidos repetidos)
 
 El lock evita que dos pedidos **distintos** pisen el mismo saldo; no distingue un pedido de su

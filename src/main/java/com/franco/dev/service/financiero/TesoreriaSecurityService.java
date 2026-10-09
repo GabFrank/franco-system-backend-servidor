@@ -48,6 +48,13 @@ public class TesoreriaSecurityService {
      */
     public static final String CAMBIAR_COTIZACION = "CAMBIAR COTIZACION";
 
+    /**
+     * Cancelar o reactivar una venta, y cancelar su factura. Tampoco es un rol de tesorería: es el que
+     * ya exige el PDV en el desktop (ROLES.CANCELACION_DE_VENTA). Es un dato de personas.role, no lo
+     * crea ninguna migración.
+     */
+    public static final String CANCELACION_DE_VENTA = "CANCELACION DE VENTA";
+
     /** Cualquier rol de tesorería habilita la lectura. */
     public static final String[] TODOS = {VER, GESTIONAR, CPC_COBRAR, CPP_PAGAR};
 
@@ -59,6 +66,9 @@ public class TesoreriaSecurityService {
 
     /** Cargar una cotización: permiso dedicado, o superusuario (issue #326). */
     public void requireCambiarCotizacion() { requireAnyRole(CAMBIAR_COTIZACION); }
+
+    /** Cancelar o reactivar una venta, o cancelar una factura: permiso dedicado, o superusuario (issue #340). */
+    public void requireCancelarVenta() { requireAnyRole(CANCELACION_DE_VENTA); }
 
     /** Solo superusuario: ningún rol de negocio alcanza. */
     public void requireSuperusuario() {

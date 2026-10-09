@@ -352,6 +352,32 @@ class PagoProveedorServiceTest {
     }
 
     @Test
+    void anular_un_pago_mas_viejo_que_el_limite_se_rechaza_por_la_fecha_del_pago_antes_de_tocar_nada() {
+        // Issue #370. Se mide el pago y no sus movimientos: el debito de un cheque nace al cobrarlo, y un
+        // pago viejo con un cheque cobrado hace poco tendria ese movimiento dentro del limite.
+        com.franco.dev.repository.operaciones.PagoRepository pagoRepo =
+                mock(com.franco.dev.repository.operaciones.PagoRepository.class);
+        when(pagoService.getRepository()).thenReturn(pagoRepo);
+        com.franco.dev.domain.operaciones.Pago viejo = new com.franco.dev.domain.operaciones.Pago();
+        viejo.setId(501L);
+        viejo.setEstado(com.franco.dev.domain.operaciones.enums.PagoEstado.CONCLUIDO);
+        java.time.LocalDateTime fecha = java.time.LocalDateTime.now().minusDays(40);
+        viejo.setCreadoEn(fecha);
+        when(pagoRepo.lockById(501L)).thenReturn(Optional.of(viejo));
+        org.mockito.Mockito.doThrow(new GraphQLException("TOPE")).when(tesoreriaService)
+                .requireDentroDelLimiteDeAnulacion(org.mockito.ArgumentMatchers.eq(fecha),
+                        org.mockito.ArgumentMatchers.eq("El pago #501"));
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anularPagoCpp(501L, "X", null));
+
+        assertEquals("TOPE", e.getMessage());
+        verify(tesoreriaService, never()).revertir(any(), any(), any());
+        verify(bancoLedgerService, never()).revertir(any(), any(), any());
+        verify(chequeGestionService, never()).anularPorPago(anyLong(), any(), any());
+        verify(pagoService, never()).save(any());
+    }
+
+    @Test
     void anular_no_confia_en_el_estado_de_un_pago_que_ya_estaba_cargado() {
         // Anular desde RRHH carga el pago antes de pedir el lock: lockById devuelve esa instancia,
         // que sigue diciendo CONCLUIDO aunque otra transaccion lo haya anulado mientras se esperaba.

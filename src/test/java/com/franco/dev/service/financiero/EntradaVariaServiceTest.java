@@ -61,6 +61,23 @@ class EntradaVariaServiceTest {
     }
 
     @Test
+    void anular_una_entrada_mas_vieja_que_el_limite_se_rechaza_sin_revertir() {
+        // Issue #370.
+        EntradaVaria vieja = entradaBloqueada(5L, false);
+        java.time.LocalDateTime fecha = java.time.LocalDateTime.now().minusDays(40);
+        vieja.setCreadoEn(fecha);
+        org.mockito.Mockito.doThrow(new GraphQLException("TOPE")).when(tesoreriaService)
+                .requireDentroDelLimiteDeAnulacion(eq(fecha), eq("La entrada/salida #5"));
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anular(5L, null, null));
+
+        assertEquals("TOPE", e.getMessage());
+        verify(tesoreriaService, never()).revertir(any(), any(), any());
+        assertFalse(vieja.getAnulado());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
     void anular_una_entrada_ya_anulada_se_rechaza_sin_revertir() {
         entradaBloqueada(4L, true);
 

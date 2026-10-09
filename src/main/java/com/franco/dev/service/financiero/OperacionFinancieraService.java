@@ -181,6 +181,8 @@ public class OperacionFinancieraService {
         if (repository.findAnuladoById(operacionId).orElse(Boolean.TRUE.equals(op.getAnulado()))) {
             throw new GraphQLException("La operación financiera #" + operacionId + " ya está anulada");
         }
+        // Límite de antigüedad sobre la fecha de la operación, antes de revertir ninguna pata (issue #370).
+        tesoreriaService.requireDentroDelLimiteDeAnulacion(op.getCreadoEn(), "La operación financiera #" + operacionId);
         String razon = (motivo != null && !motivo.trim().isEmpty())
                 ? motivo : "Anulación operación financiera #" + operacionId;
 

@@ -67,6 +67,7 @@ Modelo portado de **frc-gourmet** (app hermana), adaptado a JPA/Postgres multi-u
 
 **Replicación (clave):** `retiro`, `venta_credito`, `venta_credito_cuota`, `cobro` son **BRANCH_TO_MAIN**
 (llegan a central por replicación lógica PG, NO por Spring). Por eso el puente Retiro→caja mayor es un
+
 **poller `@Scheduled`** reconciliador (patrón SIFEN), no un evento. `RetiroTesoreriaProcesador` es un bean
 separado del scheduler para que `@Transactional` aplique (no self-invocation). **DA8:** el cobro en efectivo
 es exclusivo del POS filial; central cobra solo banco/cheque.
@@ -99,6 +100,7 @@ CAMBIO_DIVISA (egreso+ingreso caja), DEPOSITO_BANCARIO (egreso caja + entrada ba
   scheduler acredita las vencidas (idempotente por estado + lock), verificación con ajuste diferencial.
 
 ## 7. Concurrencia (regla del módulo)
+
 **Todo servicio que muta un saldo toma lock pesimista** (`lockById`/`lockByCajaVirtualIdAndMonedaId`)
 antes de leer-modificar-escribir: `TesoreriaService`, `BancoLedgerService`, `ClienteCuentaService`,
 `ProveedorCuentaService`, `ChequeGestionService`, `AcreditacionPosService`, `CobroCreditoService`,
@@ -173,6 +175,35 @@ solo la pata pedida: la plata volvía al origen sin salir del destino.
 - En un movimiento con origen `MANUAL` el `referencia_id` es el id de la otra pata; con origen
   `OPERACION_FINANCIERA`, el de la operación. Quien lo lea tiene que mirar el origen.
 
+**Movimientos y transferencias de caja en varias monedas (issue #376).** Los diálogos de la caja mayor dejan
+cargar Gs, Rs y Ds a la vez. `registrarMovimientosCajaVirtual` (ingreso, egreso o ajuste) y
+`realizarTransferenciasCajaVirtual` reciben todos los montos y los registran en **una transacción**
+(`MovimientosCajaEnLoteService`): entra todo o no entra nada. Antes el desktop mandaba un pedido por moneda y
+un rechazo de la segunda dejaba la primera adentro.
+
+- Orden: validar el pedido → clave de idempotencia (§7.1) → permiso sobre las cajas → **todos los saldos del
+  lote con lock, por (caja, moneda) ascendente** → registrar, moneda por moneda, con `TesoreriaService`.
+- **Los saldos se toman antes y juntos.** El orden del módulo es por caja; registrar de a una moneda toma
+  (A,Gs), (B,Gs), (A,Rs)… y se cruza con un pago mixto. Además cada `registrar` en Gs/Rs/Ds escribe la fila
+  `caja_virtual` (el shim) antes de pedir el saldo de la moneda siguiente, y se cruza con cualquier movimiento
+  suelto de esa moneda. `MovimientosCajaEnLoteIT` lo reproduce si se saca ese paso.
+- Después de tomar los saldos relee la fila de cada caja: el chequeo de permiso ya la había cargado, y el
+  shim se guarda con la fila entera (`CajaVirtual` no tiene `@DynamicUpdate`).
+- Inversión que queda: `RetiroVerificacionService.acreditar` y los grupos de un pago mixto recorren las
+  monedas de una misma caja en el orden en que vienen, no ascendente. Contra un lote de varias monedas sobre
+  esa caja pueden cruzarse; PostgreSQL aborta una de las dos y no corrompe nada.
+- Validaciones, todas antes de tocar nada: de 1 a 10 montos, monedas existentes (una inexistente no cae a
+  guaraníes) y sin repetir, monto finito de hasta 4 decimales, mayor que cero —o distinto de cero y con signo
+  en el ajuste—. El movimiento queda a nombre del **usuario de la sesión**.
+- Cada moneda queda como un movimiento, o un par de patas vinculadas, independiente: **se anulan por
+  separado**. Los movimientos de un lote no comparten ninguna columna.
+- El pedido repetido sobre un lote cuyo primer movimiento se anuló se rechaza; solo mira el primero.
+- `saveMovimientoCajaVirtual` y `realizarTransferenciaCajaVirtual` (una moneda) siguen existiendo para los
+  desktops anteriores y el ajuste por conteo. Siguen tomando el usuario que manda el cliente, y la primera
+  acepta cualquier tipo de movimiento y montos sin validar.
+- `MovimientosCajaEnLoteIT` prueba la atomicidad, el repetido y la concurrencia. **No corre en CI**:
+  `./mvnw -Dit.financiero=true -Dtest=MovimientosCajaEnLoteIT test`.
+
 **Cancelar un retiro o un gasto no es un interruptor (issue #376).** `cancelarRetiro` y `cancelarGasto`
 reciben `cancelar: Boolean` —`true` cancela, `false` habilita— y dejan el estado pedido: repetirlos no cambia
 nada. Antes invertían el estado en cada llamada y un reintento o un doble clic deshacía la cancelación.
@@ -233,9 +264,34 @@ nada. Antes invertían el estado en cada llamada y un reintento o un doble clic 
 - `ValidacionesFinancieroIT` prueba el lock contra PostgreSQL y las tres carreras. **No corre en CI**:
   `./mvnw -Dit.financiero=true -Dtest=ValidacionesFinancieroIT test`.
 
+**Ajustes de saldo con saldo esperado (issue #376).** El ajuste por conteo de una caja y el de saldo de una
+cuenta bancaria se calculaban en el desktop con el saldo que tenía en pantalla, y el central aplicaba la
+diferencia sobre el saldo de ese momento. `AjusteDeSaldoService` hace que el pedido diga contra qué saldo se
+hizo: saldo con lock → **refresh de la entidad** → comparar → registrar.
+
+- **Conteo** (`ajustarCajaVirtualPorConteo`): el cliente manda el saldo que vio y lo que contó; la diferencia la
+  calcula el central y el saldo queda exactamente en lo contado. Si ya coincide con lo contado se rechaza (es
+  lo que recibe el reintento de un ajuste que había entrado), y si cambió desde que se abrió el conteo,
+  también. Es absoluto: no necesita clave de idempotencia. Lo contado se redondea a 4 decimales, no se rechaza
+  (llega como una suma hecha en JavaScript). El `AJUSTE` lleva origen `MANUAL`, el usuario de la sesión y la
+  descripción armada en el central.
+- **Banco** (`ajustarSaldoCuentaBancaria`, argumentos opcionales `saldoEsperado` y `claveIdempotencia`): es
+  relativo, así que lleva las dos cosas. El saldo esperado cubre el saldo viejo en pantalla y a dos personas
+  ajustando; **no cubre el reintento**: si después del ajuste entra un movimiento opuesto por el mismo monto,
+  el saldo vuelve al esperado y repetir el pedido lo aplicaría otra vez. Eso lo cubre la clave (§7.1).
+- **El refresh no es opcional.** El lock devuelve la instancia ya cargada y `registrar` calcula con ella: con
+  solo una proyección, la comprobación y el registro podrían mirar saldos distintos.
+- `saldoEsperado` coincide si es igual a 4 decimales o igual como `Double` (en saldos muy grandes el `Double`
+  por el que viajó no guarda los 4 decimales).
+- Sin los argumentos, el ajuste bancario se comporta como antes; `saveMovimientoCajaVirtual` sigue dejando
+  postear un `AJUSTE` suelto.
+- `AjusteDeSaldoIT` prueba la concurrencia, la entidad vieja y el reintento con el saldo de vuelta en el
+  esperado. **No corre en CI**: `./mvnw -Dit.financiero=true -Dtest=AjusteDeSaldoIT test`.
+
 ### 7.1 Idempotencia por clave (pedidos repetidos)
 
 El lock evita que dos pedidos **distintos** pisen el mismo saldo; no distingue un pedido de su
+
 **reintento**. Para eso está `IdempotenciaService` (issue #376): el cliente genera una clave por cada
 intento del usuario, la manda en el argumento opcional `claveIdempotencia` y la reenvía si reintenta.
 
@@ -255,8 +311,10 @@ intento del usuario, la manda en el argumento opcional `claveIdempotencia` y la 
 - Tabla **solo del central**: no está en `configuraciones.replication_table` y no debe publicarse.
 - Asume READ COMMITTED; no llamar a `ejecutar` desde una transacción `SERIALIZABLE`.
 
-Hoy la usan `pagarSolicitudesMixto` (`PagoProveedorService.pagarLoteMixto`) y `emitirCheque`
-(`ChequeGestionService.emitir`). Para sumar otra mutation: argumento opcional `claveIdempotencia` al
+Hoy la usan `pagarSolicitudesMixto` (`PagoProveedorService.pagarLoteMixto`), `emitirCheque`
+(`ChequeGestionService.emitir`) y los dos lotes de caja de `MovimientosCajaEnLoteService`
+(`registrarMovimientosCajaVirtual`, `realizarTransferenciasCajaVirtual`), que guardan como resultado el id de
+su primer movimiento. Para sumar otra mutation: argumento opcional `claveIdempotencia` al
 final en el `.graphqls` y en el resolver, y en el servicio `@Transactional` envolver la operación con
 `idempotenciaService.ejecutar(clave, "NOMBRE_OPERACION", huella, usuario, accion, idDe, cargar)`.
 El semántico de PostgreSQL lo prueba `IdempotenciaIT`, que **no corre en CI**:
@@ -274,6 +332,7 @@ SecurityContext, lee roles de DB, bypass ADMIN. Roles `TESORERIA VER`/`TESORERIA
 `PagoService.guardarManual`: exige `GESTIONAR`, solo asigna `ABIERTO`/`PENDIENTE`, rechaza editar un pago
 `CONCLUIDO`/`PARCIAL`/`CANCELADO` y conserva `usuario`/`creadoEn`. Las mutations de `PagoDetalle`/`PagoDetalleCuota`
 exigen `GESTIONAR` y sus queries `VER`.
+
 **Solicitudes de pago por el resolver de compras (issue #306).** Compras no tiene rol propio, así que
 `SolicitudPagoGraphQL` decide por el **tipo** de la solicitud (`findTipoById`, proyección) y no por rol:
 - `COMPRA`: lectura y mutations sin rol. `GASTO`: lectura e impresión sin rol (el módulo de gastos tampoco tiene rol).

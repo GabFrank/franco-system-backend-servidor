@@ -72,15 +72,18 @@ class AltasIdempotentesIT {
 
     @AfterEach
     void limpiar() {
-        for (Long id : creadas) {
-            try {
-                entradaVariaService.anular(id, MARCA, null);
-            } catch (GraphQLException yaAnulada) {
-                // la anuló la propia prueba
+        try {
+            for (Long id : creadas) {
+                try {
+                    entradaVariaService.anular(id, MARCA, null);
+                } catch (RuntimeException yaAnulada) {
+                    // la anuló la propia prueba; una que no se pueda anular no frena a las demás
+                }
             }
+        } finally {
+            tx.execute(s -> em.createNativeQuery("delete from financiero.operacion_idempotente where clave like :p")
+                    .setParameter("p", PREFIJO + "%").executeUpdate());
         }
-        tx.execute(s -> em.createNativeQuery("delete from financiero.operacion_idempotente where clave like :p")
-                .setParameter("p", PREFIJO + "%").executeUpdate());
     }
 
     private static String clave() {
@@ -237,6 +240,7 @@ class AltasIdempotentesIT {
                     futuros.add(pool.submit(() -> {
                         largada.await(20, TimeUnit.SECONDS);
                         // Sin clave: son pedidos distintos, lo que comparten es el contador de solicitudes.
+                        // El lock lo toma el alta (AltaIdempotenteService), no la numeración.
                         return altaIdempotente.gastoParaPago(null, "h", null, () -> gastoTesoreriaService.crearGastoParaPago(
                                 tipoGastoId, descripcion, monedaId, 1.0, null, null, null, null, null)).getNumeroSolicitud();
                     }));
@@ -247,6 +251,7 @@ class AltasIdempotentesIT {
                     for (Future<String> f : futuros) numeros.add(f.get(40, TimeUnit.SECONDS));
                 } finally {
                     pool.shutdownNow();
+                    pool.awaitTermination(20, TimeUnit.SECONDS);   // que ninguna commitee después del borrado
                 }
             }
             assertEquals(rondas * porRonda, numeros.size(), "hubo números de solicitud repetidos");

@@ -148,6 +148,26 @@ class AltasConClaveGraphQLTest {
         assertThrows(GraphQLException.class, () -> OperacionFinancieraGraphQL.huellaDe(in));
     }
 
+    @Test
+    void operacion_financiera_la_clave_la_huella_y_el_usuario_de_la_sesion_llegan_al_servicio() {
+        com.franco.dev.service.financiero.OperacionFinancieraService servicio =
+                mock(com.franco.dev.service.financiero.OperacionFinancieraService.class);
+        OperacionFinancieraGraphQL graphQL = new OperacionFinancieraGraphQL(servicio,
+                mock(com.franco.dev.repository.financiero.MovimientoBancarioRepository.class), cajaVirtualService,
+                mock(com.franco.dev.repository.financiero.CuentaBancariaRepository.class), monedaService,
+                mock(com.franco.dev.repository.financiero.OperacionFinancieraCategoriaRepository.class), seg,
+                mock(com.franco.dev.service.financiero.MovimientoBancarioService.class), altaIdempotente);
+
+        graphQL.registrarOperacionFinanciera(operacion(), "clave-of");
+
+        ArgumentCaptor<Supplier> alta = ArgumentCaptor.forClass(Supplier.class);
+        verify(altaIdempotente).operacionFinanciera(eq("clave-of"), eq(OperacionFinancieraGraphQL.huellaDe(operacion())),
+                same(sesion), alta.capture());
+        verifyNoInteractions(servicio);
+        alta.getValue().get();
+        verify(servicio).registrar(any(), same(sesion));
+    }
+
     // ── Las demás: la huella y la clave que le llegan al servicio ───────────────────────────────
 
     private static EntradaVariaInput entrada() {

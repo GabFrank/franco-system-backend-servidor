@@ -49,7 +49,7 @@ class SolicitudPagoServiceMontoRedondeoTest {
         service = new SolicitudPagoService(repository, relacionService, notaRepository,
                 mock(ProcesoEtapaService.class), mock(RecepcionMercaderiaNotaService.class),
                 mock(RecepcionMercaderiaService.class), mock(MonedaRepository.class),
-                mock(FormaPagoRepository.class), mock(CambioService.class), mock(com.franco.dev.service.financiero.BloqueoTransaccionalService.class));
+                mock(FormaPagoRepository.class), mock(CambioService.class));
 
         guarani = moneda(1L, "GUARANI", 0);
         dolar = moneda(3L, "DOLAR", 2);

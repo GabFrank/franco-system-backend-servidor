@@ -49,6 +49,13 @@ public class AltaIdempotenteService {
     static final String OPERACION_GASTO_PARA_PAGO = "GASTO_PARA_PAGO";
     static final String OPERACION_VALE_PARA_PAGO = "VALE_PARA_PAGO";
     static final String OPERACION_PRESTAMO = "PRESTAMO_CON_DESEMBOLSO";
+    /**
+     * El número de una solicitud de pago («SP-») sale de contar las que hay: dos altas simultáneas contaban lo
+     * mismo y una chocaba contra el índice único. Estas dos altas son transacciones cortas que todavía no
+     * tomaron ningún lock del negocio, así que se ponen en fila acá. No va dentro de la numeración misma: los
+     * pagos en lote de RRHH crean solicitudes con filas ya tomadas y lo retendrían hasta el final del lote.
+     */
+    static final String LOCK_NUMERO_SOLICITUD = "SOLICITUD_PAGO_NUMERO";
 
     private final IdempotenciaService idempotencia;
     private final EntradaVariaRepository entradaVariaRepository;
@@ -57,6 +64,7 @@ public class AltaIdempotenteService {
     private final SolicitudPagoRepository solicitudPagoRepository;
     private final ValeRepository valeRepository;
     private final PrestamoRepository prestamoRepository;
+    private final BloqueoTransaccionalService bloqueo;
 
     @Transactional
     public EntradaVaria entradaVaria(String clave, String huella, Usuario usuario, Supplier<EntradaVaria> alta) {
@@ -91,7 +99,7 @@ public class AltaIdempotenteService {
 
     @Transactional
     public SolicitudPago gastoParaPago(String clave, String huella, Usuario usuario, Supplier<SolicitudPago> alta) {
-        return idempotencia.ejecutar(clave, OPERACION_GASTO_PARA_PAGO, huella, usuario, alta, SolicitudPago::getId, id -> {
+        return idempotencia.ejecutar(clave, OPERACION_GASTO_PARA_PAGO, huella, usuario, enFilaPorNumero(alta), SolicitudPago::getId, id -> {
             SolicitudPago s = solicitudPagoRepository.findById(id).orElse(null);
             // Hoy ningún flujo cancela una solicitud de gasto; queda por si alguno lo hace.
             rechazarSi(s != null && s.getEstado() == SolicitudPagoEstado.CANCELADO, "El gasto");
@@ -101,7 +109,7 @@ public class AltaIdempotenteService {
 
     @Transactional
     public Vale valeParaPago(String clave, String huella, Usuario usuario, Supplier<Vale> alta) {
-        return idempotencia.ejecutar(clave, OPERACION_VALE_PARA_PAGO, huella, usuario, alta, Vale::getId, id -> {
+        return idempotencia.ejecutar(clave, OPERACION_VALE_PARA_PAGO, huella, usuario, enFilaPorNumero(alta), Vale::getId, id -> {
             Vale v = valeRepository.findById(id).orElse(null);
             rechazarSi(v != null && v.getEstado() == ValeEstado.ANULADO, "El vale");
             return v;
@@ -112,9 +120,17 @@ public class AltaIdempotenteService {
     public Prestamo prestamo(String clave, String huella, Usuario usuario, Supplier<Prestamo> alta) {
         return idempotencia.ejecutar(clave, OPERACION_PRESTAMO, huella, usuario, alta, Prestamo::getId, id -> {
             Prestamo p = prestamoRepository.findById(id).orElse(null);
+            // Hoy ningún flujo cancela un préstamo; queda por si alguno lo hace.
             rechazarSi(p != null && p.getEstado() == PrestamoEstado.CANCELADO, "El préstamo");
             return p;
         });
+    }
+
+    private <T> Supplier<T> enFilaPorNumero(Supplier<T> alta) {
+        return () -> {
+            bloqueo.tomar(LOCK_NUMERO_SOLICITUD);
+            return alta.get();
+        };
     }
 
     private static void rechazarSi(boolean anulado, String que) {

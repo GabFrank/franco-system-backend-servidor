@@ -40,7 +40,7 @@ class SolicitudPagoServiceCancelacionTest {
         service = new SolicitudPagoService(repository, notaRecepcionService,
                 mock(NotaRecepcionRepository.class), mock(ProcesoEtapaService.class),
                 mock(RecepcionMercaderiaNotaService.class), mock(RecepcionMercaderiaService.class),
-                mock(MonedaRepository.class), mock(FormaPagoRepository.class), mock(CambioService.class), mock(com.franco.dev.service.financiero.BloqueoTransaccionalService.class));
+                mock(MonedaRepository.class), mock(FormaPagoRepository.class), mock(CambioService.class));
 
         sp = new SolicitudPago();
         sp.setId(18L);

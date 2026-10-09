@@ -48,6 +48,8 @@ public class AjusteDeSaldoService {
     static final String OPERACION_AJUSTE_BANCARIO = "AJUSTE_SALDO_BANCARIO";
     /** Los saldos son numeric(18,4). */
     private static final int DECIMALES = 4;
+    /** numeric(18,4): 14 enteros. Más que eso rompería en la base con un error que no dice nada. */
+    private static final BigDecimal TOPE = new BigDecimal("100000000000000");
 
     private final TesoreriaService tesoreriaService;
     private final BancoLedgerService bancoLedgerService;
@@ -83,6 +85,7 @@ public class AjusteDeSaldoService {
         // Se redondea, no se rechaza: lo contado es una suma hecha en el cliente (12.350000000000001).
         BigDecimal contadoExacto = BigDecimal.valueOf(contado).setScale(DECIMALES, RoundingMode.HALF_UP);
         if (contadoExacto.signum() < 0) throw new GraphQLException("Lo contado no puede ser negativo.");
+        if (contadoExacto.compareTo(TOPE) >= 0) throw new GraphQLException("Monto fuera de rango.");
 
         Moneda moneda = monedaRepository.findById(monedaId)
                 .orElseThrow(() -> new GraphQLException("Moneda no encontrada: " + monedaId));
@@ -141,7 +144,10 @@ public class AjusteDeSaldoService {
         if (!finito(monto) || monto <= 0) throw new GraphQLException("El monto del ajuste debe ser mayor a cero");
         if (motivo == null || motivo.trim().isEmpty()) throw new GraphQLException("El motivo del ajuste es obligatorio");
         if (saldoEsperado != null && !finito(saldoEsperado)) throw new GraphQLException("Monto inválido.");
-        BigDecimal montoExacto = BigDecimal.valueOf(monto);
+        // A los 4 decimales de la columna: 0,00004 pasaba el «mayor a cero» y se guardaba como 0.
+        BigDecimal montoExacto = BigDecimal.valueOf(monto).setScale(DECIMALES, RoundingMode.HALF_UP);
+        if (montoExacto.signum() <= 0) throw new GraphQLException("El monto del ajuste debe ser mayor a cero");
+        if (montoExacto.compareTo(TOPE) >= 0) throw new GraphQLException("Monto fuera de rango.");
         String motivoLimpio = motivo.trim().toUpperCase();
         MovimientoBancarioTipo tipo = Boolean.TRUE.equals(positivo)
                 ? MovimientoBancarioTipo.AJUSTE_POSITIVO : MovimientoBancarioTipo.AJUSTE_NEGATIVO;

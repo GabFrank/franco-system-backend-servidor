@@ -137,6 +137,17 @@ class AjusteDeSaldoServiceTest {
     }
 
     @Test
+    void el_saldo_esperado_coincide_aunque_llegue_con_otra_escala_y_los_montos_se_leen_como_en_pantalla() {
+        saldoEnLaBase = new BigDecimal("1234567.8900");
+
+        service.ajustarCajaPorConteo(7L, 1L, 1234567.89, 19.99, usuario);
+
+        MovimientoCajaVirtual ajuste = ajustePosteado();
+        assertEquals(-1234547.9, ajuste.getCantidad());
+        assertEquals("AJUSTE POR CONTEO DE CAJA (SISTEMA 1.234.567,89 / CONTADO 19,99)", ajuste.getDescripcion());
+    }
+
+    @Test
     void un_sobrante_se_postea_positivo() {
         service.ajustarCajaPorConteo(7L, 1L, 1000.0, 1000.5, usuario);
 
@@ -204,6 +215,7 @@ class AjusteDeSaldoServiceTest {
         assertThrows(GraphQLException.class, () -> service.ajustarCajaPorConteo(7L, 1L, Double.POSITIVE_INFINITY, 5.0, usuario));
         assertThrows(GraphQLException.class, () -> service.ajustarCajaPorConteo(7L, 1L, null, 5.0, usuario));
         assertThrows(GraphQLException.class, () -> service.ajustarCajaPorConteo(7L, 99L, 1000.0, 5.0, usuario));
+        assertThrows(GraphQLException.class, () -> service.ajustarCajaPorConteo(7L, 1L, 1000.0, 1e20, usuario));
         verify(saldoRepository, never()).lockByCajaVirtualIdAndMonedaId(anyLong(), anyLong());
         verify(tesoreria, never()).registrar(any());
     }
@@ -225,7 +237,7 @@ class AjusteDeSaldoServiceTest {
         MovimientoBancario r = service.ajustarSaldoBancario(3L, 100.0, true, " comision mal cargada ", 1000.0, "clave", usuario);
 
         assertEquals(55L, r.getId());
-        verify(bancoLedger).registrar(eq(3L), eq(MovimientoBancarioTipo.AJUSTE_POSITIVO), eq(BigDecimal.valueOf(100.0)),
+        verify(bancoLedger).registrar(eq(3L), eq(MovimientoBancarioTipo.AJUSTE_POSITIVO), argThat(m -> m.compareTo(new BigDecimal("100")) == 0),
                 eq("AJUSTE: COMISION MAL CARGADA"), eq("MANUAL"), isNull(), same(usuario));
     }
 
@@ -302,6 +314,8 @@ class AjusteDeSaldoServiceTest {
         assertThrows(GraphQLException.class, () -> service.ajustarSaldoBancario(3L, 0.0, true, "MOTIVO", 1000.0, "c", usuario));
         assertThrows(GraphQLException.class, () -> service.ajustarSaldoBancario(3L, Double.NaN, true, "MOTIVO", 1000.0, "c", usuario));
         assertThrows(GraphQLException.class, () -> service.ajustarSaldoBancario(3L, 5.0, true, "  ", 1000.0, "c", usuario));
+        assertThrows(GraphQLException.class, () -> service.ajustarSaldoBancario(3L, 0.00004, true, "MOTIVO", 1000.0, "c", usuario));
+        assertThrows(GraphQLException.class, () -> service.ajustarSaldoBancario(3L, 1e20, true, "MOTIVO", 1000.0, "c", usuario));
         assertThrows(GraphQLException.class, () -> service.ajustarSaldoBancario(3L, 5.0, true, "MOTIVO", Double.NaN, "c", usuario));
         verify(idempotencia, never()).ejecutar(any(), any(), any(), any(), any(), any(), any());
     }

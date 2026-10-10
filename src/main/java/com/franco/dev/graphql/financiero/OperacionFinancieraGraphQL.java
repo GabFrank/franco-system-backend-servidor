@@ -29,6 +29,7 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
     private final com.franco.dev.repository.financiero.OperacionFinancieraCategoriaRepository categoriaRepository;
     private final TesoreriaSecurityService seg;
     private final MovimientoBancarioService movimientoBancarioService;
+    private final com.franco.dev.service.financiero.AltaIdempotenteService altaIdempotente;
 
     public OperacionFinancieraGraphQL(OperacionFinancieraService service,
                                       MovimientoBancarioRepository movimientoBancarioRepository,
@@ -37,7 +38,8 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
                                       MonedaService monedaService,
                                       com.franco.dev.repository.financiero.OperacionFinancieraCategoriaRepository categoriaRepository,
                                       TesoreriaSecurityService seg,
-                                      MovimientoBancarioService movimientoBancarioService) {
+                                      MovimientoBancarioService movimientoBancarioService,
+                                      com.franco.dev.service.financiero.AltaIdempotenteService altaIdempotente) {
         this.service = service;
         this.movimientoBancarioRepository = movimientoBancarioRepository;
         this.cajaVirtualService = cajaVirtualService;
@@ -46,6 +48,7 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
         this.categoriaRepository = categoriaRepository;
         this.seg = seg;
         this.movimientoBancarioService = movimientoBancarioService;
+        this.altaIdempotente = altaIdempotente;
     }
 
     public java.util.List<com.franco.dev.domain.financiero.OperacionFinancieraCategoria> operacionFinancieraCategorias() {
@@ -71,8 +74,10 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
                 soloActivos != null && soloActivos, PageRequest.of(page, size));
     }
 
-    public OperacionFinanciera registrarOperacionFinanciera(OperacionFinancieraInputWrapper in) {
+    /** Con {@code claveIdempotencia}, el mismo pedido repetido devuelve la operación ya registrada (issue #376). */
+    public OperacionFinanciera registrarOperacionFinanciera(OperacionFinancieraInputWrapper in, String claveIdempotencia) {
         seg.requireGestionar();
+        String huella = huellaDe(in);
         OperacionFinanciera op = new OperacionFinanciera();
         op.setTipoOperacion(in.getTipoOperacion());
         op.setDescripcion(in.getDescripcion());
@@ -90,7 +95,25 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
         if (in.getMonedaOrigenId() != null) op.setMonedaOrigen(monedaService.findById(in.getMonedaOrigenId()).orElse(null));
         if (in.getMonedaDestinoId() != null) op.setMonedaDestino(monedaService.findById(in.getMonedaDestinoId()).orElse(null));
         if (in.getCategoriaId() != null) op.setCategoria(categoriaRepository.findById(in.getCategoriaId()).orElse(null));
-        return service.registrar(op, seg.currentUsuario());
+        com.franco.dev.domain.personas.Usuario usuario = seg.currentUsuario();
+        return altaIdempotente.operacionFinanciera(claveIdempotencia, huella, usuario, () -> service.registrar(op, usuario));
+    }
+
+    /** Los 16 campos del input, tal como llegaron: las monedas que el servicio deriva de las cuentas no entran. */
+    static String huellaDe(OperacionFinancieraInputWrapper in) {
+        return new com.franco.dev.service.financiero.HuellaPedido()
+                .texto(in.getTipoOperacion() != null ? in.getTipoOperacion().name() : null)
+                .texto(in.getDescripcion()).id(in.getCategoriaId())
+                .id(in.getCajaMayorOrigenId()).id(in.getCuentaBancariaOrigenId()).id(in.getMonedaOrigenId())
+                .numero(com.franco.dev.service.financiero.AltaIdempotenteService.monto(in.getMontoOrigen()))
+                .id(in.getCajaMayorDestinoId()).id(in.getCuentaBancariaDestinoId()).id(in.getMonedaDestinoId())
+                .numero(com.franco.dev.service.financiero.AltaIdempotenteService.monto(in.getMontoDestino()))
+                .numero(com.franco.dev.service.financiero.AltaIdempotenteService.monto(in.getCotizacion()))
+                .texto(in.getNumeroComprobante())
+                .numero(com.franco.dev.service.financiero.AltaIdempotenteService.monto(in.getDiferencia()))
+                .texto(in.getDiferenciaDestinoTipo() != null ? in.getDiferenciaDestinoTipo().name() : null)
+                .texto(in.getDiferenciaObservacion())
+                .calcular();
     }
 
     public OperacionFinanciera anularOperacionFinanciera(Long id, String motivo) {

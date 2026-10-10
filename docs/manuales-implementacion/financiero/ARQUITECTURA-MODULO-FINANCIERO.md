@@ -366,6 +366,45 @@ final en el `.graphqls` y en el resolver, y en el servicio `@Transactional` envo
 El semántico de PostgreSQL lo prueba `IdempotenciaIT`, que **no corre en CI**:
 `./mvnw -Dit.financiero=true -Dtest=IdempotenciaIT test` contra una base con `V237.1`.
 
+**Altas con clave (`AltaIdempotenteService`).** Las altas que no tenían servicio propio para la clave pasan
+por ahí: `registrarEntradaVaria`, `registrarOperacionFinanciera`, `ingresarMaletinCajaMayor` /
+`egresarMaletinCajaMayor`, `crearGastoParaPago`, `crearValeParaPago` y `crearPrestamo` (RRHH, que
+desembolsa de la caja mayor). Cada método abre la transacción, toma la clave y corre adentro el alta de
+siempre; el servicio de cada alta no cambió.
+
+- **La huella la arma el resolver, con los ids del input**, no con las entidades resueltas: varios
+  resolvers convierten un id inexistente en nulo, y las monedas de una operación financiera se derivan
+  después. Fechas como texto, tal como llegan. Cada campo del input entra (lo prueba
+  `AltasConClaveGraphQLTest`).
+- **Repetición de algo que después se anuló → rechazo**, con el campo real de cada entidad: entrada varia y
+  operación financiera `anulado`; movimiento de maletín `activo = false` (no tiene `anulado`); gasto
+  `SolicitudPago.estado = CANCELADO` (hoy ningún flujo cancela una solicitud de gasto); vale
+  `estado = ANULADO`; préstamo `estado = CANCELADO` (hoy nada cancela un préstamo). **Lo demás se devuelve en el estado que tenga hoy**
+  (un vale ya pagado, un gasto `PARCIAL`): el cliente no puede asumir que vuelve recién creado.
+- El permiso sobre la caja corre dentro del alta: en la repetición no se reevalúa.
+- No llevan clave, porque ya rechazan la repetición por su estado: `ingresarMaletinCierre` (marca del
+  cierre), el alta de chequera (superposición), `pagarValesMixto`, `pagarRrhhMixto`,
+  `ingresarRetiroACajaMayor`. Sin cliente que las llame y sin clave: `realizarTransferenciaCajaVirtual`,
+  `crearValeConfirmado`, `crearAcreditacionPos`, `pagarSolicitud`, `pagarSolicitudesLoteCajaMayor`.
+- `AltasIdempotentesIT` (no corre en CI): pedidos simultáneos con la misma clave, alta rechazada sin
+  clave residual, original anulado. `./mvnw -Dit.financiero=true -Dtest=AltasIdempotentesIT test`.
+
+**Número de solicitud de pago (`SP-`).** Sale de `count() + 1` (`SolicitudPagoService`), sin lock: dos altas
+simultáneas contaban lo mismo y una chocaba contra el índice único. El alta de gasto y la de vale toman el
+lock por nombre `SOLICITUD_PAGO_NUMERO` **en `AltaIdempotenteService`**, después de la clave y antes de
+crear nada, así que entre ellas ya no chocan. **No está dentro de la numeración a propósito:** `pagarRrhhMixto`
+y `pagarValesMixto` crean solicitudes con filas de documentos ya tomadas y dentro de un lote largo; con el
+lock ahí se cruzaban dos pagos con documentos en común (deadlock) y cualquier alta quedaba esperando el lote
+entero. Esos caminos y las solicitudes de compra siguen numerando sin lock: contra ellos el choque sigue
+siendo posible (falla una, sin dejar nada a medias). La salida de fondo es numerar con una secuencia.
+
+**Saldo de la cuenta bancaria (`BancoLedgerService`).** `registrar` y `ajustarReservado` toman la cuenta con
+lock y **la releen de la base** (`cuentaConLock`). Sin el `refresh`, la instancia que el resolver ya había
+cargado (una operación financiera busca sus cuentas antes de entrar a la transacción) traía el saldo de antes
+de esperar el lock: de dos movimientos simultáneos sobre la misma cuenta, el segundo pisaba al primero. Es la
+regla del módulo —`lockById` no refresca lo ya cargado— aplicada al único punto que escribe ese saldo.
+`BancoLedgerSaldoIT` lo reproduce (no corre en CI).
+
 ## 8. Seguridad por rol
 `TesoreriaSecurityService` (patrón self-contained, issue #177): resuelve el usuario por el nickname del
 SecurityContext, lee roles de DB, bypass ADMIN. Roles `TESORERIA VER`/`TESORERIA GESTIONAR` (migración

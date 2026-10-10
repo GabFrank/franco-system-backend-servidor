@@ -21,6 +21,7 @@ public class MaletinTesoreriaGraphQL implements GraphQLQueryResolver, GraphQLMut
 
     private final MaletinTesoreriaService service;
     private final TesoreriaSecurityService seg;
+    private final com.franco.dev.service.financiero.AltaIdempotenteService altaIdempotente;
 
     public List<ValorMaletinItem> valorMaletin(Long maletinId) {
         seg.requireVer();
@@ -28,10 +29,17 @@ public class MaletinTesoreriaGraphQL implements GraphQLQueryResolver, GraphQLMut
     }
 
     public MovimientoCajaVirtual ingresarMaletinCajaMayor(Long cajaVirtualId, Long maletinId, Long monedaId,
-                                                          Double monto, String descripcion) {
+                                                          Double monto, String descripcion,
+                                                          String claveIdempotencia) {
         seg.requireGestionar();
-        return service.ingresarMaletin(cajaVirtualId, maletinId, monedaId,
-                monto != null ? BigDecimal.valueOf(monto) : null, descripcion, seg.currentUsuario());
+        BigDecimal m = com.franco.dev.service.financiero.AltaIdempotenteService.monto(monto);
+        com.franco.dev.domain.personas.Usuario usuario = seg.currentUsuario();
+        return altaIdempotente.maletin(true, claveIdempotencia, huellaDe(cajaVirtualId, maletinId, monedaId, m, descripcion),
+                usuario, () -> service.ingresarMaletin(cajaVirtualId, maletinId, monedaId, m, descripcion, usuario));
+    }
+
+    private static String huellaDe(Long cajaVirtualId, Long maletinId, Long monedaId, BigDecimal monto, String descripcion) {
+        return new com.franco.dev.service.financiero.HuellaPedido().id(cajaVirtualId).id(maletinId).id(monedaId).numero(monto).texto(descripcion).calcular();
     }
 
     public List<MovimientoCajaVirtual> ingresarMaletinCierre(Long cajaVirtualId, Long maletinId,
@@ -41,9 +49,12 @@ public class MaletinTesoreriaGraphQL implements GraphQLQueryResolver, GraphQLMut
     }
 
     public MovimientoCajaVirtual egresarMaletinCajaMayor(Long cajaVirtualId, Long maletinId, Long monedaId,
-                                                         Double monto, String descripcion) {
+                                                         Double monto, String descripcion,
+                                                         String claveIdempotencia) {
         seg.requireGestionar();
-        return service.egresarMaletin(cajaVirtualId, maletinId, monedaId,
-                monto != null ? BigDecimal.valueOf(monto) : null, descripcion, seg.currentUsuario());
+        BigDecimal m = com.franco.dev.service.financiero.AltaIdempotenteService.monto(monto);
+        com.franco.dev.domain.personas.Usuario usuario = seg.currentUsuario();
+        return altaIdempotente.maletin(false, claveIdempotencia, huellaDe(cajaVirtualId, maletinId, monedaId, m, descripcion),
+                usuario, () -> service.egresarMaletin(cajaVirtualId, maletinId, monedaId, m, descripcion, usuario));
     }
 }

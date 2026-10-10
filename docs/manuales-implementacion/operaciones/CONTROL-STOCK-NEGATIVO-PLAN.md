@@ -2740,3 +2740,16 @@ Decirle a Franco dónde probar, con un caso real de su base. **Esperar su aproba
 ## Rollback
 
 Migración aditiva: un JAR anterior ignora las dos tablas. Para apagar solo el poller sin redeploy: `INVENTARIO_CONTROL_STOCK_NEGATIVO_ENABLED=false` en el `.env` de la instancia y reiniciar. El registro de transferencias no tiene interruptor: está aislado por `try/catch` y transacción propia.
+
+## Agregado durante la ejecución (2026-10-10): filtro por stock previo
+
+Franco pidió, con la lista ya funcionando, un selector «stock 0 / stock negativo / todos».
+
+- **Task 10 (central):** argumento opcional `stock: FiltroStockControl` (`CERO`, `NEGATIVO`; sin valor = todos) en la query `controlStockNegativo`, entre `texto` y `page`. Enum Java + `.graphqls` en el mismo commit. El filtro es `stock_previo = 0` o `stock_previo < 0`. Sin migración.
+- **Task 11 (desktop):** selector «Stock previo» en la lista (Todos / Stock 0 / Stock negativo), enviado como `stock`.
+
+Compatibilidad: el argumento es opcional; un desktop que no lo manda sigue funcionando contra el central nuevo. Un desktop nuevo contra un central sin el argumento falla solo en la lista (query inválida) — mismo orden de entrega que el resto: central primero.
+
+| Dato | Escribe | Lee |
+|---|---|---|
+| argumento `stock` | `list-control-stock-negativo` (selector) | `ControlStockNegativoService.buscar` |

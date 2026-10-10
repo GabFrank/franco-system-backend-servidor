@@ -389,14 +389,28 @@ siempre; el servicio de cada alta no cambió.
 - `AltasIdempotentesIT` (no corre en CI): pedidos simultáneos con la misma clave, alta rechazada sin
   clave residual, original anulado. `./mvnw -Dit.financiero=true -Dtest=AltasIdempotentesIT test`.
 
-**Número de solicitud de pago (`SP-`).** Sale de `count() + 1` (`SolicitudPagoService`), sin lock: dos altas
-simultáneas contaban lo mismo y una chocaba contra el índice único. El alta de gasto y la de vale toman el
-lock por nombre `SOLICITUD_PAGO_NUMERO` **en `AltaIdempotenteService`**, después de la clave y antes de
-crear nada, así que entre ellas ya no chocan. **No está dentro de la numeración a propósito:** `pagarRrhhMixto`
-y `pagarValesMixto` crean solicitudes con filas de documentos ya tomadas y dentro de un lote largo; con el
-lock ahí se cruzaban dos pagos con documentos en común (deadlock) y cualquier alta quedaba esperando el lote
-entero. Esos caminos y las solicitudes de compra siguen numerando sin lock: contra ellos el choque sigue
-siendo posible (falla una, sin dejar nada a medias). La salida de fondo es numerar con una secuencia.
+**Número de solicitud de pago (`SP-`).** Lo da la secuencia `operaciones.solicitud_pago_numero_seq`
+(`SolicitudPagoRepository.siguienteNumero`, migración `V242.1`). Antes salía de `count() + 1`, con dos
+problemas: dos altas simultáneas contaban lo mismo y una chocaba contra el índice único, y **una solicitud
+borrada del medio** (`eliminarSolicitud`, compras) hacía que el conteo volviera a dar un número ya usado: no
+entraba ninguna alta más, de ningún tipo, hasta corregirlo a mano.
+
+- `nextval` no espera a nadie ni participa de ningún orden de locks. Por eso ya no hay lock por nombre en el
+  alta de gasto ni en la de vale (lo hubo entre #403 y este cambio).
+- **Deja huecos:** un alta que después se rechaza consume su número y no se reutiliza. Nadie depende de que la
+  numeración sea corrida (los clientes solo la muestran y la filtran como texto).
+- `SolicitudPagoNumeroVerificador` la deja lista **al arrancar**: la crea si falta y la adelanta si quedó
+  detrás del número más alto. Solo adelanta. Cubre lo que la migración no puede, porque Flyway no repite una
+  versión aplicada: un entorno sin la migración, o la vuelta a este JAR después de un rollback.
+- **Rollback del JAR:** el automático del deploy (falla el health check) no tiene riesgo, porque el JAR nuevo
+  no llegó a numerar. Uno **manual, después de haber operado, es de una sola vía mientras haya huecos**: el JAR
+  anterior vuelve a contar, cae sobre un número usado y todas las altas de solicitudes fallan (sin dejar nada
+  a medias) hasta volver a este JAR. Huecos: `select count(*), max(numero_solicitud) from
+  operaciones.solicitud_pago` (si la cantidad es menor que el número más alto, los hay).
+- Si alguien inserta a mano un número mayor que la secuencia, el alta que llegue a ese número falla una vez
+  contra el índice; reiniciar el central la realinea.
+- `SolicitudPagoNumeroIT` (no corre en CI): solicitud borrada del medio y secuencia atrasada.
+  `./mvnw -Dit.financiero=true -Dtest=SolicitudPagoNumeroIT test`.
 
 **Saldo de la cuenta bancaria (`BancoLedgerService`).** `registrar` y `ajustarReservado` toman la cuenta con
 lock y **la releen de la base** (`cuentaConLock`). Sin el `refresh`, la instancia que el resolver ya había

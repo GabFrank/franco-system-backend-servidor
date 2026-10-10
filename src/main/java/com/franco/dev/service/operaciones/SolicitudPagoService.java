@@ -87,12 +87,16 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
     }
     
     /**
-     * Generate unique numero solicitud
+     * El número lo da una secuencia. Antes salía de contar las solicitudes: dos altas simultáneas contaban lo
+     * mismo, y con una solicitud borrada del medio el conteo volvía a dar un número ya usado y no entraba
+     * ninguna alta más. Un alta que después se rechaza deja un hueco: el número no se reutiliza.
      */
     private String generateNumeroSolicitud() {
-        // Get current count of solicitudes for sequential numbering
-        long count = repository.count();
-        return "SP-" + String.format("%06d", count + 1);
+        Long numero = repository.siguienteNumero();
+        if (numero == null) {
+            throw new IllegalStateException("La secuencia de solicitudes de pago no devolvio un numero");
+        }
+        return "SP-" + String.format("%06d", numero);
     }
     
     /**

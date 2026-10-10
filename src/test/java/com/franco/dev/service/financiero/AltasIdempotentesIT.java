@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 /**
  * IT de las altas con clave de idempotencia contra la DB dev real (issue #376). Prueba lo que los mocks no
  * ven: que pedidos simultáneos con la misma clave dejan un solo registro y mueven el saldo una sola vez, que
- * un alta rechazada no deja la clave, y que la numeración de solicitudes de pago se toma en fila.
+ * un alta rechazada no deja la clave, y que altas simultáneas de gasto salen cada una con su número.
  *
  * NO corre en CI (no hay DB): se activa con -Dit.financiero=true. No es @Transactional: necesita commits
  * reales. Las entradas de prueba quedan anuladas (saldo neto cero) y las claves se borran al terminar.
@@ -240,14 +240,13 @@ class AltasIdempotentesIT {
                     futuros.add(pool.submit(() -> {
                         largada.await(20, TimeUnit.SECONDS);
                         // Sin clave: son pedidos distintos, lo que comparten es el contador de solicitudes.
-                        // El lock lo toma el alta (AltaIdempotenteService), no la numeración.
                         return altaIdempotente.gastoParaPago(null, "h", null, () -> gastoTesoreriaService.crearGastoParaPago(
                                 tipoGastoId, descripcion, monedaId, 1.0, null, null, null, null, null)).getNumeroSolicitud();
                     }));
                 }
                 largada.countDown();
                 try {
-                    // Sin el lock, dos contaban lo mismo y una chocaba contra el índice único del número.
+                    // Contando las solicitudes, dos contaban lo mismo y una chocaba contra el índice único.
                     for (Future<String> f : futuros) numeros.add(f.get(40, TimeUnit.SECONDS));
                 } finally {
                     pool.shutdownNow();

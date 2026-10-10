@@ -90,5 +90,13 @@ public interface SolicitudPagoRepository extends HelperRepository<SolicitudPago,
     //         LocalDateTime fechaInicio,
     //         LocalDateTime fechaFin,
     //         Pageable pageable);
-}
 
+    /**
+     * Próximo número de solicitud ({@code SP-…}), de la secuencia. Declara transacción de <b>escritura</b>:
+     * los métodos de consulta de un repositorio son de solo lectura por defecto, y nextval escribe. Hoy
+     * todos los que llegan acá ya vienen dentro de una transacción de escritura; esto lo deja explícito.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    @Query(value = "SELECT nextval('operaciones.solicitud_pago_numero_seq')", nativeQuery = true)
+    Long siguienteNumero();
+}

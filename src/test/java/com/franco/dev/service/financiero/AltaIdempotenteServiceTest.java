@@ -44,7 +44,6 @@ class AltaIdempotenteServiceTest {
     private SolicitudPagoRepository solicitudPagoRepository;
     private ValeRepository valeRepository;
     private PrestamoRepository prestamoRepository;
-    private BloqueoTransaccionalService bloqueo;
     private AltaIdempotenteService service;
     private final Usuario usuario = new Usuario();
     private final AtomicInteger altas = new AtomicInteger();
@@ -58,9 +57,8 @@ class AltaIdempotenteServiceTest {
         solicitudPagoRepository = mock(SolicitudPagoRepository.class);
         valeRepository = mock(ValeRepository.class);
         prestamoRepository = mock(PrestamoRepository.class);
-        bloqueo = mock(BloqueoTransaccionalService.class);
         service = new AltaIdempotenteService(idempotencia, entradaVariaRepository, operacionFinancieraRepository,
-                movimientoRepository, solicitudPagoRepository, valeRepository, prestamoRepository, bloqueo);
+                movimientoRepository, solicitudPagoRepository, valeRepository, prestamoRepository);
     }
 
     /** La clave es nueva: corre el alta. */
@@ -114,33 +112,6 @@ class AltaIdempotenteServiceTest {
         }
         // Caben en la columna (varchar 40).
         assertTrue(AltaIdempotenteService.OPERACION_PRESTAMO.length() <= 40);
-    }
-
-    @Test
-    void el_alta_de_un_gasto_y_la_de_un_vale_toman_su_numero_de_solicitud_en_fila_y_las_demas_no() {
-        pedidoNuevo();
-        org.mockito.InOrder orden = inOrder(bloqueo);
-
-        service.gastoParaPago("c", "h", usuario, () -> {
-            orden.verify(bloqueo).tomar("SOLICITUD_PAGO_NUMERO");   // antes de crear la solicitud
-            return new SolicitudPago();
-        });
-        service.valeParaPago("c", "h", usuario, alta(new Vale()));
-        verify(bloqueo, times(2)).tomar("SOLICITUD_PAGO_NUMERO");
-
-        service.entradaVaria("c", "h", usuario, alta(new EntradaVaria()));
-        service.prestamo("c", "h", usuario, alta(new Prestamo()));
-        verifyNoMoreInteractions(bloqueo);
-    }
-
-    @Test
-    void la_repeticion_de_un_gasto_no_espera_el_numero_no_va_a_crear_ninguna_solicitud() {
-        repeticionDe(7L);
-        when(solicitudPagoRepository.findById(7L)).thenReturn(Optional.of(new SolicitudPago()));
-
-        service.gastoParaPago("c", "h", usuario, alta(new SolicitudPago()));
-
-        verifyNoInteractions(bloqueo);
     }
 
     @Test

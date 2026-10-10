@@ -150,7 +150,7 @@
 					<property name="com.jaspersoft.studio.unit.height" value="px"/>
 				</reportElement>
 				<textElement textAlignment="Center">
-					<font size="8"/>
+					<font fontName="SansSerif" size="8"/>
 				</textElement>
 				<text><![CDATA[KuDe de Factura Electrónica]]></text>
 			</staticText>
@@ -801,25 +801,25 @@
 				</textElement>
 				<textFieldExpression><![CDATA[$P{urlValidacion} != null ? $P{urlValidacion} : ""]]></textFieldExpression>
 			</textField>
-			<staticText>
-				<reportElement mode="Opaque" x="125" y="237" width="25" height="14" backcolor="#B7CCE6" uuid="95e3ed88-a1d1-4c30-9588-a10e0f11c7c7">
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-				</reportElement>
-				<textElement textAlignment="Center" verticalAlignment="Middle">
-					<font fontName="SansSerif" isBold="true"/>
-				</textElement>
-				<text><![CDATA[CDC:]]></text>
-			</staticText>
-			<textField textAdjust="StretchHeight">
-				<reportElement mode="Opaque" x="150" y="237" width="263" height="14" backcolor="#B7CCE6" uuid="7c4c8d5f-da87-49cb-99dd-7ff044d64749">
-					<property name="com.jaspersoft.studio.unit.height" value="px"/>
-					<property name="com.jaspersoft.studio.unit.width" value="px"/>
-				</reportElement>
-				<textElement textAlignment="Center" verticalAlignment="Middle">
-					<font fontName="SansSerif" isBold="true"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$P{cdc} != null ? $P{cdc} : ""]]></textFieldExpression>
-			</textField>
+			<frame>
+				<reportElement mode="Opaque" x="125" y="236" width="423" height="16" backcolor="#B7CCE6" uuid="95e3ed88-a1d1-4c30-9588-a10e0f11c7c7"/>
+				<staticText>
+					<reportElement x="0" y="0" width="38" height="16" uuid="2f6d1c0a-7b1e-4d53-9a52-6f0c9e4b8a11"/>
+					<textElement verticalAlignment="Middle">
+						<font fontName="SansSerif" size="10" isBold="true"/>
+						<paragraph leftIndent="4"/>
+					</textElement>
+					<text><![CDATA[CDC:]]></text>
+				</staticText>
+				<textField textAdjust="ScaleFont">
+					<reportElement x="38" y="0" width="385" height="16" uuid="7c4c8d5f-da87-49cb-99dd-7ff044d64749"/>
+					<textElement verticalAlignment="Middle">
+						<font fontName="SansSerif" size="10" isBold="true"/>
+						<paragraph leftIndent="4"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$P{cdc} != null ? $P{cdc} : ""]]></textFieldExpression>
+				</textField>
+			</frame>
 			<line>
 				<reportElement x="0" y="0" width="1" height="114" uuid="3b270fa9-703e-4f5b-879c-b4b50d0fe0d8"/>
 				<graphicElement>

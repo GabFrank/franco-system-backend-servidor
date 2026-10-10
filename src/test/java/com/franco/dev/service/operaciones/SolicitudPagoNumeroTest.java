@@ -12,7 +12,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -36,11 +35,6 @@ class SolicitudPagoNumeroTest {
                 mock(MonedaRepository.class), mock(FormaPagoRepository.class), mock(CambioService.class));
         jdbc = mock(JdbcTemplate.class);
         verificador = new SolicitudPagoNumeroVerificador(jdbc);
-    }
-
-    private void secuenciaEn(long proximo, long minimo) {
-        when(jdbc.queryForObject(SolicitudPagoNumeroVerificador.PROXIMO, Long.class)).thenReturn(proximo);
-        when(jdbc.queryForObject(SolicitudPagoNumeroVerificador.MINIMO, Long.class)).thenReturn(minimo);
     }
 
     @Test
@@ -83,39 +77,48 @@ class SolicitudPagoNumeroTest {
     }
 
     @Test
-    void al_arrancar_la_secuencia_se_crea_si_falta_y_no_se_toca_si_esta_al_dia() {
-        secuenciaEn(1365, 1365);
+    void el_verificador_se_instancia_aunque_la_aplicacion_arranque_con_inicializacion_perezosa() {
+        // spring.main.lazy-initialization=true: sin @Lazy(false) nadie lo pide y su @PostConstruct no corre.
+        org.springframework.context.annotation.Lazy lazy =
+                SolicitudPagoNumeroVerificador.class.getAnnotation(org.springframework.context.annotation.Lazy.class);
+        assertNotNull(lazy);
+        assertFalse(lazy.value());
+    }
 
+    @Test
+    void al_arrancar_la_secuencia_se_crea_solo_si_falta() {
+        when(jdbc.queryForObject(SolicitudPagoNumeroVerificador.EXISTE, Boolean.class)).thenReturn(true);
         verificador.alinear();
+        verify(jdbc, never()).execute(SolicitudPagoNumeroVerificador.CREAR);
 
+        when(jdbc.queryForObject(SolicitudPagoNumeroVerificador.EXISTE, Boolean.class)).thenReturn(false);
+        verificador.alinear();
         verify(jdbc).execute(SolicitudPagoNumeroVerificador.CREAR);
-        verify(jdbc, never()).queryForObject(eq(SolicitudPagoNumeroVerificador.ADELANTAR), eq(Long.class), any());
     }
 
     @Test
-    void si_quedo_detras_del_numero_mas_alto_se_adelanta_hasta_el_siguiente() {
-        // Rollback del JAR: el anterior siguió numerando por conteo hasta el 1370 y la secuencia quedó en 1366.
-        secuenciaEn(1366, 1371);
+    void adelantar_es_una_sola_sentencia_que_solo_actua_si_la_secuencia_esta_atras() {
+        String sql = SolicitudPagoNumeroVerificador.ADELANTAR_SI_ATRASADA;
 
-        verificador.alinear();
+        // Lee el máximo, compara con lo que daría la secuencia y adelanta, todo en la misma sentencia.
+        assertTrue(sql.startsWith("select setval("), sql);
+        assertTrue(sql.contains("where m.minimo > (select case when is_called then last_value + 1 else last_value end"), sql);
+        assertTrue(sql.contains("'^SP-[0-9]{1,15}$'"), sql);
 
-        verify(jdbc).queryForObject(SolicitudPagoNumeroVerificador.ADELANTAR, Long.class, 1371L);
+        when(jdbc.queryForList(sql, Long.class)).thenReturn(java.util.Collections.singletonList(1371L));
+        assertDoesNotThrow(() -> verificador.alinear());
+        verify(jdbc).queryForList(sql, Long.class);
     }
 
     @Test
-    void con_huecos_la_secuencia_va_adelante_del_numero_mas_alto_y_no_se_la_hace_retroceder() {
-        secuenciaEn(1400, 1371);
-
-        verificador.alinear();
-
-        verify(jdbc, never()).queryForObject(eq(SolicitudPagoNumeroVerificador.ADELANTAR), eq(Long.class), any());
-    }
-
-    @Test
-    void si_no_se_puede_consultar_no_frena_el_arranque() {
-        doThrow(new org.springframework.dao.DataAccessResourceFailureException("sin base"))
-                .when(jdbc).execute(SolicitudPagoNumeroVerificador.CREAR);
+    void si_no_se_puede_crear_igual_se_intenta_alinear_y_nada_frena_el_arranque() {
+        when(jdbc.queryForObject(SolicitudPagoNumeroVerificador.EXISTE, Boolean.class))
+                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("sin permiso"));
+        when(jdbc.queryForList(SolicitudPagoNumeroVerificador.ADELANTAR_SI_ATRASADA, Long.class))
+                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("sin base"));
 
         assertDoesNotThrow(() -> verificador.alinear());
+
+        verify(jdbc).queryForList(SolicitudPagoNumeroVerificador.ADELANTAR_SI_ATRASADA, Long.class);
     }
 }

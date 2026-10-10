@@ -96,7 +96,7 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
         if (numero == null) {
             throw new IllegalStateException("La secuencia de solicitudes de pago no devolvio un numero");
         }
-        return "SP-" + String.format("%06d", numero);
+        return "SP-" + String.format(java.util.Locale.ROOT, "%06d", numero);
     }
     
     /**

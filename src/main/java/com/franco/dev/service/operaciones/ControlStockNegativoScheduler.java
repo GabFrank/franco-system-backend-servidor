@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PreDestroy;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -57,6 +58,11 @@ public class ControlStockNegativoScheduler {
         this.relojMs = relojMs;
     }
 
+    @PreDestroy
+    void shutdown() {
+        executor.shutdownNow();
+    }
+
     @Scheduled(
             fixedDelayString = "${inventario.control-stock-negativo.poller.fixed-delay:60000}",
             initialDelayString = "${inventario.control-stock-negativo.poller.initial-delay:120000}"
@@ -75,7 +81,7 @@ public class ControlStockNegativoScheduler {
             });
         } catch (RuntimeException e) {
             corriendo.set(false);
-            log.warn("ControlStockNegativoScheduler: no se pudo encolar el ciclo: {}", e.getMessage());
+            log.warn("ControlStockNegativoScheduler: no se pudo encolar el ciclo: {}", e.getMessage(), e);
         }
     }
 
@@ -93,12 +99,12 @@ public class ControlStockNegativoScheduler {
                     total += procesador.procesarSucursal(sucursalId);
                 } catch (Exception e) {
                     log.warn("ControlStockNegativoScheduler: sucursal {} no procesada: {}",
-                            sucursalId, e.getMessage());
+                            sucursalId, e.getMessage(), e);
                 }
             }
             if (total > 0) log.info("ControlStockNegativoScheduler: {} ventas registradas", total);
         } catch (Exception e) {
-            log.warn("ControlStockNegativoScheduler: error en el ciclo: {}", e.getMessage());
+            log.warn("ControlStockNegativoScheduler: error en el ciclo: {}", e.getMessage(), e);
         }
     }
 }

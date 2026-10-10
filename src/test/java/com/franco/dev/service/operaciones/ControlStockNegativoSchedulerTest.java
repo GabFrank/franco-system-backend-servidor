@@ -55,4 +55,18 @@ class ControlStockNegativoSchedulerTest {
         verify(procesador, never()).procesarSucursal(2L);
         verify(procesador, never()).procesarSucursal(3L);
     }
+
+    @Test
+    void despuesDeApagarElHiloNoEncolaNiProcesaNada() {
+        ControlStockNegativoProcesador procesador = procesadorCon(1L);
+        ControlStockNegativoScheduler scheduler = new ControlStockNegativoScheduler(procesador, () -> 0L);
+
+        scheduler.shutdown();
+        // El submit se rechaza: no debe propagar la excepcion ni dejar el guard tomado.
+        scheduler.evaluarVentas();
+        scheduler.evaluarVentas();
+
+        verify(procesador, never()).sucursales();
+        verify(procesador, never()).procesarSucursal(anyLong());
+    }
 }

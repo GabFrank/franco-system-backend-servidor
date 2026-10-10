@@ -1,6 +1,7 @@
 package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.operaciones.ControlStockNegativo;
+import com.franco.dev.domain.operaciones.enums.FiltroStockControl;
 import com.franco.dev.domain.operaciones.enums.TipoControlStock;
 import com.franco.dev.service.operaciones.ControlStockNegativoService;
 import com.franco.dev.service.operaciones.InventarioSecurityService;
@@ -21,10 +22,10 @@ public class ControlStockNegativoGraphQL implements GraphQLQueryResolver {
     }
 
     public Page<ControlStockNegativo> controlStockNegativo(String fechaInicio, String fechaFin, Long sucursalId,
-                                                           TipoControlStock tipo, String texto,
+                                                           TipoControlStock tipo, String texto, FiltroStockControl stock,
                                                            int page, int size) {
         seg.requireVerInventario();
         return service.buscar(DateUtils.stringToDate(fechaInicio), DateUtils.stringToDate(fechaFin),
-                sucursalId, tipo, texto, page, size);
+                sucursalId, tipo, texto, stock, page, size);
     }
 }

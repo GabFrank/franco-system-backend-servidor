@@ -21,7 +21,7 @@ class ControlStockNegativoGraphQLSeguridadTest {
         ControlStockNegativoGraphQL resolver = new ControlStockNegativoGraphQL(service, seg);
 
         assertThrows(GraphQLException.class, () -> resolver.controlStockNegativo(
-                "2026-10-01T00:00", "2026-10-10T23:59", null, null, null, 0, 15));
-        verify(service, never()).buscar(any(), any(), any(), any(), any(), anyInt(), anyInt());
+                "2026-10-01T00:00", "2026-10-10T23:59", null, null, null, null, 0, 15));
+        verify(service, never()).buscar(any(), any(), any(), any(), any(), any(), anyInt(), anyInt());
     }
 }

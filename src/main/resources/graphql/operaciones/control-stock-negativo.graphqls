@@ -4,6 +4,14 @@ enum TipoControlStock {
 }
 
 """
+Filtro por el stock previo del registro. Sin filtro vienen todos.
+"""
+enum FiltroStockControl {
+    CERO
+    NEGATIVO
+}
+
+"""
 Salida de un producto cuyo stock en la sucursal ya era 0 o negativo.
 `referenciaId` es el id de la venta o de la transferencia; `itemId`, el del item.
 """
@@ -31,5 +39,5 @@ type ControlStockNegativoPage {
 }
 
 extend type Query {
-    controlStockNegativo(fechaInicio: String!, fechaFin: String!, sucursalId: ID, tipo: TipoControlStock, texto: String, page: Int!, size: Int!): ControlStockNegativoPage
+    controlStockNegativo(fechaInicio: String!, fechaFin: String!, sucursalId: ID, tipo: TipoControlStock, texto: String, stock: FiltroStockControl, page: Int!, size: Int!): ControlStockNegativoPage
 }

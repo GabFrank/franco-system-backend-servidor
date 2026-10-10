@@ -2,6 +2,7 @@ package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.operaciones.ControlStockNegativo;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
+import com.franco.dev.domain.operaciones.enums.FiltroStockControl;
 import com.franco.dev.domain.operaciones.enums.TipoControlStock;
 import com.franco.dev.domain.productos.Presentacion;
 import org.slf4j.Logger;
@@ -106,6 +107,19 @@ public class ControlStockNegativoService {
                 sucursalId, productoId, cantidad, stockPrevio, usuarioId, transferenciaId, itemId);
     }
 
+    /** Fragmento de JPQL del filtro por stock previo. Sale de un switch: nunca de un valor del cliente. */
+    static String condicionStock(FiltroStockControl stock) {
+        if (stock == null) return "";
+        switch (stock) {
+            case CERO:
+                return " and c.stockPrevio = 0";
+            case NEGATIVO:
+                return " and c.stockPrevio < 0";
+            default:
+                return "";
+        }
+    }
+
     /**
      * Lista del control, la mas reciente primero.
      *
@@ -115,7 +129,7 @@ public class ControlStockNegativoService {
      */
     @Transactional(readOnly = true)
     public Page<ControlStockNegativo> buscar(LocalDateTime inicio, LocalDateTime fin, Long sucursalId,
-                                             TipoControlStock tipo, String texto, int page, int size) {
+                                             TipoControlStock tipo, String texto, FiltroStockControl stock, int page, int size) {
         StringBuilder where = new StringBuilder(" where c.fecha >= :inicio and c.fecha <= :fin");
         if (sucursalId != null) where.append(" and c.sucursalId = :sucursalId");
         if (tipo != null) where.append(" and c.tipo = :tipo");
@@ -123,6 +137,7 @@ public class ControlStockNegativoService {
                 ? "%" + texto.trim().toUpperCase().replace(' ', '%') + "%"
                 : null;
         if (patron != null) where.append(" and upper(p.descripcion) like :patron");
+        where.append(condicionStock(stock));
 
         TypedQuery<ControlStockNegativo> datos = em.createQuery(
                 "select c from ControlStockNegativo c join fetch c.producto p left join fetch c.usuario u"

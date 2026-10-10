@@ -8,7 +8,7 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.repository.financiero.CuentaBancariaRepository;
 import com.franco.dev.repository.financiero.MovimientoBancarioRepository;
 import graphql.GraphQLException;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,12 +20,33 @@ import java.math.BigDecimal;
  * Es el único punto que muta {@code CuentaBancaria.saldo}.
  */
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class BancoLedgerService {
 
     private final CuentaBancariaRepository cuentaRepository;
     private final MovimientoBancarioRepository movimientoRepository;
     private final LimiteAnulacionService limiteAnulacion;
+
+    @javax.persistence.PersistenceContext
+    private javax.persistence.EntityManager entityManager;
+
+    /** Para los tests unitarios, que arman el servicio a mano. */
+    void setEntityManager(javax.persistence.EntityManager entityManager) {
+        this.entityManager = entityManager;
+    }
+
+    /**
+     * La cuenta con lock y <b>releída de la base</b>. {@code lockById} devuelve la instancia que ya estuviera
+     * cargada (el resolver suele buscarla antes de entrar acá) con el saldo de antes de esperar el lock: dos
+     * movimientos simultáneos sobre la misma cuenta partían los dos del mismo saldo y el segundo pisaba al
+     * primero (issue #376).
+     */
+    private CuentaBancaria cuentaConLock(Long cuentaId) {
+        CuentaBancaria cuenta = cuentaRepository.lockById(cuentaId)
+                .orElseThrow(() -> new GraphQLException("Cuenta bancaria no encontrada: " + cuentaId));
+        entityManager.refresh(cuenta);
+        return cuenta;
+    }
 
     /** Package-private: el reporte de movimientos totaliza con la misma regla de signo. */
     static boolean esEgreso(MovimientoBancarioTipo t) {
@@ -39,8 +60,7 @@ public class BancoLedgerService {
     @Transactional
     public MovimientoBancario registrar(Long cuentaId, MovimientoBancarioTipo tipo, BigDecimal monto,
                                         String descripcion, String origenTipo, Long origenId, Usuario usuario) {
-        CuentaBancaria cuenta = cuentaRepository.lockById(cuentaId)
-                .orElseThrow(() -> new GraphQLException("Cuenta bancaria no encontrada: " + cuentaId));
+        CuentaBancaria cuenta = cuentaConLock(cuentaId);
         BigDecimal anterior = cuenta.getSaldo() != null ? cuenta.getSaldo() : BigDecimal.ZERO;
         BigDecimal delta = esEgreso(tipo) ? monto.abs().negate() : monto.abs();
         BigDecimal nuevo = anterior.add(delta);
@@ -107,8 +127,7 @@ public class BancoLedgerService {
     /** Ajusta el saldo reservado (cheques diferidos). Positivo reserva, negativo libera. */
     @Transactional
     public void ajustarReservado(Long cuentaId, BigDecimal delta) {
-        CuentaBancaria cuenta = cuentaRepository.lockById(cuentaId)
-                .orElseThrow(() -> new GraphQLException("Cuenta bancaria no encontrada: " + cuentaId));
+        CuentaBancaria cuenta = cuentaConLock(cuentaId);
         BigDecimal actual = cuenta.getSaldoReservado() != null ? cuenta.getSaldoReservado() : BigDecimal.ZERO;
         cuenta.setSaldoReservado(actual.add(delta));
         cuentaRepository.save(cuenta);

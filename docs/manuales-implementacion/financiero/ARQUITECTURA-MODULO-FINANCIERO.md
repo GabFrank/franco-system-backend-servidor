@@ -398,6 +398,13 @@ lock ahí se cruzaban dos pagos con documentos en común (deadlock) y cualquier 
 entero. Esos caminos y las solicitudes de compra siguen numerando sin lock: contra ellos el choque sigue
 siendo posible (falla una, sin dejar nada a medias). La salida de fondo es numerar con una secuencia.
 
+**Saldo de la cuenta bancaria (`BancoLedgerService`).** `registrar` y `ajustarReservado` toman la cuenta con
+lock y **la releen de la base** (`cuentaConLock`). Sin el `refresh`, la instancia que el resolver ya había
+cargado (una operación financiera busca sus cuentas antes de entrar a la transacción) traía el saldo de antes
+de esperar el lock: de dos movimientos simultáneos sobre la misma cuenta, el segundo pisaba al primero. Es la
+regla del módulo —`lockById` no refresca lo ya cargado— aplicada al único punto que escribe ese saldo.
+`BancoLedgerSaldoIT` lo reproduce (no corre en CI).
+
 ## 8. Seguridad por rol
 `TesoreriaSecurityService` (patrón self-contained, issue #177): resuelve el usuario por el nickname del
 SecurityContext, lee roles de DB, bypass ADMIN. Roles `TESORERIA VER`/`TESORERIA GESTIONAR` (migración

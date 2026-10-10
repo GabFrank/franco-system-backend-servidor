@@ -22,6 +22,8 @@ type ControlStockNegativo {
     tipo: TipoControlStock
     cantidad: Float
     stockPrevio: Float
+    "Stock de hoy del producto en esa sucursal. Sirve para ver si el caso ya se regularizo."
+    stockActual: Float
     usuario: Usuario
     fecha: Date
     referenciaId: ID

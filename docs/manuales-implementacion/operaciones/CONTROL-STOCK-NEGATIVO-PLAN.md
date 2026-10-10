@@ -2849,3 +2849,7 @@ Observación de la PWA para decidir aparte: cuando la configuración no permite 
 ### Entrega
 
 Orden de los PR: central → desktop → mobile-pwa, en draft contra `develop`, después de la prueba y la aprobación de Franco. Mergear a `develop` del central no despliega alpha: hace falta `gh workflow run Deploy`. Apagado del poller sin redeploy: `INVENTARIO_CONTROL_STOCK_NEGATIVO_ENABLED=false` en el `.env` de la instancia y reinicio. `application-dev.properties` y `application-ci.properties` ganan una línea compartida (poller apagado), no un override personal.
+
+## Agregado después de la prueba de Franco (2026-10-10): columna de acciones
+
+**Task 13 (desktop):** columna «Acciones» con los tres puntos en la lista de control; la opción es «Ir a transferencia» o «Ir a venta» según el tipo de la fila, y abre lo mismo que la lista de movimientos de stock (`list-movimiento-stock`). Sin cambios de backend: la fila ya trae `referenciaId` (venta o transferencia) e `itemId`. La opción queda deshabilitada cuando `referenciaId` es null.

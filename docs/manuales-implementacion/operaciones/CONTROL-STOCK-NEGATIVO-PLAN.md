@@ -2753,3 +2753,16 @@ Compatibilidad: el argumento es opcional; un desktop que no lo manda sigue funci
 | Dato | Escribe | Lee |
 |---|---|---|
 | argumento `stock` | `list-control-stock-negativo` (selector) | `ControlStockNegativoService.buscar` |
+
+## Agregado durante la ejecución (2026-10-10): stock actual
+
+Franco preguntó qué pasa con un registro cuando un inventario posterior corrige el stock. El registro es historial y no se borra; se decidió (opción 2) mostrar al lado el **stock actual**.
+
+- **Task 12 (central):** campo calculado `stockActual: Float` en el tipo `ControlStockNegativo`, por resolver de campo (mismo cálculo que `stockPorProducto`). Sin migración.
+- **Task 11 (desktop):** columna «Stock actual» (verde si ya es positivo, rojo si sigue en 0 o negativo); la columna existente pasa a llamarse «Stock al salir».
+
+**Filtro por «ya regularizados»: no se implementa ahora** (criterio del controlador, delegado por Franco). Medido en la base local, filtrar por el stock actual cuesta ~11 ms por registro (2,7 s para 239 filas); con miles de registros por día la consulta tardaría minutos. Hacerlo bien requiere mantener el stock actual en una tabla (`operaciones.stock_por_producto_sucursal` existe pero está vacía en el central) o un índice nuevo sobre `movimiento_stock` (5,6 M de filas, tabla replicada). Queda como mejora posterior; con la columna, el equipo ya ve en cada fila si el caso sigue abierto.
+
+| Dato | Escribe | Lee |
+|---|---|---|
+| campo `stockActual` | `ControlStockNegativoResolver.stockActual` (calculado) | columna «Stock actual» de `list-control-stock-negativo` |

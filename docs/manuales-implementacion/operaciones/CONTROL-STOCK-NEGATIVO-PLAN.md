@@ -2853,3 +2853,5 @@ Orden de los PR: central → desktop → mobile-pwa, en draft contra `develop`, 
 ## Agregado después de la prueba de Franco (2026-10-10): columna de acciones
 
 **Task 13 (desktop):** columna «Acciones» con los tres puntos en la lista de control; la opción es «Ir a transferencia» o «Ir a venta» según el tipo de la fila, y abre lo mismo que la lista de movimientos de stock (`list-movimiento-stock`). Sin cambios de backend: la fila ya trae `referenciaId` (venta o transferencia) e `itemId`. La opción queda deshabilitada cuando `referenciaId` es null.
+
+Resultado (2026-10-10): implementado en el desktop (`6a3b38d6`), revisado y probado en Chrome contra el central local. «Ir a transferencia» abre la pestaña «Transferencia 51267» (`EditTransferenciaComponent`, sin consulta intermedia); «Ir a venta» consulta la venta y abre «Ventas de caja 6336» con la venta 770817 (`ListVentaComponent`), igual que la lista de movimientos. Si la venta no existe, no tiene caja o la consulta falla, avisa y no abre nada.

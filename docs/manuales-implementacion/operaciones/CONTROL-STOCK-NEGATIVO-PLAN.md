@@ -2803,11 +2803,11 @@ Filial y mobile Android: sin cambios (N/A, como estaba previsto).
 - Consulta: sin el rol → «No autorizado»; con el rol → paginación y filtros correctos (texto: 5 = 5 por SQL; stock: 6 + 233 = 239), 15–40 ms.
 - Registro de transferencias: stock -514 y 0 se registran; stock 74 no; editar no vuelve a registrar; un guardado que falla no registra.
 - Desktop: botón visible con el rol; lista, filtros, columnas y paginador; fecha escrita a mano → aviso, sin consulta; diálogo con stock 0 → «Sí» guarda y el central registra en el mismo segundo; stock negativo con la configuración en falso → bloqueado.
-- Baterías: central `./mvnw -o clean verify -B -DskipFlyway=true` → 1719 tests, 0 fallas (antes de la tanda final; después, 41 tests del control en verde); PWA `npm test` 1403 tests y `npm run build`; desktop `verificar:imports` y AOT (`npm run check`).
+- Baterías: central `./mvnw -o clean verify -B -DskipFlyway=true` → 1719 tests, 0 fallas, JAR generado (antes de la tanda final) y `./mvnw -o test` sobre el código final → 1723 tests, 0 fallas; PWA `npm test` 1403 tests y `npm run build`; desktop `verificar:imports` y AOT (`npm run check`).
 
 ### No verificado
 
-- En el desktop: «No» en el diálogo, negativo con la configuración en verdadero, origen COMPRAS y la edición de un ítem existente (cubiertos por revisión de código, no por prueba en pantalla). El spec de Karma no se ejecutó con el runner (solo hay launcher Electron); la función pura se verificó con un script aparte.
+- En el desktop: «No» en el diálogo, negativo con la configuración en verdadero, origen COMPRAS y la edición de un ítem existente (cubiertos por revisión de código, no por prueba en pantalla). Con un rango de fechas inválido, el paginador puede seguir mostrando el número de la página a la que se intentó ir hasta la próxima búsqueda. El spec de Karma no se ejecutó con el runner (solo hay launcher Electron); la función pura se verificó con un script aparte.
 - La PWA en un navegador.
 - Volumen real y costo de la búsqueda con la tabla llena; desfase de reloj entre filial y central; la app Android.
 - Que el rol `VER INVENTARIO` exista con ese nombre en **farmacia** (en bodega existe, id 8). Ninguna migración lo siembra.

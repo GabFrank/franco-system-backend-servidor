@@ -322,7 +322,7 @@ Es la misma cuenta para **todas las instancias** (alpha, beta, farmacia, bodega)
 - **Ventas**: `ControlStockNegativoScheduler` + `ControlStockNegativoProcesador`. Se sondea porque los movimientos llegan por replicación lógica, sin pasar por código de la aplicación. Cada 60 s, en hilo propio (las tareas `@Scheduled` comparten uno solo), con tope de 20 s por ciclo y de 60 s por sucursal. Cursor por sucursal sobre los movimientos `VENTA`, que hoy nacen todos en la filial (ids pares): si el central empezara a crearlos habría dos series bajo un mismo cursor.
 - **Sin carga retroactiva**: el cursor arranca en la última venta existente y no se registran ventas de más de 7 días. Se registra por **movimiento**, no por ítem.
 - **Apagado**: `INVENTARIO_CONTROL_STOCK_NEGATIVO_ENABLED=false` en el `.env` de la instancia (default encendido; apagado en `dev` y `ci`). El registro de transferencias no tiene interruptor.
-- **Acceso**: rol `VER INVENTARIO` o ADMIN, por `InventarioSecurityService` (issue #177). Ninguna migración siembra ese rol.
+- **Acceso**: rol `VER INVENTARIO` o ADMIN, por `InventarioSecurityService` (issue #177). Ninguna migración siembra ese rol; existe en bodega y en farmacia (verificado el 2026-10-10).
 
 Qué significan los números:
 

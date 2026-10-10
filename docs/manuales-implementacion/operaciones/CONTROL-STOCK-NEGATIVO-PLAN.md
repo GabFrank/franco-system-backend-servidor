@@ -2805,12 +2805,31 @@ Filial y mobile Android: sin cambios (N/A, como estaba previsto).
 - Desktop: botón visible con el rol; lista, filtros, columnas y paginador; fecha escrita a mano → aviso, sin consulta; diálogo con stock 0 → «Sí» guarda y el central registra en el mismo segundo; stock negativo con la configuración en falso → bloqueado.
 - Baterías: central `./mvnw -o clean verify -B -DskipFlyway=true` → 1719 tests, 0 fallas, JAR generado (antes de la tanda final) y `./mvnw -o test` sobre el código final → 1723 tests, 0 fallas; PWA `npm test` 1403 tests y `npm run build`; desktop `verificar:imports` y AOT (`npm run check`).
 
+### Segunda ronda de pruebas (2026-10-10, después de la prueba de Franco)
+
+Desktop en Chrome contra el central local:
+
+- «No» en el diálogo de stock 0 → cierra, el ítem no se agrega, sin registro.
+- Editar un ítem ya cargado (cantidad 1 → 3) → sin diálogo, «Guardado con éxito», sin registro nuevo (el registro conserva la cantidad original: es una foto).
+- `permitirStockNegativo` en verdadero + producto con stock -15 → diálogo «El producto tiene stock negativo (-15) en la sucursal de origen. ¿Está seguro de continuar?» → «Sí» guarda y registra con stock previo -15.
+- Transferencia con origen COMPRAS (58155) + producto con stock -40 → se guarda sin diálogo y no genera registro.
+
+PWA en Chrome (`localhost:4300`) contra el central local, borrador de la transferencia 51267:
+
+- Stock 0 → diálogo «Atención … ¿Está seguro de continuar?»; «Cancelar» no agrega.
+- Stock -15 con la configuración en verdadero → diálogo con el número; «Continuar» guarda («Ítem guardado») y el central registra con stock previo -15.
+- Stock -10 con la configuración en falso → aviso «El producto tiene stock negativo (-10) y no puede ser transferido.», no se agrega.
+- Stock 74 → se guarda sin diálogo.
+
+Producción (solo lectura): el rol `VER INVENTARIO` existe con ese nombre exacto (id 8) en bodega y en **farmacia**.
+
+Observación de la PWA para decidir aparte: cuando la configuración no permite negativos, el aviso de cantidad que ya existía dice «se manda igual, pero revisá» y, al aceptar, la verificación nueva bloquea el ítem. Los dos textos se contradicen en ese caso.
+
 ### No verificado
 
-- En el desktop: «No» en el diálogo, negativo con la configuración en verdadero, origen COMPRAS y la edición de un ítem existente (cubiertos por revisión de código, no por prueba en pantalla). Con un rango de fechas inválido, el paginador puede seguir mostrando el número de la página a la que se intentó ir hasta la próxima búsqueda. El spec de Karma no se ejecutó con el runner (solo hay launcher Electron); la función pura se verificó con un script aparte.
-- La PWA en un navegador.
+- En el desktop, el spec de Karma no se ejecutó con el runner (solo hay launcher Electron); la función pura se verificó con un script aparte. Con un rango de fechas inválido, el paginador puede seguir mostrando el número de la página a la que se intentó ir hasta la próxima búsqueda.
+- En la PWA, el caso «central caído al verificar el stock» en un navegador: sin central tampoco funciona el buscador de productos, así que no se llega a la verificación. Está cubierto por los tests de la página.
 - Volumen real y costo de la búsqueda con la tabla llena; desfase de reloj entre filial y central; la app Android.
-- Que el rol `VER INVENTARIO` exista con ese nombre en **farmacia** (en bodega existe, id 8). Ninguna migración lo siembra.
 
 ### Límites conocidos (decididos, no pendientes)
 

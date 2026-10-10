@@ -149,3 +149,13 @@ Filial: N/A (no se toca).
    `transferencia-detalle`) y si ya lee la configuración de transferencias.
 6. **Número de migración**: `V242.1` está tomado por una rama sin mergear; re-verificar `V243.1`
    tras cada rebase.
+
+## Cambios tras la auditoría del plan (2026-10-10)
+
+El plan (`CONTROL-STOCK-NEGATIVO-PLAN.md`) manda donde difiera de lo de arriba:
+
+- **Idempotencia.** Las ventas se registran por **movimiento de stock** (`(sucursal_id, movimiento_stock_id)`), no por ítem: un ítem de venta puede tener más de un movimiento activo y esos duplicados son parte de lo que hay que ver. Las transferencias siguen siendo una por ítem.
+- **Cursor.** Guarda además la fecha del último movimiento. El solapamiento es de 15 minutos de `creado_en` (acotado a 5000 ids), no un número fijo de ids.
+- **Poller.** Corre en hilo propio, con tope de 20 s por ciclo. Una sucursal que nunca vendió se sondea una vez por hora.
+- **Registro de transferencias.** Va por `JdbcTemplate`, no por JPA, para no compartir el `EntityManager` del request.
+- **Sucursal COMPRAS.** Queda fuera del diálogo y del registro de transferencias (decidido por Franco: el control apunta a las transferencias entre sucursales y COMPRAS es la excepción).

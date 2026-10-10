@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Leer primero:** los bloques de código de este plan son el punto de partida que se le dio a cada implementador. Lo construido es lo que está en los commits; las diferencias están listadas en la sección «Resultado», al final.
+
 **Goal:** Que el equipo de inventario vea, en una lista filtrable del desktop, cada producto que salió por venta o transferencia cuando su stock en la sucursal ya era 0 o negativo.
 
 **Architecture:** El central es el único que registra: al guardar un ítem nuevo de transferencia (cubre desktop, PWA y Android) y, para las ventas, con un poller que evalúa los movimientos `VENTA` que llegan replicados de cada filial. Los registros viven en una tabla central-only. Desktop y PWA agregan el aviso con confirmación al cargar un ítem; el desktop agrega la lista.
@@ -2766,3 +2768,65 @@ Franco preguntó qué pasa con un registro cuando un inventario posterior corrig
 | Dato | Escribe | Lee |
 |---|---|---|
 | campo `stockActual` | `ControlStockNegativoResolver.stockActual` (calculado) | columna «Stock actual» de `list-control-stock-negativo` |
+
+
+## Resultado (2026-10-10)
+
+### Qué se construyó
+
+| Repo | Qué |
+|---|---|
+| central | Tablas `control_stock_negativo` y `control_stock_negativo_cursor` (`V243.1`, central-only); registro de ítems nuevos de transferencia con stock de origen ≤ 0; poller de ventas; query `controlStockNegativo` con rol `VER INVENTARIO`; filtro `stock` (CERO / NEGATIVO); campo calculado `stockActual` |
+| desktop | Lista con filtros (rango de fecha, sucursal, tipo, stock al salir, descripción), columnas «Stock al salir» y «Stock actual», botón en el dashboard de inventario; diálogo de confirmación al cargar un ítem nuevo de transferencia |
+| mobile-pwa | Verificación de stock al agregar un ítem nuevo al borrador de transferencia |
+
+Filial y mobile Android: sin cambios (N/A, como estaba previsto).
+
+### Pedidos de Franco durante la ejecución
+
+- Selector «stock 0 / stock negativo / todos» → argumento opcional `stock` (Tasks 10 y 11).
+- Qué pasa cuando un inventario posterior corrige el stock → el registro es historial y queda; se agregó la columna «Stock actual» (Tasks 12 y 11). El filtro por «ya regularizados» **no** se hizo: medido, cuesta ~11 ms por registro (2,7 s para 239 filas).
+
+### Dónde lo construido difiere del código de este plan
+
+- **Poller:** tiene `@PreDestroy` que apaga su hilo y loguea la excepción completa (revisión de la Task 4); no registra ventas de más de 7 días (`ANTIGUEDAD_MAXIMA_DIAS`) y corre con `statement_timeout` de 60 s por sucursal (auditoría del diff).
+- **Consulta:** el fin del rango incluye el minuto completo (`finInclusivo`): el desktop manda la fecha sin segundos.
+- **Lista del desktop:** no busca con una fecha inválida ni con un rango incompleto o invertido (`rangoValido()`; el plan traía un `?? new Date()` que buscaba «hoy» en silencio — defecto encontrado probando en Chrome); el paginador no queda desfasado; mensaje propio cuando el central todavía no tiene la consulta. La etiqueta del filtro y de la columna es «Stock al salir», no «Stock previo».
+- **Diálogo del desktop:** no pregunta al re-guardar un ítem que ya existe — el central solo registra ítems nuevos.
+- **PWA:** la guarda contra «consulta fallida = stock 0» vive en el servicio (lanza ante null/NaN); `agregar()` no es reentrante mientras verifica; el número de los avisos sale formateado; `docs/modulos/transferencias.md` separa el aviso de cantidad (ya existía, no bloquea) de la verificación nueva (bloquea o confirma, falla cerrada).
+- **Tests de la PWA:** se agregaron los de la página (`src/app/pruebas/transferencia-borrador.spec.ts`), que el plan no listaba.
+
+### Verificado en ejecución (central local 8081 contra `bodega@5551`, desktop en Chrome)
+
+- Arranque: Flyway aplicó solo `243.1`; schedulers de replicación apagados; poller en su hilo.
+- Poller: primer ciclo sin registros (sin retroactivo); con el cursor de la sucursal 1 atrasado registró 195 + 42 = 237 ventas = 237 por una consulta SQL independiente; 0 movimientos repetidos; las sucursales sin ventas no se volvieron a sondear. Con el tope de antigüedad, 68 ventas de abril que cumplían el criterio no se registraron.
+- Consulta: sin el rol → «No autorizado»; con el rol → paginación y filtros correctos (texto: 5 = 5 por SQL; stock: 6 + 233 = 239), 15–40 ms.
+- Registro de transferencias: stock -514 y 0 se registran; stock 74 no; editar no vuelve a registrar; un guardado que falla no registra.
+- Desktop: botón visible con el rol; lista, filtros, columnas y paginador; fecha escrita a mano → aviso, sin consulta; diálogo con stock 0 → «Sí» guarda y el central registra en el mismo segundo; stock negativo con la configuración en falso → bloqueado.
+- Baterías: central `./mvnw -o clean verify -B -DskipFlyway=true` → 1719 tests, 0 fallas (antes de la tanda final; después, 41 tests del control en verde); PWA `npm test` 1403 tests y `npm run build`; desktop `verificar:imports` y AOT (`npm run check`).
+
+### No verificado
+
+- En el desktop: «No» en el diálogo, negativo con la configuración en verdadero, origen COMPRAS y la edición de un ítem existente (cubiertos por revisión de código, no por prueba en pantalla). El spec de Karma no se ejecutó con el runner (solo hay launcher Electron); la función pura se verificó con un script aparte.
+- La PWA en un navegador.
+- Volumen real y costo de la búsqueda con la tabla llena; desfase de reloj entre filial y central; la app Android.
+- Que el rol `VER INVENTARIO` exista con ese nombre en **farmacia** (en bodega existe, id 8). Ninguna migración lo siembra.
+
+### Límites conocidos (decididos, no pendientes)
+
+- El registro es una foto del momento: no se actualiza si la venta se anula o el movimiento se modifica; un ítem borrado o una transferencia cancelada conservan su fila.
+- «Stock al salir» de una transferencia es el stock al **cargar** el ítem (en esa etapa no se descuenta stock) y `cantidad` es lo pedido, no lo preparado.
+- Una venta confirmada fuera de orden cuyo ítem se creó más de 15 minutos antes puede quedar sin evaluar.
+- Una filial sin conexión por más de 7 días pierde los registros más viejos de ese período.
+- Entre la consulta de stock del cliente y el guardado hay segundos: puede haber diálogo sin registro o registro sin diálogo. La autoridad es el central.
+- Si el central creara movimientos `VENTA` (ids impares) habría dos series bajo un cursor: hoy no los crea (0 de 4,8 millones).
+
+### Hallazgos de datos para Franco (no son de este trabajo)
+
+- En la copia local, 39 % de las últimas ventas de la sucursal 1 y 21 % de la 6 salieron con stock previo ≤ 0: la lista puede crecer en miles de filas por día.
+- La filial descuenta stock más de una vez para un mismo ítem de venta (76 ítems recientes de la sucursal 1 con dos o más movimientos `VENTA` activos).
+- En el desktop, tocar «editar» en un ítem de transferencia y cargar otro producto sin guardar pisa el primero con los datos del segundo.
+
+### Entrega
+
+Orden de los PR: central → desktop → mobile-pwa, en draft contra `develop`, después de la prueba y la aprobación de Franco. Mergear a `develop` del central no despliega alpha: hace falta `gh workflow run Deploy`. Apagado del poller sin redeploy: `INVENTARIO_CONTROL_STOCK_NEGATIVO_ENABLED=false` en el `.env` de la instancia y reinicio. `application-dev.properties` y `application-ci.properties` ganan una línea compartida (poller apagado), no un override personal.

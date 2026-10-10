@@ -159,3 +159,10 @@ El plan (`CONTROL-STOCK-NEGATIVO-PLAN.md`) manda donde difiera de lo de arriba:
 - **Poller.** Corre en hilo propio, con tope de 20 s por ciclo. Una sucursal que nunca vendió se sondea una vez por hora.
 - **Registro de transferencias.** Va por `JdbcTemplate`, no por JPA, para no compartir el `EntityManager` del request.
 - **Sucursal COMPRAS.** Queda fuera del diálogo y del registro de transferencias (decidido por Franco: el control apunta a las transferencias entre sucursales y COMPRAS es la excepción).
+- **Columna `fecha`.** Es `timestamp with time zone`, igual que `movimiento_stock.creado_en`.
+- **Consulta.** Ganó el argumento opcional `stock` (`CERO` / `NEGATIVO`) y el tipo ganó el campo calculado `stockActual`. El fin del rango incluye el minuto completo.
+- **Poller.** Apagado también en el perfil `ci`. No registra ventas de más de 7 días.
+- **Diálogo.** No se muestra al re-guardar un ítem que ya existe: el central solo registra ítems nuevos.
+- **Lista.** Las columnas se llaman «Stock al salir» y «Stock actual».
+
+El detalle de lo construido, lo verificado y los límites conocidos está en la sección «Resultado» del plan.

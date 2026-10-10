@@ -314,3 +314,21 @@ Es la misma cuenta para **todas las instancias** (alpha, beta, farmacia, bodega)
 - En el primer deploy con el envio automatico prendido salen las facturas aprobadas de las ultimas 48 h que tengan correo.
 - **Pruebas de envio: solo con el cliente DIEGO PAULINHO AMARILLA MERCADO.** Las bases dev son copias de produccion con correos reales de clientes.
 
+## Control de stock negativo
+
+`operaciones.control_stock_negativo` guarda una fila por cada salida de un producto cuyo stock en la sucursal ya era 0 o negativo. La mira el equipo de inventario desde el desktop (Inventario > «Control de stock negativo»). Es **central-only**: no está en `configuraciones.replication_table` ni en ninguna publicación (`V243.1`).
+
+- **Transferencias**: `ControlStockNegativoService.registrarTransferencia`, llamado desde `saveTransferenciaItem` solo para ítems **nuevos** y que no salen de COMPRAS. Escribe por `JdbcTemplate` y nunca lanza: el central usa open-in-view y un `save` de JPA fallido dejaría detached el ítem recién guardado.
+- **Ventas**: `ControlStockNegativoScheduler` + `ControlStockNegativoProcesador`. Se sondea porque los movimientos llegan por replicación lógica, sin pasar por código de la aplicación. Cada 60 s, en hilo propio (las tareas `@Scheduled` comparten uno solo), con tope de 20 s por ciclo y de 60 s por sucursal. Cursor por sucursal sobre los movimientos `VENTA`, que hoy nacen todos en la filial (ids pares): si el central empezara a crearlos habría dos series bajo un mismo cursor.
+- **Sin carga retroactiva**: el cursor arranca en la última venta existente y no se registran ventas de más de 7 días. Se registra por **movimiento**, no por ítem.
+- **Apagado**: `INVENTARIO_CONTROL_STOCK_NEGATIVO_ENABLED=false` en el `.env` de la instancia (default encendido; apagado en `dev` y `ci`). El registro de transferencias no tiene interruptor.
+- **Acceso**: rol `VER INVENTARIO` o ADMIN, por `InventarioSecurityService` (issue #177). Ninguna migración siembra ese rol.
+
+Qué significan los números:
+
+- `stock_previo` de una venta: suma de movimientos activos con `creado_en` anterior al de la venta. De una transferencia: el stock al **cargar** el ítem (en esa etapa no se descuenta) y `cantidad` es lo pedido.
+- El stock es el del central, no el que veía el cajero.
+- `stockActual` (GraphQL) se calcula por fila al pedirlo; no es una columna.
+- La fila es una foto: no se actualiza si la venta se anula, el movimiento cambia o el ítem se borra.
+
+Plan, verificación y límites conocidos: [docs/manuales-implementacion/operaciones/CONTROL-STOCK-NEGATIVO-PLAN.md](docs/manuales-implementacion/operaciones/CONTROL-STOCK-NEGATIVO-PLAN.md).

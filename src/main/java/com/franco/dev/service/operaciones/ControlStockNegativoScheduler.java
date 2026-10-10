@@ -58,6 +58,11 @@ public class ControlStockNegativoScheduler {
         this.relojMs = relojMs;
     }
 
+    /** Solo para el test: indica si el guard de ciclo en curso esta tomado. */
+    boolean estaCorriendo() {
+        return corriendo.get();
+    }
+
     @PreDestroy
     void shutdown() {
         executor.shutdownNow();

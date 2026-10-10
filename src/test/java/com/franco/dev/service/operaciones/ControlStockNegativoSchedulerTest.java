@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
@@ -65,6 +66,7 @@ class ControlStockNegativoSchedulerTest {
         // El submit se rechaza: no debe propagar la excepcion ni dejar el guard tomado.
         scheduler.evaluarVentas();
         scheduler.evaluarVentas();
+        assertFalse(scheduler.estaCorriendo());
 
         verify(procesador, never()).sucursales();
         verify(procesador, never()).procesarSucursal(anyLong());

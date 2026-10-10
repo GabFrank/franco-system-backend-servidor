@@ -1,14 +1,23 @@
 package com.franco.dev.service.operaciones;
 
+import com.franco.dev.domain.operaciones.ControlStockNegativo;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
+import com.franco.dev.domain.operaciones.enums.TipoControlStock;
 import com.franco.dev.domain.productos.Presentacion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
+import javax.persistence.TypedQuery;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Control de stock negativo: registra las salidas de productos cuyo stock en la sucursal ya era
@@ -95,5 +104,45 @@ public class ControlStockNegativoService {
                 "VALUES (?, ?, 'TRANSFERENCIA', ?, ?, ?, now(), ?, ?) " +
                 "ON CONFLICT (item_id, sucursal_id) WHERE tipo = 'TRANSFERENCIA' DO NOTHING",
                 sucursalId, productoId, cantidad, stockPrevio, usuarioId, transferenciaId, itemId);
+    }
+
+    /**
+     * Lista del control, la mas reciente primero.
+     *
+     * La consulta se arma a mano y solo con las condiciones que vienen: un parametro null en
+     * JPQL contra PostgreSQL llega sin tipo y rompe el LIKE ("operator does not exist: ~~ bytea").
+     * producto y usuario se traen con join fetch porque el resolver los lee fuera de la transaccion.
+     */
+    @Transactional(readOnly = true)
+    public Page<ControlStockNegativo> buscar(LocalDateTime inicio, LocalDateTime fin, Long sucursalId,
+                                             TipoControlStock tipo, String texto, int page, int size) {
+        StringBuilder where = new StringBuilder(" where c.fecha >= :inicio and c.fecha <= :fin");
+        if (sucursalId != null) where.append(" and c.sucursalId = :sucursalId");
+        if (tipo != null) where.append(" and c.tipo = :tipo");
+        String patron = texto != null && !texto.trim().isEmpty()
+                ? "%" + texto.trim().toUpperCase().replace(' ', '%') + "%"
+                : null;
+        if (patron != null) where.append(" and upper(p.descripcion) like :patron");
+
+        TypedQuery<ControlStockNegativo> datos = em.createQuery(
+                "select c from ControlStockNegativo c join fetch c.producto p left join fetch c.usuario u"
+                        + where + " order by c.fecha desc, c.id desc", ControlStockNegativo.class);
+        TypedQuery<Long> total = em.createQuery(
+                "select count(c) from ControlStockNegativo c join c.producto p" + where, Long.class);
+
+        for (TypedQuery<?> q : new TypedQuery<?>[]{datos, total}) {
+            q.setParameter("inicio", inicio);
+            q.setParameter("fin", fin);
+            if (sucursalId != null) q.setParameter("sucursalId", sucursalId);
+            if (tipo != null) q.setParameter("tipo", tipo);
+            if (patron != null) q.setParameter("patron", patron);
+        }
+
+        PageRequest pagina = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 200));
+        List<ControlStockNegativo> contenido = datos
+                .setFirstResult((int) pagina.getOffset())
+                .setMaxResults(pagina.getPageSize())
+                .getResultList();
+        return new PageImpl<>(contenido, pagina, total.getSingleResult());
     }
 }

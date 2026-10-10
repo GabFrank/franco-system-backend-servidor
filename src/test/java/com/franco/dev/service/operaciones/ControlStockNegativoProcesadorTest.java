@@ -21,4 +21,9 @@ class ControlStockNegativoProcesadorTest {
         assertEquals(99_000, ControlStockNegativoProcesador.rangoDesde(100_000, 99_000));
         assertEquals(100_000, ControlStockNegativoProcesador.rangoDesde(100_000, 100_000));
     }
+
+    @Test
+    void laAntiguedadMaximaEsDeSieteDias() {
+        assertEquals(7, ControlStockNegativoProcesador.ANTIGUEDAD_MAXIMA_DIAS);
+    }
 }

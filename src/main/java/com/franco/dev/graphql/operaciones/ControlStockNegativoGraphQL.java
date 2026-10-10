@@ -10,6 +10,8 @@ import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
+
 @Component
 public class ControlStockNegativoGraphQL implements GraphQLQueryResolver {
 
@@ -25,7 +27,18 @@ public class ControlStockNegativoGraphQL implements GraphQLQueryResolver {
                                                            TipoControlStock tipo, String texto, FiltroStockControl stock,
                                                            int page, int size) {
         seg.requireVerInventario();
-        return service.buscar(DateUtils.stringToDate(fechaInicio), DateUtils.stringToDate(fechaFin),
+        return service.buscar(DateUtils.stringToDate(fechaInicio), finInclusivo(DateUtils.stringToDate(fechaFin)),
                 sucursalId, tipo, texto, stock, page, size);
+    }
+
+    /**
+     * El desktop envia el fin con precision de minuto ("yyyy-MM-dd HH:mm"), que se parsea como :00.
+     * Se extiende al ultimo instante de ese minuto para no dejar afuera lo registrado en sus segundos.
+     */
+    static LocalDateTime finInclusivo(LocalDateTime fin) {
+        if (fin != null && fin.getSecond() == 0 && fin.getNano() == 0) {
+            return fin.withSecond(59).withNano(999_999_999);
+        }
+        return fin;
     }
 }

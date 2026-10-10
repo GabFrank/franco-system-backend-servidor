@@ -37,6 +37,14 @@ public class ControlStockNegativoProcesador {
      * unicamente las ventas de los ultimos 15 minutos, que es el filtro que importa.
      */
     static final long SOLAPE_IDS = 5000;
+    /**
+     * Antiguedad maxima, en dias, de una venta para que se registre. Una sucursal cuyo cursor
+     * arranca en 0 (no tenia ventas cuando empezo el control) podria recibir despues todo su
+     * historial de ventas (alta de una sucursal nueva o una resincronizacion) y cada venta historica
+     * se registraria como si fuera actual. Las ventas mas viejas que esto nunca se registran.
+     * Costo: una sucursal offline por mas de 7 dias pierde los registros mas antiguos de ese periodo.
+     */
+    static final int ANTIGUEDAD_MAXIMA_DIAS = 7;
 
     @PersistenceContext
     private EntityManager em;
@@ -66,6 +74,8 @@ public class ControlStockNegativoProcesador {
     /** @return cuantas ventas se registraron en el control */
     @Transactional
     public int procesarSucursal(Long sucursalId) {
+        // Una sola sucursal no puede retener el hilo del poller ni la base mas de un minuto; SET LOCAL dura solo esta transaccion.
+        em.createNativeQuery("SET LOCAL statement_timeout = 60000").executeUpdate();
         List<?> cursor = em.createNativeQuery(
                 "SELECT ultimo_movimiento_id, inicial_movimiento_id " +
                 "FROM operaciones.control_stock_negativo_cursor WHERE sucursal_id = :s FOR UPDATE")
@@ -121,6 +131,7 @@ public class ControlStockNegativoProcesador {
                 "    ON vi.id = ms.referencia AND vi.sucursal_id = ms.sucursal_id " +
                 "WHERE ms.sucursal_id = :s AND ms.id > :desde AND ms.id <= :hasta " +
                 "  AND ms.tipo_movimiento = 'VENTA' AND ms.estado AND ms.creado_en IS NOT NULL " +
+                "  AND ms.creado_en >= now() - make_interval(days => :dias) " +
                 // Lo nuevo, mas lo ya recorrido de los ultimos 15 minutos (confirmado fuera de orden).
                 "  AND (ms.id > :ultimo OR ms.creado_en >= (" +
                 "        SELECT c.ultimo_creado_en - interval '15 minutes' " +
@@ -131,6 +142,7 @@ public class ControlStockNegativoProcesador {
                 .setParameter("desde", rangoDesde(ultimo, inicial))
                 .setParameter("hasta", hastaId)
                 .setParameter("ultimo", ultimo)
+                .setParameter("dias", ANTIGUEDAD_MAXIMA_DIAS)
                 .executeUpdate();
 
         em.createNativeQuery(

@@ -15,6 +15,20 @@ extend type Query {
     role(id:ID!):Role
     roles(page:Int, size:Int):[Role]!
     countRole:Int
+    # Lista paginada con filtro por id o nombre. Query aparte: `roles` sigue trayendo
+    # la lista completa para los selectores.
+    rolesPaginated(texto: String, page: Int, size: Int): RolePage
+}
+
+type RolePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Role]
 }
 
 extend type Mutation {

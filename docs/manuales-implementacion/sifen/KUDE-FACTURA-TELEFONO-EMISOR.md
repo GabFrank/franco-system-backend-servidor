@@ -1,6 +1,6 @@
 # KuDE de factura: el teléfono del emisor usa el mismo respaldo que el XML (issue #412)
 
-Estado: **plan a aprobar**. Rama `fix/sifen-kude-factura-telefono-emisor`, desde `develop`
+Estado: **implementado; plan aprobado por Franco el 11/10/2026**. Rama `fix/sifen-kude-factura-telefono-emisor`, desde `develop`
 (`769f10d3`). Solo central.
 
 ## El problema
@@ -102,6 +102,27 @@ cableado que el test no cubre, quién consume el PDF, y el origen posible del da
 Confirmado: un método estático package-private no entra al schema ni al aspecto de seguridad (hay
 precedentes en el mismo resolver); el teléfono cabe en el campo de la plantilla (235 de ancho); no
 hay otro lugar del central ni del filial que imprima el teléfono del emisor con otra lógica.
+
+## Auditoría del diff (paso 8, 11/10/2026)
+
+Tres ejes fijos (el 2 y el 3 en un mismo auditor, por el tamaño del diff); ningún condicional.
+Sin hallazgos a corregir.
+
+| Eje | Resultado |
+|---|---|
+| Fijo 1 — autorización y corrección | El método no entra al schema ni toca permisos. Sin NPE posible: la llamada está dentro del `if` que exige detalle y cabecera. Ningún caso pasa de imprimir un teléfono válido a no imprimirlo |
+| Fijo 2 — esquema y estado | N/A: sin migraciones, entities, enums, `.graphqls` ni properties |
+| Fijo 3 — contrato y llamadores | Correo, router de impresión y desktop reciben el PDF sin leer su contenido; mobile-pwa no lo usa. El parámetro sigue siendo `String` y nunca `null` |
+
+## Registro de implementación
+
+- 11/10/2026: fases 1 y 2 pusheadas. El test se vio en rojo sobre la fase 1 (3 de 5 casos).
+  `./mvnw clean verify -B -DskipFlyway=true` verde, 1764 tests.
+- Runtime (central del worktree en `:8081`, base `bodega` local, factura 123149 de la sucursal 11,
+  detalle 96): con el teléfono del detalle original el KuDE imprime `0985739999`; con el detalle
+  en blanco imprime `0982700027`, el de la cabecera. Dato restaurado. El recorte de espacios no se
+  distingue en el PDF: lo cubre solo el test.
+- **Pendiente:** prueba de Franco, PR.
 
 ## Sin verificar
 

@@ -1,5 +1,7 @@
 package com.franco.dev.graphql.personas;
 
+import com.franco.dev.config.multitenant.CustomPage;
+import com.franco.dev.config.multitenant.CustomPageImpl;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.personas.Role;
 import com.franco.dev.domain.personas.Usuario;
@@ -13,6 +15,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -41,6 +44,11 @@ public class RoleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     public List<Role> roles(Integer page, Integer size){
         Pageable pageable = (page==null || size == null) ? null : PageRequest.of(page,size);
         return service.findAll(pageable);
+    }
+
+    public CustomPage<Role> rolesPaginated(String texto, Integer page, Integer size) {
+        Page<Role> pageResult = service.findByNombrePaginated(texto, page, size);
+        return new CustomPageImpl<>(pageResult.getContent(), pageResult.getPageable(), pageResult.getTotalElements(), null);
     }
 
     public Role saveRole(RoleInput input){

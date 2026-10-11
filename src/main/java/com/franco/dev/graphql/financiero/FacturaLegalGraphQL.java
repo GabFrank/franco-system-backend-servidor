@@ -8,6 +8,7 @@ import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.financiero.FacturaLegalItem;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
 import com.franco.dev.domain.financiero.dto.ResumenFacturasDto;
+import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.domain.operaciones.Delivery;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.personas.Cliente;
@@ -1391,6 +1392,20 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 + ". Solo se puede cancelar una factura aprobada por SIFEN.";
     }
 
+    /**
+     * cancelarVenta alterna: llamarlo sobre una venta ya cancelada la reactiva. Pasa cuando la venta
+     * se cancelo antes y su factura quedo activa (documento sin aprobar, o SIFEN no acepto el
+     * evento): al cancelar despues la factura "con la venta", la venta volvia a CONCLUIDA.
+     */
+    private static boolean ventaPorCancelar(FacturaLegal factura) {
+        return factura.getVenta() != null && factura.getVenta().getEstado() != VentaEstado.CANCELADA;
+    }
+
+    private static String notaSobreLaVenta(FacturaLegal factura) {
+        boolean yaCancelada = factura.getVenta() != null && factura.getVenta().getEstado() == VentaEstado.CANCELADA;
+        return yaCancelada ? "(la venta ya estaba cancelada)" : "(venta mantiene activa)";
+    }
+
     public String cancelarFacturaLegal(Long facturaLegalId, Long sucursalId, Boolean cancelarVenta) {
         // Fuera del try a proposito: adentro el catch lo devolveria como un string "ERROR: ..." (issue #340).
         seg.requireCancelarVenta();
@@ -1430,8 +1445,9 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
                     // SIFEN aceptó el evento (puede estar PENDIENTE o APROBADO)
                     // Si también quiere cancelar la venta
-                    if (cancelarVenta && factura.getVenta() != null) {
-                        boolean ventaCancelada = ventaService.cancelarVenta(factura.getVenta());
+                    if (cancelarVenta && ventaPorCancelar(factura)) {
+                        // true: el evento ya se mando recien; sin esto cancelarVenta lo reenviaba.
+                        boolean ventaCancelada = ventaService.cancelarVenta(factura.getVenta(), true);
                         if (ventaCancelada) {
                             return "EXITO: Factura electrónica cancelada y venta cancelada";
                         } else {
@@ -1441,7 +1457,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                         // Solo cancelar factura - marcar como inactiva
                         factura.setActivo(false);
                         service.save(factura);
-                        return "EXITO: Factura electrónica cancelada (venta mantiene activa)";
+                        return "EXITO: Factura electrónica cancelada " + notaSobreLaVenta(factura);
                     }
 
                 } catch (Exception e) {
@@ -1453,7 +1469,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
             } else {
                 // Factura no electrónica
-                if (cancelarVenta && factura.getVenta() != null) {
+                if (cancelarVenta && ventaPorCancelar(factura)) {
                     // Cancelar venta
                     boolean ventaCancelada = ventaService.cancelarVenta(factura.getVenta());
                     if (ventaCancelada) {
@@ -1468,7 +1484,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     // Solo cancelar factura
                     factura.setActivo(false);
                     service.save(factura);
-                    return "EXITO: Factura cancelada (venta mantiene activa)";
+                    return "EXITO: Factura cancelada " + notaSobreLaVenta(factura);
                 }
             }
 

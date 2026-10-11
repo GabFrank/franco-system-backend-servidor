@@ -295,4 +295,44 @@ class ChequeGestionServiceTest {
 
         assertEquals(100.0, service.emitir(nuevo(false), null).getNumero());
     }
+
+    // ── Bloque 5 de la issue #376 ──
+
+    @Test
+    void un_cheque_al_dia_queda_con_la_fecha_de_emision_como_fecha_de_pago() {
+        Cheque hoy = service.emitir(nuevo(false), null);
+        assertNotNull(hoy.getFechaPago());
+        assertEquals(java.time.LocalDate.now(), hoy.getFechaPago().toLocalDate());
+
+        Cheque retroactivo = nuevo(false);
+        retroactivo.setFechaEntrega(java.time.LocalDateTime.of(2026, 9, 20, 15, 0));
+        assertEquals(java.time.LocalDateTime.of(2026, 9, 20, 15, 0), service.emitir(retroactivo, null).getFechaPago());
+    }
+
+    @Test
+    void un_diferido_conserva_su_fecha_de_pago() {
+        Cheque c = nuevo(true);
+        java.time.LocalDateTime pago = c.getFechaPago();
+
+        assertEquals(pago, service.emitir(c, null).getFechaPago());
+    }
+
+    @Test
+    void si_el_numero_ya_existe_en_la_base_el_rechazo_dice_cual_y_de_que_chequera() {
+        chequera.setNombre("CHEQUERA A");
+        when(chequeService.save(any())).thenThrow(new org.springframework.dao.DataIntegrityViolationException("x",
+                new RuntimeException("ERROR: duplicate key value violates unique constraint \"uq_cheque_chequera_numero\"")));
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.emitir(nuevo(false), null));
+
+        assertTrue(e.getMessage().contains("El número 100 de la chequera CHEQUERA A ya existe"), e.getMessage());
+    }
+
+    @Test
+    void otra_falla_de_integridad_no_se_disfraza_de_numero_repetido() {
+        when(chequeService.save(any())).thenThrow(new org.springframework.dao.DataIntegrityViolationException("x",
+                new RuntimeException("ERROR: null value in column \"total\"")));
+
+        assertThrows(org.springframework.dao.DataIntegrityViolationException.class, () -> service.emitir(nuevo(false), null));
+    }
 }

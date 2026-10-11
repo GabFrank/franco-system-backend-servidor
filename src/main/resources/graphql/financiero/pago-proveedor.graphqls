@@ -79,5 +79,5 @@ extend type Mutation {
     # Un pedido repetido con la misma clave devuelve el pago ya creado en vez de registrarlo otra vez.
     pagarSolicitudesMixto(pagos: [SolicitudConLineasInput!]!, claveIdempotencia: String): Pago
     anularPagoCpp(pagoId: ID!, motivo: String): Pago!
-    crearGastoParaPago(input: GastoParaPagoInput!): SolicitudPago!
+    crearGastoParaPago(input: GastoParaPagoInput!, claveIdempotencia: String): SolicitudPago!
 }

@@ -225,100 +225,27 @@ nada. Antes invertían el estado en cada llamada y un reintento o un doble clic 
 - Habilitar deja el retiro en `CONCLUIDO` y no tiene guarda: un cancelado que quedó con su ingreso en la caja
   mayor (dato anterior a este cambio) se corrige habilitándolo.
 - Un gasto pagado desde la caja mayor (`solicitud_pago_id`) no se cancela ni se habilita acá: se anula su pago.
-- **Rollback del JAR:** la versión anterior vuelve a listar los cancelados como flotantes y a dejarlos
-  verificar. Antes de volver atrás, mirar los retiros `CANCELADO` sin caja mayor.
-- Sigue sin control: `saveRetiro` guarda la entidad entera desde el input y puede pisar estado, caja y
-  movimiento de un retiro existente; y cancelar un retiro de una caja de PDV ya cerrada cambia su balance.
-- `CancelarRetiroIT` prueba los UPDATE contra el enum de PostgreSQL y la carrera cancelar × ingresar. **No
-  corre en CI**: `./mvnw -Dit.financiero=true -Dtest=CancelarRetiroIT test`.
+- **Rollback del JAR:** el automático del deploy (falla el health check) no tiene riesgo, porque el JAR nuevo
+  no llegó a numerar. **Desplegar a mano una versión anterior después de haber operado es de una sola vía
+  mientras haya huecos:** el JAR anterior vuelve a contar; mientras `count() + 1` caiga en un hueco entra
+  (reusa ese número), y en cuanto cae sobre uno existente se traba: ninguna alta de solicitud entra, de
+  ningún tipo, y no se destraba sola. No queda nada a medias. La salida es volver a este JAR: al arrancar se
+  realinea sin pasos manuales. **Antes de un rollback manual** mirar si hay huecos: `select count(*),
+  max(numero_solicitud) from operaciones.solicitud_pago` (los hay si la cantidad es menor que el número más
+  alto).
+- El verificador no frena el arranque. Si falló, queda en el log como `ERROR` con el nombre de la secuencia:
+  mirarlo después de desplegar.
+- Si alguien inserta a mano un número mayor que la secuencia, las altas fallan contra el índice, una por
+  número, hasta pasarlo; reiniciar el central la realinea de una vez.
+- `SolicitudPagoNumeroIT` (no corre en CI): solicitud borrada del medio y secuencia atrasada.
+  `./mvnw -Dit.financiero=true -Dtest=SolicitudPagoNumeroIT test`.
 
-**Validaciones que viven en el central (issue #376).** Tres cosas que solo cuidaba el desktop, o nadie:
-
-- **Lock por nombre** (`BloqueoTransaccionalService`, `pg_advisory_xact_lock`): serializa dos pedidos sobre «lo
-  mismo» cuando no hay una fila propia que tomar (un número de comprobante que todavía no existe) o cuando
-  tomarla hace daño (la fila de un maletín llega por replicación desde la filial: un `FOR UPDATE` frenaría al
-  apply worker). Dura la transacción; se toma antes de cualquier `save`.
-- **El cierre de un maletín se ingresa una sola vez** (`MaletinTesoreriaService.ingresarMaletinCierre`). Cada
-  ingreso queda marcado con la caja de PDV del cierre: `referencia_id` = caja y `origen_sucursal_id` = su
-  sucursal (la clave de la caja es compuesta). Mientras ese movimiento siga activo, la misma moneda de ese
-  cierre no vuelve a entrar; anularlo desde la caja mayor la habilita. Pedidas una por una, no entra ninguna
-  si alguna ya entró; con «todas» se ingresan las que faltan. Los ingresos a mano
-  (`ingresarMaletinCajaMayor`) no llevan la marca ni la miran. La marca es por **caja**, no por conteo: si se
-  corrige el conteo de cierre después del ingreso (el conteo es versionado), sigue bloqueando y hay que anular
-  y reingresar; por conteo, dejaría ingresar el valor entero otra vez.
-- **Número de comprobante** (`ComprobanteNumeracionService`; entradas varias y operaciones financieras):
-  vacío es «sin número» (el desktop manda `''`) y se guarda sin espacios y en mayúsculas. Lo tipeado no se
-  repite entre documentos no anulados de la misma tabla. Sin número se pide a la serie (`ENTRADA_VARIA`,
-  `OPERACION_FINANCIERA`); sin serie configurada el documento queda sin número. Si la serie da un número ya
-  usado **salta al siguiente**: rechazar ahí la trabaría, porque el rollback deshace el avance del correlativo.
-  No hay índice único: la carrera la cierra el lock por nombre.
-- **Emitir cheque** (`ChequeGestionService.emitir`, lo usan la emisión suelta y el pago a proveedores): la
-  chequera se toma con lock y **se relee de la base** —quien llama ya la cargó, y con el número siguiente de
-  antes de esperar dos emisiones simultáneas salían con el mismo número—. Después valida: total mayor a cero,
-  la cuenta es la de la chequera, la moneda es la de la cuenta, un diferido lleva fecha de pago y no anterior
-  al día de su emisión (no «a hoy»: el pago a proveedores registra cheques ya entregados), y el número está
-  dentro del rango de la chequera.
-- Sigue sin control: `saveChequera` deja escribir cualquier `siguiente_numero` (es lo que puede dejar una
-  chequera fuera de rango), no hay unicidad de (chequera, número), y el límite de una caja chica es solo un
-  aviso del desktop.
-- `ValidacionesFinancieroIT` prueba el lock contra PostgreSQL y las tres carreras. **No corre en CI**:
-  `./mvnw -Dit.financiero=true -Dtest=ValidacionesFinancieroIT test`.
-
-**Ajustes de saldo con saldo esperado (issue #376).** El ajuste por conteo de una caja y el de saldo de una
-cuenta bancaria se calculaban en el desktop con el saldo que tenía en pantalla, y el central aplicaba la
-diferencia sobre el saldo de ese momento. `AjusteDeSaldoService` hace que el pedido diga contra qué saldo se
-hizo: saldo con lock → **refresh de la entidad** → comparar → registrar.
-
-- **Conteo** (`ajustarCajaVirtualPorConteo`): el cliente manda el saldo que vio y lo que contó; la diferencia la
-  calcula el central y el saldo queda exactamente en lo contado. Si ya coincide con lo contado se rechaza (es
-  lo que recibe el reintento de un ajuste que había entrado), y si cambió desde que se abrió el conteo,
-  también. Es absoluto: no necesita clave de idempotencia. Lo contado se redondea a 4 decimales, no se rechaza
-  (llega como una suma hecha en JavaScript). El `AJUSTE` lleva origen `MANUAL`, el usuario de la sesión y la
-  descripción armada en el central.
-- **Banco** (`ajustarSaldoCuentaBancaria`, argumentos opcionales `saldoEsperado` y `claveIdempotencia`): es
-  relativo, así que lleva las dos cosas. El saldo esperado cubre el saldo viejo en pantalla y a dos personas
-  ajustando; **no cubre el reintento**: si después del ajuste entra un movimiento opuesto por el mismo monto,
-  el saldo vuelve al esperado y repetir el pedido lo aplicaría otra vez. Eso lo cubre la clave (§7.1).
-- **El refresh no es opcional.** El lock devuelve la instancia ya cargada y `registrar` calcula con ella: con
-  solo una proyección, la comprobación y el registro podrían mirar saldos distintos.
-- `saldoEsperado` coincide si es igual a 4 decimales o igual como `Double` (en saldos muy grandes el `Double`
-  por el que viajó no guarda los 4 decimales).
-- Sin los argumentos, el ajuste bancario se comporta como antes; `saveMovimientoCajaVirtual` sigue dejando
-  postear un `AJUSTE` suelto.
-- `AjusteDeSaldoIT` prueba la concurrencia, la entidad vieja y el reintento con el saldo de vuelta en el
-  esperado. **No corre en CI**: `./mvnw -Dit.financiero=true -Dtest=AjusteDeSaldoIT test`.
-
-### 7.1 Idempotencia por clave (pedidos repetidos)
-
-El lock evita que dos pedidos **distintos** pisen el mismo saldo; no distingue un pedido de su
-
-**reintento**. Para eso está `IdempotenciaService` (issue #376): el cliente genera una clave por cada
-intento del usuario, la manda en el argumento opcional `claveIdempotencia` y la reenvía si reintenta.
-
-- La clave se inserta en `financiero.operacion_idempotente` **dentro de la transacción de la operación**
-  (`INSERT ... ON CONFLICT DO NOTHING`), y al terminar se guarda el id de lo creado. Si la operación se
-  rechaza, la clave se va con el rollback y el reintento corre como un pedido nuevo.
-- Un pedido repetido con la misma clave **no ejecuta nada**: devuelve lo que creó el original. Dos pedidos
-  simultáneos se serializan en la clave primaria, que es lo primero que toman los dos, antes de cualquier
-  lock del negocio.
-- La fila guarda operación, usuario y una **huella** del pedido (`HuellaPedido`). Si alguno no coincide,
-  se rechaza: «La clave de idempotencia ya se usó para otro pedido». La huella lleva solo lo que define
-  el pedido y lo normaliza (monto sin ceros finales, bandera nula = `false`, fecha por día, cheques por
-  cómo se agrupan y no por su `chequeRef`), para que un reintento rearmado por el cliente dé la misma.
-- Si lo que creó el original **se anuló después** (pago `CANCELADO`, cheque `ANULADO`), la repetición se
-  rechaza diciéndolo: ni se devuelve como éxito ni se vuelve a ejecutar.
-- Clave nula o vacía = cliente que no la manda: la operación corre como siempre.
-- Tabla **solo del central**: no está en `configuraciones.replication_table` y no debe publicarse.
-- Asume READ COMMITTED; no llamar a `ejecutar` desde una transacción `SERIALIZABLE`.
-
-Hoy la usan `pagarSolicitudesMixto` (`PagoProveedorService.pagarLoteMixto`), `emitirCheque`
-(`ChequeGestionService.emitir`) y los dos lotes de caja de `MovimientosCajaEnLoteService`
-(`registrarMovimientosCajaVirtual`, `realizarTransferenciasCajaVirtual`), que guardan como resultado el id de
-su primer movimiento. Para sumar otra mutation: argumento opcional `claveIdempotencia` al
-final en el `.graphqls` y en el resolver, y en el servicio `@Transactional` envolver la operación con
-`idempotenciaService.ejecutar(clave, "NOMBRE_OPERACION", huella, usuario, accion, idDe, cargar)`.
-El semántico de PostgreSQL lo prueba `IdempotenciaIT`, que **no corre en CI**:
-`./mvnw -Dit.financiero=true -Dtest=IdempotenciaIT test` contra una base con `V237.1`.
+**Saldo de la cuenta bancaria (`BancoLedgerService`).** `registrar` y `ajustarReservado` toman la cuenta con
+lock y **la releen de la base** (`cuentaConLock`). Sin el `refresh`, la instancia que el resolver ya había
+cargado (una operación financiera busca sus cuentas antes de entrar a la transacción) traía el saldo de antes
+de esperar el lock: de dos movimientos simultáneos sobre la misma cuenta, el segundo pisaba al primero. Es la
+regla del módulo —`lockById` no refresca lo ya cargado— aplicada al único punto que escribe ese saldo.
+`BancoLedgerSaldoIT` lo reproduce (no corre en CI).
 
 ## 8. Seguridad por rol
 `TesoreriaSecurityService` (patrón self-contained, issue #177): resuelve el usuario por el nickname del
@@ -370,3 +297,42 @@ UI desktop de tesorería completa; notificaciones (reusar `PushNotificationServi
 reportes cierre-mes (aging CPC/CPP, flujo de caja); `pago_solicitud_detalle` persistencia línea-a-línea;
 "toda compra → CPP" wiring en Compras (DA2); migrar `VentaTarjeta.estado` a enum; wiring venta-tarjeta →
 `crearAcreditacionPos`; cobro consolidado por convenio; permisos `CPP_*` dedicados (DA6); limpieza dead-code.
+
+## 13. Cancelación de venta (la cadena de `VentaService.cancelarVenta`)
+
+Una venta se cancela **siempre** por `VentaService.cancelarVenta`. Es el único camino que deja todo
+coherente: estado de la venta, `movimiento_caja` (activo), `movimiento_stock` (estado),
+`venta_tarjeta`, `delivery`, `venta_credito`, evento de cancelación del DE en SIFEN y
+`factura_legal.activo = false`. Nada más cambia el estado de una venta con un `save` directo
+(issue #339: `cancelarVentaCredito` lo hacía y dejaba caja, stock y factura vivos).
+
+Puertas de entrada, las dos con `seg.requireCancelarVenta()` (#340):
+
+| Mutation | Qué hace |
+|---|---|
+| `cancelarVenta(id, sucId)` | **Alterna**: cancela una venta CONCLUIDA y reactiva una CANCELADA |
+| `cancelarVentaCredito(id, sucId)` | **Solo cancela**, por la misma cadena; sobre una venta ya cancelada da error. Ningún cliente la llama desde el desktop 3.1.0 |
+
+`VentaCreditoService.cancelarVentaCredito(id, sucId, venta)` es un paso de la cadena (sincroniza la
+venta crédito con el estado de la venta), no una entrada: exige la venta.
+
+Lo que hay que saber antes de tocar la cadena:
+
+- **Reactivar no es el inverso de cancelar.** El bloque de la factura no mira hacia dónde va la
+  venta: al reactivar también pide la cancelación del DE y deja la factura inactiva. Y la venta
+  crédito vuelve a ABIERTO aunque antes estuviera FINALIZADO.
+- **SIFEN no se revierte.** `SifenEventoService.cancelarDE` corre en `REQUIRES_NEW`: el evento queda
+  enviado aunque después falle el resto y la transacción de la venta haga rollback. Si SIFEN falla,
+  el error se traga y la factura queda inactiva con el DE vivo.
+- **No hay lock.** Dos llamadas simultáneas leen el mismo estado.
+- **Tres tablas de la cadena no bajan a la filial.** Todas son `BRANCH_TO_MAIN`; solo vuelven a la
+  filial dueña las que tienen `replicate_central_to_branch_with_filter` (V113, V150.1, V161.3):
+
+  | El cambio del central llega a la filial | No llega |
+  |---|---|
+  | `operaciones.venta`, `financiero.factura_legal`, `operaciones.movimiento_stock`, `financiero.venta_tarjeta` | `financiero.movimiento_caja`, `operaciones.delivery`, `financiero.venta_credito` |
+
+  Una venta cancelada desde el central sigue con su movimiento de caja activo en la filial.
+
+Tests: `CancelarVentaYFacturaRolTest`, `VentaCreditoServiceCancelarTest`,
+`VentaServiceTarjetaCancelacionTest`.

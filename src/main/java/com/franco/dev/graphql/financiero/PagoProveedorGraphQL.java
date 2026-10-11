@@ -23,6 +23,7 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
     private final PagoProveedorService service;
     private final GastoTesoreriaService gastoTesoreriaService;
     private final TesoreriaSecurityService seg;
+    private final com.franco.dev.service.financiero.AltaIdempotenteService altaIdempotente;
 
     public List<SolicitudPago> solicitudesPagoPendientes(Long proveedorId) {
         seg.requireVer();
@@ -45,14 +46,21 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     /** Crea un gasto (PreGasto liviano) + su obligación de pago (SolicitudPago GASTO, SOLICITADO). */
-    public SolicitudPago crearGastoParaPago(GastoParaPagoWrapper input) {
+    public SolicitudPago crearGastoParaPago(GastoParaPagoWrapper input, String claveIdempotencia) {
         seg.requireGestionar();
+        // Antes de interpretar nada: la fecha entra como texto, tal como la mandó el cliente.
+        String huella = new com.franco.dev.service.financiero.HuellaPedido()
+                .id(input.getTipoGastoId()).texto(input.getDescripcion()).id(input.getMonedaId())
+                .numero(com.franco.dev.service.financiero.AltaIdempotenteService.monto(input.getMonto())).id(input.getBeneficiarioProveedorId())
+                .id(input.getBeneficiarioPersonaId()).texto(input.getFechaVencimiento()).id(input.getSucursalId())
+                .calcular();
         java.time.LocalDateTime venc = (input.getFechaVencimiento() != null && !input.getFechaVencimiento().isEmpty())
                 ? com.franco.dev.utilitarios.DateUtils.stringToDate(input.getFechaVencimiento()) : null;
-        return gastoTesoreriaService.crearGastoParaPago(
+        com.franco.dev.domain.personas.Usuario usuario = seg.currentUsuario();
+        return altaIdempotente.gastoParaPago(claveIdempotencia, huella, usuario, () -> gastoTesoreriaService.crearGastoParaPago(
                 input.getTipoGastoId(), input.getDescripcion(), input.getMonedaId(), input.getMonto(),
                 input.getBeneficiarioProveedorId(), input.getBeneficiarioPersonaId(), venc,
-                input.getSucursalId(), seg.currentUsuario());
+                input.getSucursalId(), usuario));
     }
 
     public Pago pagarSolicitudesLoteCajaMayor(Long cajaVirtualId, List<PagoLoteWrapper> pagos) {

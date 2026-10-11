@@ -3,12 +3,9 @@ package com.franco.dev.graphql.financiero;
 import com.franco.dev.domain.financiero.Chequera;
 import com.franco.dev.graphql.financiero.input.ChequeraInput;
 import com.franco.dev.service.financiero.ChequeraService;
-import com.franco.dev.service.financiero.CuentaBancariaService;
 import com.franco.dev.service.financiero.TesoreriaSecurityService;
-import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -24,13 +21,10 @@ public class ChequeraGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     private ChequeraService service;
 
     @Autowired
-    private UsuarioService usuarioService;
-
-    @Autowired
-    private CuentaBancariaService cuentaBancariaService;
-
-    @Autowired
     private TesoreriaSecurityService seg;
+
+    @Autowired
+    private com.franco.dev.service.financiero.ChequeraGestionService gestionService;
 
     public Optional<Chequera> chequera(Long id) {
         seg.requireVer();
@@ -43,28 +37,13 @@ public class ChequeraGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.findAll(pageable);
     }
 
+    /**
+     * Alta o edición. No se arma ni se carga la entidad acá: el servicio toma la chequera con lock y decide
+     * sobre lo que hay en la base (issue #376). El usuario creador es el de la sesión.
+     */
     public Chequera saveChequera(ChequeraInput input) {
         seg.requireGestionar();
-        ModelMapper m = new ModelMapper();
-        Chequera e = m.map(input, Chequera.class);
-        if (input.getUsuarioId() != null) {
-            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        }
-        if (input.getCuentaBancariaId() != null) {
-            e.setCuentaBancaria(cuentaBancariaService.findById(input.getCuentaBancariaId()).orElse(null));
-        }
-        // Update: preservar campos que el input no envia (el save es un merge y los
-        // dejaria en null): creado_en, fecha_retiro y usuario creador.
-        if (input.getId() != null) {
-            Chequera existente = service.findById(input.getId()).orElse(null);
-            if (existente != null) {
-                if (e.getCreadoEn() == null) e.setCreadoEn(existente.getCreadoEn());
-                if (e.getFechaRetiro() == null) e.setFechaRetiro(existente.getFechaRetiro());
-                if (e.getUsuario() == null) e.setUsuario(existente.getUsuario());
-            }
-        }
-        e = service.save(e);
-        return e;
+        return gestionService.guardar(input, seg.currentUsuario());
     }
 
     public List<Chequera> chequerasSearch(String texto) {

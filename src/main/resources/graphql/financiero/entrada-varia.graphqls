@@ -60,6 +60,7 @@ extend type Query {
 
 extend type Mutation {
     saveEntradaVariaCategoria(input: EntradaVariaCategoriaInput!): EntradaVariaCategoria!
-    registrarEntradaVaria(input: EntradaVariaInput!): EntradaVaria!
+    # claveIdempotencia: la genera el cliente por cada intento del usuario y la reenvia al reintentar.
+    registrarEntradaVaria(input: EntradaVariaInput!, claveIdempotencia: String): EntradaVaria!
     anularEntradaVaria(id: ID!, motivo: String): EntradaVaria!
 }

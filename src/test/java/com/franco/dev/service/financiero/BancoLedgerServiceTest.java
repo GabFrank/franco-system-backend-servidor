@@ -24,6 +24,7 @@ class BancoLedgerServiceTest {
     private MovimientoBancarioRepository movimientoRepository;
     private com.franco.dev.repository.empresarial.ConfiguracionGeneralRepository configRepository;
     private BancoLedgerService service;
+    private javax.persistence.EntityManager em;
 
     private CuentaBancaria cuenta;
 
@@ -34,6 +35,8 @@ class BancoLedgerServiceTest {
         configRepository = mock(com.franco.dev.repository.empresarial.ConfiguracionGeneralRepository.class);
         when(configRepository.findAll()).thenReturn(java.util.Collections.emptyList());
         service = new BancoLedgerService(cuentaRepository, movimientoRepository, new LimiteAnulacionService(configRepository));
+        em = mock(javax.persistence.EntityManager.class);
+        service.setEntityManager(em);
 
         cuenta = new CuentaBancaria();
         cuenta.setId(4L);
@@ -50,6 +53,38 @@ class BancoLedgerServiceTest {
         m.setMonto(new BigDecimal(monto));
         m.setAnulado(false);
         return m;
+    }
+
+    @Test
+    void registrar_parte_del_saldo_de_la_base_y_no_del_que_tenia_la_instancia_ya_cargada() {
+        // Otro movimiento commiteo mientras este esperaba el lock: la base dice 1500, la instancia sigue en 1000.
+        doAnswer(i -> {
+            ((CuentaBancaria) i.getArgument(0)).setSaldo(new BigDecimal("1500"));
+            return null;
+        }).when(em).refresh(cuenta);
+
+        MovimientoBancario m = service.registrar(4L, MovimientoBancarioTipo.ENTRADA_MANUAL, new BigDecimal("200"),
+                "DEPOSITO", "MANUAL", null, null);
+
+        assertEquals(0, new BigDecimal("1500").compareTo(m.getSaldoAnterior()));
+        assertEquals(0, new BigDecimal("1700").compareTo(cuenta.getSaldo()), "piso el movimiento del otro");
+        org.mockito.InOrder orden = inOrder(cuentaRepository, em);
+        orden.verify(cuentaRepository).lockById(4L);
+        orden.verify(em).refresh(cuenta);
+        orden.verify(cuentaRepository).save(cuenta);
+    }
+
+    @Test
+    void la_reserva_de_un_cheque_diferido_tambien_se_calcula_sobre_lo_que_hay_en_la_base() {
+        cuenta.setSaldoReservado(new BigDecimal("100"));
+        doAnswer(i -> {
+            ((CuentaBancaria) i.getArgument(0)).setSaldoReservado(new BigDecimal("400"));
+            return null;
+        }).when(em).refresh(cuenta);
+
+        service.ajustarReservado(4L, new BigDecimal("50"));
+
+        assertEquals(0, new BigDecimal("450").compareTo(cuenta.getSaldoReservado()));
     }
 
     @Test

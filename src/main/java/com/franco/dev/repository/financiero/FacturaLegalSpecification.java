@@ -1,10 +1,14 @@
 package com.franco.dev.repository.financiero;
 
+import com.franco.dev.domain.financiero.DocumentoElectronico;
 import com.franco.dev.domain.financiero.FacturaLegal;
+import com.franco.dev.domain.financiero.enums.EstadoDE;
 import org.springframework.data.jpa.domain.Specification;
 
 import javax.persistence.criteria.JoinType;
 import javax.persistence.criteria.Predicate;
+import javax.persistence.criteria.Root;
+import javax.persistence.criteria.Subquery;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,7 +66,27 @@ public final class FacturaLegalSpecification {
             }
 
             if (activo != null) {
-                predicates.add(criteriaBuilder.equal(root.get("activo"), activo));
+                // Anulada = activo false o, en electronicas, documento CANCELADO en SIFEN: hay
+                // caminos de cancelacion que no tocan la factura y activo queda en NULL. Es el mismo
+                // criterio del resumen fiscal (FacturaLegalRepository.RESUMEN_FISCAL_SELECT).
+                // NULL es activa: desde fines de 2025 las facturas nacieron sin el flag (filial #131).
+                // Se compara contra NULL a mano: NOT (activo = false) descartaria las filas en NULL.
+                Subquery<Long> deCancelado = query.subquery(Long.class);
+                Root<DocumentoElectronico> de = deCancelado.from(DocumentoElectronico.class);
+                deCancelado.select(de.get("id")).where(
+                        criteriaBuilder.equal(de.get("facturaLegalId"), root.get("id")),
+                        criteriaBuilder.equal(de.get("sucursalId"), root.get("sucursalId")),
+                        criteriaBuilder.equal(de.get("estado"), EstadoDE.CANCELADO));
+                if (activo) {
+                    predicates.add(criteriaBuilder.or(
+                            criteriaBuilder.isNull(root.get("activo")),
+                            criteriaBuilder.isTrue(root.get("activo"))));
+                    predicates.add(criteriaBuilder.not(criteriaBuilder.exists(deCancelado)));
+                } else {
+                    predicates.add(criteriaBuilder.or(
+                            criteriaBuilder.isFalse(root.get("activo")),
+                            criteriaBuilder.exists(deCancelado)));
+                }
             }
 
             if (sinNombre != null) {

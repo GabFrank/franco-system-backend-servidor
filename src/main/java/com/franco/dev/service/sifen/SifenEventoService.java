@@ -84,6 +84,15 @@ public class SifenEventoService {
             }
             log.info("   ✅ No tiene cancelación aprobada previa");
 
+            // SIFEN solo cancela lo que aprobo. Va aca y no en cada llamador: las notas y
+            // cancelarFacturaLegal ya filtraban, pero cancelarDocumentoElectronico y la cancelacion
+            // de venta mandaban el evento igual y dejaban un evento PENDIENTE o RECHAZADO sobre un
+            // documento que nunca valio (#408). Antes de la primera escritura, a proposito.
+            if (de.getEstado() != com.franco.dev.domain.financiero.enums.EstadoDE.APROBADO) {
+                throw new IllegalStateException("Solo se puede cancelar un documento aprobado por SIFEN. El DE con CDC "
+                        + cdc + " está " + de.getEstado() + ".");
+            }
+
             log.info("   [PASO 3] Buscando eventos activos previos...");
             List<EventoCancelacionDE> eventosActivos = eventoCancelacionDEService.findActivosByCdcDocumento(cdc);
             if (!eventosActivos.isEmpty()) {

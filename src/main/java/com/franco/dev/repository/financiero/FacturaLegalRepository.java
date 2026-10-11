@@ -81,13 +81,14 @@ public interface FacturaLegalRepository
          * Buscar facturas legales por timbrado detalle, sucursal y rango de números de
          * factura.
          * Útil para encontrar facturas afectadas por un evento de inutilización.
+         * activo en NULL cuenta como activa (filial #131): solo false es cancelada.
          */
         @Query("SELECT f FROM FacturaLegal f WHERE " +
                         "f.timbradoDetalle.id = :timbradoDetalleId AND " +
                         "f.sucursalId = :sucursalId AND " +
                         "f.numeroFactura >= :numeroInicio AND " +
                         "f.numeroFactura <= :numeroFin AND " +
-                        "f.activo = true")
+                        "(f.activo IS NULL OR f.activo = true)")
         List<FacturaLegal> findByTimbradoDetalleIdAndSucursalIdAndNumeroFacturaBetween(
                         @Param("timbradoDetalleId") Long timbradoDetalleId,
                         @Param("sucursalId") Long sucursalId,

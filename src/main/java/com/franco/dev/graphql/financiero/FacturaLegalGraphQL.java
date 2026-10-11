@@ -1371,6 +1371,26 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return null;
     }
 
+    /**
+     * Devuelve el mensaje de error si el documento electronico no esta APROBADO, o null si se puede
+     * seguir. Solo se cancela en SIFEN lo que SIFEN aprobo: con un DE pendiente, en lote o rechazado
+     * el evento puede quedar PENDIENTE sin excepcion, y el resolver seguia hasta cancelar la venta o
+     * marcar la factura inactiva sobre un documento que nunca valio. Sin DE no se bloquea nada.
+     */
+    String validarEstadoParaCancelar(Long facturaLegalId, Long sucursalId) {   // visible para el test
+        java.util.Optional<DocumentoElectronico> de =
+                documentoElectronicoService.findByFacturaLegalId(facturaLegalId, sucursalId);
+        if (!de.isPresent() || de.get().getEstado() == null
+                || de.get().getEstado() == com.franco.dev.domain.financiero.enums.EstadoDE.APROBADO) {
+            return null;
+        }
+        if (de.get().getEstado() == com.franco.dev.domain.financiero.enums.EstadoDE.CANCELADO) {
+            return "ERROR: La factura ya está cancelada";
+        }
+        return "ERROR: El documento electrónico está " + de.get().getEstado()
+                + ". Solo se puede cancelar una factura aprobada por SIFEN.";
+    }
+
     public String cancelarFacturaLegal(Long facturaLegalId, Long sucursalId, Boolean cancelarVenta) {
         // Fuera del try a proposito: adentro el catch lo devolveria como un string "ERROR: ..." (issue #340).
         seg.requireCancelarVenta();
@@ -1390,6 +1410,11 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             boolean esElectronica = factura.getCdc() != null && !factura.getCdc().isEmpty();
 
             if (esElectronica) {
+                String estado = validarEstadoParaCancelar(facturaLegalId, sucursalId);
+                if (estado != null) {
+                    return estado;
+                }
+
                 // SIFEN solo acepta el evento de cancelacion dentro de las 48 h de la aprobacion.
                 // Pasado ese plazo la unica via es una nota de credito, y conviene decirlo aca en
                 // vez de esperar el rechazo: el cliente ofrece emitirla al ver ERROR_PLAZO_NC.

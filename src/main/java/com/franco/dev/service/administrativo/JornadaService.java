@@ -1,15 +1,24 @@
 package com.franco.dev.service.administrativo;
 
 import com.franco.dev.domain.administrativo.Jornada;
+import com.franco.dev.domain.administrativo.Marcacion;
+import com.franco.dev.domain.administrativo.dto.JornadaHistorial;
+import com.franco.dev.domain.administrativo.dto.JornadaResumen;
+import com.franco.dev.domain.administrativo.enums.EstadoJornada;
+import com.franco.dev.domain.administrativo.enums.Turno;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.repository.administrativo.JornadaRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 @Service
 @AllArgsConstructor
@@ -40,6 +49,75 @@ public class JornadaService extends CrudService<Jornada, JornadaRepository, Embe
 
     public List<Jornada> findByFechaRange(String fechaInicio, String fechaFin) {
         return repository.findByFechaRange(fechaInicio, fechaFin);
+    }
+
+    /**
+     * Historial de marcaciones: una pagina de jornadas y el resumen de todo lo que cumple el filtro.
+     *
+     * Filtra, pagina y suma en la base. Antes el desktop pedia el rango entero, filtraba turno y sucursal en
+     * memoria y sumaba el resumen el mismo: un mes eran cientos de filas viajando para mostrar quince.
+     */
+    public JornadaHistorial findHistorial(Long usuarioId, String fechaInicio, String fechaFin, Turno turno,
+            Long sucursalEntradaId, Long sucursalSalidaId, Integer page, Integer size) {
+        int pagina = page != null && page >= 0 ? page : 0;
+        int tamano = size != null && size > 0 ? size : 15;
+        boolean porUsuario = usuarioId != null;
+        boolean porTurno = turno != null;
+        boolean porEntrada = sucursalEntradaId != null;
+        boolean porSalida = sucursalSalidaId != null;
+        // Los valores de relleno no filtran nada: su bandera va en false.
+        Long usuario = porUsuario ? usuarioId : -1L;
+        Turno turnoFiltro = porTurno ? turno : Turno.DIA;
+        Long entrada = porEntrada ? sucursalEntradaId : -1L;
+        Long salida = porSalida ? sucursalSalidaId : -1L;
+
+        Page<Jornada> jornadas = repository.findHistorial(fechaInicio, fechaFin, porUsuario, usuario, porTurno,
+                turnoFiltro, porEntrada, entrada, porSalida, salida, PageRequest.of(pagina, tamano));
+        List<Object[]> totales = repository.resumenHistorial(fechaInicio, fechaFin, porUsuario, usuario, porTurno,
+                turnoFiltro, porEntrada, entrada, porSalida, salida);
+        Object[] fila = totales.isEmpty() ? new Object[] { 0, 0, 0, 0 } : totales.get(0);
+        JornadaResumen resumen = new JornadaResumen(entero(fila[0]), entero(fila[1]), entero(fila[2]), entero(fila[3]));
+        return new JornadaHistorial(jornadas, resumen);
+    }
+
+    private static Integer entero(Object valor) {
+        return valor == null ? 0 : ((Number) valor).intValue();
+    }
+
+    private static Stream<Marcacion> marcacionesDe(Jornada jornada) {
+        return Stream.of(jornada.getMarcacionEntrada(), jornada.getMarcacionSalidaAlmuerzo(),
+                jornada.getMarcacionEntradaAlmuerzo(), jornada.getMarcacionSalida()).filter(Objects::nonNull);
+    }
+
+    /** Atraso de la entrada mas el del retorno del almuerzo. */
+    public int minutosLlegadaTardiaTotal(Jornada jornada) {
+        long entrada = jornada.getMinutosLlegadaTardia() != null ? jornada.getMinutosLlegadaTardia() : 0L;
+        long almuerzo = jornada.getMinutosLlegadaTardiaAlmuerzo() != null ? jornada.getMinutosLlegadaTardiaAlmuerzo() : 0L;
+        return (int) (entrada + almuerzo);
+    }
+
+    /** La mayor distancia a la sucursal entre las marcaciones de la jornada; null si ninguna la informo. */
+    public Integer distanciaMaximaMetros(Jornada jornada) {
+        return marcacionesDe(jornada).map(Marcacion::getDistanciaSucursalMetros).filter(Objects::nonNull)
+                .max(Integer::compareTo).orElse(null);
+    }
+
+    /** Alguna marcacion guardo coordenadas. Un 0,0 es un GPS sin lectura, no un lugar. */
+    public boolean tieneUbicacion(Jornada jornada) {
+        return marcacionesDe(jornada).anyMatch(m -> m.getLatitud() != null && m.getLongitud() != null
+                && !(m.getLatitud().compareTo(BigDecimal.ZERO) == 0 && m.getLongitud().compareTo(BigDecimal.ZERO) == 0));
+    }
+
+    /**
+     * Se puede ajustar a 8 horas una jornada que quedo incompleta, y tambien una que cerro mal: cuando alguien
+     * olvida marcar la salida, la entrada del dia siguiente le cierra la jornada y le deja horas extras que no
+     * hizo. Esa queda en NORMAL.
+     */
+    public boolean puedeAjustarA8Horas(Jornada jornada) {
+        if (jornada.getEstado() == EstadoJornada.INCOMPLETO) {
+            return true;
+        }
+        return jornada.getMinutosExtras() != null && jornada.getMinutosExtras() > 0;
     }
 
     public List<Jornada> findByUsuarioIdAndFecha(Long usuarioId, String fecha) {

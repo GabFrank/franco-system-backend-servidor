@@ -27,6 +27,7 @@ import com.franco.dev.service.financiero.TimbradoDetalleService;
 import com.franco.dev.graphql.financiero.dto.SaveFacturaLegalToFilialResponse;
 import com.franco.dev.service.financiero.dto.FacturaLegalFilialResponse;
 import com.franco.dev.service.sifen.SifenEventoService;
+import com.franco.dev.service.sifen.util.SifenTimbradoHelper;
 import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.operaciones.CobroDetalleService;
 import com.franco.dev.service.operaciones.DeliveryService;
@@ -1401,6 +1402,15 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return factura.getVenta() != null && factura.getVenta().getEstado() != VentaEstado.CANCELADA;
     }
 
+    /**
+     * Telefono del emisor que imprime el KuDE de factura: el mismo que viaja en el XML (dTelEmi),
+     * para que el impreso coincida con el documento electronico.
+     */
+    static String telefonoEmisorKude(TimbradoDetalle detalle) {
+        String telefono = SifenTimbradoHelper.telefonoEmisor(detalle);
+        return telefono != null ? telefono : "";
+    }
+
     private static String notaSobreLaVenta(FacturaLegal factura) {
         boolean yaCancelada = factura.getVenta() != null && factura.getVenta().getEstado() == VentaEstado.CANCELADA;
         return yaCancelada ? "(la venta ya estaba cancelada)" : "(venta mantiene activa)";
@@ -1756,13 +1766,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
                 parameters.put("direccionEmisor", direccionEmisorBuilder.toString());
 
-                if (factura.getTimbradoDetalle().getTelefono() != null) {
-                    parameters.put("telefonoEmisor", factura.getTimbradoDetalle().getTelefono());
-                } else if (timbrado.getTelefono() != null) {
-                    parameters.put("telefonoEmisor", timbrado.getTelefono());
-                } else {
-                    parameters.put("telefonoEmisor", "");
-                }
+                parameters.put("telefonoEmisor", telefonoEmisorKude(factura.getTimbradoDetalle()));
 
                 parameters.put("emailEmisor", timbrado.getEmail() != null ? timbrado.getEmail() : "");
                 parameters.put("actividadEconomica",

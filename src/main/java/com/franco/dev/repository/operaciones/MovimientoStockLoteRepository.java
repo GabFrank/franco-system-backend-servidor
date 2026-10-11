@@ -23,8 +23,12 @@ public interface MovimientoStockLoteRepository
         return MovimientoStockLote.class;
     }
 
-    @Query("SELECT MAX(e.id) FROM MovimientoStockLote e WHERE e.sucursalId = :sucursalId")
-    Long findMaxId(@Param("sucursalId") Long sucursalId);
+    /**
+     * Proximo id del central: impar, de la secuencia (V242.3). Mismo motivo que
+     * {@link MovimientoStockRepository#siguienteId()}.
+     */
+    @Query(value = "SELECT nextval('operaciones.movimiento_stock_lote_id_seq')", nativeQuery = true)
+    Long siguienteId();
 
     List<MovimientoStockLote> findByMovimientoStockIdAndSucursalId(Long movimientoStockId, Long sucursalId);
 

@@ -1401,6 +1401,17 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return factura.getVenta() != null && factura.getVenta().getEstado() != VentaEstado.CANCELADA;
     }
 
+    /** Telefono del emisor que imprime el KuDE de factura. */
+    static String telefonoEmisorKude(TimbradoDetalle detalle) {
+        if (detalle.getTelefono() != null) {
+            return detalle.getTelefono();
+        }
+        if (detalle.getTimbrado().getTelefono() != null) {
+            return detalle.getTimbrado().getTelefono();
+        }
+        return "";
+    }
+
     private static String notaSobreLaVenta(FacturaLegal factura) {
         boolean yaCancelada = factura.getVenta() != null && factura.getVenta().getEstado() == VentaEstado.CANCELADA;
         return yaCancelada ? "(la venta ya estaba cancelada)" : "(venta mantiene activa)";
@@ -1756,13 +1767,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
                 parameters.put("direccionEmisor", direccionEmisorBuilder.toString());
 
-                if (factura.getTimbradoDetalle().getTelefono() != null) {
-                    parameters.put("telefonoEmisor", factura.getTimbradoDetalle().getTelefono());
-                } else if (timbrado.getTelefono() != null) {
-                    parameters.put("telefonoEmisor", timbrado.getTelefono());
-                } else {
-                    parameters.put("telefonoEmisor", "");
-                }
+                parameters.put("telefonoEmisor", telefonoEmisorKude(factura.getTimbradoDetalle()));
 
                 parameters.put("emailEmisor", timbrado.getEmail() != null ? timbrado.getEmail() : "");
                 parameters.put("actividadEconomica",

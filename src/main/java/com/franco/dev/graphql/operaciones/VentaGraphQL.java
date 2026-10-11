@@ -1121,6 +1121,11 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         } else {
             summary.setMargen(0.0);
         }
+        if (summary.getCostoTotal() > 0) {
+            summary.setMargenCosto((summary.getLucro() / summary.getCostoTotal()) * 100);
+        } else {
+            summary.setMargenCosto(0.0);
+        }
 
         int start = 0;
         int end = fullList.size();

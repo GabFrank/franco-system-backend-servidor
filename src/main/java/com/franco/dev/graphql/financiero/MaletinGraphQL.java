@@ -3,6 +3,7 @@ package com.franco.dev.graphql.financiero;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Maletin;
 import com.franco.dev.graphql.financiero.input.MaletinInput;
+import com.franco.dev.service.financiero.FilialCajaProxyService;
 import com.franco.dev.service.financiero.MaletinService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -54,6 +55,9 @@ public class MaletinGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     private RestTemplate restTemplate;
 
     @Autowired
+    private FilialCajaProxyService filialCajaProxyService;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     private static final Logger log = LoggerFactory.getLogger(MaletinGraphQL.class);
@@ -67,6 +71,14 @@ public class MaletinGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             return service.findBySucursalIdOrAll(sucId);
         }
         return service.searchByAll(texto, sucId);
+    }
+
+    /**
+     * Maletines que se pueden elegir para abrir caja en una sucursal, consultados
+     * en la filial (ip + puertoServidor de la sucursal) y no en la tabla del central.
+     */
+    public List<Maletin> maletinesDisponiblesPorSucursal(Long sucId) {
+        return filialCajaProxyService.maletinesDisponiblesEnFilial(sucId);
     }
 
     public List<Maletin> maletines(int page, int size) {

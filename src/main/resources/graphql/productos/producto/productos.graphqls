@@ -24,7 +24,12 @@ type Producto {
     existenciaTotal: Float
     observacion: String
     presentaciones: [Presentacion]
+    # El original. Las listas piden la miniatura; las vistas grandes, la mediana.
     imagenPrincipal: String
+    # 250x250, para iconos, avatares y cards. null si no hay foto.
+    imagenPrincipalMiniatura: String
+    # Lado mayor de hasta 800 px, para vistas grandes. null si no hay foto.
+    imagenPrincipalMediana: String
     codigoPrincipal: String
     precioPrincipal: String
     costo: CostoPorProducto

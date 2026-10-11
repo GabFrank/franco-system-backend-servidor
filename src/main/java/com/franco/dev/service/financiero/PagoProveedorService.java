@@ -620,9 +620,15 @@ public class PagoProveedorService {
      */
     @Transactional
     public Pago anularPagoCpp(Long pagoId, String motivo, Usuario usuario) {
-        Pago pago = pagoService.findById(pagoId)
+        // Con lock: el pago se puede anular desde su fila de caja y desde su fila de banco. Sin el,
+        // dos anulaciones simultaneas pasan las dos el chequeo de CANCELADO y cada una postea su
+        // contra-movimiento (TesoreriaService.revertir no mira si el original ya esta revertido).
+        Pago pago = pagoService.getRepository().lockById(pagoId)
                 .orElseThrow(() -> new GraphQLException("Pago no encontrado: " + pagoId));
-        if (pago.getEstado() == PagoEstado.CANCELADO) throw new GraphQLException("El pago ya está anulado");
+        // El estado se relee despues del lock: AnulacionPagoRrhhService ya cargo el pago en esta misma
+        // transaccion antes de llegar aca, y en ese caso lockById devuelve la instancia vieja.
+        PagoEstado estado = pagoService.getRepository().findEstadoById(pagoId).orElse(pago.getEstado());
+        if (estado == PagoEstado.CANCELADO) throw new GraphQLException("El pago ya está anulado");
 
         List<PagoSolicitudDetalle> detalles = detalleRepository.findByPagoIdOrderByCreadoEnAsc(pagoId)
                 .stream().filter(d -> !Boolean.TRUE.equals(d.getAnulado())).collect(Collectors.toList());

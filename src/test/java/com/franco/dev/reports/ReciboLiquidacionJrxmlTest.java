@@ -144,14 +144,112 @@ public class ReciboLiquidacionJrxmlTest {
                 "el recibo sin items salio vacio");
     }
 
+    /** Clausula de largo real: razon social, ciudad y monto en letras como los de produccion (3 lineas). */
+    private static Map<String, Object> paramsClausulaReal(String montoEnLetras) {
+        Map<String, Object> p = paramsDummy();
+        p.put("empresa", "BODEGA FRANCO SOCIEDAD ANONIMA");
+        p.put("ciudad", "SALTO DEL GUAIRA");
+        p.put("totalRecibido", "3.657.850");
+        p.put("montoEnLetras", montoEnLetras);
+        p.put("periodo", "NOVIEMBRE 2026");
+        return p;
+    }
+
+    /** Hueco entre el pie de cada clausula "Recibi de ..." y su linea de firma, una entrada por via. */
+    private static List<Integer> huecosDeFirma(JasperPrint print) {
+        List<net.sf.jasperreports.engine.JRPrintElement> clausulas = new ArrayList<>();
+        List<net.sf.jasperreports.engine.JRPrintElement> lineas = new ArrayList<>();
+        for (net.sf.jasperreports.engine.JRPrintPage pg : print.getPages()) {
+            for (net.sf.jasperreports.engine.JRPrintElement e : pg.getElements()) {
+                if (e instanceof net.sf.jasperreports.engine.JRPrintText
+                        && ((net.sf.jasperreports.engine.JRPrintText) e).getFullText().startsWith("Recibi de")) {
+                    clausulas.add(e);
+                }
+                // La linea de firma es la unica centrada de 255 pt (las de totales arrancan en x=300).
+                if (e instanceof net.sf.jasperreports.engine.JRPrintLine && e.getWidth() == 255
+                        && e.getX() == print.getLeftMargin() + 150) {
+                    lineas.add(e);
+                }
+            }
+        }
+        org.junit.jupiter.api.Assertions.assertEquals(2, clausulas.size(), "tiene que haber una clausula por via");
+        org.junit.jupiter.api.Assertions.assertEquals(2, lineas.size(), "tiene que haber una linea de firma por via");
+        List<Integer> huecos = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+            huecos.add(lineas.get(i).getY() - (clausulas.get(i).getY() + clausulas.get(i).getHeight()));
+        }
+        return huecos;
+    }
+
+    /**
+     * El funcionario firma entre la clausula y la linea. Con 10 pt (3,5 mm) no habia donde:
+     * el pedido es que quede lugar, y son 28 pt (1 cm) en las dos vias.
+     */
+    @Test
+    void hayLugarParaFirmarEnLasDosVias() throws Exception {
+        List<ReciboLiquidacionItemDto> filas = Arrays.asList(
+                new ReciboLiquidacionItemDto("SUELDO", "ENTRADA", "SALARIO BASE", "30/11/2026", "3.100.000"));
+        JasperPrint print = llenar(filas, paramsClausulaReal(
+                "TRES MILLONES SEISCIENTOS CINCUENTA Y SIETE MIL OCHOCIENTOS CINCUENTA"));
+        for (int hueco : huecosDeFirma(print)) {
+            org.junit.jupiter.api.Assertions.assertTrue(hueco >= 28,
+                    "entre la clausula y la linea de firma quedan " + hueco + " pt: no hay lugar para firmar");
+        }
+    }
+
+    /**
+     * La clausula estira y la linea de firma no baja con ella: si el monto en letras la
+     * lleva a una linea mas, tiene que seguir quedando por encima de la linea.
+     */
+    @Test
+    void laClausulaLargaNoPisaLaLineaDeFirma() throws Exception {
+        List<ReciboLiquidacionItemDto> filas = Arrays.asList(
+                new ReciboLiquidacionItemDto("SUELDO", "ENTRADA", "SALARIO BASE", "30/11/2026", "3.100.000"));
+        JasperPrint print = llenar(filas, paramsClausulaReal(
+                "CIENTO VEINTITRES MILLONES SEISCIENTOS CINCUENTA Y SIETE MIL OCHOCIENTOS CINCUENTA Y CUATRO"
+                        + " CON CUATROCIENTOS CINCUENTA Y SEIS MIL SETECIENTOS OCHENTA Y NUEVE GUARANIES EXACTOS"));
+        for (int hueco : huecosDeFirma(print)) {
+            org.junit.jupiter.api.Assertions.assertTrue(hueco < 28,
+                    "la clausula no estiro: el caso ya no prueba una clausula larga (hueco " + hueco + ")");
+            org.junit.jupiter.api.Assertions.assertTrue(hueco > 0,
+                    "la clausula larga pisa la linea de firma (hueco " + hueco + " pt)");
+        }
+    }
+
+    /** La observacion va en un recuadro de alto fijo en cada via: no puede caer sobre otro texto. */
+    @Test
+    void laObservacionNoSeSolapaConOtroTexto() throws Exception {
+        List<ReciboLiquidacionItemDto> filas = Arrays.asList(
+                new ReciboLiquidacionItemDto("SUELDO", "ENTRADA", "SALARIO BASE", "30/11/2026", "3.100.000"));
+        for (net.sf.jasperreports.engine.JRPrintPage pg : llenar(filas).getPages()) {
+            for (net.sf.jasperreports.engine.JRPrintElement obs : pg.getElements()) {
+                if (!(obs instanceof net.sf.jasperreports.engine.JRPrintText)
+                        || !((net.sf.jasperreports.engine.JRPrintText) obs).getFullText().startsWith("Obs.:")) {
+                    continue;
+                }
+                for (net.sf.jasperreports.engine.JRPrintElement e : pg.getElements()) {
+                    if (e == obs || !(e instanceof net.sf.jasperreports.engine.JRPrintText)) continue;
+                    boolean seTocan = e.getX() < obs.getX() + obs.getWidth() && obs.getX() < e.getX() + e.getWidth()
+                            && e.getY() < obs.getY() + obs.getHeight() && obs.getY() < e.getY() + e.getHeight();
+                    org.junit.jupiter.api.Assertions.assertFalse(seTocan, "la observacion en y=" + obs.getY()
+                            + " se solapa con \"" + ((net.sf.jasperreports.engine.JRPrintText) e).getFullText() + "\"");
+                }
+            }
+        }
+    }
+
     private byte[] generar(List<ReciboLiquidacionItemDto> filas) throws Exception {
         return JasperExportManager.exportReportToPdf(llenar(filas));
     }
 
     private JasperPrint llenar(List<ReciboLiquidacionItemDto> filas) throws Exception {
+        return llenar(filas, paramsDummy());
+    }
+
+    private JasperPrint llenar(List<ReciboLiquidacionItemDto> filas, Map<String, Object> params) throws Exception {
         File f = ResourceUtils.getFile("classpath:reports/recibo-liquidacion.jrxml");
         JasperReport jr = JasperCompileManager.compileReport(f.getAbsolutePath());
-        return JasperFillManager.fillReport(jr, paramsDummy(), new JRBeanCollectionDataSource(filas));
+        return JasperFillManager.fillReport(jr, params, new JRBeanCollectionDataSource(filas));
     }
 
     /**
@@ -159,10 +257,11 @@ public class ReciboLiquidacionJrxmlTest {
      * summary: si no entra, la manda entera a una pagina nueva y el recibo sale en dos
      * hojas. Esta es la unica forma de que ese limite no se descubra recien imprimiendo.
      *
-     * <p><b>Techo medido: 25 items.</b> A4 deja 802pt utiles; title (110) + columnHeader
-     * (18) + summary con las dos vias, ambas con firma (292) = 420 fijos, y quedan 382
-     * para el detalle a 15pt por fila. El borde exacto (25 entra, 26 no) lo fija
-     * MarcaAguaRecibosRrhhJrxmlTest.liquidacionTechoDeUnaHoja. Este corre hasta 20 para
+     * <p><b>Techo medido: 23 items.</b> A4 deja 802pt utiles; title (110) + columnHeader
+     * (18) + summary con las dos vias, ambas con lugar para firmar (328) = 456 fijos, y
+     * quedan 346 para el detalle a 15pt por fila. El borde exacto (23 entra, 24 no) lo fija
+     * MarcaAguaRecibosRrhhJrxmlTest.liquidacionTechoDeUnaHoja. Si la clausula estira a una
+     * cuarta linea la banda crece y entra una fila menos. Este corre hasta 20 para
      * dejar margen: si alguien agranda una banda, salta aca y no en la impresora.</p>
      */
     @Test

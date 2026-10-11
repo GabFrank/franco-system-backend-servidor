@@ -49,6 +49,12 @@ type ConfiguracionFacturacionHistorial {
     creadoEn: Date
 }
 
+"Una pagina del historial, mas reciente primero."
+type ConfiguracionFacturacionHistorialPage {
+    getTotalElements: Int
+    getContent: [ConfiguracionFacturacionHistorial]
+}
+
 """
 Reemplazo completo, no PATCH. La clave es sucursalId (null = global): guardar sobre una clave
 que ya tiene fila la actualiza. El autor sale de la sesion.
@@ -67,6 +73,8 @@ extend type Query {
     configuracionesFacturacion: [ConfiguracionFacturacion]!
     "sucursalId null = todo; -1 = solo la global. Mas reciente primero; limite 200 por defecto."
     historialConfiguracionFacturacion(sucursalId: ID, limite: Int): [ConfiguracionFacturacionHistorial]!
+    "Mismo filtro que historialConfiguracionFacturacion, por paginas. size de 1 a 100."
+    historialConfiguracionFacturacionPage(sucursalId: ID, page: Int = 0, size: Int = 15): ConfiguracionFacturacionHistorialPage!
 }
 
 extend type Mutation {

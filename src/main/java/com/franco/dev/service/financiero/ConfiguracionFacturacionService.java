@@ -12,7 +12,9 @@ import com.franco.dev.service.CrudService;
 import com.franco.dev.service.empresarial.SucursalService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +37,8 @@ public class ConfiguracionFacturacionService extends CrudService<ConfiguracionFa
 
     private static final int HISTORIAL_LIMITE_DEFAULT = 200;
     private static final int HISTORIAL_LIMITE_MAXIMO = 1000;
+    private static final int HISTORIAL_PAGINA_DEFAULT = 15;
+    private static final int HISTORIAL_PAGINA_MAXIMA = 100;
 
     private final ConfiguracionFacturacionRepository repository;
     private final ConfiguracionFacturacionHistorialRepository historialRepository;
@@ -168,6 +172,23 @@ public class ConfiguracionFacturacionService extends CrudService<ConfiguracionFa
             return historialRepository.findBySucursalIsNullOrderByIdDesc(pagina);
         }
         return historialRepository.findBySucursalIdOrderByIdDesc(sucursalId, pagina);
+    }
+
+    /**
+     * El historial por paginas, mas reciente primero, con el total para el paginador. Mismo filtro
+     * que {@link #historial}: {@code sucursalId} null trae todo; -1 trae solo la global.
+     */
+    public Page<ConfiguracionFacturacionHistorial> historialPage(Long sucursalId, Integer page, Integer size) {
+        int p = page != null && page > 0 ? page : 0;
+        int n = size != null && size > 0 ? Math.min(size, HISTORIAL_PAGINA_MAXIMA) : HISTORIAL_PAGINA_DEFAULT;
+        PageRequest pagina = PageRequest.of(p, n, Sort.by(Sort.Direction.DESC, "id"));
+        if (sucursalId == null) {
+            return historialRepository.findAll(pagina);
+        }
+        if (sucursalId < 0) {
+            return historialRepository.findBySucursalIsNull(pagina);
+        }
+        return historialRepository.findBySucursalId(sucursalId, pagina);
     }
 
     private void registrar(ConfiguracionFacturacion config, AccionConfiguracionFacturacion accion, Usuario autor) {

@@ -8,7 +8,6 @@ import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.*;
 import com.franco.dev.domain.productos.enums.TipoConservacion;
-import com.franco.dev.graphql.productos.ProductoExistenciaCostoGraphQL;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.operaciones.PedidoItemService;
@@ -33,6 +32,9 @@ public class PresentacionResolver implements GraphQLResolver<Presentacion> {
     private ImageService imageService;
 
     @Autowired
+    private FotoProductoService fotoProductoService;
+
+    @Autowired
     private CodigoService codigoService;
 
     @Autowired
@@ -40,6 +42,11 @@ public class PresentacionResolver implements GraphQLResolver<Presentacion> {
 
     public String imagenPrincipal(Presentacion p) throws IOException {
         return imageService.getImageWithMediaType( p.getId()+".jpg", imageService.getImagePresentacionesThumb());
+    }
+
+    /** Para vistas grandes. A diferencia de {@code imagenPrincipal}, sin foto devuelve {@code null}. */
+    public String imagenPrincipalMediana(Presentacion p) {
+        return fotoProductoService.dePresentacion(p.getId(), FotoProductoService.Tamano.MEDIANA);
     }
 
     public List<Codigo> codigos(Presentacion p){

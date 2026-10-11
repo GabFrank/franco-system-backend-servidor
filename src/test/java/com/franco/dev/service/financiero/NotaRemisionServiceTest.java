@@ -1,7 +1,12 @@
 package com.franco.dev.service.financiero;
 
 import com.franco.dev.domain.financiero.NotaRemision;
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.NotaRemisionItem;
+import com.franco.dev.domain.financiero.Timbrado;
+import com.franco.dev.domain.operaciones.Transferencia;
+import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.service.operaciones.TransferenciaService;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
 import com.franco.dev.domain.financiero.enums.MotivoEmisionNotaRemision;
 import com.franco.dev.domain.financiero.enums.OrigenNotaRemision;
@@ -30,12 +35,16 @@ class NotaRemisionServiceTest {
 
     private static final Long TIMBRADO = 10L;
     private static final Long SUCURSAL = 1L;
+    private static final Long TRANSFERENCIA = 51338L;
+    private static final String RUC_EMPRESA = "80099999-1";
 
     private NotaRemisionRepository repository;
     private NotaRemisionItemRepository itemRepository;
     private TimbradoDetalleRepository timbradoDetalleRepository;
     private FacturacionSecurityService seg;
     private SerieDeNumeracionValidator serieValidator;
+    private TransferenciaService transferenciaService;
+    private TimbradoDetalle timbrado;
     private NotaRemisionService service;
 
     @BeforeEach
@@ -45,11 +54,17 @@ class NotaRemisionServiceTest {
         timbradoDetalleRepository = mock(TimbradoDetalleRepository.class);
         seg = mock(FacturacionSecurityService.class);
         serieValidator = mock(SerieDeNumeracionValidator.class);
+        transferenciaService = mock(TransferenciaService.class);
         service = new NotaRemisionService(repository, itemRepository, timbradoDetalleRepository,
-                seg, serieValidator);
+                seg, serieValidator, transferenciaService);
 
-        TimbradoDetalle timbrado = new TimbradoDetalle();
+        Timbrado cabecera = new Timbrado();
+        cabecera.setRuc(RUC_EMPRESA);
+        cabecera.setIsElectronico(true);
+        timbrado = new TimbradoDetalle();
         timbrado.setId(TIMBRADO);
+        timbrado.setSucursalId(SUCURSAL);
+        timbrado.setTimbrado(cabecera);
         timbrado.setActivo(true);
         when(timbradoDetalleRepository.lockById(TIMBRADO)).thenReturn(Optional.of(timbrado));
         when(repository.save(any(NotaRemision.class))).thenAnswer(i -> {
@@ -71,7 +86,8 @@ class NotaRemisionServiceTest {
         NotaRemision guardada = service.crear(notaManual(), items());
 
         assertEquals(1, guardada.getNumeroNotaRemision());
-        verify(seg).requireEmitir();
+        verify(seg).requireEmitirRemision(OrigenNotaRemision.MANUAL);
+        verifyNoInteractions(transferenciaService);
         verify(timbradoDetalleRepository).lockById(TIMBRADO);
     }
 
@@ -201,6 +217,155 @@ class NotaRemisionServiceTest {
 
         assertFalse(reciente.getActivo());
         verify(seg).requireEmitir();
+    }
+
+    // ---- Rol NOTA REMISION EMITIR: solo la nota de una transferencia real de la sucursal ----
+
+    @Test
+    void elRolAcotadoEmiteLaNotaDeSuTransferenciaYQuedaComoEmisor() {
+        actorAcotado();
+        transferenciaDesde(SUCURSAL);
+        NotaRemision nota = notaDeTransferencia();
+        nota.setUsuarioId(999L);
+
+        NotaRemision guardada = service.crear(nota, items());
+
+        assertEquals(1, guardada.getNumeroNotaRemision());
+        assertEquals(7L, guardada.getUsuarioId(), "el emisor es el usuario autenticado, no el del input");
+    }
+
+    @Test
+    void elRolAcotadoNoEmiteSiElServicioDeRolesRechazaElOrigen() {
+        doThrow(new GraphQLException("No autorizado")).when(seg).requireEmitirRemision(OrigenNotaRemision.MANUAL);
+
+        assertThrows(GraphQLException.class, () -> service.crear(notaManual(), items()));
+        verify(timbradoDetalleRepository, never()).lockById(any());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void elRolAcotadoNoEmiteParaUnaTransferenciaQueNoExiste() {
+        actorAcotado();
+        when(transferenciaService.findById(TRANSFERENCIA)).thenReturn(Optional.empty());
+
+        rechazaSinNumerar(notaDeTransferencia(), "No existe la transferencia");
+    }
+
+    @Test
+    void elRolAcotadoNoEmiteParaUnaTransferenciaDeOtraSucursal() {
+        actorAcotado();
+        transferenciaDesde(13L);
+
+        rechazaSinNumerar(notaDeTransferencia(), "otra sucursal");
+    }
+
+    @Test
+    void elRolAcotadoNoEmiteConOtroMotivo() {
+        actorAcotado();
+        transferenciaDesde(SUCURSAL);
+        NotaRemision nota = notaDeTransferencia();
+        nota.setMotivoEmision(MotivoEmisionNotaRemision.TRASLADO_POR_CONSIGNACION);
+
+        rechazaSinNumerar(nota, "No autorizado");
+    }
+
+    @Test
+    void elRolAcotadoNoEmiteANombreDeUnTercero() {
+        actorAcotado();
+        transferenciaDesde(SUCURSAL);
+        NotaRemision nota = notaDeTransferencia();
+        nota.setReceptorRuc("80012345-6");
+
+        rechazaSinNumerar(nota, "propia empresa");
+    }
+
+    @Test
+    void elRolAcotadoNoEmiteConElTimbradoDeOtraSucursal() {
+        actorAcotado();
+        transferenciaDesde(SUCURSAL);
+        timbrado.setSucursalId(13L);
+
+        rechazaSinNumerar(notaDeTransferencia(), "timbrado");
+    }
+
+    @Test
+    void elRolAcotadoNoPisaUnaNotaExistenteMandandoSuId() {
+        // Con el id del input, save() hace merge: reescribiría o reactivaría la nota 5.
+        actorAcotado();
+        transferenciaDesde(SUCURSAL);
+        NotaRemision nota = notaDeTransferencia();
+        nota.setId(5L);
+        List<NotaRemisionItem> items = items();
+        items.get(0).setId(77L);
+
+        NotaRemision guardada = service.crear(nota, items);
+
+        assertEquals(500L, guardada.getId(), "el id sale de la secuencia, no del input");
+        assertEquals(900L, items.get(0).getId());
+    }
+
+    @Test
+    void elRolAcotadoNoEmiteConUnTimbradoQueNoEsElectronico() {
+        actorAcotado();
+        transferenciaDesde(SUCURSAL);
+        timbrado.getTimbrado().setIsElectronico(false);
+
+        rechazaSinNumerar(notaDeTransferencia(), "electrónico");
+    }
+
+    @Test
+    void elRolAcotadoNoEmiteUnaNotaAtadaAUnaFactura() {
+        actorAcotado();
+        transferenciaDesde(SUCURSAL);
+        NotaRemision nota = notaDeTransferencia();
+        nota.setFacturaLegalId(9L);
+
+        rechazaSinNumerar(nota, "No autorizado");
+    }
+
+    @Test
+    void conFacturacionEmitirLaNotaDeTransferenciaNoPasaPorLasValidacionesDelRolAcotado() {
+        when(seg.emiteSoloDesdeTransferencia()).thenReturn(false);
+        NotaRemision nota = notaDeTransferencia();
+        nota.setReceptorRuc("80012345-6");
+        nota.setUsuarioId(999L);
+
+        NotaRemision guardada = service.crear(nota, items());
+
+        assertEquals(999L, guardada.getUsuarioId());
+        verifyNoInteractions(transferenciaService);
+    }
+
+    private void actorAcotado() {
+        when(seg.emiteSoloDesdeTransferencia()).thenReturn(true);
+        Usuario usuario = new Usuario();
+        usuario.setId(7L);
+        when(seg.currentUsuario()).thenReturn(usuario);
+    }
+
+    private void transferenciaDesde(Long sucursalOrigenId) {
+        Sucursal origen = new Sucursal();
+        origen.setId(sucursalOrigenId);
+        Transferencia transferencia = new Transferencia();
+        transferencia.setId(TRANSFERENCIA);
+        transferencia.setSucursalOrigen(origen);
+        when(transferenciaService.findById(TRANSFERENCIA)).thenReturn(Optional.of(transferencia));
+    }
+
+    private void rechazaSinNumerar(NotaRemision nota, String fragmento) {
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.crear(nota, items()));
+        assertTrue(e.getMessage().contains(fragmento), e.getMessage());
+        verify(repository, never()).findMaxNumeroByTimbradoDetalleId(any());
+        verify(repository, never()).save(any());
+    }
+
+    private static NotaRemision notaDeTransferencia() {
+        NotaRemision nota = notaManual();
+        nota.setOrigen(OrigenNotaRemision.TRANSFERENCIA);
+        nota.setTransferenciaId(TRANSFERENCIA);
+        nota.setMotivoEmision(MotivoEmisionNotaRemision.TRASLADO_ENTRE_LOCALES);
+        nota.setReceptorRuc(RUC_EMPRESA);
+        return nota;
     }
 
     private static NotaRemision notaManual() {

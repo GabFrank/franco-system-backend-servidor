@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
@@ -211,5 +212,18 @@ class ConfiguracionFacturacionServiceTest {
         verify(historialRepository).findBySucursalIsNullOrderByIdDesc(PageRequest.of(0, 1000));
         service.historial(7L, 10);
         verify(historialRepository).findBySucursalIdOrderByIdDesc(7L, PageRequest.of(0, 10));
+    }
+
+    @Test
+    void historialPaginado_filtraPorSucursalOrdenaPorIdDescYAcotaElTamanio() {
+        Sort idDesc = Sort.by(Sort.Direction.DESC, "id");
+        service.historialPage(null, null, null);
+        verify(historialRepository).findAll(PageRequest.of(0, 15, idDesc));
+        // -1 es la global: si llegara al filtro por sucursal, la pagina saldria vacia sin error.
+        service.historialPage(-1L, 2, 30);
+        verify(historialRepository).findBySucursalIsNull(PageRequest.of(2, 30, idDesc));
+        service.historialPage(7L, -3, 500);
+        verify(historialRepository).findBySucursalId(7L, PageRequest.of(0, 100, idDesc));
+        verify(historialRepository, never()).findBySucursalId(eq(-1L), any());
     }
 }

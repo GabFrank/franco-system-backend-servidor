@@ -1,5 +1,6 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.financiero.enums.OrigenNotaRemision;
 import com.franco.dev.domain.personas.Role;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.service.personas.RoleService;
@@ -106,6 +107,64 @@ class FacturacionSecurityServiceTest {
         autenticar("auditor", "FACTURACION EMITIR");
 
         seg.requireVer();
+    }
+
+    @Test
+    void elRolDeRemisionVeYEmiteLaNotaDeUnaTransferencia() {
+        autenticar("deposito", "NOTA REMISION EMITIR");
+
+        seg.requireVerRemisionDeTransferencia();
+        seg.requireEmitirAlgunaRemision();
+        seg.requireEmitirRemision(OrigenNotaRemision.TRANSFERENCIA);
+        assertTrue(seg.emiteSoloDesdeTransferencia());
+        assertTrue(seg.veSoloNotasDeTransferencia());
+    }
+
+    @Test
+    void elRolDeRemisionNoEmiteOtrosOrigenes() {
+        autenticar("deposito", "NOTA REMISION EMITIR");
+
+        assertThrows(GraphQLException.class, () -> seg.requireEmitirRemision(OrigenNotaRemision.MANUAL));
+        assertThrows(GraphQLException.class, () -> seg.requireEmitirRemision(OrigenNotaRemision.FACTURA));
+        assertThrows(GraphQLException.class, () -> seg.requireEmitirRemision(null));
+    }
+
+    @Test
+    void elRolDeRemisionNoAbreElRestoDeFacturacion() {
+        autenticar("deposito", "NOTA REMISION EMITIR");
+
+        // requireVer y requireEmitir son los del listado, el reenvío, la anulación y las notas de crédito
+        assertThrows(GraphQLException.class, () -> seg.requireVer());
+        assertThrows(GraphQLException.class, () -> seg.requireEmitir());
+    }
+
+    @Test
+    void elRolDeEmitirSigueEmitiendoCualquierOrigenYNoQuedaAcotado() {
+        autenticar("facturador", "FACTURACION EMITIR", "NOTA REMISION EMITIR");
+
+        seg.requireEmitirRemision(OrigenNotaRemision.MANUAL);
+        seg.requireEmitirRemision(OrigenNotaRemision.TRANSFERENCIA);
+        assertFalse(seg.emiteSoloDesdeTransferencia());
+        assertFalse(seg.veSoloNotasDeTransferencia());
+    }
+
+    @Test
+    void conSoloElRolDeVer_veLaNotaDeUnaTransferenciaPeroNoLaEmite() {
+        autenticar("auditor", "FACTURACION VER");
+
+        seg.requireVerRemisionDeTransferencia();
+        assertFalse(seg.veSoloNotasDeTransferencia());
+        assertThrows(GraphQLException.class, () -> seg.requireEmitirAlgunaRemision());
+        assertThrows(GraphQLException.class, () -> seg.requireEmitirRemision(OrigenNotaRemision.TRANSFERENCIA));
+    }
+
+    @Test
+    void sinRoles_noPasaNingunaPuertaDeRemision() {
+        autenticar("cajero", "VER TRANSFERENCIA");
+
+        assertThrows(GraphQLException.class, () -> seg.requireVerRemisionDeTransferencia());
+        assertThrows(GraphQLException.class, () -> seg.requireEmitirAlgunaRemision());
+        assertFalse(seg.emiteSoloDesdeTransferencia());
     }
 
     private void autenticar(String nickname, String... roles) {

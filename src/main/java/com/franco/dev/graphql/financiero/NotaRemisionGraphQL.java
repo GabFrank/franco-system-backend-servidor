@@ -76,15 +76,15 @@ public class NotaRemisionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     /** La nota activa de una transferencia, para que el desktop deshabilite el botón si ya existe. */
     public NotaRemision notaRemisionPorTransferencia(Long transferenciaId, Long sucursalId) {
-        seg.requireVer();
-        List<NotaRemision> notas = service.findActivasByTransferencia(transferenciaId, sucursalId);
+        seg.requireVerRemisionDeTransferencia();
+        List<NotaRemision> notas = soloLasQueElRolPuedeVer(service.findActivasByTransferencia(transferenciaId, sucursalId));
         return notas.isEmpty() ? null : notas.get(0);
     }
 
     /** Las notas activas de las transferencias de una página de la lista, en una sola consulta. */
     public List<NotaRemision> notasRemisionPorTransferencias(List<Long> transferenciaIds) {
-        seg.requireVer();
-        return service.findActivasByTransferencias(transferenciaIds);
+        seg.requireVerRemisionDeTransferencia();
+        return soloLasQueElRolPuedeVer(service.findActivasByTransferencias(transferenciaIds));
     }
 
     public DocumentoElectronico documentoElectronicoDeNotaRemision(Long notaRemisionId, Long sucursalId) {
@@ -108,12 +108,17 @@ public class NotaRemisionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
      * entrega: se rechaza explícitamente en vez de devolver un PDF que la impresora no entiende.
      */
     public String imprimirNotaRemision(Long id, Long sucursalId, Integer anchoMm, Boolean escpos) {
-        seg.requireVer();
+        seg.requireVerRemisionDeTransferencia();
         if (Boolean.TRUE.equals(escpos)) {
             throw new GraphQLException("El ticket térmico de la nota de remisión todavía no está disponible");
         }
-        NotaRemision nota = service.findByIdAndSucursalId(id, sucursalId)
-                .orElseThrow(() -> new GraphQLException("No existe la nota de remisión"));
+        NotaRemision nota = service.findByIdAndSucursalId(id, sucursalId).orElse(null);
+        if (seg.veSoloNotasDeTransferencia()) {
+            exigirNotaDeTransferencia(nota);
+        }
+        if (nota == null) {
+            throw new GraphQLException("No existe la nota de remisión");
+        }
         List<NotaRemisionItem> items = service.findItems(id, sucursalId);
         TimbradoDetalle timbrado = timbradoDetalleService
                 .findByIdAndSucursalId(nota.getTimbradoDetalleId(), sucursalId).orElse(null);
@@ -145,14 +150,28 @@ public class NotaRemisionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
      * no se regenera: se reenvía el mismo, con su CDC.
      */
     public DocumentoElectronico generarYEnviarNotaRemision(Long id, Long sucursalId) {
-        seg.requireEmitir();
+        seg.requireEmitirAlgunaRemision();
         exigirSifenHabilitado();
 
-        NotaRemision nota = service.findByIdAndSucursalId(id, sucursalId)
-                .orElseThrow(() -> new GraphQLException("No existe la nota de remisión"));
+        NotaRemision nota = service.findByIdAndSucursalId(id, sucursalId).orElse(null);
+        Optional<DocumentoElectronico> existente;
+        if (seg.emiteSoloDesdeTransferencia()) {
+            // Antes de crear el DE o de enviar nada: un rechazo no puede dejar un CDC consumido.
+            exigirNotaDeTransferencia(nota);
+            existente = documentoElectronicoService.findByNotaRemisionId(id, sucursalId);
+            // Con el DE ya creado esta mutation es un reenvío, y sin las guardas de reenviar.
+            if (!Boolean.TRUE.equals(nota.getActivo()) || existente.isPresent()) {
+                throw new GraphQLException("No autorizado: la nota ya fue enviada o anulada, "
+                        + "el reenvío requiere el rol " + FacturacionSecurityService.EMITIR);
+            }
+        } else {
+            if (nota == null) {
+                throw new GraphQLException("No existe la nota de remisión");
+            }
+            existente = documentoElectronicoService.findByNotaRemisionId(id, sucursalId);
+        }
 
-        DocumentoElectronico de = documentoElectronicoService.findByNotaRemisionId(id, sucursalId)
-                .orElseGet(() -> crearDocumento(nota, sucursalId));
+        DocumentoElectronico de = existente.orElseGet(() -> crearDocumento(nota, sucursalId));
 
         try {
             envioSincronoService.generarYEnviarSincrono(de);
@@ -254,6 +273,29 @@ public class NotaRemisionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             return sifenService.crearDocumentoElectronicoNotaRemision(nota, items, timbrado, sucursal, cdcAsociado);
         } catch (Exception e) {
             throw new GraphQLException("No se pudo generar el documento electrónico: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Alcance del rol NOTA REMISION EMITIR. «No existe» y «no es de una transferencia» responden lo
+     * mismo, para que el rol acotado no sirva para sondear qué notas hay.
+     */
+    /** Una nota de otro origen puede llevar `transferenciaId`: el rol acotado tampoco la ve por esta vía. */
+    private List<NotaRemision> soloLasQueElRolPuedeVer(List<NotaRemision> notas) {
+        if (notas == null || notas.isEmpty() || !seg.veSoloNotasDeTransferencia()) {
+            return notas;
+        }
+        List<NotaRemision> visibles = new ArrayList<>();
+        for (NotaRemision nota : notas) {
+            if (nota.getOrigen() == OrigenNotaRemision.TRANSFERENCIA) visibles.add(nota);
+        }
+        return visibles;
+    }
+
+    private void exigirNotaDeTransferencia(NotaRemision nota) {
+        if (nota == null || nota.getOrigen() != OrigenNotaRemision.TRANSFERENCIA
+                || nota.getTransferenciaId() == null) {
+            throw new GraphQLException("No autorizado: no existe la nota de remisión o no es de una transferencia");
         }
     }
 

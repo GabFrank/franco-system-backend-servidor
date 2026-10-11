@@ -209,6 +209,7 @@ type LucroPorFuncionarioSummary {
     totalVenta: Float
     lucro: Float
     margen: Float
+    margenCosto: Float
     totalDescuento: Float
     totalAumento: Float
     ventaMedia: Float

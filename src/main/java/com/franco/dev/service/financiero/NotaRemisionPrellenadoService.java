@@ -70,7 +70,7 @@ public class NotaRemisionPrellenadoService {
 
     /** Cabecera + ítems sugeridos. No persiste nada. */
     public NotaRemisionPrellenada prellenar(OrigenNotaRemision origen, Long referenciaId, Long sucursalId) {
-        seg.requireEmitir();
+        seg.requireEmitirRemision(origen);
         if (origen == null) {
             throw new GraphQLException("Falta el origen de la nota de remisión");
         }
@@ -309,7 +309,8 @@ public class NotaRemisionPrellenadoService {
      * `general.ciudad.codigo` guarda abreviaturas internas (SDG, KTT) y no el código de SIFEN.
      */
     public List<LocalDeSalida> localesDeSalida(String texto) {
-        seg.requireEmitir();
+        // El buscador del diálogo: lo necesita también quien emite solo desde una transferencia.
+        seg.requireEmitirAlgunaRemision();
         // El buscador del desktop manda '%' con el campo vacío: es «todas», no un texto a buscar.
         String filtro = texto != null ? texto.trim().toUpperCase() : "";
         if ("%".equals(filtro)) filtro = "";

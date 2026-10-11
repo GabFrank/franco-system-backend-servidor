@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.activos.Vehiculo;
+import com.franco.dev.domain.operaciones.HojaRuta;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
@@ -9,16 +11,20 @@ import com.franco.dev.domain.operaciones.enums.EtapaTransferencia;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TipoTransferencia;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
+import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.operaciones.input.TransferenciaInput;
+import com.franco.dev.graphql.operaciones.input.VerificarParaTransporteInput;
 import com.franco.dev.graphql.operaciones.publisher.TransferenciaQrEscaneadoPublisher;
 import com.franco.dev.graphql.operaciones.publisher.TransferenciaQrEscaneadoUpdate;
 import com.franco.dev.security.Unsecured;
+import com.franco.dev.service.activos.VehiculoService;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.operaciones.TransferenciaItemService;
 import com.franco.dev.service.operaciones.TransferenciaService;
+import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -32,8 +38,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
@@ -65,6 +74,12 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     @Autowired
     private com.franco.dev.service.operaciones.HojaRutaService hojaRutaService;
+
+    @Autowired
+    private PersonaService personaService;
+
+    @Autowired
+    private VehiculoService vehiculoService;
 
     @Autowired
     private PlatformTransactionManager transactionManager;
@@ -407,23 +422,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
                     }
                     break;
                 case TRANSPORTE_VERIFICACION:
-                    transferencia.setUsuarioTransporte(usuario);
-                    transferencia.setEtapa(etapa);
-                    for (TransferenciaItem ti : transferenciaItemList) {
-                        if (ti.getVencimientoPreparacion() != null) {
-                            ti.setVencimientoTransporte(ti.getVencimientoPreparacion());
-                        }
-                        if (ti.getMotivoRechazoPreparacion() != null) {
-                            ti.setMotivoRechazoTransporte(ti.getMotivoRechazoPreparacion());
-                        }
-                        if (ti.getMotivoModificacionPreparacion() != null) {
-                            ti.setMotivoModificacionTransporte(ti.getMotivoModificacionPreparacion());
-                        }
-                        ti.setPresentacionTransporte(ti.getPresentacionPreparacion());
-                        ti.setCantidadTransporte(ti.getCantidadPreparacion());
-                        ti = transferenciaItemService.save(ti);
-                        movimientoStockService.createMovimientoFromTransferenciaItem(ti);
-                    }
+                    iniciarVerificacionTransporte(transferencia, usuario, transferenciaItemList);
                     break;
                 case TRANSPORTE_EN_CAMINO:
                     transferencia.setEstado(TransferenciaEstado.EN_TRANSITO);
@@ -459,6 +458,92 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
             ok = true;
         }
         return ok;
+    }
+
+    /**
+     * Pasa la transferencia a TRANSPORTE_VERIFICACION con {@code responsable} como usuario de
+     * transporte: copia lo preparado a los campos de transporte y genera el movimiento de stock de
+     * cada item. Lo comparten avanzarEtapaTransferencia (responsable = quien toca el boton) y
+     * verificarParaTransporteMobile (responsable = el chofer elegido).
+     */
+    private void iniciarVerificacionTransporte(Transferencia transferencia, Usuario responsable,
+            List<TransferenciaItem> transferenciaItemList) {
+        transferencia.setUsuarioTransporte(responsable);
+        transferencia.setEtapa(EtapaTransferencia.TRANSPORTE_VERIFICACION);
+        for (TransferenciaItem ti : transferenciaItemList) {
+            if (ti.getVencimientoPreparacion() != null) {
+                ti.setVencimientoTransporte(ti.getVencimientoPreparacion());
+            }
+            if (ti.getMotivoRechazoPreparacion() != null) {
+                ti.setMotivoRechazoTransporte(ti.getMotivoRechazoPreparacion());
+            }
+            if (ti.getMotivoModificacionPreparacion() != null) {
+                ti.setMotivoModificacionTransporte(ti.getMotivoModificacionPreparacion());
+            }
+            ti.setPresentacionTransporte(ti.getPresentacionPreparacion());
+            ti.setCantidadTransporte(ti.getCantidadPreparacion());
+            ti = transferenciaItemService.save(ti);
+            movimientoStockService.createMovimientoFromTransferenciaItem(ti);
+        }
+    }
+
+    /**
+     * Verifica la transferencia para transporte asignandole el chofer que la lleva.
+     *
+     * Usado en:
+     * - Desktop: No (sigue con avanzarEtapaTransferencia y asigna choferes con saveHojaRuta)
+     * - Mobile: Si (la PWA elige chofer, vehiculo y acompaniantes antes de verificar)
+     *
+     * El chofer elegido —no el usuario logueado— queda como usuarioTransporte: figura como
+     * responsable aunque los items los revise y despache otro. Su persona va como chofer de una hoja de
+     * ruta que se crea siempre nueva: desde la PWA se despacha de a una transferencia, y una hoja
+     * que el desktop le haya asignado antes queda como estaba, con sus otras transferencias.
+     *
+     * Todo corre en una transaccion: si falla un item no queda ni la hoja huerfana ni la etapa
+     * avanzada a medias.
+     */
+    public Transferencia verificarParaTransporteMobile(VerificarParaTransporteInput input) {
+        return new TransactionTemplate(transactionManager).execute(status -> verificarParaTransporte(input));
+    }
+
+    private Transferencia verificarParaTransporte(VerificarParaTransporteInput input) {
+        Transferencia transferencia = service.findById(input.getTransferenciaId())
+                .orElseThrow(() -> new GraphQLException("No existe la transferencia " + input.getTransferenciaId()));
+        if (transferencia.getEtapa() != EtapaTransferencia.PREPARACION_MERCADERIA_CONCLUIDA) {
+            throw new GraphQLException("La transferencia " + transferencia.getId() + " esta en etapa "
+                    + transferencia.getEtapa() + ": solo se verifica para transporte despues de concluir la preparacion.");
+        }
+        Usuario chofer = usuarioService.findById(input.getChoferUsuarioId())
+                .orElseThrow(() -> new GraphQLException("No existe el usuario chofer " + input.getChoferUsuarioId()));
+        Persona personaChofer = chofer.getPersona();
+        if (personaChofer == null) {
+            throw new GraphQLException("El usuario " + chofer.getNickname()
+                    + " no tiene una persona asociada y no puede figurar como chofer.");
+        }
+        Vehiculo vehiculo = vehiculoService.findById(input.getVehiculoId())
+                .orElseThrow(() -> new GraphQLException("No existe el vehiculo " + input.getVehiculoId()));
+
+        List<Persona> acompanantes = new ArrayList<>();
+        if (input.getAcompanantesIds() != null) {
+            input.getAcompanantesIds().stream()
+                    .filter(Objects::nonNull)
+                    .filter(id -> !id.equals(personaChofer.getId()))
+                    .distinct()
+                    .forEach(id -> acompanantes.add(personaService.findById(id)
+                            .orElseThrow(() -> new GraphQLException("No existe la persona acompaniante " + id))));
+        }
+
+        HojaRuta hojaRuta = new HojaRuta();
+        hojaRuta.setChofer(personaChofer);
+        hojaRuta.setVehiculo(vehiculo);
+        hojaRuta.setFechaSalida(LocalDateTime.now());
+        hojaRuta.setAcompanantes(acompanantes);
+        hojaRuta = hojaRutaService.save(hojaRuta);
+
+        transferencia.setHojaRuta(hojaRuta);
+        iniciarVerificacionTransporte(transferencia, chofer,
+                transferenciaItemService.findByTransferenciaId(transferencia.getId()));
+        return service.save(transferencia);
     }
 
     public Page<Transferencia> transferenciasWithFilters(Long sucursalOrigenId, Long sucursalDestinoId,

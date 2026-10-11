@@ -39,7 +39,14 @@ class LucroRespaldoCostoMedioTest {
         String sql = sql(VentaItemRepository.class, "findLucroPorFuncionarioNative");
         assertTrue(sql.contains("COALESCE(vi.costo_unitario, NULLIF(cpp.costo_medio, 0), cpp.ultimo_precio_compra, 0)"),
                 "sin costo en el ítem, primero el costo medio y recién después el último precio de compra");
-        assertTrue(sql.contains("SELECT DISTINCT ON (producto_id) producto_id, ultimo_precio_compra, costo_medio "),
+        assertTrue(sql.contains("SELECT c.ultimo_precio_compra, c.costo_medio FROM productos.costo_por_producto c "),
                 "la subconsulta del último costo tiene que traer costo_medio o la consulta falla en runtime");
+    }
+
+    @Test
+    void lucroPorFuncionarioSoloMiraLosCobrosDelRango() {
+        String sql = sql(VentaItemRepository.class, "findLucroPorFuncionarioNative");
+        assertTrue(sql.contains("AND (cd.cobro_id, cd.sucursal_id) IN (SELECT cobro_id, sucursal_id FROM ventas) "),
+                "agrupar todo cobro_detalle sin filtrar por las ventas del rango tarda ~23 s");
     }
 }

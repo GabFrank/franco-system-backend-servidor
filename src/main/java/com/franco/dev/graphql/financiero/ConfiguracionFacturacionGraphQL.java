@@ -8,6 +8,7 @@ import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -53,5 +54,11 @@ public class ConfiguracionFacturacionGraphQL implements GraphQLQueryResolver, Gr
     public List<ConfiguracionFacturacionHistorial> historialConfiguracionFacturacion(Long sucursalId, Integer limite) {
         seg.requireVer();
         return service.historial(sucursalId, limite);
+    }
+
+    /** Lo mismo que {@link #historialConfiguracionFacturacion}, por paginas y con el total. */
+    public Page<ConfiguracionFacturacionHistorial> historialConfiguracionFacturacionPage(Long sucursalId, Integer page, Integer size) {
+        seg.requireVer();
+        return service.historialPage(sucursalId, page, size);
     }
 }

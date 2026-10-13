@@ -163,7 +163,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         if (cambios.getFecha() != null) d.setFecha(cambios.getFecha());
         d.setMotivo(cambios.getMotivo());
         d.setObservacion(cambios.getObservacion());
-        d.setCajaVirtualId(cambios.getCajaVirtualId());
+        if (cambios.getCajaVirtualId() != null) d.setCajaVirtualId(cambios.getCajaVirtualId());
         if (cambios.getUsuario() != null) d.setUsuario(cambios.getUsuario());
         return save(d);
     }
@@ -598,7 +598,12 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                     m.setUsuario(usuario);
                     movimientoStockService.save(m);
                 }
-                productoVencimientoService.delete(pv);
+                // CrudService.delete no lanza: devuelve false. Si el vencimiento queda, un
+                // segundo revertir volveria a sacar el mismo stock.
+                if (!Boolean.TRUE.equals(productoVencimientoService.delete(pv))) {
+                    throw new GraphQLException("No se pudo revertir el canje de "
+                            + descripcionProducto(item) + ": no se borro su vencimiento");
+                }
             }
         }
     }

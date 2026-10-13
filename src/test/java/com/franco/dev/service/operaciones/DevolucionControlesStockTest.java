@@ -118,6 +118,7 @@ class DevolucionControlesStockTest {
         ProductoVencimiento pv = new ProductoVencimiento();
         pv.setCantidad(cantidadBase);
         pv.setSucursal(sucursal(sucursalId));
+        when(productoVencimientoService.delete(pv)).thenReturn(true);
         when(productoVencimientoService.findByTipoOrigenAndOrigenId(
                 TipoOrigenVencimiento.DEVOLUCION_CANJE, item.getId()))
                 .thenReturn(Collections.singletonList(pv));
@@ -223,6 +224,21 @@ class DevolucionControlesStockTest {
         assertEquals(DevolucionEstado.CANJEADO, d.getEstado());
         verify(movimientoStockService, never()).save(any());
         verify(productoVencimientoService, never()).delete(pv);
+        verify(repo, never()).save(any());
+    }
+
+    @Test
+    void revertirCanje_siNoSeBorraElVencimiento_rechaza() {
+        Devolucion d = devolucion(DevolucionEstado.CANJEADO);
+        DevolucionItem item = item(5L, 2.0, 2.0);
+        items(item);
+        ProductoVencimiento pv = ingresoDeCanje(item, 12.0, DEPOSITO);
+        when(productoVencimientoService.delete(pv)).thenReturn(false);
+
+        // Lanza para que la transaccion deshaga el movimiento: si no, revertir de nuevo restaria otra vez.
+        assertThrows(GraphQLException.class, () -> service.revertirEstado(1L, null));
+
+        assertEquals(DevolucionEstado.CANJEADO, d.getEstado());
         verify(repo, never()).save(any());
     }
 

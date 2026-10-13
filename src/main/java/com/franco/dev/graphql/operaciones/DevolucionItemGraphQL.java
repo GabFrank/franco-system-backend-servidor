@@ -112,7 +112,11 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
         
         try {
             // El estado se lee de la devolucion de la fila (si el item ya existe), no del input.
-            DevolucionItem existente = input.getId() != null ? service.findById(input.getId()).orElse(null) : null;
+            DevolucionItem existente = null;
+            if (input.getId() != null) {
+                existente = service.findById(input.getId())
+                        .orElseThrow(() -> new GraphQLException("Item de devolucion no encontrado con ID: " + input.getId()));
+            }
             Devolucion devolucion = existente != null ? existente.getDevolucion() : null;
             if (devolucion == null) {
                 if (input.getDevolucionId() == null) {

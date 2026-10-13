@@ -28,6 +28,30 @@ proveedor entrega el reemplazo. Es intencional (decidido el 2026-10-13).
 Todos los movimientos llevan `referencia = devolucion_item.id`. Las devoluciones anteriores al
 2026-10-13 tienen sus reingresos grabados como `ENTRADA`; no se migraron.
 
+## Stock por lote
+
+Solo para productos con `producto.lote = true`. Cada movimiento de la tabla de arriba lleva además
+su desglose en `movimiento_stock_lote`; lo escribe `DevolucionLoteService`.
+
+| Paso | Qué se anota |
+|---|---|
+| Separar, con lote elegido en el ítem | la baja **entera** a ese lote, aunque esté bloqueado o sin saldo: es el que se tiene en la mano |
+| Separar, sin lote elegido | reparto por FEFO entre lotes liberados; si el saldo por lote no alcanza, lo que haya (el resto queda sin trazar) |
+| Revertir el separado / cancelar | el espejo del desglose de la baja: vuelve a los mismos lotes |
+| Canjear | la entrada entera al lote que entrega el proveedor (`lote_reingreso`), que se crea si no existe |
+| Revertir el canje | el espejo del desglose del canje |
+
+- El ítem guarda `lote_id` (lote del maestro; su número se copia a `lote`), `lote_reingreso`,
+  `movimiento_baja_id` y `movimiento_canje_id`. Los dos ids existen porque **deshacer espeja un
+  movimiento puntual**: buscarlo por tipo y `referencia` es ambiguo, ya que la baja, su reversión,
+  el canje y su reversión comparten los dos.
+- Canjear un producto con lote **exige** `lote_reingreso` cuando hay reingreso.
+- `loteId` y `loteReingreso` existen solo en el input GraphQL. Los clientes los mandan únicamente
+  con valor y no piden nada nuevo en sus consultas, así un cliente nuevo sigue andando contra un
+  central anterior a `V248.3` (salvo para guardar un ítem con lote elegido).
+- Un cliente que no conoce los campos y reenvía un ítem conserva el lote si no cambió el texto.
+- Lo separado o canjeado antes de `V248.3` no tiene ids de movimiento: deshacerlo no toca el ledger.
+
 ## Qué se puede editar
 
 - **Cabecera e ítems: solo en `PENDIENTE`.** El stock sale al separar a partir de los ítems; si
@@ -56,6 +80,6 @@ revertir —en especial revertir un canje, que saca stock— y aplicarlo con `In
 
 ## Tests
 
-`DevolucionControlesStockTest`, `DevolucionEdicionValidatorTest`, `DevolucionOperacionesTest`,
+`DevolucionLoteTest`, `DevolucionControlesStockTest`, `DevolucionEdicionValidatorTest`, `DevolucionOperacionesTest`,
 `DevolucionTransicionValidatorTest`, `DevolucionRetiroEnBloqueTest`. `DevolucionFlujoIT` corre
 contra una base real con `-Dit.devolucion=true`.

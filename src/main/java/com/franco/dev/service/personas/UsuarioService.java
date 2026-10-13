@@ -173,9 +173,14 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
 
     @Override
     public Usuario save(Usuario entity) {
+        boolean sinPassword = entity.getPassword() == null || entity.getPassword().trim().isEmpty();
         if (entity.getId() == null) {
             entity.setCreadoEn(LocalDateTime.now());
-            entity.setPassword("123");
+            // Clave elegida al crear; sin clave queda la inicial "123" de siempre.
+            if (sinPassword) entity.setPassword("123");
+        } else if (sinPassword) {
+            // Editar sin mandar clave no la toca: antes quedaba en null y el usuario no podia entrar.
+            entity.setPassword(repository.findById(entity.getId()).map(Usuario::getPassword).orElse(null));
         }
         entity.setNickname(entity.getNickname().toUpperCase());
         if (entity.getPassword() != null)

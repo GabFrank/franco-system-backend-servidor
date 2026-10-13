@@ -1,7 +1,9 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.domain.operaciones.Devolucion;
 import com.franco.dev.domain.operaciones.DevolucionItem;
 import com.franco.dev.graphql.operaciones.input.DevolucionItemInput;
+import com.franco.dev.service.operaciones.DevolucionEdicionValidator;
 import com.franco.dev.service.operaciones.DevolucionItemService;
 import com.franco.dev.service.operaciones.DevolucionService;
 import com.franco.dev.service.operaciones.RecepcionMercaderiaItemService;
@@ -109,6 +111,24 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
         logger.info("=== Starting DevolucionItem save operation ===");
         
         try {
+            // El estado se lee de la devolucion de la fila (si el item ya existe), no del input.
+            DevolucionItem existente = input.getId() != null ? service.findById(input.getId()).orElse(null) : null;
+            Devolucion devolucion = existente != null ? existente.getDevolucion() : null;
+            if (devolucion == null) {
+                if (input.getDevolucionId() == null) {
+                    throw new GraphQLException("devolucionId es requerido");
+                }
+                devolucion = devolucionService.findById(input.getDevolucionId())
+                        .orElseThrow(() -> new GraphQLException("Devolucion no encontrada con ID: " + input.getDevolucionId()));
+            }
+            if (existente != null && DevolucionEdicionValidator.admiteDatosDeCanje(devolucion.getEstado())) {
+                return guardarDatosDeCanje(existente, input);
+            }
+            String errorEdicion = DevolucionEdicionValidator.validarEdicion(devolucion.getEstado());
+            if (errorEdicion != null) {
+                throw new GraphQLException(errorEdicion);
+            }
+
             DevolucionItem entity = new DevolucionItem();
 
             // Map basic fields
@@ -126,10 +146,7 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
             }
 
             // Map navigation properties
-            if (input.getDevolucionId() != null) {
-                entity.setDevolucion(devolucionService.findById(input.getDevolucionId())
-                    .orElseThrow(() -> new GraphQLException("Devolucion no encontrada con ID: " + input.getDevolucionId())));
-            }
+            entity.setDevolucion(devolucion);
 
             if (input.getProductoId() != null) {
                 entity.setProducto(productoService.findById(input.getProductoId())
@@ -176,9 +193,33 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
         }
     }
 
+    /**
+     * Con la devolucion RETIRADA, de un item solo se cargan los datos del canje. El resto
+     * del input se ignora: lo que salio del stock al separar no puede cambiar.
+     */
+    private DevolucionItem guardarDatosDeCanje(DevolucionItem item, DevolucionItemInput input) {
+        String producto = item.getProducto() != null ? item.getProducto().getDescripcion() : "el item";
+        String error = DevolucionEdicionValidator.validarReingreso(
+                item.getCantidad(), input.getCantidadReingresada(), producto);
+        if (error != null) {
+            throw new GraphQLException(error);
+        }
+        item.setCantidadReingresada(input.getCantidadReingresada());
+        item.setVencimientoReingreso(input.getVencimientoReingreso() != null
+                ? stringToDate(input.getVencimientoReingreso()).toLocalDate() : null);
+        return service.save(item);
+    }
+
     public Boolean deleteDevolucionItem(Long id) {
         logger.info("Eliminando DevolucionItem con ID: {}", id);
         try {
+            DevolucionItem item = service.findById(id).orElse(null);
+            if (item != null && item.getDevolucion() != null) {
+                String errorEdicion = DevolucionEdicionValidator.validarEdicion(item.getDevolucion().getEstado());
+                if (errorEdicion != null) {
+                    throw new GraphQLException(errorEdicion);
+                }
+            }
             return service.deleteById(id);
         } catch (Exception ex) {
             logger.error("Error al eliminar DevolucionItem: {}", ex.getMessage());

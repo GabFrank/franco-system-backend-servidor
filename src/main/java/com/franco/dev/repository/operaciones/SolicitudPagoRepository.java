@@ -35,6 +35,11 @@ public interface SolicitudPagoRepository extends HelperRepository<SolicitudPago,
 
     java.util.List<SolicitudPago> findByEstadoIn(java.util.List<com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado> estados);
 
+    /** Las solicitudes de un tipo que cargó un usuario: los gastos pagables del rol acotado de tesorería. */
+    java.util.List<SolicitudPago> findByEstadoInAndTipoAndUsuario_Id(
+            java.util.List<com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado> estados,
+            com.franco.dev.domain.operaciones.enums.TipoSolicitudPago tipo, Long usuarioId);
+
     public List<SolicitudPago> findByUsuarioId(Long id);
     
     // public SolicitudPago findByTipoAndReferenciaId(TipoSolicitudPago tipo, Long referenciaId);

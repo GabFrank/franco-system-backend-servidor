@@ -130,10 +130,13 @@ public class PagoProveedorService {
     @Transactional(readOnly = true)
     public List<com.franco.dev.service.financiero.dto.DetallePagoItemDto> detalleDePago(Long pagoId) {
         java.util.List<Long> visibles = seguridad.cajasVisiblesIds();   // null = ve todas
+        boolean acotado = seguridad.esSoloCaja();
         java.util.LinkedHashMap<Long, java.math.BigDecimal> imputadoPorSolicitud = new java.util.LinkedHashMap<>();
         for (com.franco.dev.domain.financiero.PagoSolicitudDetalle d
                 : detalleRepository.findByPagoIdOrderByCreadoEnAsc(pagoId)) {
             if (Boolean.TRUE.equals(d.getAnulado())) continue;
+            // El rol acotado no ve lo pagado por banco o cheque: no tiene caja que lo delimite.
+            if (acotado && d.getCajaVirtualId() == null) continue;
             if (visibles != null && d.getCajaVirtualId() != null && !visibles.contains(d.getCajaVirtualId())) {
                 continue;   // pagado desde una caja que este usuario no puede ver
             }
@@ -144,6 +147,8 @@ public class PagoProveedorService {
         for (java.util.Map.Entry<Long, java.math.BigDecimal> e : imputadoPorSolicitud.entrySet()) {
             SolicitudPago sp = solicitudPagoService.findById(e.getKey()).orElse(null);
             if (sp == null) continue;
+            // Ni lo que otro pagó desde su caja y no es suyo (un sueldo, la compra de otra sucursal).
+            if (acotado && !pagableEnModoAcotado(sp)) continue;
             com.franco.dev.service.financiero.dto.DetallePagoItemDto i =
                     new com.franco.dev.service.financiero.dto.DetallePagoItemDto();
             i.setSolicitudPagoId(sp.getId());
@@ -296,6 +301,7 @@ public class PagoProveedorService {
      */
     @Transactional
     public Pago pagarLoteMixto(List<SolicitudConLineas> pagos, Usuario usuario, String claveIdempotencia) {
+        exigirPagoPermitidoEnModoAcotado(pagos);
         return idempotenciaService.ejecutar(claveIdempotencia, OPERACION_PAGAR_MIXTO, huellaDe(pagos), usuario,
                 () -> {
                     exigirSinObligacionesRrhh(pagos == null ? null
@@ -304,6 +310,58 @@ public class PagoProveedorService {
                 },
                 Pago::getId,
                 this::pagoYaRegistrado);
+    }
+
+    // ─────────────── Rol acotado (TESORERIA CAJA) ───────────────
+
+    /**
+     * Lo que el rol acotado puede pagar: los gastos que cargó él mismo. Es la misma regla para listar,
+     * pagar, anular y ver el detalle, para que lo que no aparece en su lista tampoco se alcance por id.
+     */
+    private boolean pagableEnModoAcotado(SolicitudPago sp) {
+        Usuario actual = seguridad.currentUsuario();
+        if (sp == null || actual == null) return false;
+        return sp.getTipo() == com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO
+                && sp.getUsuario() != null && actual.getId().equals(sp.getUsuario().getId());
+    }
+
+    /**
+     * El rol acotado paga solo en efectivo, desde una caja que puede mover, y solo lo que le corresponde.
+     * Se recorre todo el pedido antes de procesar la primera línea: un pago rechazado no deja nada asentado.
+     */
+    private void exigirPagoPermitidoEnModoAcotado(List<SolicitudConLineas> pagos) {
+        if (pagos == null || !seguridad.esSoloCaja()) return;
+        for (SolicitudConLineas p : pagos) {
+            SolicitudPago sp = p.getSolicitudId() != null
+                    ? solicitudPagoService.findById(p.getSolicitudId()).orElse(null) : null;
+            if (!pagableEnModoAcotado(sp)) {
+                throw new GraphQLException("No autorizado: la solicitud #" + p.getSolicitudId()
+                        + " no está entre las que podés pagar con tu rol.");
+            }
+            if (p.getLineas() == null) continue;
+            for (LineaPago l : p.getLineas()) {
+                if (l.getFuente() == FuentePago.AJUSTE) continue;
+                if (l.getFuente() != FuentePago.CAJA_MAYOR) {
+                    throw new GraphQLException("No autorizado: con tu rol solo podés pagar en efectivo desde tu caja.");
+                }
+                seguridad.requireEscrituraCaja(l.getCajaVirtualId());
+            }
+        }
+    }
+
+    /** Idem para anular: un pago propio, sin patas de banco ni de cheque, hecho desde cajas que puede mover. */
+    private void exigirAnulacionPermitidaEnModoAcotado(List<PagoSolicitudDetalle> detalles) {
+        if (!seguridad.esSoloCaja()) return;
+        for (PagoSolicitudDetalle d : detalles) {
+            if (d.getChequeId() != null || d.getMovimientoBancarioId() != null || d.getCuentaBancariaId() != null) {
+                throw new GraphQLException("No autorizado: este pago tiene una parte por banco o cheque."
+                        + " Lo anula tesorería.");
+            }
+            if (d.getCajaVirtualId() != null) seguridad.requireEscrituraCaja(d.getCajaVirtualId());
+            if (!pagableEnModoAcotado(solicitudPagoService.findById(d.getSolicitudPagoId()).orElse(null))) {
+                throw new GraphQLException("No autorizado: este pago incluye documentos que no podés pagar con tu rol.");
+            }
+        }
     }
 
     /**
@@ -438,6 +496,14 @@ public class PagoProveedorService {
 
     /** Solicitudes de pago de GASTO pagables (SOLICITADO o PARCIAL) para el diálogo de gastos. */
     public List<SolicitudPago> listarGastosPendientes() {
+        if (seguridad.esSoloCaja()) {
+            // El rol acotado paga los gastos que cargó él: filtrado en la consulta, no en memoria.
+            Usuario actual = seguridad.currentUsuario();
+            if (actual == null) return java.util.Collections.emptyList();
+            return solicitudPagoService.getRepository().findByEstadoInAndTipoAndUsuario_Id(
+                    List.of(SolicitudPagoEstado.SOLICITADO, SolicitudPagoEstado.PARCIAL),
+                    com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO, actual.getId());
+        }
         return solicitudPagoService.getRepository()
                 .findByEstadoIn(List.of(SolicitudPagoEstado.SOLICITADO, SolicitudPagoEstado.PARCIAL))
                 .stream()
@@ -704,6 +770,7 @@ public class PagoProveedorService {
         List<PagoSolicitudDetalle> detalles = detalleRepository.findByPagoIdOrderByCreadoEnAsc(pagoId)
                 .stream().filter(d -> !Boolean.TRUE.equals(d.getAnulado())).collect(Collectors.toList());
         if (detalles.isEmpty()) throw new GraphQLException("El pago no tiene detalles activos para anular");
+        exigirAnulacionPermitidaEnModoAcotado(detalles);
         String razon = (motivo != null && !motivo.trim().isEmpty()) ? motivo : "Anulación pago #" + pagoId;
 
         // Revertir cada movimiento consolidado una sola vez (varios detalles comparten el mismo movimiento).

@@ -36,18 +36,18 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Lo consume el detalle del movimiento consolidado en el historial de la caja.
      */
     public List<com.franco.dev.service.financiero.dto.DetallePagoItemDto> detalleDePago(Long pagoId) {
-        seg.requireVer();
+        seg.requireVerCaja();
         return service.detalleDePago(pagoId);
     }
 
     public List<SolicitudPago> gastosPendientes() {
-        seg.requireVer();
+        seg.requireVerCaja();
         return service.listarGastosPendientes();
     }
 
     /** Crea un gasto (PreGasto liviano) + su obligación de pago (SolicitudPago GASTO, SOLICITADO). */
     public SolicitudPago crearGastoParaPago(GastoParaPagoWrapper input, String claveIdempotencia) {
-        seg.requireGestionar();
+        seg.requireOperarCaja();
         // Antes de interpretar nada: la fecha entra como texto, tal como la mandó el cliente.
         String huella = new com.franco.dev.service.financiero.HuellaPedido()
                 .id(input.getTipoGastoId()).texto(input.getDescripcion()).id(input.getMonedaId())
@@ -86,7 +86,7 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Con {@code claveIdempotencia}, un pedido repetido devuelve el evento ya creado (issue #376).
      */
     public Pago pagarSolicitudesMixto(List<SolicitudConLineasWrapper> pagos, String claveIdempotencia) {
-        seg.requirePagarCpp();
+        seg.requirePagarCppCaja();
         List<PagoProveedorService.SolicitudConLineas> ls = new ArrayList<>();
         for (SolicitudConLineasWrapper w : pagos) {
             PagoProveedorService.SolicitudConLineas s = new PagoProveedorService.SolicitudConLineas();
@@ -99,7 +99,7 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     /** Anula todo un evento de pago (revierte los movimientos consolidados y reabre sus solicitudes). */
     public Pago anularPagoCpp(Long pagoId, String motivo) {
-        seg.requirePagarCpp();
+        seg.requirePagarCppCaja();
         return service.anularPagoCpp(pagoId, motivo, seg.currentUsuario());
     }
 

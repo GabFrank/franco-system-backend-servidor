@@ -38,6 +38,8 @@ public class OperacionFinancieraService {
     private final MovimientoCajaVirtualRepository movimientoCajaVirtualRepository;
     private final MovimientoBancarioRepository movimientoBancarioRepository;
     private final ComprobanteNumeracionService comprobanteNumeracionService;
+    private final TesoreriaSecurityService seguridad;
+    private final com.franco.dev.repository.financiero.CajaVirtualConfiguracionRepository cajaConfiguracionRepository;
 
     public Page<OperacionFinanciera> findAll(Pageable pageable) {
         return repository.findAllByOrderByCreadoEnDesc(pageable);
@@ -48,6 +50,7 @@ public class OperacionFinancieraService {
     @Transactional
     public OperacionFinanciera registrar(OperacionFinanciera op, Usuario usuario) {
         req(op.getTipoOperacion() != null, "Tipo de operación requerido");
+        exigirPermitidaEnModoAcotado(op);
         derivarMonedasDeCuentas(op);
         validarDestinoDeDiferencia(op);
         op.setUsuario(usuario);
@@ -158,6 +161,38 @@ public class OperacionFinancieraService {
         return saved;
     }
 
+    /**
+     * El rol acotado (TESORERIA CAJA) solo deposita desde su caja a una cuenta habilitada para esa caja, o
+     * transfiere entre sus cajas. Se valida entera antes de registrar o revertir nada: lo que mueve un
+     * banco sin ACL no puede quedar librado a que falle una pata después de asentada la otra.
+     */
+    private void exigirPermitidaEnModoAcotado(OperacionFinanciera op) {
+        if (!seguridad.esSoloCaja()) return;
+        TipoOperacionFinanciera t = op.getTipoOperacion();
+        if (t == TipoOperacionFinanciera.DEPOSITO_BANCARIO) {
+            req(op.getCajaMayorOrigen() != null && op.getCuentaBancariaDestino() != null,
+                    "Depósito requiere caja origen y cuenta bancaria destino");
+            seguridad.requireEscrituraCaja(op.getCajaMayorOrigen().getId());
+            if (!cajaConfiguracionRepository.esCuentaVisibleDeLaCaja(
+                    op.getCajaMayorOrigen().getId(), op.getCuentaBancariaDestino().getId())) {
+                throw new GraphQLException("No autorizado: esa cuenta bancaria no está habilitada para depósitos"
+                        + " desde esta caja. Pedile a tesorería que la habilite.");
+            }
+        } else if (t == TipoOperacionFinanciera.TRANSFERENCIA_ENTRE_CAJAS) {
+            req(op.getCajaMayorOrigen() != null && op.getCajaMayorDestino() != null,
+                    "Transferencia entre cajas requiere origen y destino");
+            seguridad.requireEscrituraCaja(op.getCajaMayorOrigen().getId());
+            seguridad.requireEscrituraCaja(op.getCajaMayorDestino().getId());
+        } else {
+            throw new GraphQLException("No autorizado: con tu rol solo podés depositar al banco o transferir"
+                    + " entre tus cajas.");
+        }
+        // La diferencia se imputa como un ajuste de saldo, que no entra en el rol acotado.
+        if (pideImputarDiferencia(op)) {
+            throw new GraphQLException("No autorizado: registrar una diferencia requiere el rol TESORERIA GESTIONAR.");
+        }
+    }
+
     /** Trae una operación financiera por id (para el detalle read-only en caja mayor). */
     @Transactional(readOnly = true)
     public OperacionFinanciera porId(Long id) {
@@ -186,6 +221,7 @@ public class OperacionFinancieraService {
         if (repository.findAnuladoById(operacionId).orElse(Boolean.TRUE.equals(op.getAnulado()))) {
             throw new GraphQLException("La operación financiera #" + operacionId + " ya está anulada");
         }
+        exigirPermitidaEnModoAcotado(op);
         // Límite de antigüedad sobre la fecha de la operación, antes de revertir ninguna pata (issue #370).
         tesoreriaService.requireDentroDelLimiteDeAnulacion(op.getCreadoEn(), "La operación financiera #" + operacionId);
         String razon = (motivo != null && !motivo.trim().isEmpty())

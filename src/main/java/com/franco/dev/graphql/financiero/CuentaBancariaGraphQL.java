@@ -53,21 +53,25 @@ public class CuentaBancariaGraphQL implements GraphQLQueryResolver, GraphQLMutat
     private MultiTenantService multiTenantService;
 
     public Optional<CuentaBancaria> cuentaBancaria(Long id) {
+        seg.requireVer();
         return service.findById(id);
     }
 
     public List<CuentaBancaria> cuentasBancarias(int page, int size) {
+        seg.requireVer();
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
     /** Cuentas propias operables (activas + disponibles para operaciones financieras): para caja mayor y operaciones. */
     public List<CuentaBancaria> cuentasBancariasOperables() {
+        seg.requireVer();
         return service.getRepository().findOperables();
     }
 
 
     public CuentaBancaria saveCuentaBancaria(CuentaBancariaInput input) {
+        seg.requireGestionar();
         ModelMapper m = new ModelMapper();
         CuentaBancaria e = m.map(input, CuentaBancaria.class);
         // saldo/saldoReservado los administra el ledger (BancoLedgerService); nunca por el CRUD.
@@ -99,15 +103,18 @@ public class CuentaBancariaGraphQL implements GraphQLQueryResolver, GraphQLMutat
     }
 
     public List<CuentaBancaria> cuentaBancariasSearch(String texto) {
+        seg.requireVer();
         return service.findByAll(texto);
     }
 
     public Boolean deleteCuentaBancaria(Long id) {
+        seg.requireGestionar();
         Boolean ok = service.deleteById(id);
         return ok;
     }
 
     public Long countCuentaBancaria() {
+        seg.requireVer();
         return service.count();
     }
 

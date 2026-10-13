@@ -164,9 +164,10 @@ public class TesoreriaSecurityService {
      * Sin usuario autenticado es false: un proceso de sistema no es un operador acotado.
      */
     public boolean esSoloCaja() {
-        if (esProcesoDeSistema() || esSuperusuario()) return false;
-        Set<String> mine = currentRoles();
-        if (!mine.contains(CAJA)) return false;
+        String nick = currentNickname();
+        if (nick == null || ADMIN.equalsIgnoreCase(nick)) return false;
+        Set<String> mine = currentRoles();   // una sola lectura: lo llama cada campo de saldo
+        if (mine.contains(ADMIN) || !mine.contains(CAJA)) return false;
         for (String r : TODOS) {
             if (mine.contains(r)) return false;
         }

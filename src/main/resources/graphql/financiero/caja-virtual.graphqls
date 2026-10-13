@@ -63,6 +63,8 @@ extend type Query {
     cajaVirtualesActivas: [CajaVirtual]
     cajaVirtualSaldos(cajaVirtualId: ID!): [CajaVirtualSaldoItem]
     cajaVirtualResumenBancario(cajaVirtualId: ID!): [CuentaBancariaResumen]
+    # Cuentas habilitadas como destino de un depósito desde la caja (las visibles de su configuración).
+    cuentasBancariasParaDeposito(cajaVirtualId: ID!): [CuentaBancaria]
 }
 
 extend type Mutation {

@@ -9,6 +9,7 @@ import com.franco.dev.repository.financiero.MovimientoCajaVirtualRepository;
 import com.franco.dev.repository.financiero.OperacionFinancieraRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import graphql.GraphQLException;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
@@ -27,6 +28,8 @@ class OperacionFinancieraServiceTest {
     private MovimientoCajaVirtualRepository movimientoCajaVirtualRepository;
     private MovimientoBancarioRepository movimientoBancarioRepository;
     private ComprobanteNumeracionService numeracion;
+    private TesoreriaSecurityService seguridad;
+    private com.franco.dev.repository.financiero.CajaVirtualConfiguracionRepository cajaConfiguracionRepository;
     private OperacionFinancieraService service;
 
     @BeforeEach
@@ -37,8 +40,10 @@ class OperacionFinancieraServiceTest {
         movimientoCajaVirtualRepository = mock(MovimientoCajaVirtualRepository.class);
         movimientoBancarioRepository = mock(MovimientoBancarioRepository.class);
         numeracion = mock(ComprobanteNumeracionService.class);
+        seguridad = mock(TesoreriaSecurityService.class);
+        cajaConfiguracionRepository = mock(com.franco.dev.repository.financiero.CajaVirtualConfiguracionRepository.class);
         service = new OperacionFinancieraService(repository, tesoreriaService, bancoLedgerService,
-                movimientoCajaVirtualRepository, movimientoBancarioRepository, numeracion);
+                movimientoCajaVirtualRepository, movimientoBancarioRepository, numeracion, seguridad, cajaConfiguracionRepository);
         when(repository.save(any())).thenAnswer(i -> {
             OperacionFinanciera o = i.getArgument(0);
             if (o.getId() == null) o.setId(1L);
@@ -371,5 +376,130 @@ class OperacionFinancieraServiceTest {
 
         verify(repository, never()).save(any());
         verifyNoInteractions(tesoreriaService, bancoLedgerService);
+    }
+
+    // ── Rol acotado (TESORERIA CAJA): depósito a cuenta habilitada o transferencia entre sus cajas ──
+
+    private OperacionFinanciera deposito(long cajaId, long cuentaId) {
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setTipoOperacion(TipoOperacionFinanciera.DEPOSITO_BANCARIO);
+        op.setCajaMayorOrigen(caja(cajaId)); op.setMontoOrigen(new BigDecimal("500"));
+        op.setCuentaBancariaDestino(cuenta(cuentaId)); op.setMontoDestino(new BigDecimal("500"));
+        return op;
+    }
+
+    private void nadaAsentado() {
+        verify(repository, never()).save(any());
+        verify(tesoreriaService, never()).registrar(any());
+        verifyNoInteractions(bancoLedgerService);
+    }
+
+    @Test
+    void acotado_deposita_a_una_cuenta_habilitada_para_su_caja() {
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(cajaConfiguracionRepository.esCuentaVisibleDeLaCaja(1L, 9L)).thenReturn(true);
+
+        service.registrar(deposito(1, 9), null);
+
+        verify(seguridad).requireEscrituraCaja(1L);
+        verify(tesoreriaService).registrar(any());
+        verify(bancoLedgerService).registrar(eq(9L), eq(MovimientoBancarioTipo.ENTRADA_MANUAL), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void acotado_no_deposita_a_una_cuenta_que_no_esta_habilitada_y_no_asienta_nada() {
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(cajaConfiguracionRepository.esCuentaVisibleDeLaCaja(1L, 9L)).thenReturn(false);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.registrar(deposito(1, 9), null));
+
+        assertTrue(e.getMessage().startsWith("No autorizado"), e.getMessage());
+        nadaAsentado();
+    }
+
+    @Test
+    void acotado_sin_escritura_en_la_caja_no_asienta_nada() {
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        doThrow(new GraphQLException("No tenes permiso para mover plata en esta caja.")).when(seguridad).requireEscrituraCaja(1L);
+
+        assertThrows(GraphQLException.class, () -> service.registrar(deposito(1, 9), null));
+
+        nadaAsentado();
+    }
+
+    @Test
+    void acotado_no_registra_los_tipos_que_mueven_banco_sin_caja_o_sacan_del_banco() {
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        for (TipoOperacionFinanciera tipo : new TipoOperacionFinanciera[]{TipoOperacionFinanciera.CAMBIO_DIVISA,
+                TipoOperacionFinanciera.RETIRO_BANCARIO, TipoOperacionFinanciera.TRANSFERENCIA_BANCARIA}) {
+            OperacionFinanciera op = deposito(1, 9);
+            op.setTipoOperacion(tipo);
+            op.setCuentaBancariaOrigen(cuenta(8));
+            op.setCajaMayorDestino(caja(1));
+
+            GraphQLException e = assertThrows(GraphQLException.class, () -> service.registrar(op, null), tipo.name());
+            assertTrue(e.getMessage().startsWith("No autorizado"), e.getMessage());
+        }
+        nadaAsentado();
+    }
+
+    @Test
+    void acotado_transfiere_entre_cajas_exigiendo_escritura_en_las_dos() {
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setTipoOperacion(TipoOperacionFinanciera.TRANSFERENCIA_ENTRE_CAJAS);
+        op.setCajaMayorOrigen(caja(1)); op.setMontoOrigen(new BigDecimal("100"));
+        op.setCajaMayorDestino(caja(2)); op.setMontoDestino(new BigDecimal("100"));
+
+        service.registrar(op, null);
+
+        verify(seguridad).requireEscrituraCaja(1L);
+        verify(seguridad).requireEscrituraCaja(2L);
+        verify(tesoreriaService, times(2)).registrar(any());
+    }
+
+    @Test
+    void acotado_no_registra_una_diferencia() {
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(cajaConfiguracionRepository.esCuentaVisibleDeLaCaja(1L, 9L)).thenReturn(true);
+        OperacionFinanciera op = deposito(1, 9);
+        op.setDiferencia(new BigDecimal("50"));
+        op.setDiferenciaDestinoTipo(com.franco.dev.domain.financiero.enums.DiferenciaDestinoTipo.GASTO);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.registrar(op, null));
+
+        assertTrue(e.getMessage().startsWith("No autorizado"), e.getMessage());
+        nadaAsentado();
+    }
+
+    @Test
+    void acotado_no_anula_una_operacion_de_otro_tipo_y_no_revierte_nada() {
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        OperacionFinanciera op = deposito(1, 9);
+        op.setId(5L);
+        op.setTipoOperacion(TipoOperacionFinanciera.RETIRO_BANCARIO);
+        when(repository.lockById(5L)).thenReturn(java.util.Optional.of(op));
+        when(repository.findAnuladoById(5L)).thenReturn(java.util.Optional.of(false));
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anular(5L, "x", null));
+
+        assertTrue(e.getMessage().startsWith("No autorizado"), e.getMessage());
+        verify(tesoreriaService, never()).revertir(any(), any(), any());
+        verifyNoInteractions(bancoLedgerService);
+    }
+
+    @Test
+    void acotado_no_anula_un_deposito_de_una_caja_que_no_puede_mover() {
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        OperacionFinanciera op = deposito(1, 9);
+        op.setId(5L);
+        when(repository.lockById(5L)).thenReturn(java.util.Optional.of(op));
+        when(repository.findAnuladoById(5L)).thenReturn(java.util.Optional.of(false));
+        doThrow(new GraphQLException("No tenes permiso para mover plata en esta caja.")).when(seguridad).requireEscrituraCaja(1L);
+
+        assertThrows(GraphQLException.class, () -> service.anular(5L, "x", null));
+
+        verify(tesoreriaService, never()).revertir(any(), any(), any());
+        verifyNoInteractions(bancoLedgerService);
     }
 }

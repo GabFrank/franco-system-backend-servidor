@@ -93,6 +93,22 @@ public class CajaVirtualGraphQL implements GraphQLQueryResolver, GraphQLMutation
         return out;
     }
 
+    /**
+     * Cuentas a las que se puede depositar desde la caja: las visibles de su configuración, en el mismo
+     * orden. La consume el depósito bancario del rol acotado, que no ve el resumen con saldos; el saldo de
+     * cada cuenta lo decide {@code CuentaBancariaResolver}.
+     */
+    @Transactional(readOnly = true)
+    public List<CuentaBancaria> cuentasBancariasParaDeposito(Long cajaVirtualId) {
+        seg.requireVerCaja();
+        seg.requireLecturaCaja(cajaVirtualId);
+        CajaVirtualConfiguracion cfg = configRepository.findByCajaVirtualId(cajaVirtualId).orElse(null);
+        if (cfg == null || cfg.getCuentasBancariasVisibles() == null || cfg.getCuentasBancariasVisibles().isEmpty()) {
+            return new ArrayList<>();
+        }
+        return ordenarCuentas(cfg.getCuentasBancariasVisibles(), cfg.getCuentasBancariasOrden());
+    }
+
     /** Ordena las cuentas según el JSON de ids persistido; las faltantes van al final por id ascendente. */
     private List<CuentaBancaria> ordenarCuentas(java.util.Set<CuentaBancaria> visibles, String ordenJson) {
         List<CuentaBancaria> lista = new ArrayList<>(visibles);

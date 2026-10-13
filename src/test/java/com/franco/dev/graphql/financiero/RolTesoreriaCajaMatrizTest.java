@@ -48,7 +48,10 @@ class RolTesoreriaCajaMatrizTest {
             "EntradaVariaGraphQL.anularEntradaVaria",
             "OperacionFinancieraGraphQL.operacionFinancieraCategorias",
             "RetiroGraphQL.retirosFlotantes",
-            "RetiroGraphQL.ingresarRetiroACajaMayor"));
+            "RetiroGraphQL.ingresarRetiroACajaMayor",
+            "CajaVirtualGraphQL.cuentasBancariasParaDeposito",
+            "OperacionFinancieraGraphQL.registrarOperacionFinanciera",
+            "OperacionFinancieraGraphQL.anularOperacionFinanciera"));
 
     private static final Pattern FIRMA = Pattern.compile("^    public [^=;]*?\\b(\\w+)\\(");
     private static final Pattern ACEPTA_ACOTADO = Pattern.compile(
@@ -90,7 +93,10 @@ class RolTesoreriaCajaMatrizTest {
         rechaza(TesoreriaReporteGraphQL.class, "saldoConsolidadoTesoreria", "proximosVencimientosTesoreria",
                 "agingCppTesoreria");
         rechaza(OperacionFinancieraGraphQL.class, "operacionesFinancieras", "operacionFinanciera",
-                "movimientosBancarios", "registrarOperacionFinanciera", "anularOperacionFinanciera");
+                "movimientosBancarios");
+        rechaza(CuentaBancariaGraphQL.class, "cuentaBancaria", "cuentasBancarias", "cuentasBancariasOperables",
+                "cuentaBancariasSearch", "countCuentaBancaria", "saveCuentaBancaria", "deleteCuentaBancaria",
+                "ajustarSaldoCuentaBancaria");
         rechaza(ChequeGraphQL.class, "cheque", "cheques", "chequesSearch");
         rechaza(ChequeDashboardGraphQL.class, "chequesDashboard", "chequesResumenPorDia", "chequesSaldosPorChequera");
         rechaza(CajaVirtualGraphQL.class, "cajaVirtualResumenBancario", "saveCajaVirtual", "deleteCajaVirtual");

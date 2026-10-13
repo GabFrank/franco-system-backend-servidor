@@ -50,6 +50,7 @@ class RolTesoreriaCajaMatrizTest {
             "RetiroGraphQL.retirosFlotantes",
             "RetiroVerificacionGraphQL.verificarRetiro",
             "CajaVirtualGraphQL.cuentasBancariasParaDeposito",
+            "CajaVirtualGraphQL.cajasVirtualesReceptoras",
             "OperacionFinancieraGraphQL.registrarOperacionFinanciera",
             "OperacionFinancieraGraphQL.anularOperacionFinanciera",
             "PagoProveedorGraphQL.solicitudesPagoPendientes",
@@ -105,7 +106,8 @@ class RolTesoreriaCajaMatrizTest {
                 "ajustarSaldoCuentaBancaria");
         rechaza(ChequeGraphQL.class, "cheque", "cheques", "chequesSearch");
         rechaza(ChequeDashboardGraphQL.class, "chequesDashboard", "chequesResumenPorDia", "chequesSaldosPorChequera");
-        rechaza(CajaVirtualGraphQL.class, "cajaVirtualResumenBancario", "saveCajaVirtual", "deleteCajaVirtual");
+        rechaza(CajaVirtualGraphQL.class, "cajaVirtualResumenBancario", "saveCajaVirtual", "deleteCajaVirtual",
+                "marcarCajaRecibeEnvios");
         rechaza(CajaVirtualConfiguracionGraphQL.class, "cajaVirtualConfiguracion", "saveCajaVirtualConfiguracion");
         rechaza(MovimientoCajaVirtualGraphQL.class, "saveMovimientoCajaVirtual");
         rechaza(ReporteMovimientosCajaGraphQL.class, "imprimirReporteMovimientosBancarios");

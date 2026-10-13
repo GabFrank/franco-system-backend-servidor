@@ -11,6 +11,8 @@ type CajaVirtual {
     limiteGs: Float
     descripcion: String
     activo: Boolean
+    # La caja recibe envíos de otras cajas sin que quien envía tenga acceso sobre ella.
+    recibeEnvios: Boolean
     creadoEn: Date
 }
 
@@ -65,6 +67,15 @@ extend type Query {
     cajaVirtualResumenBancario(cajaVirtualId: ID!): [CuentaBancariaResumen]
     # Cuentas habilitadas como destino de un depósito desde la caja (las visibles de su configuración).
     cuentasBancariasParaDeposito(cajaVirtualId: ID!): [CuentaBancaria]
+    # Cajas activas marcadas «recibe envíos»: destinos de una transferencia para quien no tiene acceso sobre ellas.
+    cajasVirtualesReceptoras: [CajaVirtualDestino]
+}
+
+# Lo único que se muestra de una caja a quien solo puede enviarle plata.
+type CajaVirtualDestino {
+    id: ID!
+    nombre: String
+    sucursalNombre: String
 }
 
 extend type Mutation {
@@ -104,4 +115,6 @@ extend type Mutation {
     revocarAccesoCaja(cajaVirtualId: ID!, usuarioId: ID!): Boolean!
     # Pasa la caja a otro responsable. Evita que quede huerfana si su duenio deja la empresa.
     transferirPropiedadCaja(cajaVirtualId: ID!, nuevoPropietarioId: ID!): CajaVirtual!
+    # Marca la caja como receptora de envíos de otras cajas. La decide su responsable.
+    marcarCajaRecibeEnvios(cajaVirtualId: ID!, recibe: Boolean!): CajaVirtual!
 }

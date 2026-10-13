@@ -42,6 +42,7 @@ class OperacionFinancieraServiceTest {
         numeracion = mock(ComprobanteNumeracionService.class);
         seguridad = mock(TesoreriaSecurityService.class);
         cajaConfiguracionRepository = mock(com.franco.dev.repository.financiero.CajaVirtualConfiguracionRepository.class);
+        when(seguridad.puedeEscribirCaja(any())).thenReturn(true);
         service = new OperacionFinancieraService(repository, tesoreriaService, bancoLedgerService,
                 movimientoCajaVirtualRepository, movimientoBancarioRepository, numeracion, seguridad, cajaConfiguracionRepository);
         when(repository.save(any())).thenAnswer(i -> {
@@ -217,10 +218,15 @@ class OperacionFinancieraServiceTest {
 
         service.registrar(op, null);
 
-        ArgumentCaptor<MovimientoCajaVirtual> cap = ArgumentCaptor.forClass(MovimientoCajaVirtual.class);
-        verify(tesoreriaService, times(2)).registrar(cap.capture());
-        assertEquals(CajaVirtualTipoMovimiento.TRANSFERENCIA_SALIDA, cap.getAllValues().get(0).getTipoMovimiento());
-        assertEquals(CajaVirtualTipoMovimiento.TRANSFERENCIA_ENTRADA, cap.getAllValues().get(1).getTipoMovimiento());
+        // La salida va por el registro común; la entrada, por el de envíos (que acepta una caja receptora).
+        ArgumentCaptor<MovimientoCajaVirtual> salida = ArgumentCaptor.forClass(MovimientoCajaVirtual.class);
+        ArgumentCaptor<MovimientoCajaVirtual> entrada = ArgumentCaptor.forClass(MovimientoCajaVirtual.class);
+        verify(tesoreriaService, times(1)).registrar(salida.capture());
+        verify(tesoreriaService, times(1)).registrarEntradaDeEnvio(entrada.capture());
+        assertEquals(CajaVirtualTipoMovimiento.TRANSFERENCIA_SALIDA, salida.getValue().getTipoMovimiento());
+        assertEquals(1L, salida.getValue().getCajaVirtual().getId());
+        assertEquals(CajaVirtualTipoMovimiento.TRANSFERENCIA_ENTRADA, entrada.getValue().getTipoMovimiento());
+        assertEquals(2L, entrada.getValue().getCajaVirtual().getId());
     }
     private CuentaBancaria cuentaConMoneda(long id, Moneda m) {
         CuentaBancaria c = cuenta(id);
@@ -438,6 +444,8 @@ class OperacionFinancieraServiceTest {
             op.setTipoOperacion(tipo);
             op.setCuentaBancariaOrigen(cuenta(8));
             op.setCajaMayorDestino(caja(1));
+            // Un retiro va de cuenta a caja: sin cuenta de destino (con ella se rechaza antes, por otra razón).
+            if (tipo == TipoOperacionFinanciera.RETIRO_BANCARIO) op.setCuentaBancariaDestino(null);
 
             GraphQLException e = assertThrows(GraphQLException.class, () -> service.registrar(op, null), tipo.name());
             assertTrue(e.getMessage().startsWith("No autorizado"), e.getMessage());
@@ -446,7 +454,7 @@ class OperacionFinancieraServiceTest {
     }
 
     @Test
-    void acotado_transfiere_entre_cajas_exigiendo_escritura_en_las_dos() {
+    void acotado_transfiere_entre_cajas_exigiendo_escritura_en_el_origen_y_envio_en_el_destino() {
         when(seguridad.operaAcotado()).thenReturn(true);
         OperacionFinanciera op = new OperacionFinanciera();
         op.setTipoOperacion(TipoOperacionFinanciera.TRANSFERENCIA_ENTRE_CAJAS);
@@ -457,8 +465,10 @@ class OperacionFinancieraServiceTest {
         service.registrar(op, null);
 
         verify(seguridad).requireEscrituraCaja(1L);
-        verify(seguridad).requireEscrituraCaja(2L);
-        verify(tesoreriaService, times(2)).registrar(any());
+        verify(seguridad, never()).requireEscrituraCaja(2L);
+        verify(seguridad).requireEnvioACaja(2L);
+        verify(tesoreriaService).registrar(any());
+        verify(tesoreriaService).registrarEntradaDeEnvio(any());
     }
 
     @Test
@@ -566,5 +576,151 @@ class OperacionFinancieraServiceTest {
                 .getMessage().startsWith("No autorizado"));
 
         nadaAsentado();
+    }
+
+    // ── Envío a una caja que recibe envíos (sin acceso sobre ella) ──
+
+    private OperacionFinanciera transferencia(long origen, long destino, String sale, String entra) {
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setTipoOperacion(TipoOperacionFinanciera.TRANSFERENCIA_ENTRE_CAJAS);
+        op.setCajaMayorOrigen(caja(origen)); op.setMontoOrigen(new BigDecimal(sale)); op.setMonedaOrigen(moneda(1));
+        op.setCajaMayorDestino(caja(destino));
+        if (entra != null) op.setMontoDestino(new BigDecimal(entra));
+        return op;
+    }
+
+    @Test
+    void envio_a_una_caja_receptora_sin_acceso_sobre_ella() {
+        // El gerente manda a la caja mayor principal (2): puede mover la suya, no la que recibe.
+        when(seguridad.operaAcotado()).thenReturn(true);
+        when(seguridad.puedeEscribirCaja(2L)).thenReturn(false);
+
+        service.registrar(transferencia(1, 2, "500000", null), null);
+
+        verify(seguridad).requireEscrituraCaja(1L);
+        verify(seguridad, atLeastOnce()).requireEnvioACaja(2L);
+        ArgumentCaptor<MovimientoCajaVirtual> entrada = ArgumentCaptor.forClass(MovimientoCajaVirtual.class);
+        verify(tesoreriaService).registrarEntradaDeEnvio(entrada.capture());
+        // Entra lo mismo que salió, aunque el pedido no traiga monto de destino.
+        assertEquals(500000d, entrada.getValue().getCantidad());
+        assertEquals(2L, entrada.getValue().getCajaVirtual().getId());
+    }
+
+    @Test
+    void envio_a_una_caja_que_no_recibe_envios_se_rechaza_y_no_asienta_nada() {
+        when(seguridad.operaAcotado()).thenReturn(true);
+        when(seguridad.puedeEscribirCaja(2L)).thenReturn(false);
+        doThrow(new GraphQLException("No tenes permiso para enviar plata a esta caja.")).when(seguridad).requireEnvioACaja(2L);
+
+        assertThrows(GraphQLException.class, () -> service.registrar(transferencia(1, 2, "500000", null), null));
+
+        nadaAsentado();
+        verify(tesoreriaService, never()).registrarEntradaDeEnvio(any());
+    }
+
+    @Test
+    void quien_gestiona_tambien_envia_a_una_receptora_sin_acceso_pero_por_el_mismo_monto_y_moneda() {
+        // Sin acceso sobre la caja que recibe, ningún rol puede acreditarle más de lo que sale de la suya.
+        when(seguridad.puedeEscribirCaja(2L)).thenReturn(false);
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> service.registrar(transferencia(1, 2, "1", "1000000"), null));
+        assertTrue(e.getMessage().startsWith("No autorizado"), e.getMessage());
+
+        OperacionFinanciera otraMoneda = transferencia(1, 2, "100", "100");
+        otraMoneda.setMonedaDestino(moneda(3));
+        assertThrows(GraphQLException.class, () -> service.registrar(otraMoneda, null));
+        nadaAsentado();
+        verify(tesoreriaService, never()).registrarEntradaDeEnvio(any());
+
+        service.registrar(transferencia(1, 2, "100", "100"), null);
+        verify(tesoreriaService).registrarEntradaDeEnvio(any());
+    }
+
+    @Test
+    void con_acceso_sobre_las_dos_cajas_la_transferencia_sigue_como_siempre() {
+        // Tesorería entre dos cajas suyas: no se le exige mismo monto (no es un envío).
+        service.registrar(transferencia(1, 2, "100", "100"), null);
+
+        verify(seguridad, never()).requireEnvioACaja(any());
+        verify(tesoreriaService).registrar(any());
+        verify(tesoreriaService).registrarEntradaDeEnvio(any());
+    }
+
+    @Test
+    void quien_envio_no_anula_el_envio_lo_anula_quien_administra_la_caja_que_recibio() {
+        when(seguridad.puedeEscribirCaja(2L)).thenReturn(false);
+        OperacionFinanciera op = transferencia(1, 2, "500000", "500000");
+        op.setId(5L);
+        op.getCajaMayorDestino().setNombre("CAJA MAYOR PRINCIPAL");
+        when(repository.lockById(5L)).thenReturn(java.util.Optional.of(op));
+        when(repository.findAnuladoById(5L)).thenReturn(java.util.Optional.of(false));
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anular(5L, "x", null));
+
+        assertTrue(e.getMessage().contains("CAJA MAYOR PRINCIPAL"), e.getMessage());
+        verify(tesoreriaService, never()).revertir(any(), any(), any());
+    }
+
+    // ── La moneda no se tuerce con cuentas bancarias que el tipo de operación no usa ──
+
+    @Test
+    void una_transferencia_entre_cajas_no_lleva_cuentas_bancarias() {
+        // Con una cuenta en dólares de destino, la moneda derivada acreditaría dólares por guaraníes.
+        OperacionFinanciera conDestino = transferencia(1, 2, "1000000", "1000000");
+        conDestino.setCuentaBancariaDestino(cuentaConMoneda(9, moneda(3)));
+        assertThrows(GraphQLException.class, () -> service.registrar(conDestino, null));
+
+        OperacionFinanciera conOrigen = transferencia(1, 2, "1000000", "1000000");
+        conOrigen.setCuentaBancariaOrigen(cuentaConMoneda(9, moneda(3)));
+        assertThrows(GraphQLException.class, () -> service.registrar(conOrigen, null));
+
+        nadaAsentado();
+        verify(tesoreriaService, never()).registrarEntradaDeEnvio(any());
+    }
+
+    @Test
+    void un_deposito_no_lleva_cuenta_de_origen_ni_un_retiro_cuenta_de_destino() {
+        OperacionFinanciera dep = deposito(1, 9);
+        dep.setCuentaBancariaOrigen(cuentaConMoneda(8, moneda(3)));
+        assertThrows(GraphQLException.class, () -> service.registrar(dep, null));
+
+        OperacionFinanciera ret = new OperacionFinanciera();
+        ret.setTipoOperacion(TipoOperacionFinanciera.RETIRO_BANCARIO);
+        ret.setCuentaBancariaOrigen(cuenta(9)); ret.setMontoOrigen(new BigDecimal("500"));
+        ret.setCajaMayorDestino(caja(1)); ret.setMontoDestino(new BigDecimal("500"));
+        ret.setCuentaBancariaDestino(cuentaConMoneda(8, moneda(3)));
+        assertThrows(GraphQLException.class, () -> service.registrar(ret, null));
+
+        nadaAsentado();
+    }
+
+    @Test
+    void en_el_deposito_acotado_la_moneda_se_valida_despues_de_derivarla_de_la_cuenta() {
+        // El pedido dice que ambos lados son guaraníes, pero la cuenta es en dólares: manda la cuenta.
+        when(seguridad.operaAcotado()).thenReturn(true);
+        when(cajaConfiguracionRepository.esCuentaVisibleDeLaCaja(1L, 9L)).thenReturn(true);
+        OperacionFinanciera op = deposito(1, 9);
+        op.getCuentaBancariaDestino().setMoneda(moneda(3));
+        op.setMonedaDestino(moneda(1));
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.registrar(op, null));
+
+        assertTrue(e.getMessage().startsWith("No autorizado"), e.getMessage());
+        nadaAsentado();
+    }
+
+    @Test
+    void un_envio_a_una_caja_que_no_se_administra_no_lleva_diferencia() {
+        when(seguridad.puedeEscribirCaja(2L)).thenReturn(false);
+        OperacionFinanciera op = transferencia(1, 2, "100", "100");
+        op.setDiferencia(new BigDecimal("10"));
+        op.setDiferenciaDestinoTipo(com.franco.dev.domain.financiero.enums.DiferenciaDestinoTipo.GASTO);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.registrar(op, null));
+
+        assertTrue(e.getMessage().startsWith("No autorizado"), e.getMessage());
+        nadaAsentado();
+        verify(tesoreriaService, never()).registrarEntradaDeEnvio(any());
     }
 }

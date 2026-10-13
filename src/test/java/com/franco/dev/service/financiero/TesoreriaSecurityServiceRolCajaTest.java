@@ -170,4 +170,49 @@ class TesoreriaSecurityServiceRolCajaTest {
         s.autenticar("jefe", "ADMIN");
         assertTrue(s.seg.puedeVerCajaEnRequest(16L));
     }
+
+    // ── Enviar plata a una caja: poder moverla, o que reciba envíos ──
+
+    private com.franco.dev.domain.financiero.CajaVirtual caja(long id, Boolean activa, Boolean recibeEnvios) {
+        com.franco.dev.domain.financiero.CajaVirtual c = new com.franco.dev.domain.financiero.CajaVirtual();
+        c.setId(id);
+        c.setActivo(activa);
+        c.setRecibeEnvios(recibeEnvios);
+        when(s.cajaVirtualRepository.findById(id)).thenReturn(java.util.Optional.of(c));
+        return c;
+    }
+
+    @Test
+    void sePuedeEnviarAUnaCajaQueRecibeEnvios_sinTenerAccesoSobreElla() {
+        s.autenticar("gerente", "TESORERIA CAJA");
+        caja(2L, true, true);
+
+        s.seg.requireEnvioACaja(2L);
+
+        // Enviarle no es poder moverla ni verla.
+        assertThrows(GraphQLException.class, () -> s.seg.requireEscrituraCaja(2L));
+        assertThrows(GraphQLException.class, () -> s.seg.requireLecturaCaja(2L));
+    }
+
+    @Test
+    void noSePuedeEnviarAUnaCajaSinLaMarca_niInactiva_niInexistente() {
+        s.autenticar("gerente", "TESORERIA CAJA");
+        caja(2L, true, false);
+        caja(3L, true, null);
+        caja(4L, false, true);
+
+        assertThrows(GraphQLException.class, () -> s.seg.requireEnvioACaja(2L));
+        assertThrows(GraphQLException.class, () -> s.seg.requireEnvioACaja(3L));
+        assertThrows(GraphQLException.class, () -> s.seg.requireEnvioACaja(4L));
+        assertThrows(GraphQLException.class, () -> s.seg.requireEnvioACaja(99L));
+        assertThrows(GraphQLException.class, () -> s.seg.requireEnvioACaja(null));
+    }
+
+    @Test
+    void conEscrituraSobreLaCajaSePuedeEnviar_aunqueNoTengaLaMarca() {
+        com.franco.dev.domain.personas.Usuario u = s.autenticar("gerente", "TESORERIA CAJA");
+        caja(5L, true, false).setUsuario(u);   // es su responsable
+
+        s.seg.requireEnvioACaja(5L);
+    }
 }

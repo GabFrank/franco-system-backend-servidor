@@ -50,8 +50,11 @@ public class OperacionFinancieraService {
     @Transactional
     public OperacionFinanciera registrar(OperacionFinanciera op, Usuario usuario) {
         req(op.getTipoOperacion() != null, "Tipo de operación requerido");
-        exigirPermitidaEnModoAcotado(op);
+        exigirSinCuentasQueNoCorresponden(op);
+        // Antes de validar: si se derivara después, la moneda que se asienta no sería la que se validó.
         derivarMonedasDeCuentas(op);
+        exigirPermitidaEnModoAcotado(op);
+        exigirEnvioValido(op);
         validarDestinoDeDiferencia(op);
         op.setUsuario(usuario);
         op.setAnulado(false);
@@ -132,9 +135,9 @@ public class OperacionFinancieraService {
                 // Orden canónico de lock (id de caja ascendente) para evitar deadlock.
                 if (op.getCajaMayorOrigen().getId() <= op.getCajaMayorDestino().getId()) {
                     cajaMov(op.getCajaMayorOrigen(), CajaVirtualTipoMovimiento.TRANSFERENCIA_SALIDA, op.getMontoOrigen(), op.getMonedaOrigen(), saved, usuario);
-                    cajaMov(op.getCajaMayorDestino(), CajaVirtualTipoMovimiento.TRANSFERENCIA_ENTRADA, op.getMontoDestino(), op.getMonedaDestino(), saved, usuario);
+                    entradaDeTransferencia(op.getCajaMayorDestino(), op.getMontoDestino(), op.getMonedaDestino(), saved, usuario);
                 } else {
-                    cajaMov(op.getCajaMayorDestino(), CajaVirtualTipoMovimiento.TRANSFERENCIA_ENTRADA, op.getMontoDestino(), op.getMonedaDestino(), saved, usuario);
+                    entradaDeTransferencia(op.getCajaMayorDestino(), op.getMontoDestino(), op.getMonedaDestino(), saved, usuario);
                     cajaMov(op.getCajaMayorOrigen(), CajaVirtualTipoMovimiento.TRANSFERENCIA_SALIDA, op.getMontoOrigen(), op.getMonedaOrigen(), saved, usuario);
                 }
                 break;
@@ -185,7 +188,8 @@ public class OperacionFinancieraService {
             req(op.getCajaMayorOrigen() != null && op.getCajaMayorDestino() != null,
                     "Transferencia entre cajas requiere origen y destino");
             seguridad.requireEscrituraCaja(op.getCajaMayorOrigen().getId());
-            seguridad.requireEscrituraCaja(op.getCajaMayorDestino().getId());
+            // El destino puede ser una caja suya o una que recibe envíos (la caja mayor principal).
+            seguridad.requireEnvioACaja(op.getCajaMayorDestino().getId());
             // Lo que sale de una caja es lo que entra a la otra, en la misma moneda.
             if (op.getMonedaDestino() == null) op.setMonedaDestino(op.getMonedaOrigen());
             exigirMismaMoneda(op.getMonedaOrigen(), op.getMonedaDestino());
@@ -197,6 +201,45 @@ public class OperacionFinancieraService {
         // La diferencia se imputa como un ajuste de saldo, que no entra en el rol acotado.
         if (pideImputarDiferencia(op)) {
             throw new GraphQLException("No autorizado: registrar una diferencia requiere el rol TESORERIA GESTIONAR.");
+        }
+    }
+
+    /**
+     * Transferencia hacia una caja que el usuario no puede mover: un envío a una caja marcada «recibe
+     * envíos». Vale para cualquier rol, y como quien envía no responde por la caja que recibe, tiene que
+     * entrar exactamente lo que sale, en la misma moneda. Se valida antes de asentar nada.
+     */
+    private void exigirEnvioValido(OperacionFinanciera op) {
+        if (op.getTipoOperacion() != TipoOperacionFinanciera.TRANSFERENCIA_ENTRE_CAJAS) return;
+        if (op.getCajaMayorOrigen() == null || op.getCajaMayorDestino() == null) return;   // lo rechaza registrar
+        Long destino = op.getCajaMayorDestino().getId();
+        if (seguridad.esProcesoDeSistema() || seguridad.puedeEscribirCaja(destino)) return;
+        seguridad.requireEnvioACaja(destino);
+        req(!destino.equals(op.getCajaMayorOrigen().getId()), "La caja de origen y la de destino no pueden ser la misma");
+        if (op.getMonedaDestino() == null) op.setMonedaDestino(op.getMonedaOrigen());
+        exigirMismaMoneda(op.getMonedaOrigen(), op.getMonedaDestino());
+        exigirMismoMonto(op);
+        // La diferencia se imputa como un ajuste en la caja que recibe: quien no puede moverla no la ajusta.
+        if (pideImputarDiferencia(op)) {
+            throw new GraphQLException("No autorizado: un envío a una caja que no administrás no lleva diferencia.");
+        }
+    }
+
+    /**
+     * Las cuentas bancarias de un pedido mandan sobre la moneda ({@link #derivarMonedasDeCuentas}). Donde el
+     * tipo de operación no las usa no pueden venir: una transferencia entre cajas con una cuenta en otra
+     * moneda acreditaría el destino en esa moneda, y un depósito con cuenta de origen sacaría de la caja en
+     * la moneda de esa cuenta.
+     */
+    private void exigirSinCuentasQueNoCorresponden(OperacionFinanciera op) {
+        TipoOperacionFinanciera t = op.getTipoOperacion();
+        if (t == TipoOperacionFinanciera.TRANSFERENCIA_ENTRE_CAJAS) {
+            req(op.getCuentaBancariaOrigen() == null && op.getCuentaBancariaDestino() == null,
+                    "Una transferencia entre cajas no lleva cuentas bancarias");
+        } else if (t == TipoOperacionFinanciera.DEPOSITO_BANCARIO) {
+            req(op.getCuentaBancariaOrigen() == null, "Un depósito no lleva cuenta bancaria de origen");
+        } else if (t == TipoOperacionFinanciera.RETIRO_BANCARIO) {
+            req(op.getCuentaBancariaDestino() == null, "Un retiro bancario no lleva cuenta bancaria de destino");
         }
     }
 
@@ -252,6 +295,12 @@ public class OperacionFinancieraService {
             throw new GraphQLException("La operación financiera #" + operacionId + " ya está anulada");
         }
         exigirPermitidaEnModoAcotado(op);
+        // Un envío a una caja receptora lo anula quien puede mover esa caja: revertirlo le saca plata.
+        if (op.getTipoOperacion() == TipoOperacionFinanciera.TRANSFERENCIA_ENTRE_CAJAS && op.getCajaMayorDestino() != null
+                && !seguridad.esProcesoDeSistema() && !seguridad.puedeEscribirCaja(op.getCajaMayorDestino().getId())) {
+            throw new GraphQLException("No autorizado: este envío lo anula quien administra la caja que lo recibió ("
+                    + op.getCajaMayorDestino().getNombre() + ").");
+        }
         // Límite de antigüedad sobre la fecha de la operación, antes de revertir ninguna pata (issue #370).
         tesoreriaService.requireDentroDelLimiteDeAnulacion(op.getCreadoEn(), "La operación financiera #" + operacionId);
         String razon = (motivo != null && !motivo.trim().isEmpty())
@@ -396,6 +445,18 @@ public class OperacionFinancieraService {
 
     private void cajaMov(CajaVirtual caja, CajaVirtualTipoMovimiento tipo, BigDecimal monto, Moneda moneda,
                          OperacionFinanciera op, Usuario usuario) {
+        tesoreriaService.registrar(movimientoDe(caja, tipo, monto, moneda, op, usuario));
+    }
+
+    /** La entrada de una transferencia entre cajas: acepta una caja que recibe envíos, no solo una propia. */
+    private void entradaDeTransferencia(CajaVirtual caja, BigDecimal monto, Moneda moneda,
+                                        OperacionFinanciera op, Usuario usuario) {
+        tesoreriaService.registrarEntradaDeEnvio(
+                movimientoDe(caja, CajaVirtualTipoMovimiento.TRANSFERENCIA_ENTRADA, monto, moneda, op, usuario));
+    }
+
+    private MovimientoCajaVirtual movimientoDe(CajaVirtual caja, CajaVirtualTipoMovimiento tipo, BigDecimal monto,
+                                               Moneda moneda, OperacionFinanciera op, Usuario usuario) {
         req(monto != null && monto.signum() > 0, "Monto inválido en operación financiera");
         MovimientoCajaVirtual m = new MovimientoCajaVirtual();
         m.setCajaVirtual(caja);
@@ -407,6 +468,6 @@ public class OperacionFinancieraService {
         m.setReferenciaId(op.getId());
         m.setOrigenTipo(OrigenMovimientoTipo.OPERACION_FINANCIERA);
         m.setOrigenId(op.getId());
-        tesoreriaService.registrar(m);
+        return m;
     }
 }

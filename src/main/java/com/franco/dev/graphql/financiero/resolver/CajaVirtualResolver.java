@@ -7,7 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * El rol acotado (TESORERIA CAJA) no ve los saldos de una caja que no puede leer.
+ * El rol acotado (TESORERIA CAJA) no ve los saldos ni el responsable de una caja que no puede leer.
  *
  * <p>Las consultas de caja ya filtran por el ACL, pero una caja ajena llega igual como campo anidado: la
  * contraparte de una transferencia ({@code MovimientoCajaVirtual.cajaOrigen/cajaDestino}). Se cierra en el
@@ -33,6 +33,14 @@ public class CajaVirtualResolver implements GraphQLResolver<CajaVirtual> {
 
     public Double limiteGs(CajaVirtual caja) {
         return oculto(caja) ? null : caja.getLimiteGs();
+    }
+
+    public com.franco.dev.domain.personas.Funcionario responsable(CajaVirtual caja) {
+        return oculto(caja) ? null : caja.getResponsable();
+    }
+
+    public com.franco.dev.domain.personas.Usuario usuario(CajaVirtual caja) {
+        return oculto(caja) ? null : caja.getUsuario();
     }
 
     private boolean oculto(CajaVirtual caja) {

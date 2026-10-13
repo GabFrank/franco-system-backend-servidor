@@ -97,4 +97,29 @@ class CajaVirtualResolverSaldoTest {
 
         verify(s.accesoRepository, times(1)).cajasVisiblesIds(RolCajaSoporte.USUARIO_ID);
     }
+
+    @Test
+    void elRolAcotado_noVeAlResponsableDeUnaCajaAjena_ySiAlDeLaSuya() {
+        s.autenticar("gerente", "TESORERIA CAJA");
+        CajaVirtual ajena = caja(AJENA);
+        ajena.setUsuario(new com.franco.dev.domain.personas.Usuario());
+        ajena.setResponsable(new com.franco.dev.domain.personas.Funcionario());
+        CajaVirtual mia = caja(MIA);
+        mia.setUsuario(new com.franco.dev.domain.personas.Usuario());
+        mia.setResponsable(new com.franco.dev.domain.personas.Funcionario());
+
+        assertNull(resolver.usuario(ajena));
+        assertNull(resolver.responsable(ajena));
+        assertNotNull(resolver.usuario(mia));
+        assertNotNull(resolver.responsable(mia));
+    }
+
+    @Test
+    void losRolesDeSiempre_venAlResponsableDeCualquierCaja() {
+        s.autenticar("tesorero", "TESORERIA GESTIONAR");
+        CajaVirtual ajena = caja(AJENA);
+        ajena.setUsuario(new com.franco.dev.domain.personas.Usuario());
+
+        assertNotNull(resolver.usuario(ajena));
+    }
 }

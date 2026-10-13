@@ -316,6 +316,20 @@ public class TesoreriaSecurityService {
         }
     }
 
+    /**
+     * Enviar plata A una caja (la pata de entrada de una transferencia): alcanza con poder moverla, o con
+     * que la caja esté activa y marcada «recibe envíos». Lo segundo no da nada más: ni verla ni sacarle.
+     */
+    public void requireEnvioACaja(Long cajaId) {
+        if (esProcesoDeSistema()) return;
+        if (puedeEscribirCaja(cajaId)) return;
+        com.franco.dev.domain.financiero.CajaVirtual caja =
+                cajaId != null ? cajaVirtualRepository.findById(cajaId).orElse(null) : null;
+        if (caja != null && Boolean.TRUE.equals(caja.getActivo()) && Boolean.TRUE.equals(caja.getRecibeEnvios())) return;
+        throw new GraphQLException("No tenes permiso para enviar plata a esta caja. "
+                + "Pedile a tesorería que la habilite para recibir envíos.");
+    }
+
     /** Administrar la lista de accesos: solo el propietario de la caja, o un superusuario. */
     public void requirePropietarioCaja(Long cajaId) {
         if (esSuperusuario() || esPropietario(cajaId)) return;

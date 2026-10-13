@@ -186,6 +186,38 @@ public class CajaVirtualGraphQL implements GraphQLQueryResolver, GraphQLMutation
         return accesoService.transferirPropiedad(cajaVirtualId, nuevoPropietarioId);
     }
 
+    /** Lo único que se muestra de una caja a quien solo puede enviarle: ni saldo ni responsable. */
+    @lombok.Value
+    public static class CajaVirtualDestino {
+        Long id;
+        String nombre;
+        String sucursalNombre;
+    }
+
+    /**
+     * Cajas activas que reciben envíos: destinos posibles de una transferencia para quien no tiene acceso
+     * sobre ellas. Devuelve solo nombre y sucursal.
+     */
+    public List<CajaVirtualDestino> cajasVirtualesReceptoras() {
+        seg.requireOperarCaja();
+        List<CajaVirtualDestino> out = new ArrayList<>();
+        for (CajaVirtual c : service.findReceptoras()) {
+            out.add(new CajaVirtualDestino(c.getId(), c.getNombre(),
+                    c.getSucursal() != null ? c.getSucursal().getNombre() : null));
+        }
+        return out;
+    }
+
+    /**
+     * Marca o desmarca la caja como receptora de envíos. Es abrirla a que cualquier operador le transfiera,
+     * así que lo decide su responsable (o un superusuario), igual que la lista de accesos.
+     */
+    public CajaVirtual marcarCajaRecibeEnvios(Long cajaVirtualId, Boolean recibe) {
+        seg.requireGestionar();
+        seg.requirePropietarioCaja(cajaVirtualId);
+        return service.marcarRecibeEnvios(cajaVirtualId, Boolean.TRUE.equals(recibe));
+    }
+
     public CajaVirtual saveCajaVirtual(CajaVirtualInput input) {
         seg.requireGestionar();
         // Crear una caja queda con el rol; MODIFICAR una existente exige ser su responsable.

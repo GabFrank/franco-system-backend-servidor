@@ -12,7 +12,7 @@ Sobre las cajas donde tiene acceso (`financiero.caja_virtual_acceso`, o porque e
 |---|---|
 | Ver la caja | Saldos, movimientos y reporte de movimientos. |
 | Ingresos y egresos | Efectivo y entradas o salidas varias. No hace ajustes de saldo ni conteo. |
-| Transferir | Entre dos cajas donde tenga escritura, mismo monto y misma moneda. |
+| Transferir | Entre sus cajas, o hacia una caja marcada «recibe envíos» (la caja mayor principal), mismo monto y misma moneda. |
 | Ingresar retiros del PDV | Verificándolos (conteo), solo los de la sucursal de la caja. Anular una verificación es de tesorería. |
 | Depositar al banco | A una cuenta habilitada en «Configurar» de esa caja, mismo monto y moneda. No ve el saldo de la cuenta. |
 | Pagar gastos | Los que cargó él mismo, en efectivo, en la moneda del gasto. |
@@ -23,7 +23,8 @@ Sobre las cajas donde tiene acceso (`financiero.caja_virtual_acceso`, o porque e
 
 Saldo consolidado y vencimientos, cuentas bancarias y extractos, cheques, el listado de
 operaciones financieras, control de retiros (casos y anulación de verificaciones), pagos de RRHH, pagos por banco o con cheque,
-configuración y alta de cajas, y los saldos de cualquier caja a la que no tenga acceso.
+configuración y alta de cajas, y los saldos de cualquier caja a la que no tenga acceso — incluida
+la caja a la que envía: de una receptora ve solo el nombre.
 
 En el desktop ve una sola entrada de menú: **Financiero → Caja y Operativa → Tesorería**.
 
@@ -65,8 +66,22 @@ En el desktop ve una sola entrada de menú: **Financiero → Caja y Operativa �
 3. En «Configurar» de la caja marca las **cuentas bancarias** a las que el operador puede depositar.
 4. En la pantalla de usuarios le asigna el rol `TESORERIA CAJA`, **sin** otro rol de tesorería.
 5. Para que pague a un proveedor: Compras → Solicitud de pago → ⋮ → **Asignar a caja**.
+6. Para que pueda mandar efectivo a la caja mayor principal: en Tesorería, ⋮ de esa caja →
+   **Recibe envíos…** (lo hace su responsable, con `TESORERIA GESTIONAR`).
 
 El operador no tiene que ser el responsable de la caja: el responsable administra los accesos.
+
+## Envíos a una caja receptora
+
+`caja_virtual.recibe_envios` (V247.1) abre una caja a recibir transferencias de quien no tiene
+acceso sobre ella. Solo cambia la **pata de entrada** de `TRANSFERENCIA_ENTRE_CAJAS`
+(`TesoreriaService.registrarEntradaDeEnvio` → `requireEnvioACaja`); todo lo demás sigue exigiendo
+escritura. Vale para cualquier rol que opere cajas, no solo el acotado.
+
+- Quien envía sin acceso sobre el destino tiene que mandar el mismo monto y la misma moneda.
+- La acreditación es inmediata: no hay recepción ni conteo en el destino.
+- El envío lo anula quien puede mover la caja que recibió, no quien lo envió.
+- `cajasVirtualesReceptoras` devuelve solo id, nombre y sucursal.
 
 ## Límites conocidos
 
@@ -78,8 +93,9 @@ El operador no tiene que ser el responsable de la caja: el responsable administr
 ## Despliegue
 
 - Orden: **central primero**, después el desktop, y recién entonces asignar el rol a alguien.
-- Migraciones: `V245.1` (rol, llega a las filiales por la réplica de `personas.role`) y `V246.1`
-  (columna nullable en `operaciones.solicitud_pago`, que no se publica a las filiales). Antes de
+- Migraciones: `V245.1` (rol, llega a las filiales por la réplica de `personas.role`), `V246.1`
+  (columna nullable en `operaciones.solicitud_pago`) y `V247.1` (columna en
+  `financiero.caja_virtual`). Las dos tablas no se publican a las filiales. Antes de
   desplegar en cada instancia, confirmar que sigue sin publicarse:
 
   ```sql
@@ -107,4 +123,5 @@ y una cuenta bancaria habilitada en esa caja:
 | 9 | Registrar un depósito y anularlo desde su fila. | El saldo baja y vuelve. El menú de la fila solo ofrece Anular. |
 | 10 | Como tesorería: Solicitud de pago → ⋮ → Asignar a caja, eligiendo la caja del operador. | Aviso «Solicitud asignada a …». |
 | 11 | Como el operador: Egreso → Pagar Compras. | Aparece solo la solicitud asignada; se paga en efectivo. Sin el botón de devolver a compras. |
-| 12 | Con un usuario `TESORERIA GESTIONAR`: repetir 3, 6 y 8. | Todo como antes del cambio. |
+| 12 | Como tesorería: Tesorería → ⋮ de la caja principal → Recibe envíos… → aceptar. Como el operador: Operaciones Financieras → Transf. entre Cajas. | En el destino aparece la caja principal con «(recibe envíos)». El envío baja su saldo; la caja principal no le aparece en su lista y no puede anular el envío. |
+| 13 | Con un usuario `TESORERIA GESTIONAR`: repetir 3, 6 y 8. | Todo como antes del cambio. |

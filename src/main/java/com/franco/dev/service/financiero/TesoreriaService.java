@@ -78,6 +78,24 @@ public class TesoreriaService {
         // por aca (RRHH, CPP, gastos, maletin, retiros, entradas varias, devoluciones).
         // Los procesos de sistema (schedulers, replicacion) no tienen sesion y pasan.
         seguridad.requireEscrituraCaja(mov.getCajaVirtual() != null ? mov.getCajaVirtual().getId() : null);
+        return asentar(mov);
+    }
+
+    /**
+     * La pata de entrada de un envío entre cajas: en vez de escritura sobre la caja que recibe, alcanza
+     * con que esté marcada «recibe envíos» ({@code requireEnvioACaja}). Solo acepta
+     * {@code TRANSFERENCIA_ENTRADA}: por acá no sale plata de la caja ni se la ajusta.
+     */
+    @Transactional
+    public MovimientoCajaVirtual registrarEntradaDeEnvio(MovimientoCajaVirtual mov) {
+        if (mov.getTipoMovimiento() != CajaVirtualTipoMovimiento.TRANSFERENCIA_ENTRADA) {
+            throw new GraphQLException("Un envío solo registra la entrada de una transferencia.");
+        }
+        seguridad.requireEnvioACaja(mov.getCajaVirtual() != null ? mov.getCajaVirtual().getId() : null);
+        return asentar(mov);
+    }
+
+    private MovimientoCajaVirtual asentar(MovimientoCajaVirtual mov) {
         if (mov.getActivo() == null) mov.setActivo(true);
         Moneda moneda = resolverMoneda(mov.getMoneda());
         mov.setMoneda(moneda);

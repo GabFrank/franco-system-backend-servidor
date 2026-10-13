@@ -46,7 +46,9 @@ class RolTesoreriaCajaMatrizTest {
             "EntradaVariaGraphQL.entradasVarias",
             "EntradaVariaGraphQL.registrarEntradaVaria",
             "EntradaVariaGraphQL.anularEntradaVaria",
-            "OperacionFinancieraGraphQL.operacionFinancieraCategorias"));
+            "OperacionFinancieraGraphQL.operacionFinancieraCategorias",
+            "RetiroGraphQL.retirosFlotantes",
+            "RetiroGraphQL.ingresarRetiroACajaMayor"));
 
     private static final Pattern FIRMA = Pattern.compile("^    public [^=;]*?\\b(\\w+)\\(");
     private static final Pattern ACEPTA_ACOTADO = Pattern.compile(
@@ -100,7 +102,9 @@ class RolTesoreriaCajaMatrizTest {
         rechaza(PagoProveedorGraphQL.class, "solicitudesPagoPendientes", "gastosPendientes", "detalleDePago",
                 "crearGastoParaPago", "pagarSolicitudesLoteCajaMayor", "pagarSolicitud", "pagarSolicitudesMixto",
                 "anularPagoCpp");
-        rechaza(RetiroGraphQL.class, "retirosFlotantes", "ingresarRetiroACajaMayor");
+        rechaza(RetiroGraphQL.class, "cancelarRetiro");
+        rechaza(RetiroVerificacionGraphQL.class, "verificacionDeRetiro", "retiroCasos", "retiroCasosAbiertos",
+                "verificarRetiro", "anularVerificacionRetiro");
     }
 
     @Test

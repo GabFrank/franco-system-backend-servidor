@@ -122,4 +122,23 @@ public interface RetiroRepository extends HelperRepository<Retiro, EmbebedPrimar
                                @Param("desde") java.time.LocalDateTime desde,
                                @Param("hasta") java.time.LocalDateTime hasta, Pageable pageable);
 
+    /**
+     * Lo mismo que {@link #findFlotantes}, limitado a un conjunto de sucursales: es el listado del rol
+     * acotado, que solo ve los retiros de las sucursales de sus cajas. {@code sucIds} no puede venir
+     * vacía: sin sucursales el servicio devuelve la página vacía sin consultar.
+     */
+    @Query("select r from Retiro r " +
+            "where r.cajaVirtualId is null and r.movimientoCajaVirtualId is null " +
+            "and (r.estado is null or r.estado not in (" +
+            "com.franco.dev.domain.financiero.enums.EstadoRetiro.EN_PROCESO, " +
+            "com.franco.dev.domain.financiero.enums.EstadoRetiro.CANCELADO)) " +
+            "and r.sucursalId in :sucIds " +
+            "and (:cajaId is null or r.cajaSalidaId = :cajaId) " +
+            "and (cast(:desde as timestamp) is null or r.creadoEn >= :desde) " +
+            "and (cast(:hasta as timestamp) is null or r.creadoEn <= :hasta) " +
+            "order by r.creadoEn desc")
+    Page<Retiro> findFlotantesEnSucursales(@Param("sucIds") java.util.List<Long> sucIds, @Param("cajaId") Long cajaId,
+                                           @Param("desde") java.time.LocalDateTime desde,
+                                           @Param("hasta") java.time.LocalDateTime hasta, Pageable pageable);
+
 }

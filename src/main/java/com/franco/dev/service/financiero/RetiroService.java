@@ -24,6 +24,7 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
     private final RetiroRepository repository;
     private final ApplicationEventPublisher publisher;
     private final RetiroVerificacionRepository verificacionRepository;
+    private final TesoreriaSecurityService seguridad;
 
     @Override
     public RetiroRepository getRepository() {
@@ -61,6 +62,15 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
     /** Retiros flotantes (replicados del PDV, sin caja mayor asignada); filtro por sucursal, caja y fechas. */
     public Page<Retiro> findFlotantes(Long sucId, Long cajaId, java.time.LocalDateTime desde,
                                       java.time.LocalDateTime hasta, Pageable pageable) {
+        if (seguridad.esSoloCaja()) {
+            // El rol acotado solo ve los retiros de las sucursales de sus cajas. Vacío es «ninguna»:
+            // se corta acá, nunca llega una lista vacía ni un null a la consulta.
+            List<Long> operables = seguridad.sucursalesOperablesIds();
+            if (sucId != null) operables = operables.contains(sucId) ? java.util.Collections.singletonList(sucId)
+                    : java.util.Collections.emptyList();
+            if (operables.isEmpty()) return Page.empty(pageable);
+            return repository.findFlotantesEnSucursales(operables, cajaId, desde, hasta, pageable);
+        }
         return repository.findFlotantes(sucId, cajaId, desde, hasta, pageable);
     }
 

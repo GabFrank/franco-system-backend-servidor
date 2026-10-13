@@ -24,6 +24,8 @@ class RetiroIngresoServiceTest {
 
     private RetiroRepository retiroRepository;
     private RetiroTesoreriaProcesador procesador;
+    private TesoreriaSecurityService seguridad;
+    private CajaVirtual caja;
     private RetiroIngresoService service;
     private Retiro cargado;
 
@@ -32,11 +34,13 @@ class RetiroIngresoServiceTest {
         retiroRepository = mock(RetiroRepository.class);
         procesador = mock(RetiroTesoreriaProcesador.class);
         CajaVirtualService cajaVirtualService = mock(CajaVirtualService.class);
-        service = new RetiroIngresoService(retiroRepository, procesador, cajaVirtualService);
+        seguridad = mock(TesoreriaSecurityService.class);
+        service = new RetiroIngresoService(retiroRepository, procesador, cajaVirtualService, seguridad);
 
         cargado = new Retiro();   // lo que devuelve el lock: sin estado, sin movimiento
         when(retiroRepository.lockByIdAndSucursalId(7L, 1L)).thenReturn(Optional.of(cargado));
-        when(cajaVirtualService.findById(3L)).thenReturn(Optional.of(new CajaVirtual()));
+        caja = new CajaVirtual();
+        when(cajaVirtualService.findById(3L)).thenReturn(Optional.of(caja));
     }
 
     private void enLaBase(EstadoRetiro estado, Long movimientoId) {
@@ -84,5 +88,58 @@ class RetiroIngresoServiceTest {
         GraphQLException e = assertThrows(GraphQLException.class, () -> service.ingresarACajaMayor(99L, 1L, 3L, null));
 
         assertTrue(e.getMessage().contains("no encontrado"), e.getMessage());
+    }
+
+    // ── Rol acotado (TESORERIA CAJA): solo retiros de la sucursal de la caja ──
+
+    private void cajaDeLaSucursal(Long sucursalId) {
+        com.franco.dev.domain.empresarial.Sucursal suc = new com.franco.dev.domain.empresarial.Sucursal();
+        suc.setId(sucursalId);
+        caja.setSucursal(suc);
+    }
+
+    @Test
+    void el_rol_acotado_ingresa_un_retiro_de_la_sucursal_de_su_caja() {
+        enLaBase(null, null);
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        cajaDeLaSucursal(1L);
+
+        service.ingresarACajaMayor(7L, 1L, 3L, null);
+
+        verify(procesador).procesar(7L, 1L, null);
+    }
+
+    @Test
+    void el_rol_acotado_no_ingresa_un_retiro_de_otra_sucursal() {
+        enLaBase(null, null);
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        cajaDeLaSucursal(13L);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.ingresarACajaMayor(7L, 1L, 3L, null));
+
+        assertTrue(e.getMessage().startsWith("No autorizado"), e.getMessage());
+        verify(retiroRepository, never()).save(any());
+        verify(procesador, never()).procesar(any(), any(), any());
+    }
+
+    @Test
+    void el_rol_acotado_no_ingresa_a_una_caja_sin_sucursal() {
+        enLaBase(null, null);
+        when(seguridad.esSoloCaja()).thenReturn(true);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.ingresarACajaMayor(7L, 1L, 3L, null));
+
+        assertTrue(e.getMessage().startsWith("No autorizado"), e.getMessage());
+        verify(procesador, never()).procesar(any(), any(), any());
+    }
+
+    @Test
+    void sin_rol_acotado_la_sucursal_de_la_caja_no_importa() {
+        enLaBase(null, null);
+        cajaDeLaSucursal(13L);
+
+        service.ingresarACajaMayor(7L, 1L, 3L, null);
+
+        verify(procesador).procesar(7L, 1L, null);
     }
 }

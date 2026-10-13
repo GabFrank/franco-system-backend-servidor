@@ -27,6 +27,7 @@ public class RetiroIngresoService {
     private final RetiroRepository retiroRepository;
     private final RetiroTesoreriaProcesador procesador;
     private final CajaVirtualService cajaVirtualService;
+    private final TesoreriaSecurityService seguridad;
 
     @Transactional
     public Retiro ingresarACajaMayor(Long retiroId, Long sucursalId, Long cajaVirtualId,
@@ -47,8 +48,14 @@ public class RetiroIngresoService {
         if (s.estaCancelado()) {
             throw new GraphQLException("El retiro #" + retiroId + " está cancelado: habilitalo antes de ingresarlo.");
         }
-        cajaVirtualService.findById(cajaVirtualId)
+        com.franco.dev.domain.financiero.CajaVirtual caja = cajaVirtualService.findById(cajaVirtualId)
                 .orElseThrow(() -> new GraphQLException("Caja mayor no encontrada: " + cajaVirtualId));
+        // El rol acotado ingresa a su caja solo los retiros de la sucursal de esa caja. Va antes de
+        // asignar la caja: la escritura sobre la caja la exige después el motor de posteo.
+        if (seguridad.esSoloCaja()
+                && (caja.getSucursal() == null || !caja.getSucursal().getId().equals(sucursalId))) {
+            throw new GraphQLException("No autorizado: solo podés ingresar retiros de la sucursal de tu caja.");
+        }
 
         r.setCajaVirtualId(cajaVirtualId);
         retiroRepository.save(r);

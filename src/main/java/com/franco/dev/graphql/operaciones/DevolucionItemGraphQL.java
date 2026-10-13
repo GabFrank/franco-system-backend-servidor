@@ -181,7 +181,11 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
             // Lote del maestro: tiene que existir y ser de este producto. Su numero pasa al
             // texto del item (lo que muestran pantallas y etiquetas) y, si el item no trae
             // vencimiento, tambien el suyo.
-            if (input.getLoteId() != null) {
+            // Solo para productos con control de lote: en el resto el lote es texto libre, y un
+            // lote_id guardado empezaria a mandar en la baja si mas adelante se activa el control.
+            boolean llevaLote = entity.getProducto() != null
+                    && Boolean.TRUE.equals(entity.getProducto().getLote());
+            if (input.getLoteId() != null && llevaLote) {
                 Lote loteMaestro = loteService.findById(input.getLoteId())
                         .orElseThrow(() -> new GraphQLException("Lote no encontrado con ID: " + input.getLoteId()));
                 Long productoDelLote = loteMaestro.getProducto() != null ? loteMaestro.getProducto().getId() : null;
@@ -193,12 +197,14 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
                 if (entity.getVencimiento() == null) {
                     entity.setVencimiento(loteMaestro.getFechaVencimiento());
                 }
-            } else if (existente != null && existente.getLoteMaestro() != null
+            } else if (llevaLote && existente != null && existente.getLoteMaestro() != null
+                    && existente.getProducto() != null
+                    && existente.getProducto().getId().equals(entity.getProducto().getId())
                     && existente.getLoteMaestro().getNumeroLote().equals(
                             LoteService.normalizarNumeroLote(input.getLote()))) {
                 // Un cliente que todavia no conoce loteId reenvia el item con el mismo texto de
-                // lote: se conserva el lote elegido en vez de borrarlo. Si cambio el texto, se
-                // toma como que lo cambio a mano y el item queda sin lote del maestro.
+                // lote: se conserva el lote elegido en vez de borrarlo. Si cambio el texto o el
+                // producto, se toma como que lo cambio a mano y el item queda sin lote del maestro.
                 entity.setLoteMaestro(existente.getLoteMaestro());
             }
 

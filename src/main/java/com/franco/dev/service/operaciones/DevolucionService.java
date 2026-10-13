@@ -641,8 +641,6 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                     // Sale del mismo lote al que habia entrado el canje.
                     if (DevolucionLoteService.llevaLote(item) && item.getMovimientoCanjeId() != null) {
                         lotes().espejar(salida, item.getMovimientoCanjeId(), sucId, item, -1);
-                        item.setMovimientoCanjeId(null);
-                        devolucionItemService.save(item);
                     }
                 }
                 // CrudService.delete no lanza: devuelve false. Si el vencimiento queda, un
@@ -651,6 +649,11 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                     throw new GraphQLException("No se pudo revertir el canje de "
                             + descripcionProducto(item) + ": no se borro su vencimiento");
                 }
+            }
+            // Se olvida el movimiento del canje recien al terminar con todos sus vencimientos.
+            if (item.getMovimientoCanjeId() != null) {
+                item.setMovimientoCanjeId(null);
+                devolucionItemService.save(item);
             }
         }
     }

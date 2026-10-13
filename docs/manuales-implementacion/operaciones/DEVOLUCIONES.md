@@ -48,9 +48,9 @@ su desglose en `movimiento_stock_lote`; lo escribe `DevolucionLoteService`.
 - Canjear un producto con lote **exige** `lote_reingreso` cuando hay reingreso.
 - `loteId` y `loteReingreso` existen solo en el input GraphQL. Los clientes los mandan únicamente
   con valor y no piden nada nuevo en sus consultas, así un cliente nuevo sigue andando contra un
-  central anterior a `V248.3` (salvo para guardar un ítem con lote elegido).
+  central anterior a `V249.3` (salvo para guardar un ítem con lote elegido).
 - Un cliente que no conoce los campos y reenvía un ítem conserva el lote si no cambió el texto.
-- Lo separado o canjeado antes de `V248.3` no tiene ids de movimiento: deshacerlo no toca el ledger.
+- Lo separado o canjeado antes de `V249.3` no tiene ids de movimiento: deshacerlo no toca el ledger.
 
 ## Qué se puede editar
 

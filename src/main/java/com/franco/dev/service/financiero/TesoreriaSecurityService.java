@@ -184,6 +184,16 @@ public class TesoreriaSecurityService {
         return accesoRepository.sucursalesOperablesIds(id);
     }
 
+    /**
+     * Cajas que el usuario puede mover (propias u otorgadas con escritura). Nunca null: es para el rol
+     * acotado, donde la lista vacía significa «ninguna».
+     */
+    public java.util.List<Long> cajasEscribiblesIds() {
+        Long id = idUsuarioActual();
+        if (id == null) return java.util.Collections.emptyList();
+        return accesoRepository.cajasEscribiblesIds(id);
+    }
+
     // ─────────────────────── Acceso por caja (ACL) ───────────────────────
     //
     // El rol habilita la capacidad; el ACL delimita sobre que cajas (modelo AND). El

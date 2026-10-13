@@ -26,7 +26,7 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
     private final com.franco.dev.service.financiero.AltaIdempotenteService altaIdempotente;
 
     public List<SolicitudPago> solicitudesPagoPendientes(Long proveedorId) {
-        seg.requireVer();
+        seg.requireVerCaja();
         return service.listarPendientes(proveedorId);
     }
 
@@ -95,6 +95,15 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
             ls.add(s);
         }
         return service.pagarLoteMixto(ls, seg.currentUsuario(), claveIdempotencia);
+    }
+
+    /**
+     * Tesorería asigna una solicitud pagable a una caja para que la pague su operador (rol TESORERIA CAJA),
+     * o le quita la asignación con {@code cajaVirtualId} nulo. Es decidir quién paga: mismo rol que pagar.
+     */
+    public SolicitudPago asignarSolicitudPagoACaja(Long solicitudPagoId, Long cajaVirtualId) {
+        seg.requirePagarCpp();
+        return service.asignarACaja(solicitudPagoId, cajaVirtualId);
     }
 
     /** Anula todo un evento de pago (revierte los movimientos consolidados y reabre sus solicitudes). */

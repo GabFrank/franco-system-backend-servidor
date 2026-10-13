@@ -46,6 +46,7 @@ class PagoProveedorServiceRolCajaTest {
     private ChequeGestionService chequeGestionService;
     private PagoSolicitudDetalleRepository detalleRepo;
     private TesoreriaSecurityService seguridad;
+    private com.franco.dev.repository.financiero.CajaVirtualRepository cajaRepo;
     private IdempotenciaService idempotenciaService;
     private PagoProveedorService service;
 
@@ -62,10 +63,11 @@ class PagoProveedorServiceRolCajaTest {
         chequeGestionService = mock(ChequeGestionService.class);
         detalleRepo = mock(PagoSolicitudDetalleRepository.class);
         seguridad = mock(TesoreriaSecurityService.class);
+        cajaRepo = mock(com.franco.dev.repository.financiero.CajaVirtualRepository.class);
         idempotenciaService = mock(IdempotenciaService.class);
         service = new PagoProveedorService(solicitudPagoService, pagoService, tesoreriaService, bancoLedgerService,
                 chequeGestionService, mock(com.franco.dev.repository.financiero.ChequeraRepository.class),
-                mock(com.franco.dev.repository.financiero.CajaVirtualRepository.class),
+                cajaRepo,
                 mock(com.franco.dev.repository.financiero.MonedaRepository.class), detalleRepo, seguridad,
                 mock(com.franco.dev.repository.financiero.MovimientoBancarioRepository.class),
                 mock(PreGastoService.class), mock(GastoTesoreriaService.class),
@@ -204,10 +206,10 @@ class PagoProveedorServiceRolCajaTest {
 
     @Test
     void lista_solo_los_gastos_que_cargo_el_filtrando_en_la_consulta() {
-        List<SolicitudPago> suyos = Collections.singletonList(new SolicitudPago());
+        List<SolicitudPago> suyos = Collections.singletonList(solicitud(1L, TipoSolicitudPago.GASTO, GERENTE));
         when(spRepo.findByEstadoInAndTipoAndUsuario_Id(any(), eq(TipoSolicitudPago.GASTO), eq(GERENTE))).thenReturn(suyos);
 
-        assertSame(suyos, service.listarGastosPendientes());
+        assertEquals(suyos, service.listarGastosPendientes());
         verify(spRepo, never()).findByEstadoIn(any());
     }
 
@@ -317,5 +319,140 @@ class PagoProveedorServiceRolCajaTest {
 
         assertEquals(1, items.size());
         assertEquals("FLETE", items.get(0).getDescripcion());
+    }
+
+    // ── Solicitudes que tesorería asignó a una caja ──
+
+    private SolicitudPago asignada(long id, TipoSolicitudPago tipo, Long cajaId) {
+        SolicitudPago sp = solicitud(id, tipo, OTRO);
+        sp.setCajaVirtualAsignadaId(cajaId);
+        return sp;
+    }
+
+    @Test
+    void paga_una_compra_asignada_a_su_caja_desde_esa_caja() {
+        asignada(1L, TipoSolicitudPago.COMPRA, CAJA);
+        when(seguridad.puedeEscribirCaja(CAJA)).thenReturn(true);
+
+        service.pagarLoteMixto(pedido(1L, FuentePago.CAJA_MAYOR), null, "clave");
+
+        verify(idempotenciaService).ejecutar(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void no_paga_una_compra_asignada_a_una_caja_que_no_puede_mover() {
+        asignada(1L, TipoSolicitudPago.COMPRA, 16L);
+        when(seguridad.puedeEscribirCaja(16L)).thenReturn(false);
+
+        assertTrue(rechazo(pedido(1L, FuentePago.CAJA_MAYOR)).getMessage().startsWith("No autorizado"));
+        nuncaLlegaAlMotor();
+    }
+
+    @Test
+    void lo_asignado_a_una_caja_no_se_paga_desde_otra_aunque_tambien_la_pueda_mover() {
+        asignada(1L, TipoSolicitudPago.COMPRA, 16L);
+        when(seguridad.puedeEscribirCaja(16L)).thenReturn(true);
+
+        // El pedido paga desde CAJA (15), pero la solicitud está asignada a la 16.
+        assertTrue(rechazo(pedido(1L, FuentePago.CAJA_MAYOR)).getMessage().startsWith("No autorizado"));
+        nuncaLlegaAlMotor();
+    }
+
+    @Test
+    void una_obligacion_de_rrhh_no_se_paga_ni_asignada() {
+        asignada(1L, TipoSolicitudPago.RRHH, CAJA);
+        when(seguridad.puedeEscribirCaja(CAJA)).thenReturn(true);
+
+        assertTrue(rechazo(pedido(1L, FuentePago.CAJA_MAYOR)).getMessage().startsWith("No autorizado"));
+        nuncaLlegaAlMotor();
+    }
+
+    @Test
+    void lista_solo_las_compras_asignadas_a_sus_cajas_filtrando_en_la_consulta() {
+        List<SolicitudPago> suyas = Collections.singletonList(new SolicitudPago());
+        when(seguridad.cajasEscribiblesIds()).thenReturn(Collections.singletonList(CAJA));
+        when(spRepo.findAsignadasACajas(any(), eq(Collections.singletonList(CAJA)), eq(true))).thenReturn(suyas);
+
+        assertEquals(suyas, service.listarPendientes(null));
+        verify(spRepo, never()).findByEstadoIn(any());
+    }
+
+    @Test
+    void sin_ninguna_caja_no_lista_compras_ni_consulta() {
+        // Vacío es «ninguna»: jamás puede caer en el listado completo.
+        when(seguridad.cajasEscribiblesIds()).thenReturn(Collections.emptyList());
+
+        assertTrue(service.listarPendientes(null).isEmpty());
+        verify(spRepo, never()).findByEstadoIn(any());
+        verify(spRepo, never()).findAsignadasACajas(any(), any(), anyBoolean());
+    }
+
+    @Test
+    void los_gastos_son_los_que_cargo_el_mas_los_asignados_a_sus_cajas_sin_repetir() {
+        SolicitudPago propio = solicitud(1L, TipoSolicitudPago.GASTO, GERENTE);
+        SolicitudPago asignado = asignada(2L, TipoSolicitudPago.GASTO, CAJA);
+        when(seguridad.cajasEscribiblesIds()).thenReturn(Collections.singletonList(CAJA));
+        when(spRepo.findByEstadoInAndTipoAndUsuario_Id(any(), eq(TipoSolicitudPago.GASTO), eq(GERENTE)))
+                .thenReturn(Collections.singletonList(propio));
+        when(spRepo.findAsignadasACajas(any(), eq(Collections.singletonList(CAJA)), eq(false)))
+                .thenReturn(Arrays.asList(propio, asignado));
+
+        assertEquals(Arrays.asList(propio, asignado), service.listarGastosPendientes());
+    }
+
+    // ── Asignar (lo hace tesorería: acá no hay modo acotado) ──
+
+    private com.franco.dev.domain.financiero.CajaVirtual caja(long id, boolean activa) {
+        com.franco.dev.domain.financiero.CajaVirtual c = new com.franco.dev.domain.financiero.CajaVirtual();
+        c.setId(id);
+        c.setNombre("CAJA " + id);
+        c.setActivo(activa);
+        when(cajaRepo.findById(id)).thenReturn(Optional.of(c));
+        return c;
+    }
+
+    private SolicitudPago conLock(SolicitudPago sp) {
+        when(spRepo.lockById(sp.getId())).thenReturn(Optional.of(sp));
+        when(solicitudPagoService.save(any())).thenAnswer(i -> i.getArgument(0));
+        return sp;
+    }
+
+    @Test
+    void asigna_una_compra_lista_para_pagar_y_la_desasigna() {
+        SolicitudPago sp = conLock(solicitud(1L, TipoSolicitudPago.COMPRA, OTRO));
+        caja(CAJA, true);
+
+        assertEquals(CAJA, service.asignarACaja(1L, CAJA).getCajaVirtualAsignadaId());
+        assertNull(service.asignarACaja(1L, null).getCajaVirtualAsignadaId());
+        verify(solicitudPagoService, times(2)).save(sp);
+    }
+
+    @Test
+    void no_asigna_una_obligacion_de_rrhh() {
+        conLock(solicitud(1L, TipoSolicitudPago.RRHH, OTRO));
+        caja(CAJA, true);
+
+        assertThrows(GraphQLException.class, () -> service.asignarACaja(1L, CAJA));
+        verify(solicitudPagoService, never()).save(any());
+    }
+
+    @Test
+    void no_asigna_una_solicitud_que_no_esta_lista_para_pagar() {
+        for (SolicitudPagoEstado estado : new SolicitudPagoEstado[]{SolicitudPagoEstado.PENDIENTE,
+                SolicitudPagoEstado.CONCLUIDO, SolicitudPagoEstado.CANCELADO}) {
+            conLock(solicitud(1L, TipoSolicitudPago.COMPRA, OTRO)).setEstado(estado);
+            assertThrows(GraphQLException.class, () -> service.asignarACaja(1L, CAJA), estado.name());
+        }
+        verify(solicitudPagoService, never()).save(any());
+    }
+
+    @Test
+    void no_asigna_a_una_caja_inactiva_o_que_no_existe() {
+        conLock(solicitud(1L, TipoSolicitudPago.COMPRA, OTRO));
+        caja(CAJA, false);
+
+        assertThrows(GraphQLException.class, () -> service.asignarACaja(1L, CAJA));
+        assertThrows(GraphQLException.class, () -> service.asignarACaja(1L, 999L));
+        verify(solicitudPagoService, never()).save(any());
     }
 }

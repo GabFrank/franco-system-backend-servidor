@@ -314,15 +314,50 @@ public class PagoProveedorService {
 
     // ─────────────── Rol acotado (TESORERIA CAJA) ───────────────
 
+    private static final List<SolicitudPagoEstado> PAGABLES =
+            List.of(SolicitudPagoEstado.SOLICITADO, SolicitudPagoEstado.PARCIAL);
+
     /**
-     * Lo que el rol acotado puede pagar: los gastos que cargó él mismo. Es la misma regla para listar,
-     * pagar, anular y ver el detalle, para que lo que no aparece en su lista tampoco se alcance por id.
+     * Lo que el rol acotado puede pagar: los gastos que cargó él mismo y las solicitudes de compra o de
+     * gasto que tesorería asignó a una caja que él puede mover. Es la misma regla para listar, pagar, anular
+     * y ver el detalle, para que lo que no aparece en su lista tampoco se alcance por id.
      */
     private boolean pagableEnModoAcotado(SolicitudPago sp) {
         Usuario actual = seguridad.currentUsuario();
         if (sp == null || actual == null) return false;
-        return sp.getTipo() == com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO
+        com.franco.dev.domain.operaciones.enums.TipoSolicitudPago tipo = sp.getTipo();
+        if (tipo == com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH) return false;
+        boolean gastoPropio = tipo == com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO
                 && sp.getUsuario() != null && actual.getId().equals(sp.getUsuario().getId());
+        if (gastoPropio) return true;
+        return sp.getCajaVirtualAsignadaId() != null && seguridad.puedeEscribirCaja(sp.getCajaVirtualAsignadaId());
+    }
+
+    /**
+     * Asigna una solicitud pagable a una caja para que la pague su operador; {@code cajaVirtualId} nulo
+     * quita la asignación. No mueve plata ni cambia el estado: solo decide quién la ve para pagar.
+     */
+    @Transactional
+    public SolicitudPago asignarACaja(Long solicitudId, Long cajaVirtualId) {
+        // Con lock, el mismo que toma el pago: asignar mientras otro la está pagando no puede pisar su save.
+        SolicitudPago sp = solicitudPagoService.getRepository().lockById(solicitudId)
+                .orElseThrow(() -> new GraphQLException("Solicitud de pago no encontrada: " + solicitudId));
+        if (sp.getTipo() == com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH) {
+            throw new GraphQLException("Una obligación de RRHH no se asigna a una caja: la paga tesorería.");
+        }
+        if (!PAGABLES.contains(sp.getEstado())) {
+            throw new GraphQLException("Solo se asigna una solicitud lista para pagar; la #" + solicitudId
+                    + " está " + sp.getEstado() + ".");
+        }
+        if (cajaVirtualId != null) {
+            com.franco.dev.domain.financiero.CajaVirtual caja = cajaVirtualRepository.findById(cajaVirtualId)
+                    .orElseThrow(() -> new GraphQLException("Caja no encontrada: " + cajaVirtualId));
+            if (!Boolean.TRUE.equals(caja.getActivo())) {
+                throw new GraphQLException("La caja " + caja.getNombre() + " está inactiva.");
+            }
+        }
+        sp.setCajaVirtualAsignadaId(cajaVirtualId);
+        return solicitudPagoService.save(sp);
     }
 
     /**
@@ -345,6 +380,12 @@ public class PagoProveedorService {
                     throw new GraphQLException("No autorizado: con tu rol solo podés pagar en efectivo desde tu caja.");
                 }
                 seguridad.requireEscrituraCaja(l.getCajaVirtualId());
+                // Lo asignado a una caja se paga desde esa caja, no desde otra que también pueda mover.
+                if (sp.getCajaVirtualAsignadaId() != null
+                        && !sp.getCajaVirtualAsignadaId().equals(l.getCajaVirtualId())) {
+                    throw new GraphQLException("No autorizado: la solicitud #" + sp.getId()
+                            + " se paga desde la caja a la que fue asignada.");
+                }
             }
         }
     }
@@ -480,12 +521,20 @@ public class PagoProveedorService {
      *  PENDIENTE es borrador y NO es pagable. Excluye GASTO y RRHH (cada uno tiene su modo, y RRHH sus reglas y su
      *  rol: issue #302). Filtra por proveedor si se indica. */
     public List<SolicitudPago> listarPendientes(Long proveedorId) {
-        List<SolicitudPago> list = solicitudPagoService.getRepository()
-                .findByEstadoIn(List.of(SolicitudPagoEstado.SOLICITADO, SolicitudPagoEstado.PARCIAL))
-                .stream()
-                .filter(s -> s.getTipo() != com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO
-                        && s.getTipo() != com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH)
-                .collect(Collectors.toList());
+        List<SolicitudPago> list;
+        if (seguridad.esSoloCaja()) {
+            // El rol acotado solo ve las compras asignadas a una caja que puede mover, filtradas en la consulta.
+            List<Long> cajas = seguridad.cajasEscribiblesIds();
+            if (cajas.isEmpty()) return java.util.Collections.emptyList();
+            list = solicitudPagoService.getRepository().findAsignadasACajas(PAGABLES, cajas, true);
+        } else {
+            list = solicitudPagoService.getRepository()
+                    .findByEstadoIn(List.of(SolicitudPagoEstado.SOLICITADO, SolicitudPagoEstado.PARCIAL))
+                    .stream()
+                    .filter(s -> s.getTipo() != com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO
+                            && s.getTipo() != com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH)
+                    .collect(Collectors.toList());
+        }
         if (proveedorId != null) {
             list = list.stream()
                     .filter(s -> s.getProveedor() != null && proveedorId.equals(s.getProveedor().getId()))
@@ -500,9 +549,19 @@ public class PagoProveedorService {
             // El rol acotado paga los gastos que cargó él: filtrado en la consulta, no en memoria.
             Usuario actual = seguridad.currentUsuario();
             if (actual == null) return java.util.Collections.emptyList();
-            return solicitudPagoService.getRepository().findByEstadoInAndTipoAndUsuario_Id(
-                    List.of(SolicitudPagoEstado.SOLICITADO, SolicitudPagoEstado.PARCIAL),
-                    com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO, actual.getId());
+            LinkedHashMap<Long, SolicitudPago> porId = new LinkedHashMap<>();
+            for (SolicitudPago s : solicitudPagoService.getRepository().findByEstadoInAndTipoAndUsuario_Id(
+                    PAGABLES, com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO, actual.getId())) {
+                porId.put(s.getId(), s);
+            }
+            // Más los gastos que tesorería asignó a una de sus cajas.
+            List<Long> cajas = seguridad.cajasEscribiblesIds();
+            if (!cajas.isEmpty()) {
+                for (SolicitudPago s : solicitudPagoService.getRepository().findAsignadasACajas(PAGABLES, cajas, false)) {
+                    porId.putIfAbsent(s.getId(), s);
+                }
+            }
+            return new ArrayList<>(porId.values());
         }
         return solicitudPagoService.getRepository()
                 .findByEstadoIn(List.of(SolicitudPagoEstado.SOLICITADO, SolicitudPagoEstado.PARCIAL))

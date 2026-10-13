@@ -52,6 +52,7 @@ class RolTesoreriaCajaMatrizTest {
             "CajaVirtualGraphQL.cuentasBancariasParaDeposito",
             "OperacionFinancieraGraphQL.registrarOperacionFinanciera",
             "OperacionFinancieraGraphQL.anularOperacionFinanciera",
+            "PagoProveedorGraphQL.solicitudesPagoPendientes",
             "PagoProveedorGraphQL.gastosPendientes",
             "PagoProveedorGraphQL.detalleDePago",
             "PagoProveedorGraphQL.crearGastoParaPago",
@@ -110,8 +111,8 @@ class RolTesoreriaCajaMatrizTest {
         rechaza(ReporteMovimientosCajaGraphQL.class, "imprimirReporteMovimientosBancarios");
         rechaza(EntradaVariaGraphQL.class, "saveEntradaVariaCategoria");
         rechaza(AjusteDeSaldoGraphQL.class, "ajustarCajaVirtualPorConteo");
-        rechaza(PagoProveedorGraphQL.class, "solicitudesPagoPendientes", "pagarSolicitudesLoteCajaMayor",
-                "pagarSolicitud");
+        rechaza(PagoProveedorGraphQL.class, "pagarSolicitudesLoteCajaMayor", "pagarSolicitud",
+                "asignarSolicitudPagoACaja");
         rechaza(com.franco.dev.graphql.operaciones.SolicitudPagoGraphQL.class, "devolverSolicitudPago");
         rechaza(RetiroGraphQL.class, "cancelarRetiro");
         rechaza(RetiroVerificacionGraphQL.class, "verificacionDeRetiro", "retiroCasos", "retiroCasosAbiertos",

@@ -161,6 +161,40 @@ public class PagoRrhhTesoreriaService {
         return pagoProveedorService.pagarLoteMixtoObligacionesRrhh(lote, usuario);
     }
 
+    /**
+     * Para el rol acotado: cada línea sale en la moneda del documento y salda exactamente lo que sale de la
+     * caja. Sin cotización ni ajuste no hay cómo saldar más deuda que el efectivo entregado.
+     */
+    @Transactional(readOnly = true)
+    public void exigirEfectivoEnLaMonedaDelDocumento(List<PagoRrhhConLineas> pagos) {
+        for (PagoRrhhConLineas p : pagos) {
+            Moneda moneda = monedaDelDocumento(p.getConcepto(), p.getDocumentoId());
+            if (p.getLineas() == null) continue;
+            for (PagoProveedorService.LineaPago l : p.getLineas()) {
+                boolean ajuste = Boolean.TRUE.equals(l.getDescuento()) || Boolean.TRUE.equals(l.getAumento());
+                boolean otraMoneda = moneda == null || l.getMonedaId() == null || !l.getMonedaId().equals(moneda.getId());
+                boolean otroMonto = l.getMonto() == null || (l.getMontoSolicitud() != null
+                        && l.getMontoSolicitud().subtract(l.getMonto()).abs().compareTo(TOLERANCIA) > 0);
+                if (ajuste || otraMoneda || otroMonto) {
+                    throw new GraphQLException("No autorizado: con tu rol se paga en la moneda del documento"
+                            + " y por el monto que sale de la caja.");
+                }
+            }
+        }
+    }
+
+    private Moneda monedaDelDocumento(ConceptoRrhh concepto, Long id) {
+        if (concepto == ConceptoRrhh.LIQUIDACION) {
+            LiquidacionSueldo l = liquidacionRepository.findById(id).orElse(null);
+            return l == null ? null : (l.getMoneda() != null ? l.getMoneda() : monedaPrincipal());
+        }
+        if (concepto == ConceptoRrhh.FINIQUITO) {
+            LiquidacionFinal f = finiquitoRepository.findById(id).orElse(null);
+            return f == null ? null : (f.getMoneda() != null ? f.getMoneda() : monedaPrincipal());
+        }
+        return null;
+    }
+
     // ───────────────────────────── proyecciones a DTO ─────────────────────────────
 
     private PagoRrhhPendienteDto toDto(LiquidacionSueldo l) {

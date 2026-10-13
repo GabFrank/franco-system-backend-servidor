@@ -26,6 +26,7 @@ import static org.mockito.Mockito.*;
 class ReporteRrhhGraphQLSeguridadTest {
 
     @Mock private RrhhSecurityService seg;
+    @Mock private com.franco.dev.service.rrhh.RrhhAlcanceService alcance;
     @Mock private ReporteRrhhService service;
 
     @InjectMocks private ReporteRrhhGraphQL resolver;
@@ -44,6 +45,10 @@ class ReporteRrhhGraphQLSeguridadTest {
 
     private void sinRol() {
         doThrow(new GraphQLException("No autorizado")).when(seg).requireVer();
+        // Los recibos de finiquito y de ítems pasan por el alcance (rol acotado RRHH SUCURSAL).
+        doThrow(new GraphQLException("No autorizado")).when(alcance).requireVerFiniquito(org.mockito.ArgumentMatchers.any());
+        doThrow(new GraphQLException("No autorizado")).when(alcance).requireVerItemDeLiquidacion(org.mockito.ArgumentMatchers.any());
+        doThrow(new GraphQLException("No autorizado")).when(alcance).requireVerItemDeFiniquito(org.mockito.ArgumentMatchers.any());
     }
 
     private static void rechaza(Executable llamada) {
@@ -76,7 +81,9 @@ class ReporteRrhhGraphQLSeguridadTest {
         rechaza(() -> resolver.imprimirReciboBono(500L, null, null));
         rechaza(() -> resolver.imprimirReciboFinal(500L, null, null));
 
-        verify(seg, times(6)).requireVer();
+        // El de finiquito pasa por el alcance, que acepta además al rol acotado dentro de sus sucursales.
+        verify(seg, times(5)).requireVer();
+        verify(alcance).requireVerFiniquito(500L);
         verifyNoInteractions(service);
     }
 
@@ -98,7 +105,11 @@ class ReporteRrhhGraphQLSeguridadTest {
         }
 
         assertTrue(publicos >= 14, "metodos publicos encontrados: " + publicos);
-        verify(seg, times(publicos)).requireVer();
+        // Tres recibos (finiquito y los dos de ítems) controlan por el alcance en vez de seg.requireVer().
+        verify(seg, times(publicos - 3)).requireVer();
+        verify(alcance).requireVerFiniquito(null);
+        verify(alcance).requireVerItemDeLiquidacion(null);
+        verify(alcance).requireVerItemDeFiniquito(null);
         verifyNoInteractions(service);
     }
 
@@ -112,6 +123,7 @@ class ReporteRrhhGraphQLSeguridadTest {
         assertEquals("finiquito", resolver.imprimirReciboFinal(500L, null, null));
         assertEquals("nomina", resolver.reporteNominaMes("2026-09", 3L, false));
 
-        verify(seg, times(3)).requireVer();
+        verify(seg, times(2)).requireVer();
+        verify(alcance).requireVerFiniquito(500L);
     }
 }

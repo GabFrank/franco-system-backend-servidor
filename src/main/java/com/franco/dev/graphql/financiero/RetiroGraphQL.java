@@ -152,7 +152,7 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     /** Retiros flotantes (replicados del PDV, sin caja mayor asignada). Filtro por sucursal, caja y fechas. */
     public Page<Retiro> retirosFlotantes(Long sucId, Long cajaId, String desde, String hasta,
-                                         Integer page, Integer size) {
+                                         Integer page, Integer size, Long cajaVirtualDestinoId) {
         seg.requireVerCaja();
         if (page == null) page = 0;
         if (size == null) size = 20;
@@ -164,7 +164,7 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         if (hastaDt != null && hastaDt.toLocalTime().equals(java.time.LocalTime.MIDNIGHT)) {
             hastaDt = hastaDt.toLocalDate().atTime(java.time.LocalTime.MAX);
         }
-        return service.findFlotantes(sucId, cajaId, desdeDt, hastaDt, PageRequest.of(page, size));
+        return service.findFlotantes(sucId, cajaId, cajaVirtualDestinoId, desdeDt, hastaDt, PageRequest.of(page, size));
     }
 
     /** Asigna una caja mayor a un retiro flotante y lo postea (INGRESO) de inmediato. */

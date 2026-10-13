@@ -18,8 +18,8 @@ import static org.mockito.Mockito.*;
 
 /**
  * Verificar un retiro (contarlo y acreditarlo) es su único ingreso desde la pantalla, así que lo hace
- * también el rol acotado TESORERIA CAJA: en una caja que puede mover y solo con retiros de la sucursal
- * de esa caja.
+ * también el rol acotado TESORERIA CAJA: en una caja que puede mover y solo con retiros de las sucursales
+ * que esa caja cubre (la propia y sus adicionales).
  */
 class RetiroVerificacionRolCajaTest {
 
@@ -49,10 +49,8 @@ class RetiroVerificacionRolCajaTest {
         when(retiroRepository.lockByIdAndSucursalId(anyLong(), anyLong())).thenReturn(Optional.empty());
     }
 
-    private void cajaDeLaSucursal(Long sucursalId) {
-        Sucursal s = new Sucursal();
-        s.setId(sucursalId);
-        caja.setSucursal(s);
+    private void cajaDeLaSucursal(Long... sucursalIds) {
+        when(seguridad.sucursalesDeCajaIds(CAJA)).thenReturn(java.util.Arrays.asList(sucursalIds));
     }
 
     private GraphQLException verificar(Long sucursalDelRetiro) {
@@ -80,6 +78,17 @@ class RetiroVerificacionRolCajaTest {
 
         assertTrue(e.getMessage().startsWith("No autorizado"), e.getMessage());
         verifyNoInteractions(retiroRepository);
+    }
+
+    @Test
+    void el_rol_acotado_verifica_un_retiro_de_una_sucursal_adicional_de_su_caja() {
+        // Un gerente a cargo de las tres sucursales de la ciudad los recibe todos en una caja.
+        cajaDeLaSucursal(12L, 9L, 23L);
+
+        GraphQLException e = verificar(23L);
+
+        assertTrue(e.getMessage().startsWith("Retiro no encontrado"), e.getMessage());
+        verify(retiroRepository).lockByIdAndSucursalId(700L, 23L);
     }
 
     @Test

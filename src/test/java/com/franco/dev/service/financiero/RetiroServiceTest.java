@@ -270,4 +270,36 @@ class RetiroServiceTest {
         assertEquals(0, pagina.getTotalElements());
         verifyNoInteractions(repository);
     }
+
+    @Test
+    void flotantes_acotado_con_caja_destino_deja_solo_las_sucursales_que_esa_caja_cubre() {
+        // Opera dos cajas (sucursales 13, 4 y 9 entre las dos); la caja destino cubre solo 4 y 9.
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.sucursalesOperablesIds()).thenReturn(java.util.Arrays.asList(13L, 4L, 9L));
+        when(seguridad.sucursalesDeCajaIds(19L)).thenReturn(java.util.Arrays.asList(4L, 9L));
+
+        service.findFlotantes(null, null, 19L, null, null, PAGINA);
+
+        verify(repository).findFlotantesEnSucursales(java.util.Arrays.asList(4L, 9L), null, null, null, PAGINA);
+    }
+
+    @Test
+    void flotantes_acotado_con_una_caja_destino_ajena_no_devuelve_nada() {
+        // La caja destino cubre la 1, que no es de ninguna caja suya: no hay intersección.
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.sucursalesOperablesIds()).thenReturn(java.util.Arrays.asList(13L, 4L));
+        when(seguridad.sucursalesDeCajaIds(16L)).thenReturn(java.util.Collections.singletonList(1L));
+
+        org.springframework.data.domain.Page<Retiro> pagina = service.findFlotantes(null, null, 16L, null, null, PAGINA);
+
+        assertEquals(0, pagina.getTotalElements());
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    void flotantes_sin_rol_acotado_ignora_la_caja_destino() {
+        service.findFlotantes(null, null, 19L, null, null, PAGINA);
+
+        verify(repository).findFlotantes(null, null, null, null, PAGINA);
+    }
 }

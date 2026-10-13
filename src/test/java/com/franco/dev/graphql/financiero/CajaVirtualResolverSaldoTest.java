@@ -28,10 +28,13 @@ class CajaVirtualResolverSaldoTest {
 
     private final RolCajaSoporte s = new RolCajaSoporte();
     private final CajaVirtualResolver resolver = new CajaVirtualResolver();
+    private final com.franco.dev.service.financiero.CajaVirtualSucursalService sucursalesDeCajaService =
+            org.mockito.Mockito.mock(com.franco.dev.service.financiero.CajaVirtualSucursalService.class);
 
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(resolver, "seg", s.seg);
+        ReflectionTestUtils.setField(resolver, "sucursalesDeCajaService", sucursalesDeCajaService);
         when(s.accesoRepository.cajasVisiblesIds(RolCajaSoporte.USUARIO_ID)).thenReturn(Collections.singletonList(MIA));
     }
 
@@ -121,5 +124,17 @@ class CajaVirtualResolverSaldoTest {
         ajena.setUsuario(new com.franco.dev.domain.personas.Usuario());
 
         assertNotNull(resolver.usuario(ajena));
+    }
+
+    @Test
+    void elRolAcotado_veLasSucursalesAdicionalesDeSuCaja_yNoLasDeUnaAjena() {
+        s.autenticar("gerente", "TESORERIA CAJA");
+        java.util.List<com.franco.dev.domain.empresarial.Sucursal> tres = java.util.Arrays.asList(
+                new com.franco.dev.domain.empresarial.Sucursal(), new com.franco.dev.domain.empresarial.Sucursal());
+        when(sucursalesDeCajaService.adicionales(MIA)).thenReturn(tres);
+        when(sucursalesDeCajaService.adicionales(AJENA)).thenReturn(tres);
+
+        assertEquals(2, resolver.sucursalesAdicionales(caja(MIA)).size());
+        assertTrue(resolver.sucursalesAdicionales(caja(AJENA)).isEmpty());
     }
 }

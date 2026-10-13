@@ -233,13 +233,20 @@ public class TesoreriaSecurityService {
     }
 
     /**
-     * Sucursales de las cajas sobre las que el usuario tiene escritura (propias u otorgadas). Nunca null:
-     * la lista vacía significa «ninguna», no «todas». Las cajas sin sucursal no aportan.
+     * Sucursales que cubren las cajas sobre las que el usuario tiene escritura (propias u otorgadas): la de
+     * cada caja más sus adicionales. Nunca null: la lista vacía significa «ninguna», no «todas».
      */
     public java.util.List<Long> sucursalesOperablesIds() {
         Long id = idUsuarioActual();
         if (id == null) return java.util.Collections.emptyList();
         return accesoRepository.sucursalesOperablesIds(id);
+    }
+
+    /** Sucursales que cubre una caja: la propia más las adicionales. Nunca null. */
+    public java.util.List<Long> sucursalesDeCajaIds(Long cajaId) {
+        if (cajaId == null) return java.util.Collections.emptyList();
+        java.util.List<Long> ids = accesoRepository.sucursalesDeCajaIds(cajaId);
+        return ids != null ? ids : java.util.Collections.emptyList();
     }
 
     /**

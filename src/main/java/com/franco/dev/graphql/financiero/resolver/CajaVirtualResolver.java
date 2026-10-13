@@ -19,6 +19,9 @@ public class CajaVirtualResolver implements GraphQLResolver<CajaVirtual> {
     @Autowired
     private TesoreriaSecurityService seg;
 
+    @Autowired
+    private com.franco.dev.service.financiero.CajaVirtualSucursalService sucursalesDeCajaService;
+
     public Double saldoGs(CajaVirtual caja) {
         return oculto(caja) ? null : caja.getSaldoGs();
     }
@@ -41,6 +44,10 @@ public class CajaVirtualResolver implements GraphQLResolver<CajaVirtual> {
 
     public com.franco.dev.domain.personas.Usuario usuario(CajaVirtual caja) {
         return oculto(caja) ? null : caja.getUsuario();
+    }
+
+    public java.util.List<com.franco.dev.domain.empresarial.Sucursal> sucursalesAdicionales(CajaVirtual caja) {
+        return oculto(caja) ? java.util.Collections.emptyList() : sucursalesDeCajaService.adicionales(caja.getId());
     }
 
     private boolean oculto(CajaVirtual caja) {

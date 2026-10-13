@@ -13,6 +13,8 @@ type CajaVirtual {
     activo: Boolean
     # La caja recibe envíos de otras cajas sin que quien envía tenga acceso sobre ella.
     recibeEnvios: Boolean
+    # Sucursales que la caja cubre además de la propia: de ellas también recibe retiros del PDV.
+    sucursalesAdicionales: [Sucursal]
     creadoEn: Date
 }
 
@@ -117,4 +119,6 @@ extend type Mutation {
     transferirPropiedadCaja(cajaVirtualId: ID!, nuevoPropietarioId: ID!): CajaVirtual!
     # Marca la caja como receptora de envíos de otras cajas. La decide su responsable.
     marcarCajaRecibeEnvios(cajaVirtualId: ID!, recibe: Boolean!): CajaVirtual!
+    # Reemplaza las sucursales adicionales que cubre la caja. La decide su responsable.
+    guardarSucursalesDeCaja(cajaVirtualId: ID!, sucursalIds: [ID!]!): CajaVirtual!
 }

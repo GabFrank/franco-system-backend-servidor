@@ -45,6 +45,7 @@ public class CajaVirtualGraphQL implements GraphQLQueryResolver, GraphQLMutation
     private final TesoreriaSecurityService seg;
     private final com.franco.dev.service.financiero.CajaVirtualAccesoService accesoService;
     private final RrhhSecurityService rrhhSeg;
+    private final com.franco.dev.service.financiero.CajaVirtualSucursalService sucursalesDeCajaService;
 
     // Modelo AND: el rol habilita la capacidad (requireVer), el ACL delimita el alcance.
     // Caja puntual → se rechaza; listados → se filtran (devolver menos, no fallar).
@@ -216,6 +217,16 @@ public class CajaVirtualGraphQL implements GraphQLQueryResolver, GraphQLMutation
         seg.requireGestionar();
         seg.requirePropietarioCaja(cajaVirtualId);
         return service.marcarRecibeEnvios(cajaVirtualId, Boolean.TRUE.equals(recibe));
+    }
+
+    /**
+     * Reemplaza las sucursales adicionales que cubre la caja. Amplía de qué sucursales recibe retiros
+     * quien la opera, así que lo decide su responsable (o un superusuario), igual que la lista de accesos.
+     */
+    public CajaVirtual guardarSucursalesDeCaja(Long cajaVirtualId, List<Long> sucursalIds) {
+        seg.requireGestionar();
+        seg.requirePropietarioCaja(cajaVirtualId);
+        return sucursalesDeCajaService.guardar(cajaVirtualId, sucursalIds, seg.currentUsuario());
     }
 
     public CajaVirtual saveCajaVirtual(CajaVirtualInput input) {

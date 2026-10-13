@@ -215,4 +215,14 @@ class TesoreriaSecurityServiceRolCajaTest {
 
         s.seg.requireEnvioACaja(5L);
     }
+
+    @Test
+    void sucursalesDeCaja_salenDelRepositorio_yNuncaSonNull() {
+        when(s.accesoRepository.sucursalesDeCajaIds(19L)).thenReturn(Arrays.asList(12L, 9L, 23L));
+        when(s.accesoRepository.sucursalesDeCajaIds(20L)).thenReturn(null);
+
+        assertEquals(Arrays.asList(12L, 9L, 23L), s.seg.sucursalesDeCajaIds(19L));
+        assertTrue(s.seg.sucursalesDeCajaIds(20L).isEmpty());
+        assertTrue(s.seg.sucursalesDeCajaIds(null).isEmpty());
+    }
 }

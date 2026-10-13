@@ -13,7 +13,7 @@ Sobre las cajas donde tiene acceso (`financiero.caja_virtual_acceso`, o porque e
 | Ver la caja | Saldos, movimientos y reporte de movimientos. |
 | Ingresos y egresos | Efectivo y entradas o salidas varias. No hace ajustes de saldo ni conteo. |
 | Transferir | Entre sus cajas, o hacia una caja marcada «recibe envíos» (la caja mayor principal), mismo monto y misma moneda. |
-| Ingresar retiros del PDV | Verificándolos (conteo), solo los de la sucursal de la caja. Anular una verificación es de tesorería. |
+| Ingresar retiros del PDV | Verificándolos (conteo), solo los de las sucursales que la caja cubre: la propia y sus adicionales. Anular una verificación es de tesorería. |
 | Depositar al banco | A una cuenta habilitada en «Configurar» de esa caja, mismo monto y moneda. No ve el saldo de la cuenta. |
 | Pagar gastos | Los que cargó él mismo, en efectivo, en la moneda del gasto. |
 | Pagar a proveedores | Las solicitudes que tesorería **asignó** a una de sus cajas, en efectivo y desde esa caja. |
@@ -69,7 +69,25 @@ En el desktop ve una sola entrada de menú: **Financiero → Caja y Operativa �
 6. Para que pueda mandar efectivo a la caja mayor principal: en Tesorería, ⋮ de esa caja →
    **Recibe envíos…** (lo hace su responsable, con `TESORERIA GESTIONAR`).
 
+7. Si el operador está a cargo de varias sucursales (las de una ciudad): en Tesorería, ⋮ de la caja →
+   **Sucursales que cubre…** y marcar las demás. Una sola caja recibe los retiros de todas.
+
 El operador no tiene que ser el responsable de la caja: el responsable administra los accesos.
+
+## Sucursales que cubre una caja
+
+`financiero.caja_virtual_sucursal` (V248.1) lista las sucursales **adicionales** de una caja; la propia
+(`caja_virtual.sucursal_id`) no lleva fila. Sin filas todo se comporta como antes.
+
+- Solo cambia los **retiros del PDV** del rol acotado: qué flotantes lista
+  (`sucursalesOperablesIds`) y cuáles puede verificar en esa caja (`sucursalesDeCajaIds`). Pagos,
+  gastos, depósitos y envíos no dependen de la sucursal.
+- `retirosFlotantes(cajaVirtualDestinoId)` le deja al acotado solo los que esa caja puede recibir;
+  para los demás roles el argumento no filtra.
+- La lista la cambia el responsable de la caja con `TESORERIA GESTIONAR`
+  (`guardarSucursalesDeCaja`, reemplaza el conjunto). El operador acotado la ve y no la cambia.
+- No se deriva de la ciudad: el diálogo del desktop ofrece «Marcar las de la misma ciudad», pero lo
+  que vale es lo guardado.
 
 ## Envíos a una caja receptora
 
@@ -94,8 +112,9 @@ escritura. Vale para cualquier rol que opere cajas, no solo el acotado.
 
 - Orden: **central primero**, después el desktop, y recién entonces asignar el rol a alguien.
 - Migraciones: `V245.1` (rol, llega a las filiales por la réplica de `personas.role`), `V246.1`
-  (columna nullable en `operaciones.solicitud_pago`) y `V247.1` (columna en
-  `financiero.caja_virtual`). Las dos tablas no se publican a las filiales. Antes de
+  (columna nullable en `operaciones.solicitud_pago`), `V247.1` (columna en
+  `financiero.caja_virtual`) y `V248.1` (tabla nueva `financiero.caja_virtual_sucursal`,
+  central-only). Las dos primeras tablas no se publican a las filiales. Antes de
   desplegar en cada instancia, confirmar que sigue sin publicarse:
 
   ```sql
@@ -116,7 +135,7 @@ y una cuenta bancaria habilitada en esa caja:
 | 2 | Abrir Tesorería. | Solo sus cajas. Sin botón de alta. |
 | 3 | Abrir el dashboard de su caja. | Ingreso, Egreso y Operaciones Financieras. Sin cuentas bancarias, sin selector de fuente, sin conteo, sin Configurar. |
 | 4 | Ingreso. | Efectivo, Retiro de PDV y Entrada Varia. Sin Maletín ni Ajuste. |
-| 5 | Ingreso → Retiro de PDV → Procesar un retiro, contarlo y confirmar. | Sucursal fija en la de la caja; solo retiros de esa sucursal. El saldo sube por lo contado y la fila del retiro no se puede anular. |
+| 5 | Ingreso → Retiro de PDV → Procesar un retiro, contarlo y confirmar. | Solo retiros de las sucursales que la caja cubre: con una sola el filtro queda fijo; con varias se elige entre ellas. El saldo sube por lo contado y la fila del retiro no se puede anular. |
 | 6 | Egreso. | Efectivo, Egreso Vario, Pagar Compras y Pagar Gasto. Sin pagos de RRHH ni Ajuste. |
 | 7 | Egreso → Pagar Gasto: crear un gasto y pagarlo. | Fuente única «Efectivo (caja mayor)», sin selector de moneda. El saldo de la caja baja. |
 | 8 | Operaciones Financieras. | Solo Depósito Bancario y Transf. entre Cajas. En el depósito se elige primero la caja y aparecen solo sus cuentas habilitadas, sin saldo. |

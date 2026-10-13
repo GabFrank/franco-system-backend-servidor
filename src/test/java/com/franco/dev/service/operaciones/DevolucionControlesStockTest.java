@@ -291,6 +291,7 @@ class DevolucionControlesStockTest {
         Devolucion cambios = new Devolucion();
         cambios.setId(1L);
         cambios.setTipo(TipoDevolucion.CON_PROVEEDOR);
+        cambios.setProveedor(new com.franco.dev.domain.personas.Proveedor());
         cambios.setEstado(DevolucionEstado.CANJEADO); // no sale del input
         cambios.setSucursalOrigen(sucursal(4L));
 
@@ -300,6 +301,39 @@ class DevolucionControlesStockTest {
         assertEquals("DEV-1-1", res.getIdentificador());
         assertEquals(4L, res.getSucursalOrigen().getId().longValue());
         assertEquals(4L, res.getSucursalUbicacion().getId().longValue()); // sigue al origen
+    }
+
+    @Test
+    void crear_conProveedorSinProveedor_rechaza() {
+        Devolucion nueva = new Devolucion();
+        nueva.setTipo(TipoDevolucion.CON_PROVEEDOR);
+        nueva.setSucursalOrigen(sucursal(ORIGEN));
+
+        assertThrows(GraphQLException.class, () -> service.save(nueva));
+
+        verify(repo, never()).save(any());
+    }
+
+    @Test
+    void crear_sinProveedor_noPideProveedor() {
+        Devolucion nueva = new Devolucion();
+        nueva.setTipo(TipoDevolucion.SIN_PROVEEDOR);
+        nueva.setSucursalOrigen(sucursal(ORIGEN));
+        nueva.setIdentificador("DEV-1-9");
+
+        assertEquals(DevolucionEstado.PENDIENTE, service.save(nueva).getEstado());
+    }
+
+    @Test
+    void actualizarCabecera_aConProveedorSinProveedor_rechaza() {
+        devolucion(DevolucionEstado.PENDIENTE);
+        Devolucion cambios = new Devolucion();
+        cambios.setId(1L);
+        cambios.setTipo(TipoDevolucion.CON_PROVEEDOR);
+        cambios.setSucursalOrigen(sucursal(ORIGEN));
+
+        assertThrows(GraphQLException.class, () -> service.actualizarCabecera(cambios));
+        verify(repo, never()).save(any());
     }
 
     @Test

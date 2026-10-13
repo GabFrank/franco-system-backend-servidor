@@ -111,6 +111,21 @@ Dos auditores, sin verse. Sin contradicciones entre ellos.
 | A | Filial y reportes no asumen el signo de `DEVOLUCION`; `producto_vencimiento` es central-only y nadie lo referencia; no hay `CHECK` ni triggers | Cierra el «sin verificar» |
 | B | `CANJEADO` conserva su `retiro`: al volver a `RETIRADO` sigue en la misma operación | Correcto; el mensaje de `revertirRetiro` pasa a sugerir revertir el canje |
 
+## Ejecución (2026-10-13)
+
+| Paso | Resultado |
+|---|---|
+| 7 · central | `d5a2eaa9` (fases 1 y 2 en un commit: tocan el mismo servicio) y `6d22dca1` (hallazgos del paso 8) |
+| 7 · desktop | `4ec69229` y `37780908` |
+| 7 · test que falla con el código viejo | con el servicio vuelto al comportamiento anterior, 8 de los 11 tests de `DevolucionControlesStockTest` fallan |
+| 8 · auditoría del diff | 3 ejes fijos, sin condicionales (no hay migraciones ni maquinaria de release). Aplicados: revertir el canje falla si no se borra el vencimiento; ítem con id inexistente se rechaza; la cabecera no pisa `cajaVirtualId`; el diálogo muestra el tope con un valor precargado. **Sin resolver, decisión de Franco:** ninguna mutation del módulo exige rol (ver `DEVOLUCIONES.md`) |
+| 9 · batería central | `clean verify -B -DskipFlyway=true -DforkCount=0`: 1806 tests, 0 fallas (sobre `d5a2eaa9`); los de devolución se repitieron sobre `6d22dca1`: 51 en verde |
+| 9 · runtime | contra `bodega3`, central en `:8081` con `d5a2eaa9`. dev #12: editar, agregar y borrar ítems y cambiar el origen tras separar → rechazados; canje sin reingreso → rechazado; reingreso 4 sobre 3 devueltas → rechazado; canje de 1 caja `+6`, revertir `-6`, cancelar `+18` tras separar `-18`: neto 0, todo `DEVOLUCION`. dev #7 (canje viejo sin reingreso): vuelve a `RETIRADO` sin movimiento. dev #5 por pantalla: Revertir en `CANJEADO` sacó los `30` que habían entrado; el diálogo mostró «No puede superar lo devuelto (2)»; `31/12/2027` tipeado se guardó como 2027-12-31; canje de 2 cajas `+12` en el depósito. Dashboard: «₲ 980.273» |
+| 9 · sin probar en runtime | los tres ajustes de `6d22dca1` (cubiertos por tests unitarios; el central corría el commit anterior) |
+| 10 · desktop | `ng build --configuration production`: exit 0 (sobre `4ec69229`) |
+| 11 · documentación | `DEVOLUCIONES.md` |
+| 12 · cierre | **Incumplido a propósito:** sin push ni PR hasta que Franco lo pida. Este plan se borra en ese PR |
+
 ## Datos nuevos
 
 Ninguno. No hay columnas, claves ni campos GraphQL nuevos.
@@ -137,4 +152,3 @@ que cambia y no vuelve atrás es el resumen por tipo de movimiento: esas filas s
 
 - Retiro y colecta **en bloque**, histórico y acreditación por retiro: no se probaron en runtime
   el 2026-10-13 y este plan no los modifica.
-- La prueba de runtime de la fase 4 necesita el central recompilado en `:8081`.

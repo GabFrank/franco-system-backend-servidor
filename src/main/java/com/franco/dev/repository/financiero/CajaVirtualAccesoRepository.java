@@ -27,4 +27,14 @@ public interface CajaVirtualAccesoRepository extends JpaRepository<CajaVirtualAc
             + "   or exists (select 1 from CajaVirtualAcceso a "
             + "              where a.cajaVirtual.id = c.id and a.usuario.id = :usuarioId and a.puedeLeer = true)")
     List<Long> cajasVisiblesIds(@Param("usuarioId") Long usuarioId);
+
+    /**
+     * Sucursales de las cajas que el usuario puede mover (propias o con escritura otorgada).
+     * Las cajas sin sucursal quedan afuera.
+     */
+    @Query("select distinct c.sucursal.id from CajaVirtual c "
+            + "where c.sucursal is not null and (c.usuario.id = :usuarioId "
+            + "   or exists (select 1 from CajaVirtualAcceso a "
+            + "              where a.cajaVirtual.id = c.id and a.usuario.id = :usuarioId and a.puedeEscribir = true))")
+    List<Long> sucursalesOperablesIds(@Param("usuarioId") Long usuarioId);
 }

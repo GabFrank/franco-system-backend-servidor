@@ -52,7 +52,7 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
     }
 
     public java.util.List<com.franco.dev.domain.financiero.OperacionFinancieraCategoria> operacionFinancieraCategorias() {
-        seg.requireVer();
+        seg.requireVerCaja();
         return categoriaRepository.findByActivoTrue();
     }
 

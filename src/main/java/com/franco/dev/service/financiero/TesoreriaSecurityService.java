@@ -58,6 +58,13 @@ public class TesoreriaSecurityService {
     /** Cualquier rol de tesorería habilita la lectura. */
     public static final String[] TODOS = {VER, GESTIONAR, CPC_COBRAR, CPP_PAGAR};
 
+    /**
+     * Operador de caja acotado: ve y mueve el efectivo de las cajas a las que tiene acceso, y nada más.
+     * No está en {@link #TODOS} a propósito: {@code requireVer}/{@code requireGestionar} lo rechazan, y cada
+     * resolver delimitado por caja lo habilita con {@code requireVerCaja}/{@code requireOperarCaja}.
+     */
+    public static final String CAJA = "TESORERIA CAJA";
+
     /** Cobrar CPC: permiso dedicado, o GESTIONAR, o superusuario. */
     public void requireCobrarCpc() { requireAnyRole(CPC_COBRAR, GESTIONAR); }
 
@@ -132,6 +139,48 @@ public class TesoreriaSecurityService {
         if (!hasAnyRole(TODOS)) {
             throw new GraphQLException("No autorizado: se requiere un rol de Tesorería para ver estos datos.");
         }
+    }
+
+    // ─────────────────────── Rol acotado (TESORERIA CAJA) ───────────────────────
+
+    /** Lectura delimitada por caja: cualquier rol de tesorería, o el acotado. El ACL decide qué cajas. */
+    public void requireVerCaja() {
+        if (!hasAnyRole(TODOS) && !hasAnyRole(CAJA)) {
+            throw new GraphQLException("No autorizado: se requiere un rol de Tesorería para ver estos datos.");
+        }
+    }
+
+    /** Mover el efectivo de una caja: GESTIONAR o el acotado. La escritura sobre la caja la exige el ACL. */
+    public void requireOperarCaja() { requireAnyRole(GESTIONAR, CAJA); }
+
+    /**
+     * Pagar desde la caja: lo mismo que {@link #requirePagarCpp()} más el rol acotado. Solo para los pagos
+     * que validan el modo acotado; el resto sigue con {@code requirePagarCpp}.
+     */
+    public void requirePagarCppCaja() { requireAnyRole(CPP_PAGAR, GESTIONAR, CAJA); }
+
+    /**
+     * true si el usuario opera en modo acotado: tiene TESORERIA CAJA y ningún rol amplio de tesorería.
+     * Sin usuario autenticado es false: un proceso de sistema no es un operador acotado.
+     */
+    public boolean esSoloCaja() {
+        if (esProcesoDeSistema() || esSuperusuario()) return false;
+        Set<String> mine = currentRoles();
+        if (!mine.contains(CAJA)) return false;
+        for (String r : TODOS) {
+            if (mine.contains(r)) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Sucursales de las cajas sobre las que el usuario tiene escritura (propias u otorgadas). Nunca null:
+     * la lista vacía significa «ninguna», no «todas». Las cajas sin sucursal no aportan.
+     */
+    public java.util.List<Long> sucursalesOperablesIds() {
+        Long id = idUsuarioActual();
+        if (id == null) return java.util.Collections.emptyList();
+        return accesoRepository.sucursalesOperablesIds(id);
     }
 
     // ─────────────────────── Acceso por caja (ACL) ───────────────────────

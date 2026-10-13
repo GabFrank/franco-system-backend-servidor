@@ -50,25 +50,25 @@ public class CajaVirtualGraphQL implements GraphQLQueryResolver, GraphQLMutation
     // Caja puntual → se rechaza; listados → se filtran (devolver menos, no fallar).
 
     public CajaVirtual cajaVirtual(Long id) {
-        seg.requireVer();
+        seg.requireVerCaja();
         seg.requireLecturaCaja(id);
         return service.findById(id).orElse(null);
     }
 
     public Page<CajaVirtual> cajaVirtuales(int page, int size) {
-        seg.requireVer();
+        seg.requireVerCaja();
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(seg.cajasVisiblesIds(), pageable);
     }
 
     public Page<CajaVirtual> cajaVirtualesFilter(String nombre, CajaVirtualTipo tipo, Long sucursalId, Boolean activo, int page, int size) {
-        seg.requireVer();
+        seg.requireVerCaja();
         return service.filter(seg.cajasVisiblesIds(), nombre, tipo, sucursalId, activo, PageRequest.of(page, size));
     }
 
     /** Saldo de efectivo por moneda (fuente de verdad: caja_virtual_saldo). */
     public List<CajaVirtualSaldoItem> cajaVirtualSaldos(Long cajaVirtualId) {
-        seg.requireVer();
+        seg.requireVerCaja();
         seg.requireLecturaCaja(cajaVirtualId);
         return cajaSaldoRepository.findByCajaVirtualId(cajaVirtualId).stream()
                 .map(s -> new CajaVirtualSaldoItem(s.getMoneda(), s.getSaldo()))
@@ -121,22 +121,23 @@ public class CajaVirtualGraphQL implements GraphQLQueryResolver, GraphQLMutation
     }
 
     public List<CajaVirtual> cajaVirtualesPorTipo(CajaVirtualTipo tipo) {
-        seg.requireVer();
+        seg.requireVerCaja();
         return service.findByTipo(seg.cajasVisiblesIds(), tipo);
     }
 
     public List<CajaVirtual> cajaVirtualesPorSucursal(Long sucursalId) {
-        seg.requireVer();
+        seg.requireVerCaja();
         return service.findBySucursalId(seg.cajasVisiblesIds(), sucursalId);
     }
 
     /**
      * Lectura compartida: la usa Tesorería y también RRHH (para elegir la caja
      * mayor destino en liquidación/aguinaldo). Habilitada para cualquier rol de
-     * tesorería o de RRHH (o superusuario).
+     * tesorería (incluido el acotado TESORERIA CAJA) o de RRHH (o superusuario).
      */
     public List<CajaVirtual> cajaVirtualesActivas() {
         if (!seg.hasAnyRole(TesoreriaSecurityService.TODOS)
+                && !seg.hasAnyRole(TesoreriaSecurityService.CAJA)
                 && !rrhhSeg.hasAnyRole(RrhhSecurityService.TODOS)) {
             throw new GraphQLException("No autorizado: se requiere un rol de Tesorería o de RRHH.");
         }

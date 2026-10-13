@@ -323,4 +323,24 @@ class MovimientosCajaEnLoteServiceTest {
 
         assertNull(cargar.apply(100L));   // IdempotenciaService lo convierte en «quedó registrado sin resultado»
     }
+
+    @Test
+    void el_ajuste_no_entra_en_el_rol_acotado() {
+        when(seguridad.esSoloCaja()).thenReturn(true);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.registrarMovimientos(
+                7L, CajaVirtualTipoMovimiento.AJUSTE, montos(1, -1500.5), "X", usuario, "clave"));
+
+        assertTrue(e.getMessage().startsWith("No autorizado"));
+        verify(tesoreria, never()).registrar(any());
+    }
+
+    @Test
+    void el_rol_acotado_registra_ingresos_y_egresos() {
+        when(seguridad.esSoloCaja()).thenReturn(true);
+
+        service.registrarMovimientos(7L, CajaVirtualTipoMovimiento.EGRESO, montos(1, 1500), "X", usuario, "clave");
+
+        verify(tesoreria).registrar(any());
+    }
 }

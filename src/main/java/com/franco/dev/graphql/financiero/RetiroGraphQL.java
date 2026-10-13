@@ -169,7 +169,7 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     /** Asigna una caja mayor a un retiro flotante y lo postea (INGRESO) de inmediato. */
     public Retiro ingresarRetiroACajaMayor(Long retiroId, Long sucId, Long cajaVirtualId) {
-        seg.requireOperarCaja();
+        seg.requireGestionar();
         return retiroIngresoService.ingresarACajaMayor(retiroId, sucId, cajaVirtualId, seg.currentUsuario());
     }
 

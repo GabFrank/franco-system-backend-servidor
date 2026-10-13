@@ -72,6 +72,14 @@ public class RetiroVerificacionService {
         // contado en cero no postea ningún movimiento, así que ese choke point no se ejecuta y
         // el retiro terminaba asignado a una caja sobre la que el usuario no tiene permiso.
         seguridad.requireEscrituraCaja(cajaVirtualId);
+        // El rol acotado recibe en su caja solo los retiros de la sucursal de esa caja. Va antes de tocar
+        // el retiro: si no, los mensajes de estado dirían si existe o no un retiro de otra sucursal.
+        if (seguridad.operaAcotado()) {
+            CajaVirtual destino = cajaVirtualService.findById(cajaVirtualId).orElse(null);
+            if (destino == null || destino.getSucursal() == null || !destino.getSucursal().getId().equals(sucursalId)) {
+                throw new GraphQLException("No autorizado: solo podés ingresar retiros de la sucursal de tu caja.");
+            }
+        }
 
         Retiro retiro = retiroRepository.lockByIdAndSucursalId(retiroId, sucursalId)
                 .orElseThrow(() -> new GraphQLException("Retiro no encontrado: " + retiroId + "/" + sucursalId));

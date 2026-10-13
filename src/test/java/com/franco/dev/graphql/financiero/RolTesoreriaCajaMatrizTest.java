@@ -48,7 +48,7 @@ class RolTesoreriaCajaMatrizTest {
             "EntradaVariaGraphQL.anularEntradaVaria",
             "OperacionFinancieraGraphQL.operacionFinancieraCategorias",
             "RetiroGraphQL.retirosFlotantes",
-            "RetiroGraphQL.ingresarRetiroACajaMayor",
+            "RetiroVerificacionGraphQL.verificarRetiro",
             "CajaVirtualGraphQL.cuentasBancariasParaDeposito",
             "OperacionFinancieraGraphQL.registrarOperacionFinanciera",
             "OperacionFinancieraGraphQL.anularOperacionFinanciera",
@@ -114,9 +114,10 @@ class RolTesoreriaCajaMatrizTest {
         rechaza(PagoProveedorGraphQL.class, "pagarSolicitudesLoteCajaMayor", "pagarSolicitud",
                 "asignarSolicitudPagoACaja");
         rechaza(com.franco.dev.graphql.operaciones.SolicitudPagoGraphQL.class, "devolverSolicitudPago");
-        rechaza(RetiroGraphQL.class, "cancelarRetiro");
+        // El ingreso directo (sin conteo) no es del rol acotado: su camino es verificarRetiro.
+        rechaza(RetiroGraphQL.class, "cancelarRetiro", "ingresarRetiroACajaMayor");
         rechaza(RetiroVerificacionGraphQL.class, "verificacionDeRetiro", "retiroCasos", "retiroCasosAbiertos",
-                "verificarRetiro", "anularVerificacionRetiro");
+                "anularVerificacionRetiro", "asignarRetiroCaso", "soltarRetiroCaso", "resolverRetiroCaso");
     }
 
     @Test

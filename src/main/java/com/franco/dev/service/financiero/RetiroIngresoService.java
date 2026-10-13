@@ -27,21 +27,12 @@ public class RetiroIngresoService {
     private final RetiroRepository retiroRepository;
     private final RetiroTesoreriaProcesador procesador;
     private final CajaVirtualService cajaVirtualService;
-    private final TesoreriaSecurityService seguridad;
 
     @Transactional
     public Retiro ingresarACajaMayor(Long retiroId, Long sucursalId, Long cajaVirtualId,
                                      com.franco.dev.domain.personas.Usuario usuario) {
         if (cajaVirtualId == null) {
             throw new GraphQLException("Debe indicar la caja mayor destino");
-        }
-        // El rol acotado ingresa a su caja solo los retiros de la sucursal de esa caja. Va antes de tocar el
-        // retiro: si no, los mensajes de estado dirían si existe o no un retiro de otra sucursal.
-        com.franco.dev.domain.financiero.CajaVirtual caja = cajaVirtualService.findById(cajaVirtualId)
-                .orElseThrow(() -> new GraphQLException("Caja mayor no encontrada: " + cajaVirtualId));
-        if (seguridad.operaAcotado()
-                && (caja.getSucursal() == null || !caja.getSucursal().getId().equals(sucursalId))) {
-            throw new GraphQLException("No autorizado: solo podés ingresar retiros de la sucursal de tu caja.");
         }
         // Con lock, el mismo que toman la verificación y la cancelación: leyendo sin él, un ingreso y una
         // cancelación simultáneos pasaban los dos y el retiro quedaba cancelado con la plata acreditada.
@@ -56,6 +47,8 @@ public class RetiroIngresoService {
         if (s.estaCancelado()) {
             throw new GraphQLException("El retiro #" + retiroId + " está cancelado: habilitalo antes de ingresarlo.");
         }
+        cajaVirtualService.findById(cajaVirtualId)
+                .orElseThrow(() -> new GraphQLException("Caja mayor no encontrada: " + cajaVirtualId));
 
         r.setCajaVirtualId(cajaVirtualId);
         retiroRepository.save(r);

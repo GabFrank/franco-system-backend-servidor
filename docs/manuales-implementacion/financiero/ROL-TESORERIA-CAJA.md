@@ -13,7 +13,7 @@ Sobre las cajas donde tiene acceso (`financiero.caja_virtual_acceso`, o porque e
 | Ver la caja | Saldos, movimientos y reporte de movimientos. |
 | Ingresos y egresos | Efectivo y entradas o salidas varias. No hace ajustes de saldo ni conteo. |
 | Transferir | Entre dos cajas donde tenga escritura, mismo monto y misma moneda. |
-| Ingresar retiros del PDV | Solo los de la sucursal de la caja. |
+| Ingresar retiros del PDV | Verificándolos (conteo), solo los de la sucursal de la caja. Anular una verificación es de tesorería. |
 | Depositar al banco | A una cuenta habilitada en «Configurar» de esa caja, mismo monto y moneda. No ve el saldo de la cuenta. |
 | Pagar gastos | Los que cargó él mismo, en efectivo, en la moneda del gasto. |
 | Pagar a proveedores | Las solicitudes que tesorería **asignó** a una de sus cajas, en efectivo y desde esa caja. |
@@ -22,7 +22,7 @@ Sobre las cajas donde tiene acceso (`financiero.caja_virtual_acceso`, o porque e
 ## Qué no ve ni hace
 
 Saldo consolidado y vencimientos, cuentas bancarias y extractos, cheques, el listado de
-operaciones financieras, control de retiros, pagos de RRHH, pagos por banco o con cheque,
+operaciones financieras, control de retiros (casos y anulación de verificaciones), pagos de RRHH, pagos por banco o con cheque,
 configuración y alta de cajas, y los saldos de cualquier caja a la que no tenga acceso.
 
 En el desktop ve una sola entrada de menú: **Financiero → Caja y Operativa → Tesorería**.
@@ -50,6 +50,9 @@ En el desktop ve una sola entrada de menú: **Financiero → Caja y Operativa �
   devuelve vacío sin consultar. Nunca se usa `null` como «sin filtro».
 - `CuentaBancariaResolver` y `CajaVirtualResolver` ocultan los saldos **en el campo**, porque esos
   tipos llegan anidados por varios caminos (operación financiera, movimiento, configuración).
+- El ingreso de un retiro es su **verificación** (`verificarRetiro`): es el único camino que tiene la
+  pantalla. `ingresarRetiroACajaMayor` acredita sin conteo y no tiene botón; queda solo para
+  `TESORERIA GESTIONAR`, para que el rol acotado no pueda saltear el conteo.
 - Pagar a proveedores usa `solicitud_pago.caja_virtual_asignada_id`. La asigna tesorería
   (`asignarSolicitudPagoACaja`, roles `CPP PAGAR` o `GESTIONAR`) desde la lista de solicitudes de
   pago del desktop, sobre solicitudes de compra o de gasto en `SOLICITADO` o `PARCIAL`.
@@ -97,7 +100,7 @@ y una cuenta bancaria habilitada en esa caja:
 | 2 | Abrir Tesorería. | Solo sus cajas. Sin botón de alta. |
 | 3 | Abrir el dashboard de su caja. | Ingreso, Egreso y Operaciones Financieras. Sin cuentas bancarias, sin selector de fuente, sin conteo, sin Configurar. |
 | 4 | Ingreso. | Efectivo, Retiro de PDV y Entrada Varia. Sin Maletín ni Ajuste. |
-| 5 | Ingreso → Retiro de PDV. | Sucursal fija en la de la caja; solo retiros de esa sucursal. |
+| 5 | Ingreso → Retiro de PDV → Procesar un retiro, contarlo y confirmar. | Sucursal fija en la de la caja; solo retiros de esa sucursal. El saldo sube por lo contado y la fila del retiro no se puede anular. |
 | 6 | Egreso. | Efectivo, Egreso Vario, Pagar Compras y Pagar Gasto. Sin pagos de RRHH ni Ajuste. |
 | 7 | Egreso → Pagar Gasto: crear un gasto y pagarlo. | Fuente única «Efectivo (caja mayor)», sin selector de moneda. El saldo de la caja baja. |
 | 8 | Operaciones Financieras. | Solo Depósito Bancario y Transf. entre Cajas. En el depósito se elige primero la caja y aparecen solo sus cuentas habilitadas, sin saldo. |

@@ -121,6 +121,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             if (origen == null || origen.getId() == null || origen.getId() == 0L) {
                 throw new GraphQLException("La devolucion debe tener una sucursal de origen valida (no el servidor)");
             }
+            validarProveedorDelTipo(entity.getTipo(), entity.getProveedor());
         }
         if (entity.getFecha() == null) entity.setFecha(LocalDateTime.now());
         if (entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
@@ -156,6 +157,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         if (origen == null || origen.getId() == null || origen.getId() == 0L) {
             throw new GraphQLException("La devolucion debe tener una sucursal de origen valida (no el servidor)");
         }
+        validarProveedorDelTipo(cambios.getTipo(), cambios.getProveedor());
         d.setTipo(cambios.getTipo());
         d.setProveedor(cambios.getProveedor());
         d.setSucursalOrigen(origen);
@@ -166,6 +168,18 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         if (cambios.getCajaVirtualId() != null) d.setCajaVirtualId(cambios.getCajaVirtualId());
         if (cambios.getUsuario() != null) d.setUsuario(cambios.getUsuario());
         return save(d);
+    }
+
+    /**
+     * Una devolucion con proveedor tiene que tener proveedor. Sin el, no aparece en el
+     * retiro ni en el aviso de compras (que filtran por proveedor) y recien falla al
+     * retirar, con el stock ya afuera. Se valida al crear y al editar la cabecera, no en
+     * los save internos de las transiciones.
+     */
+    private void validarProveedorDelTipo(TipoDevolucion tipo, Proveedor proveedor) {
+        if (tipo == TipoDevolucion.CON_PROVEEDOR && proveedor == null) {
+            throw new GraphQLException("Una devolucion con proveedor debe indicar un proveedor valido");
+        }
     }
 
     /**

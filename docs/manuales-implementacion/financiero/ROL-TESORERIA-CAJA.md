@@ -67,10 +67,10 @@ En el desktop ve una sola entrada de menú: **Financiero → Caja y Operativa �
 4. En la pantalla de usuarios le asigna el rol `TESORERIA CAJA`, **sin** otro rol de tesorería.
 5. Para que pague a un proveedor: Compras → Solicitud de pago → ⋮ → **Asignar a caja**.
 6. Para que pueda mandar efectivo a la caja mayor principal: en Tesorería, ⋮ de esa caja →
-   **Recibe envíos…** (lo hace su responsable, con `TESORERIA GESTIONAR`).
+   **Recibe envíos** (lo hace su responsable, con `TESORERIA GESTIONAR`).
 
 7. Si el operador está a cargo de varias sucursales (las de una ciudad): en Tesorería, ⋮ de la caja →
-   **Sucursales que cubre…** y marcar las demás. Una sola caja recibe los retiros de todas.
+   **Sucursales que cubre** y marcar las demás. Una sola caja recibe los retiros de todas.
 
 El operador no tiene que ser el responsable de la caja: el responsable administra los accesos.
 
@@ -142,5 +142,5 @@ y una cuenta bancaria habilitada en esa caja:
 | 9 | Registrar un depósito y anularlo desde su fila. | El saldo baja y vuelve. El menú de la fila solo ofrece Anular. |
 | 10 | Como tesorería: Solicitud de pago → ⋮ → Asignar a caja, eligiendo la caja del operador. | Aviso «Solicitud asignada a …». |
 | 11 | Como el operador: Egreso → Pagar Compras. | Aparece solo la solicitud asignada; se paga en efectivo. Sin el botón de devolver a compras. |
-| 12 | Como tesorería: Tesorería → ⋮ de la caja principal → Recibe envíos… → aceptar. Como el operador: Operaciones Financieras → Transf. entre Cajas. | En el destino aparece la caja principal con «(recibe envíos)». El envío baja su saldo; la caja principal no le aparece en su lista y no puede anular el envío. |
+| 12 | Como tesorería: Tesorería → ⋮ de la caja principal → Recibe envíos → aceptar. Como el operador: Operaciones Financieras → Transf. entre Cajas. | En el destino aparece la caja principal con «(recibe envíos)». El envío baja su saldo; la caja principal no le aparece en su lista y no puede anular el envío. |
 | 13 | Con un usuario `TESORERIA GESTIONAR`: repetir 3, 6 y 8. | Todo como antes del cambio. |

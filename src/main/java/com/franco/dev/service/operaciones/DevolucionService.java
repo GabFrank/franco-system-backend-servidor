@@ -487,8 +487,19 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             m.setReferencia(item.getId());
             m.setEstado(true);
             m.setUsuario(usuario);
-            movimientoStockService.save(m);
+            MovimientoStock baja = movimientoStockService.save(m);
+            // Producto con control de lote: la baja se anota tambien en el ledger por lote, y el
+            // item recuerda cual fue el movimiento para poder deshacerlo sobre los mismos lotes.
+            if (DevolucionLoteService.llevaLote(item) && baja != null) {
+                lotes().desglosarBaja(baja, item);
+                item.setMovimientoBajaId(baja.getId());
+                devolucionItemService.save(item);
+            }
         }
+    }
+
+    private DevolucionLoteService lotes() {
+        return applicationContext.getBean(DevolucionLoteService.class);
     }
 
     /**
@@ -510,7 +521,14 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             m.setReferencia(item.getId());
             m.setEstado(true);
             m.setUsuario(usuario);
-            movimientoStockService.save(m);
+            MovimientoStock reingreso = movimientoStockService.save(m);
+            // Vuelve a los mismos lotes de los que salio: se espeja el desglose de la baja.
+            if (DevolucionLoteService.llevaLote(item) && item.getMovimientoBajaId() != null) {
+                lotes().espejar(reingreso, item.getMovimientoBajaId(),
+                        d.getSucursalOrigen().getId(), item, 1);
+                item.setMovimientoBajaId(null);
+                devolucionItemService.save(item);
+            }
         }
     }
 
@@ -531,6 +549,9 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         for (DevolucionItem item : items) {
             String error = DevolucionEdicionValidator.validarReingreso(item.getCantidad(),
                     item.getCantidadReingresada(), descripcionProducto(item));
+            if (error == null) {
+                error = DevolucionLoteService.validarLoteReingreso(item);
+            }
             if (error != null) {
                 throw new GraphQLException(error);
             }
@@ -556,7 +577,13 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             m.setReferencia(item.getId());
             m.setEstado(true);
             m.setUsuario(usuario);
-            movimientoStockService.save(m);
+            MovimientoStock entrada = movimientoStockService.save(m);
+            // Producto con control de lote: lo repuesto entra al lote que entrego el proveedor.
+            if (DevolucionLoteService.llevaLote(item) && entrada != null) {
+                lotes().desglosarCanje(entrada, item, d.getProveedor(), usuario);
+                item.setMovimientoCanjeId(entrada.getId());
+                devolucionItemService.save(item);
+            }
 
             ProductoVencimiento pv = new ProductoVencimiento();
             pv.setProducto(item.getProducto());
@@ -610,7 +637,13 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                     m.setReferencia(item.getId());
                     m.setEstado(true);
                     m.setUsuario(usuario);
-                    movimientoStockService.save(m);
+                    MovimientoStock salida = movimientoStockService.save(m);
+                    // Sale del mismo lote al que habia entrado el canje.
+                    if (DevolucionLoteService.llevaLote(item) && item.getMovimientoCanjeId() != null) {
+                        lotes().espejar(salida, item.getMovimientoCanjeId(), sucId, item, -1);
+                        item.setMovimientoCanjeId(null);
+                        devolucionItemService.save(item);
+                    }
                 }
                 // CrudService.delete no lanza: devuelve false. Si el vencimiento queda, un
                 // segundo revertir volveria a sacar el mismo stock.

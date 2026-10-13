@@ -2,10 +2,12 @@ package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.operaciones.Devolucion;
 import com.franco.dev.domain.operaciones.DevolucionItem;
+import com.franco.dev.domain.operaciones.Lote;
 import com.franco.dev.graphql.operaciones.input.DevolucionItemInput;
 import com.franco.dev.service.operaciones.DevolucionEdicionValidator;
 import com.franco.dev.service.operaciones.DevolucionItemService;
 import com.franco.dev.service.operaciones.DevolucionService;
+import com.franco.dev.service.operaciones.LoteService;
 import com.franco.dev.service.operaciones.RecepcionMercaderiaItemService;
 import com.franco.dev.service.productos.ProductoService;
 import graphql.GraphQLException;
@@ -32,6 +34,9 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
 
     @Autowired
     private DevolucionService devolucionService;
+
+    @Autowired
+    private LoteService loteService;
 
     @Autowired
     private ProductoService productoService;
@@ -173,6 +178,30 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
                 entity.setCostoUnitario(resolverCostoMedio(prodId) * factor);
             }
 
+            // Lote del maestro: tiene que existir y ser de este producto. Su numero pasa al
+            // texto del item (lo que muestran pantallas y etiquetas) y, si el item no trae
+            // vencimiento, tambien el suyo.
+            if (input.getLoteId() != null) {
+                Lote loteMaestro = loteService.findById(input.getLoteId())
+                        .orElseThrow(() -> new GraphQLException("Lote no encontrado con ID: " + input.getLoteId()));
+                Long productoDelLote = loteMaestro.getProducto() != null ? loteMaestro.getProducto().getId() : null;
+                if (entity.getProducto() == null || !entity.getProducto().getId().equals(productoDelLote)) {
+                    throw new GraphQLException("El lote " + loteMaestro.getNumeroLote() + " no es de este producto");
+                }
+                entity.setLoteMaestro(loteMaestro);
+                entity.setLote(loteMaestro.getNumeroLote());
+                if (entity.getVencimiento() == null) {
+                    entity.setVencimiento(loteMaestro.getFechaVencimiento());
+                }
+            } else if (existente != null && existente.getLoteMaestro() != null
+                    && existente.getLoteMaestro().getNumeroLote().equals(
+                            LoteService.normalizarNumeroLote(input.getLote()))) {
+                // Un cliente que todavia no conoce loteId reenvia el item con el mismo texto de
+                // lote: se conserva el lote elegido en vez de borrarlo. Si cambio el texto, se
+                // toma como que lo cambio a mano y el item queda sin lote del maestro.
+                entity.setLoteMaestro(existente.getLoteMaestro());
+            }
+
             if (input.getMotivoAveriaId() != null) {
                 entity.setMotivoAveria(motivoAveriaService.findById(input.getMotivoAveriaId()).orElse(null));
             }
@@ -211,6 +240,12 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
         item.setCantidadReingresada(input.getCantidadReingresada());
         item.setVencimientoReingreso(input.getVencimientoReingreso() != null
                 ? stringToDate(input.getVencimientoReingreso()).toLocalDate() : null);
+        // Se guarda normalizado, igual que el maestro de lotes, para que al canjear caiga en el
+        // mismo lote si ya existia.
+        // Un cliente que no conoce el campo no lo manda: se conserva lo que habia.
+        if (input.getLoteReingreso() != null) {
+            item.setLoteReingreso(LoteService.normalizarNumeroLote(input.getLoteReingreso()));
+        }
         return service.save(item);
     }
 

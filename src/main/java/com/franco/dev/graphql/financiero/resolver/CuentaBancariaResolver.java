@@ -5,8 +5,6 @@ import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import graphql.kickstart.tools.GraphQLResolver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.request.RequestAttributes;
-import org.springframework.web.context.request.RequestContextHolder;
 
 import java.math.BigDecimal;
 
@@ -21,30 +19,14 @@ import java.math.BigDecimal;
 @Component
 public class CuentaBancariaResolver implements GraphQLResolver<CuentaBancaria> {
 
-    private static final String ATRIBUTO = CuentaBancariaResolver.class.getName() + ".ocultarSaldo";
-
     @Autowired
     private TesoreriaSecurityService seg;
 
     public BigDecimal saldo(CuentaBancaria cuenta) {
-        return ocultarSaldo() ? null : cuenta.getSaldo();
+        return seg.esSoloCajaEnRequest() ? null : cuenta.getSaldo();
     }
 
     public BigDecimal saldoReservado(CuentaBancaria cuenta) {
-        return ocultarSaldo() ? null : cuenta.getSaldoReservado();
-    }
-
-    /**
-     * Se resuelve una vez por request: un listado de cuentas pide los dos campos por cada fila, y cada
-     * consulta de rol va a la base. Sin request (un test, un hilo aparte) se calcula cada vez.
-     */
-    private boolean ocultarSaldo() {
-        RequestAttributes request = RequestContextHolder.getRequestAttributes();
-        if (request == null) return seg.esSoloCaja();
-        Object guardado = request.getAttribute(ATRIBUTO, RequestAttributes.SCOPE_REQUEST);
-        if (guardado instanceof Boolean) return (Boolean) guardado;
-        boolean ocultar = seg.esSoloCaja();
-        request.setAttribute(ATRIBUTO, ocultar, RequestAttributes.SCOPE_REQUEST);
-        return ocultar;
+        return seg.esSoloCajaEnRequest() ? null : cuenta.getSaldoReservado();
     }
 }

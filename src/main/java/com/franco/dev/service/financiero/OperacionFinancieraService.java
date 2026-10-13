@@ -167,7 +167,7 @@ public class OperacionFinancieraService {
      * banco sin ACL no puede quedar librado a que falle una pata después de asentada la otra.
      */
     private void exigirPermitidaEnModoAcotado(OperacionFinanciera op) {
-        if (!seguridad.esSoloCaja()) return;
+        if (!seguridad.operaAcotado()) return;
         TipoOperacionFinanciera t = op.getTipoOperacion();
         if (t == TipoOperacionFinanciera.DEPOSITO_BANCARIO) {
             req(op.getCajaMayorOrigen() != null && op.getCuentaBancariaDestino() != null,
@@ -178,11 +178,18 @@ public class OperacionFinancieraService {
                 throw new GraphQLException("No autorizado: esa cuenta bancaria no está habilitada para depósitos"
                         + " desde esta caja. Pedile a tesorería que la habilite.");
             }
+            // Lo que sale de la caja es lo que entra al banco, en la moneda de la cuenta.
+            exigirMismaMoneda(op.getMonedaOrigen(), op.getCuentaBancariaDestino().getMoneda());
+            exigirMismoMonto(op);
         } else if (t == TipoOperacionFinanciera.TRANSFERENCIA_ENTRE_CAJAS) {
             req(op.getCajaMayorOrigen() != null && op.getCajaMayorDestino() != null,
                     "Transferencia entre cajas requiere origen y destino");
             seguridad.requireEscrituraCaja(op.getCajaMayorOrigen().getId());
             seguridad.requireEscrituraCaja(op.getCajaMayorDestino().getId());
+            // Lo que sale de una caja es lo que entra a la otra, en la misma moneda.
+            if (op.getMonedaDestino() == null) op.setMonedaDestino(op.getMonedaOrigen());
+            exigirMismaMoneda(op.getMonedaOrigen(), op.getMonedaDestino());
+            exigirMismoMonto(op);
         } else {
             throw new GraphQLException("No autorizado: con tu rol solo podés depositar al banco o transferir"
                     + " entre tus cajas.");
@@ -190,6 +197,29 @@ public class OperacionFinancieraService {
         // La diferencia se imputa como un ajuste de saldo, que no entra en el rol acotado.
         if (pideImputarDiferencia(op)) {
             throw new GraphQLException("No autorizado: registrar una diferencia requiere el rol TESORERIA GESTIONAR.");
+        }
+    }
+
+    /**
+     * El depósito y la transferencia entre cajas asientan el monto de origen de un lado y el de destino del
+     * otro. Con GESTIONAR eso lo cuida quien gestiona; en el rol acotado no puede quedar librado al pedido:
+     * un destino mayor que el origen crearía plata en el banco o en la otra caja.
+     */
+    private void exigirMismoMonto(OperacionFinanciera op) {
+        req(op.getMontoOrigen() != null && op.getMontoOrigen().signum() > 0, "Monto origen inválido");
+        if (op.getMontoDestino() != null && op.getMontoDestino().compareTo(op.getMontoOrigen()) != 0) {
+            throw new GraphQLException("No autorizado: el monto de destino tiene que ser igual al de origen.");
+        }
+        op.setMontoDestino(op.getMontoOrigen());
+        if (op.getCotizacion() != null && op.getCotizacion().compareTo(java.math.BigDecimal.ONE) != 0) {
+            throw new GraphQLException("No autorizado: esta operación no lleva cotización.");
+        }
+    }
+
+    private void exigirMismaMoneda(com.franco.dev.domain.financiero.Moneda origen,
+                                   com.franco.dev.domain.financiero.Moneda destino) {
+        if (origen == null || destino == null || origen.getId() == null || !origen.getId().equals(destino.getId())) {
+            throw new GraphQLException("No autorizado: el origen y el destino tienen que ser de la misma moneda.");
         }
     }
 

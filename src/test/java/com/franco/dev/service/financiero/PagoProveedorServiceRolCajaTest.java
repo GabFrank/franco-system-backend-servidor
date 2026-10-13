@@ -80,6 +80,7 @@ class PagoProveedorServiceRolCajaTest {
         gerente.setId(GERENTE);
         when(seguridad.currentUsuario()).thenReturn(gerente);
         when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.pagaAcotado()).thenReturn(true);
     }
 
     private SolicitudPago solicitud(long id, TipoSolicitudPago tipo, Long usuarioId) {
@@ -89,6 +90,9 @@ class PagoProveedorServiceRolCajaTest {
         sp.setEstado(SolicitudPagoEstado.SOLICITADO);
         sp.setMontoTotal(100000.0);
         sp.setMontoPagado(BigDecimal.ZERO);
+        com.franco.dev.domain.financiero.Moneda gs = new com.franco.dev.domain.financiero.Moneda();
+        gs.setId(1L);
+        sp.setMoneda(gs);
         if (usuarioId != null) {
             Usuario u = new Usuario();
             u.setId(usuarioId);
@@ -183,17 +187,58 @@ class PagoProveedorServiceRolCajaTest {
     }
 
     @Test
-    void el_ajuste_de_redondeo_acompana_al_efectivo() {
+    void no_paga_con_una_linea_de_ajuste() {
+        // El ajuste salda deuda sin mover efectivo: con él se daría por pagada una solicitud sin pagarla.
         solicitud(1L, TipoSolicitudPago.GASTO, GERENTE);
 
-        service.pagarLoteMixto(pedido(1L, FuentePago.CAJA_MAYOR, FuentePago.AJUSTE), null, "clave");
+        assertTrue(rechazo(pedido(1L, FuentePago.AJUSTE)).getMessage().startsWith("No autorizado"));
+        assertTrue(rechazo(pedido(1L, FuentePago.CAJA_MAYOR, FuentePago.AJUSTE)).getMessage().startsWith("No autorizado"));
+        nuncaLlegaAlMotor();
+    }
+
+    @Test
+    void no_paga_en_otra_moneda_ni_saldando_mas_deuda_que_el_efectivo_que_sale() {
+        solicitud(1L, TipoSolicitudPago.GASTO, GERENTE);
+
+        List<PagoProveedorService.SolicitudConLineas> enDolares = pedido(1L, FuentePago.CAJA_MAYOR);
+        enDolares.get(0).getLineas().get(0).setMonedaId(3L);
+        assertTrue(rechazo(enDolares).getMessage().startsWith("No autorizado"));
+
+        // 1 de efectivo que dice saldar 100.000 de deuda.
+        List<PagoProveedorService.SolicitudConLineas> inflado = pedido(1L, FuentePago.CAJA_MAYOR);
+        inflado.get(0).getLineas().get(0).setMonto(BigDecimal.ONE);
+        inflado.get(0).getLineas().get(0).setMontoSolicitud(new BigDecimal("100000"));
+        assertTrue(rechazo(inflado).getMessage().startsWith("No autorizado"));
+
+        nuncaLlegaAlMotor();
+    }
+
+    @Test
+    void paga_en_la_moneda_de_la_solicitud_con_o_sin_monto_convertido() {
+        solicitud(1L, TipoSolicitudPago.GASTO, GERENTE);
+        List<PagoProveedorService.SolicitudConLineas> pedido = pedido(1L, FuentePago.CAJA_MAYOR);
+        pedido.get(0).getLineas().get(0).setMonedaId(1L);
+        pedido.get(0).getLineas().get(0).setMontoSolicitud(new BigDecimal("100000"));
+
+        service.pagarLoteMixto(pedido, null, "clave");
 
         verify(idempotenciaService).ejecutar(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
+    void con_caja_y_un_rol_de_solo_lectura_sigue_pagando_acotado() {
+        // TESORERIA CAJA + TESORERIA VER: ve lo global, pero no gana el pago por banco de CPP PAGAR.
+        when(seguridad.esSoloCaja()).thenReturn(false);
+        solicitud(1L, TipoSolicitudPago.GASTO, GERENTE);
+
+        assertTrue(rechazo(pedido(1L, FuentePago.CUENTA_BANCARIA)).getMessage().startsWith("No autorizado"));
+        nuncaLlegaAlMotor();
+    }
+
+    @Test
     void sin_rol_acotado_no_se_aplica_ninguna_de_estas_reglas() {
         when(seguridad.esSoloCaja()).thenReturn(false);
+        when(seguridad.pagaAcotado()).thenReturn(false);
         solicitud(1L, TipoSolicitudPago.COMPRA, OTRO);
 
         service.pagarLoteMixto(pedido(1L, FuentePago.CUENTA_BANCARIA), null, "clave");

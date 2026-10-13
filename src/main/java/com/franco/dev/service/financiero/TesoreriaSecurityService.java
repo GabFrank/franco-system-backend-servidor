@@ -160,18 +160,76 @@ public class TesoreriaSecurityService {
     public void requirePagarCppCaja() { requireAnyRole(CPP_PAGAR, GESTIONAR, CAJA); }
 
     /**
-     * true si el usuario opera en modo acotado: tiene TESORERIA CAJA y ningún rol amplio de tesorería.
+     * true si el usuario <b>ve</b> en modo acotado: tiene TESORERIA CAJA y ningún rol amplio de tesorería.
      * Sin usuario autenticado es false: un proceso de sistema no es un operador acotado.
      */
     public boolean esSoloCaja() {
+        return tieneCajaSin(TODOS);
+    }
+
+    /**
+     * true si el usuario <b>mueve plata</b> en modo acotado: tiene TESORERIA CAJA y no TESORERIA GESTIONAR.
+     *
+     * <p>No alcanza con {@link #esSoloCaja()}: {@code requireOperarCaja} deja pasar por TESORERIA CAJA, y un
+     * usuario con CAJA + VER no es «solo caja» pero tampoco gestiona. Si las restricciones dependieran de
+     * «ningún rol amplio», sumar un rol de solo lectura le daría las operaciones de GESTIONAR.</p>
+     */
+    public boolean operaAcotado() {
+        return tieneCajaSin(GESTIONAR);
+    }
+
+    /** Idem para pagar: tiene TESORERIA CAJA y ninguno de los roles que pagan (CPP PAGAR, GESTIONAR). */
+    public boolean pagaAcotado() {
+        return tieneCajaSin(CPP_PAGAR, GESTIONAR);
+    }
+
+    private boolean tieneCajaSin(String... amplios) {
         String nick = currentNickname();
         if (nick == null || ADMIN.equalsIgnoreCase(nick)) return false;
-        Set<String> mine = currentRoles();   // una sola lectura: lo llama cada campo de saldo
+        Set<String> mine = currentRoles();   // una sola lectura de roles por consulta
         if (mine.contains(ADMIN) || !mine.contains(CAJA)) return false;
-        for (String r : TODOS) {
+        for (String r : amplios) {
             if (mine.contains(r)) return false;
         }
         return true;
+    }
+
+    // Un listado pide el saldo de cada fila: el rol y las cajas visibles se resuelven una vez por request.
+    private static final String ATRIBUTO_SOLO_CAJA = TesoreriaSecurityService.class.getName() + ".soloCaja";
+    private static final String ATRIBUTO_VISIBLES = TesoreriaSecurityService.class.getName() + ".cajasVisibles";
+    private static final Object TODAS = new Object();
+
+    /** {@link #esSoloCaja()} resuelto una vez por request. Sin request (un test, otro hilo) se calcula cada vez. */
+    public boolean esSoloCajaEnRequest() {
+        org.springframework.web.context.request.RequestAttributes request =
+                org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+        if (request == null) return esSoloCaja();
+        Object guardado = request.getAttribute(ATRIBUTO_SOLO_CAJA,
+                org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+        if (guardado instanceof Boolean) return (Boolean) guardado;
+        boolean solo = esSoloCaja();
+        request.setAttribute(ATRIBUTO_SOLO_CAJA, solo,
+                org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+        return solo;
+    }
+
+    /** true si el usuario puede ver la caja, con {@link #cajasVisiblesIds()} resuelto una vez por request. */
+    @SuppressWarnings("unchecked")
+    public boolean puedeVerCajaEnRequest(Long cajaId) {
+        if (cajaId == null) return false;
+        org.springframework.web.context.request.RequestAttributes request =
+                org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+        Object guardado = request != null ? request.getAttribute(ATRIBUTO_VISIBLES,
+                org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST) : null;
+        if (guardado == null) {
+            java.util.List<Long> visibles = cajasVisiblesIds();   // null = ve todas
+            guardado = visibles == null ? TODAS : visibles;
+            if (request != null) {
+                request.setAttribute(ATRIBUTO_VISIBLES, guardado,
+                        org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+            }
+        }
+        return guardado == TODAS || ((java.util.List<Long>) guardado).contains(cajaId);
     }
 
     /**

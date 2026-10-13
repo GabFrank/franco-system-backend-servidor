@@ -110,4 +110,64 @@ class TesoreriaSecurityServiceRolCajaTest {
         when(s.accesoRepository.sucursalesOperablesIds(RolCajaSoporte.USUARIO_ID)).thenReturn(Arrays.asList(13L, 4L));
         assertEquals(Arrays.asList(13L, 4L), s.seg.sucursalesOperablesIds());
     }
+
+    // ── Acotado por acción: sumar un rol no puede dar las operaciones de GESTIONAR ──
+
+    @Test
+    void conSoloCaja_operaYPagaAcotado() {
+        s.autenticar("gerente", "TESORERIA CAJA");
+        assertTrue(s.seg.operaAcotado());
+        assertTrue(s.seg.pagaAcotado());
+    }
+
+    @Test
+    void cajaMasUnRolDeLectura_noEsSoloCajaPeroSigueOperandoYPagandoAcotado() {
+        for (String rol : new String[]{"TESORERIA VER", "TESORERIA CPC COBRAR"}) {
+            s.autenticar("gerente", "TESORERIA CAJA", rol);
+            assertFalse(s.seg.esSoloCaja(), rol);
+            assertTrue(s.seg.operaAcotado(), rol);
+            assertTrue(s.seg.pagaAcotado(), rol);
+        }
+    }
+
+    @Test
+    void cajaMasCppPagar_pagaComoCppPagarPeroOperaAcotado() {
+        s.autenticar("tesorero", "TESORERIA CAJA", "TESORERIA CPP PAGAR");
+        assertFalse(s.seg.pagaAcotado());
+        assertTrue(s.seg.operaAcotado());
+    }
+
+    @Test
+    void conGestionarOSuperusuario_nadaEsAcotado() {
+        s.autenticar("tesorero", "TESORERIA CAJA", "TESORERIA GESTIONAR");
+        assertFalse(s.seg.operaAcotado());
+        assertFalse(s.seg.pagaAcotado());
+
+        s.autenticar("jefe", "TESORERIA CAJA", "ADMIN");
+        assertFalse(s.seg.operaAcotado());
+        assertFalse(s.seg.pagaAcotado());
+    }
+
+    @Test
+    void sinElRolDeCaja_oSinUsuario_nadaEsAcotado() {
+        assertFalse(s.seg.operaAcotado());
+        assertFalse(s.seg.pagaAcotado());
+
+        s.autenticar("auditor", "TESORERIA VER");
+        assertFalse(s.seg.operaAcotado());
+        assertFalse(s.seg.pagaAcotado());
+    }
+
+    @Test
+    void puedeVerCajaEnRequest_usaLasCajasVisibles() {
+        s.autenticar("gerente", "TESORERIA CAJA");
+        when(s.accesoRepository.cajasVisiblesIds(RolCajaSoporte.USUARIO_ID)).thenReturn(Arrays.asList(15L));
+
+        assertTrue(s.seg.puedeVerCajaEnRequest(15L));
+        assertFalse(s.seg.puedeVerCajaEnRequest(16L));
+        assertFalse(s.seg.puedeVerCajaEnRequest(null));
+
+        s.autenticar("jefe", "ADMIN");
+        assertTrue(s.seg.puedeVerCajaEnRequest(16L));
+    }
 }

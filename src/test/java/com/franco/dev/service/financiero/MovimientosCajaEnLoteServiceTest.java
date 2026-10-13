@@ -326,7 +326,7 @@ class MovimientosCajaEnLoteServiceTest {
 
     @Test
     void el_ajuste_no_entra_en_el_rol_acotado() {
-        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.operaAcotado()).thenReturn(true);
 
         GraphQLException e = assertThrows(GraphQLException.class, () -> service.registrarMovimientos(
                 7L, CajaVirtualTipoMovimiento.AJUSTE, montos(1, -1500.5), "X", usuario, "clave"));
@@ -337,7 +337,7 @@ class MovimientosCajaEnLoteServiceTest {
 
     @Test
     void el_rol_acotado_registra_ingresos_y_egresos() {
-        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.operaAcotado()).thenReturn(true);
 
         service.registrarMovimientos(7L, CajaVirtualTipoMovimiento.EGRESO, montos(1, 1500), "X", usuario, "clave");
 

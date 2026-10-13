@@ -101,7 +101,7 @@ class RetiroIngresoServiceTest {
     @Test
     void el_rol_acotado_ingresa_un_retiro_de_la_sucursal_de_su_caja() {
         enLaBase(null, null);
-        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.operaAcotado()).thenReturn(true);
         cajaDeLaSucursal(1L);
 
         service.ingresarACajaMayor(7L, 1L, 3L, null);
@@ -112,7 +112,7 @@ class RetiroIngresoServiceTest {
     @Test
     void el_rol_acotado_no_ingresa_un_retiro_de_otra_sucursal() {
         enLaBase(null, null);
-        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.operaAcotado()).thenReturn(true);
         cajaDeLaSucursal(13L);
 
         GraphQLException e = assertThrows(GraphQLException.class, () -> service.ingresarACajaMayor(7L, 1L, 3L, null));
@@ -125,7 +125,7 @@ class RetiroIngresoServiceTest {
     @Test
     void el_rol_acotado_no_ingresa_a_una_caja_sin_sucursal() {
         enLaBase(null, null);
-        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.operaAcotado()).thenReturn(true);
 
         GraphQLException e = assertThrows(GraphQLException.class, () -> service.ingresarACajaMayor(7L, 1L, 3L, null));
 
@@ -141,5 +141,17 @@ class RetiroIngresoServiceTest {
         service.ingresarACajaMayor(7L, 1L, 3L, null);
 
         verify(procesador).procesar(7L, 1L, null);
+    }
+
+    @Test
+    void el_rol_acotado_no_averigua_el_estado_de_un_retiro_de_otra_sucursal() {
+        // Ni lock ni lectura: «no encontrado», «ya ingresado» o «cancelado» dirían si el retiro existe.
+        when(seguridad.operaAcotado()).thenReturn(true);
+        cajaDeLaSucursal(13L);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.ingresarACajaMayor(99L, 1L, 3L, null));
+
+        assertTrue(e.getMessage().startsWith("No autorizado"), e.getMessage());
+        verifyNoInteractions(retiroRepository);
     }
 }

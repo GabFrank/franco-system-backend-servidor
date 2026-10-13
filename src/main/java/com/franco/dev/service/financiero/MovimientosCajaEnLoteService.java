@@ -86,7 +86,7 @@ public class MovimientosCajaEnLoteService {
             throw new GraphQLException("Acá solo se registran ingresos, egresos y ajustes.");
         }
         // El ajuste corrige el saldo sin contrapartida: no entra en el rol acotado.
-        if (tipo == CajaVirtualTipoMovimiento.AJUSTE && seguridad.esSoloCaja()) {
+        if (tipo == CajaVirtualTipoMovimiento.AJUSTE && seguridad.operaAcotado()) {
             throw new GraphQLException("No autorizado: el ajuste de saldo requiere el rol TESORERIA GESTIONAR.");
         }
         // El ajuste lleva signo; en ingreso y egreso el sentido lo da el tipo.

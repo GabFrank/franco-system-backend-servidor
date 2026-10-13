@@ -385,6 +385,8 @@ class OperacionFinancieraServiceTest {
         op.setTipoOperacion(TipoOperacionFinanciera.DEPOSITO_BANCARIO);
         op.setCajaMayorOrigen(caja(cajaId)); op.setMontoOrigen(new BigDecimal("500"));
         op.setCuentaBancariaDestino(cuenta(cuentaId)); op.setMontoDestino(new BigDecimal("500"));
+        op.setMonedaOrigen(moneda(1));
+        op.getCuentaBancariaDestino().setMoneda(moneda(1));
         return op;
     }
 
@@ -396,7 +398,7 @@ class OperacionFinancieraServiceTest {
 
     @Test
     void acotado_deposita_a_una_cuenta_habilitada_para_su_caja() {
-        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.operaAcotado()).thenReturn(true);
         when(cajaConfiguracionRepository.esCuentaVisibleDeLaCaja(1L, 9L)).thenReturn(true);
 
         service.registrar(deposito(1, 9), null);
@@ -408,7 +410,7 @@ class OperacionFinancieraServiceTest {
 
     @Test
     void acotado_no_deposita_a_una_cuenta_que_no_esta_habilitada_y_no_asienta_nada() {
-        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.operaAcotado()).thenReturn(true);
         when(cajaConfiguracionRepository.esCuentaVisibleDeLaCaja(1L, 9L)).thenReturn(false);
 
         GraphQLException e = assertThrows(GraphQLException.class, () -> service.registrar(deposito(1, 9), null));
@@ -419,7 +421,7 @@ class OperacionFinancieraServiceTest {
 
     @Test
     void acotado_sin_escritura_en_la_caja_no_asienta_nada() {
-        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.operaAcotado()).thenReturn(true);
         doThrow(new GraphQLException("No tenes permiso para mover plata en esta caja.")).when(seguridad).requireEscrituraCaja(1L);
 
         assertThrows(GraphQLException.class, () -> service.registrar(deposito(1, 9), null));
@@ -429,7 +431,7 @@ class OperacionFinancieraServiceTest {
 
     @Test
     void acotado_no_registra_los_tipos_que_mueven_banco_sin_caja_o_sacan_del_banco() {
-        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.operaAcotado()).thenReturn(true);
         for (TipoOperacionFinanciera tipo : new TipoOperacionFinanciera[]{TipoOperacionFinanciera.CAMBIO_DIVISA,
                 TipoOperacionFinanciera.RETIRO_BANCARIO, TipoOperacionFinanciera.TRANSFERENCIA_BANCARIA}) {
             OperacionFinanciera op = deposito(1, 9);
@@ -445,11 +447,12 @@ class OperacionFinancieraServiceTest {
 
     @Test
     void acotado_transfiere_entre_cajas_exigiendo_escritura_en_las_dos() {
-        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.operaAcotado()).thenReturn(true);
         OperacionFinanciera op = new OperacionFinanciera();
         op.setTipoOperacion(TipoOperacionFinanciera.TRANSFERENCIA_ENTRE_CAJAS);
         op.setCajaMayorOrigen(caja(1)); op.setMontoOrigen(new BigDecimal("100"));
         op.setCajaMayorDestino(caja(2)); op.setMontoDestino(new BigDecimal("100"));
+        op.setMonedaOrigen(moneda(1));
 
         service.registrar(op, null);
 
@@ -460,7 +463,7 @@ class OperacionFinancieraServiceTest {
 
     @Test
     void acotado_no_registra_una_diferencia() {
-        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.operaAcotado()).thenReturn(true);
         when(cajaConfiguracionRepository.esCuentaVisibleDeLaCaja(1L, 9L)).thenReturn(true);
         OperacionFinanciera op = deposito(1, 9);
         op.setDiferencia(new BigDecimal("50"));
@@ -474,7 +477,7 @@ class OperacionFinancieraServiceTest {
 
     @Test
     void acotado_no_anula_una_operacion_de_otro_tipo_y_no_revierte_nada() {
-        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.operaAcotado()).thenReturn(true);
         OperacionFinanciera op = deposito(1, 9);
         op.setId(5L);
         op.setTipoOperacion(TipoOperacionFinanciera.RETIRO_BANCARIO);
@@ -490,7 +493,7 @@ class OperacionFinancieraServiceTest {
 
     @Test
     void acotado_no_anula_un_deposito_de_una_caja_que_no_puede_mover() {
-        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.operaAcotado()).thenReturn(true);
         OperacionFinanciera op = deposito(1, 9);
         op.setId(5L);
         when(repository.lockById(5L)).thenReturn(java.util.Optional.of(op));
@@ -501,5 +504,67 @@ class OperacionFinancieraServiceTest {
 
         verify(tesoreriaService, never()).revertir(any(), any(), any());
         verifyNoInteractions(bancoLedgerService);
+    }
+
+    @Test
+    void acotado_no_deposita_acreditando_al_banco_mas_de_lo_que_sale_de_la_caja() {
+        when(seguridad.operaAcotado()).thenReturn(true);
+        when(cajaConfiguracionRepository.esCuentaVisibleDeLaCaja(1L, 9L)).thenReturn(true);
+        OperacionFinanciera op = deposito(1, 9);
+        op.setMontoOrigen(BigDecimal.ONE);
+        op.setMontoDestino(new BigDecimal("1000000000"));
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.registrar(op, null));
+
+        assertTrue(e.getMessage().startsWith("No autorizado"), e.getMessage());
+        nadaAsentado();
+    }
+
+    @Test
+    void acotado_deposita_sin_monto_de_destino_y_al_banco_va_lo_que_salio() {
+        when(seguridad.operaAcotado()).thenReturn(true);
+        when(cajaConfiguracionRepository.esCuentaVisibleDeLaCaja(1L, 9L)).thenReturn(true);
+        OperacionFinanciera op = deposito(1, 9);
+        op.setMontoDestino(null);
+
+        service.registrar(op, null);
+
+        verify(bancoLedgerService).registrar(eq(9L), eq(MovimientoBancarioTipo.ENTRADA_MANUAL), eq(new BigDecimal("500")), any(), any(), any(), any());
+    }
+
+    @Test
+    void acotado_no_deposita_en_otra_moneda_ni_con_cotizacion() {
+        when(seguridad.operaAcotado()).thenReturn(true);
+        when(cajaConfiguracionRepository.esCuentaVisibleDeLaCaja(1L, 9L)).thenReturn(true);
+
+        OperacionFinanciera otraMoneda = deposito(1, 9);
+        otraMoneda.setMonedaOrigen(moneda(3));
+        assertTrue(assertThrows(GraphQLException.class, () -> service.registrar(otraMoneda, null))
+                .getMessage().startsWith("No autorizado"));
+
+        OperacionFinanciera conCotizacion = deposito(1, 9);
+        conCotizacion.setCotizacion(new BigDecimal("7300"));
+        assertTrue(assertThrows(GraphQLException.class, () -> service.registrar(conCotizacion, null))
+                .getMessage().startsWith("No autorizado"));
+
+        nadaAsentado();
+    }
+
+    @Test
+    void acotado_no_transfiere_acreditando_mas_de_lo_que_sale_ni_cruzando_monedas() {
+        when(seguridad.operaAcotado()).thenReturn(true);
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setTipoOperacion(TipoOperacionFinanciera.TRANSFERENCIA_ENTRE_CAJAS);
+        op.setCajaMayorOrigen(caja(1)); op.setMontoOrigen(BigDecimal.ONE); op.setMonedaOrigen(moneda(1));
+        op.setCajaMayorDestino(caja(2)); op.setMontoDestino(new BigDecimal("1000000"));
+        assertTrue(assertThrows(GraphQLException.class, () -> service.registrar(op, null))
+                .getMessage().startsWith("No autorizado"));
+
+        op.setMontoDestino(BigDecimal.ONE);
+        op.setMonedaDestino(moneda(3));
+        assertTrue(assertThrows(GraphQLException.class, () -> service.registrar(op, null))
+                .getMessage().startsWith("No autorizado"));
+
+        nadaAsentado();
     }
 }

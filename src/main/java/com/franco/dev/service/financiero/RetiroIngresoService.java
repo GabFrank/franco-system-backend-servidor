@@ -35,6 +35,14 @@ public class RetiroIngresoService {
         if (cajaVirtualId == null) {
             throw new GraphQLException("Debe indicar la caja mayor destino");
         }
+        // El rol acotado ingresa a su caja solo los retiros de la sucursal de esa caja. Va antes de tocar el
+        // retiro: si no, los mensajes de estado dirían si existe o no un retiro de otra sucursal.
+        com.franco.dev.domain.financiero.CajaVirtual caja = cajaVirtualService.findById(cajaVirtualId)
+                .orElseThrow(() -> new GraphQLException("Caja mayor no encontrada: " + cajaVirtualId));
+        if (seguridad.operaAcotado()
+                && (caja.getSucursal() == null || !caja.getSucursal().getId().equals(sucursalId))) {
+            throw new GraphQLException("No autorizado: solo podés ingresar retiros de la sucursal de tu caja.");
+        }
         // Con lock, el mismo que toman la verificación y la cancelación: leyendo sin él, un ingreso y una
         // cancelación simultáneos pasaban los dos y el retiro quedaba cancelado con la plata acreditada.
         // El estado se lee después, de la base (issue #376).
@@ -47,14 +55,6 @@ public class RetiroIngresoService {
         }
         if (s.estaCancelado()) {
             throw new GraphQLException("El retiro #" + retiroId + " está cancelado: habilitalo antes de ingresarlo.");
-        }
-        com.franco.dev.domain.financiero.CajaVirtual caja = cajaVirtualService.findById(cajaVirtualId)
-                .orElseThrow(() -> new GraphQLException("Caja mayor no encontrada: " + cajaVirtualId));
-        // El rol acotado ingresa a su caja solo los retiros de la sucursal de esa caja. Va antes de
-        // asignar la caja: la escritura sobre la caja la exige después el motor de posteo.
-        if (seguridad.esSoloCaja()
-                && (caja.getSucursal() == null || !caja.getSucursal().getId().equals(sucursalId))) {
-            throw new GraphQLException("No autorizado: solo podés ingresar retiros de la sucursal de tu caja.");
         }
 
         r.setCajaVirtualId(cajaVirtualId);

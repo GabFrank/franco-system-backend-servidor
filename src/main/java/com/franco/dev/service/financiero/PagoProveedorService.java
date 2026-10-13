@@ -322,7 +322,7 @@ public class PagoProveedorService {
      * gasto que tesorería asignó a una caja que él puede mover. Es la misma regla para listar, pagar, anular
      * y ver el detalle, para que lo que no aparece en su lista tampoco se alcance por id.
      */
-    private boolean pagableEnModoAcotado(SolicitudPago sp) {
+    public boolean pagableEnModoAcotado(SolicitudPago sp) {
         Usuario actual = seguridad.currentUsuario();
         if (sp == null || actual == null) return false;
         com.franco.dev.domain.operaciones.enums.TipoSolicitudPago tipo = sp.getTipo();
@@ -365,7 +365,7 @@ public class PagoProveedorService {
      * Se recorre todo el pedido antes de procesar la primera línea: un pago rechazado no deja nada asentado.
      */
     private void exigirPagoPermitidoEnModoAcotado(List<SolicitudConLineas> pagos) {
-        if (pagos == null || !seguridad.esSoloCaja()) return;
+        if (pagos == null || !seguridad.pagaAcotado()) return;
         for (SolicitudConLineas p : pagos) {
             SolicitudPago sp = p.getSolicitudId() != null
                     ? solicitudPagoService.findById(p.getSolicitudId()).orElse(null) : null;
@@ -375,11 +375,21 @@ public class PagoProveedorService {
             }
             if (p.getLineas() == null) continue;
             for (LineaPago l : p.getLineas()) {
-                if (l.getFuente() == FuentePago.AJUSTE) continue;
+                // Tampoco la línea de ajuste: salda deuda sin mover efectivo, y el motor no acota cuánto.
                 if (l.getFuente() != FuentePago.CAJA_MAYOR) {
                     throw new GraphQLException("No autorizado: con tu rol solo podés pagar en efectivo desde tu caja.");
                 }
                 seguridad.requireEscrituraCaja(l.getCajaVirtualId());
+                // En la moneda de la deuda y por lo que sale de la caja: sin cotización no hay cómo saldar
+                // más deuda que el efectivo entregado.
+                Long monedaDeuda = sp.getMoneda() != null ? sp.getMoneda().getId() : null;
+                boolean otraMoneda = l.getMonedaId() != null && !l.getMonedaId().equals(monedaDeuda);
+                boolean otroMonto = l.getMonto() == null || (l.getMontoSolicitud() != null
+                        && l.getMontoSolicitud().subtract(l.getMonto()).abs().compareTo(TOLERANCIA) > 0);
+                if (otraMoneda || otroMonto) {
+                    throw new GraphQLException("No autorizado: con tu rol se paga en la moneda de la solicitud"
+                            + " y por el monto que sale de la caja.");
+                }
                 // Lo asignado a una caja se paga desde esa caja, no desde otra que también pueda mover.
                 if (sp.getCajaVirtualAsignadaId() != null
                         && !sp.getCajaVirtualAsignadaId().equals(l.getCajaVirtualId())) {
@@ -392,7 +402,7 @@ public class PagoProveedorService {
 
     /** Idem para anular: un pago propio, sin patas de banco ni de cheque, hecho desde cajas que puede mover. */
     private void exigirAnulacionPermitidaEnModoAcotado(List<PagoSolicitudDetalle> detalles) {
-        if (!seguridad.esSoloCaja()) return;
+        if (!seguridad.pagaAcotado()) return;
         for (PagoSolicitudDetalle d : detalles) {
             if (d.getChequeId() != null || d.getMovimientoBancarioId() != null || d.getCuentaBancariaId() != null) {
                 throw new GraphQLException("No autorizado: este pago tiene una parte por banco o cheque."

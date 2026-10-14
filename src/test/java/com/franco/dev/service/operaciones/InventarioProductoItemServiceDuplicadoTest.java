@@ -4,6 +4,7 @@ import com.franco.dev.domain.operaciones.Inventario;
 import com.franco.dev.domain.operaciones.InventarioProducto;
 import com.franco.dev.domain.operaciones.InventarioProductoItem;
 import com.franco.dev.domain.operaciones.Lote;
+import com.franco.dev.domain.operaciones.enums.InventarioProductoEstado;
 import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.empresarial.Zona;
@@ -201,6 +202,46 @@ class InventarioProductoItemServiceDuplicadoTest {
 
         assertDoesNotThrow(() -> service.save(
                 itemConLote(null, ZONA_GONDOLA, UNIDAD, NOVIEMBRE, 41L, "L-2026-88")));
+    }
+
+    /** El mismo renglon, con estado cargado. */
+    private InventarioProductoItem itemConEstado(Long id, LocalDateTime vencimiento, InventarioProductoEstado estado) {
+        InventarioProductoItem item = item(id, ZONA_GONDOLA, UNIDAD, vencimiento);
+        item.setEstado(estado);
+        return item;
+    }
+
+    @Test
+    @DisplayName("lo bueno y lo averiado de la misma presentacion conviven aunque ninguno tenga fecha")
+    void buenoYAveriadoConviven() {
+        when(repository.findByInventarioProductoId(ZONA_GONDOLA))
+                .thenReturn(Collections.singletonList(itemConEstado(1L, null, InventarioProductoEstado.BUENO)));
+
+        assertDoesNotThrow(() -> service.save(itemConEstado(null, null, InventarioProductoEstado.AVERIADO)));
+    }
+
+    @Test
+    @DisplayName("dos renglones averiados con el mismo vencimiento son el mismo renglon")
+    void dosAveriadosSeRechazan() {
+        when(repository.findByInventarioProductoId(ZONA_GONDOLA))
+                .thenReturn(Collections.singletonList(itemConEstado(1L, NOVIEMBRE, InventarioProductoEstado.AVERIADO)));
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> service.save(itemConEstado(null, NOVIEMBRE, InventarioProductoEstado.AVERIADO)));
+
+        assertTrue(error.getMessage().contains("averiado"), error.getMessage());
+    }
+
+    @Test
+    @DisplayName("un renglon sin estado cuenta como bueno: no abre la puerta a un duplicado")
+    void sinEstadoEsBueno() {
+        // Los renglones viejos y los recien agregados no traen estado; los dos clientes los
+        // muestran como Bueno, asi que para la clave tambien lo son.
+        when(repository.findByInventarioProductoId(ZONA_GONDOLA))
+                .thenReturn(Collections.singletonList(itemConEstado(1L, null, null)));
+
+        assertThrows(IllegalStateException.class,
+                () -> service.save(itemConEstado(null, null, InventarioProductoEstado.BUENO)));
     }
 
     @Test

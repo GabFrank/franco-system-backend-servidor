@@ -258,7 +258,8 @@ public class InventarioProductoItemService
      *
      * <p>
      * Un duplicado es <b>el mismo renglon dos veces en la misma zona</b>:
-     * misma zona, misma presentacion y mismo vencimiento. Ese es el unico caso
+     * misma zona, misma presentacion, mismo vencimiento, mismo lote y mismo
+     * estado (bueno / averiado). Ese es el unico caso
      * que produce un dato sin sentido, porque
      * {@code finalizarInventarioEnSucursal()} suma los dos renglones y el
      * conteo sale doble.
@@ -347,8 +348,12 @@ public class InventarioProductoItemService
             // vencer el mismo dia: sin esto, contar el segundo fallaba. Dos nulos vuelven a ser
             // iguales, asi que el renglon sin lote sigue teniendo la clave de siempre.
             boolean mismoLote = Objects.equals(idDeLote(item), idDeLote(entity));
+            // Lo bueno y lo averiado del mismo producto se cuentan en renglones separados: es el
+            // unico modo de registrar cuanto hay roto. Sin estado cuenta como BUENO, que es lo que
+            // muestran los dos clientes, asi que un null no abre la puerta a un duplicado.
+            boolean mismoEstado = estadoDe(item) == estadoDe(entity);
 
-            if (esOtroRenglon && mismaPresentacion && mismoVencimiento && mismoLote) {
+            if (esOtroRenglon && mismaPresentacion && mismoVencimiento && mismoLote && mismoEstado) {
                 throw new IllegalStateException(mensajeDeRenglonDuplicado(entity));
             }
         }
@@ -373,12 +378,18 @@ public class InventarioProductoItemService
                     + donde + ". Cada lote se cuenta en un solo renglon.";
         }
 
+        String estado = estadoDe(entity) == InventarioProductoEstado.BUENO ? "" : " " + estadoDe(entity).name().toLowerCase();
         if (entity.getVencimiento() == null) {
-            return "Esa presentacion ya esta en " + donde
-                    + " sin vencimiento. Carguele la fecha a la que ya esta, o conte las dos juntas en ese renglon.";
+            return "Esa presentacion ya esta" + estado + " en " + donde + " sin vencimiento. "
+                    + "Solo se puede cargar de nuevo como averiado o con otro vencimiento.";
         }
-        return "Esa presentacion ya esta en " + donde + " con el mismo vencimiento. "
-                + "Un lote distinto va con otra fecha; el mismo lote se cuenta en un solo renglon.";
+        return "Esa presentacion ya esta" + estado + " en " + donde + " con el mismo vencimiento. "
+                + "Solo se puede cargar de nuevo como averiado o con otro vencimiento.";
+    }
+
+    /** El estado del renglon; sin cargar es BUENO, que es como lo muestran el escritorio y el telefono. */
+    private InventarioProductoEstado estadoDe(InventarioProductoItem item) {
+        return item.getEstado() != null ? item.getEstado() : InventarioProductoEstado.BUENO;
     }
 
     /** El id del lote del renglon, o null si no tiene. Aisla el null-check de la comparacion. */

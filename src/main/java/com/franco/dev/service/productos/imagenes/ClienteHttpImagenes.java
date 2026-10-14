@@ -15,9 +15,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 
-/** GET de JSON contra las fuentes de búsqueda de fotos. */
+/** GET contra las fuentes de búsqueda de fotos (JSON de las APIs, HTML de Bing). */
 @Component
-public class ClienteJsonImagenes {
+public class ClienteHttpImagenes {
 
     static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
@@ -25,7 +25,7 @@ public class ClienteJsonImagenes {
     private final Duration timeout;
     private final HttpClient http;
 
-    public ClienteJsonImagenes(ObjectMapper objectMapper,
+    public ClienteHttpImagenes(ObjectMapper objectMapper,
                                @Value("${imagenes.sugerencias.timeout-ms:8000}") long timeoutMs) {
         this.objectMapper = objectMapper;
         this.timeout = Duration.ofMillis(timeoutMs);
@@ -36,9 +36,20 @@ public class ClienteJsonImagenes {
     }
 
     public JsonNode get(String url, Map<String, String> headers) throws IOException {
+        byte[] body = enviar(url, "application/json", headers);
+        return body == null ? null : objectMapper.readTree(body);
+    }
+
+    public String getTexto(String url, Map<String, String> headers) throws IOException {
+        byte[] body = enviar(url, "text/html,*/*;q=0.8", headers);
+        return body == null ? null : new String(body, StandardCharsets.UTF_8);
+    }
+
+    /** null si la fuente responde 404 (p. ej. Open Food Facts con un código que no conoce). */
+    private byte[] enviar(String url, String accept, Map<String, String> headers) throws IOException {
         HttpRequest.Builder req = HttpRequest.newBuilder(URI.create(url))
                 .timeout(timeout)
-                .header("Accept", "application/json")
+                .header("Accept", accept)
                 .GET();
         if (!headers.containsKey("User-Agent")) req.header("User-Agent", USER_AGENT);
         headers.forEach(req::header);
@@ -48,7 +59,7 @@ public class ClienteJsonImagenes {
             if (res.statusCode() / 100 != 2) {
                 throw new IOException("HTTP " + res.statusCode());
             }
-            return objectMapper.readTree(res.body());
+            return res.body();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("Búsqueda interrumpida", e);

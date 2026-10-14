@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 public class ImagenSugerida {
 
     public static final String OPEN_FOOD_FACTS = "OPEN_FOOD_FACTS";
-    public static final String SEARXNG = "SEARXNG";
+    public static final String BING = "BING";
     public static final String BRAVE = "BRAVE";
 
     /** Imagen en tamaño completo: es la que se descarga al elegirla. */
@@ -26,5 +26,7 @@ public class ImagenSugerida {
     private String titulo;
     /** Dominio de la página donde está la foto. */
     private String sitio;
+    /** Página donde está la foto. */
+    private String pagina;
     private String fuente;
 }

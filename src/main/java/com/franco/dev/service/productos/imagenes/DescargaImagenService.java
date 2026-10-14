@@ -80,7 +80,7 @@ public class DescargaImagenService {
                 validarDestino(actual);
                 HttpRequest req = HttpRequest.newBuilder(actual)
                         .timeout(Duration.ofSeconds(15))
-                        .header("User-Agent", ClienteJsonImagenes.USER_AGENT)
+                        .header("User-Agent", ClienteHttpImagenes.USER_AGENT)
                         .header("Accept", "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8")
                         .GET().build();
                 HttpResponse<InputStream> res = http.send(req, HttpResponse.BodyHandlers.ofInputStream());

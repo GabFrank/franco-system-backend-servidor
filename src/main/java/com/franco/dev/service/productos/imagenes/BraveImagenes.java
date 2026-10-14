@@ -11,7 +11,7 @@ import java.util.Map;
 
 /**
  * Brave Search API (imágenes). Es paga por búsqueda con un crédito mensual gratis, así que solo
- * se usa de respaldo cuando SearXNG no está o no trae nada. Sin
+ * se usa de respaldo cuando Bing falla o no trae nada. Sin
  * {@code imagenes.sugerencias.brave.api-key} queda apagada.
  */
 @Component
@@ -19,10 +19,10 @@ public class BraveImagenes {
 
     private static final String API = "https://api.search.brave.com/res/v1/images/search";
 
-    private final ClienteJsonImagenes cliente;
+    private final ClienteHttpImagenes cliente;
     private final String apiKey;
 
-    public BraveImagenes(ClienteJsonImagenes cliente,
+    public BraveImagenes(ClienteHttpImagenes cliente,
                          @Value("${imagenes.sugerencias.brave.api-key:}") String apiKey) {
         this.cliente = cliente;
         this.apiKey = apiKey == null ? "" : apiKey.trim();
@@ -33,7 +33,7 @@ public class BraveImagenes {
     }
 
     public List<ImagenSugerida> buscar(String q) throws IOException {
-        String url = API + "?count=50&safesearch=strict&q=" + ClienteJsonImagenes.enc(q);
+        String url = API + "?count=50&safesearch=strict&q=" + ClienteHttpImagenes.enc(q);
         return parsear(cliente.get(url, Map.of("X-Subscription-Token", apiKey)));
     }
 
@@ -42,15 +42,15 @@ public class BraveImagenes {
         if (raiz == null) return lista;
         for (JsonNode r : raiz.path("results")) {
             JsonNode props = r.path("properties");
-            String img = ClienteJsonImagenes.texto(props, "url");
-            if (!ClienteJsonImagenes.esHttp(img)) continue;
-            String mini = ClienteJsonImagenes.texto(r.path("thumbnail"), "src");
-            if (!ClienteJsonImagenes.esHttp(mini)) mini = img;
-            String sitio = ClienteJsonImagenes.texto(r, "source");
-            if (sitio == null) sitio = ClienteJsonImagenes.dominio(ClienteJsonImagenes.texto(r, "url"));
+            String img = ClienteHttpImagenes.texto(props, "url");
+            if (!ClienteHttpImagenes.esHttp(img)) continue;
+            String mini = ClienteHttpImagenes.texto(r.path("thumbnail"), "src");
+            if (!ClienteHttpImagenes.esHttp(mini)) mini = img;
+            String sitio = ClienteHttpImagenes.texto(r, "source");
+            if (sitio == null) sitio = ClienteHttpImagenes.dominio(ClienteHttpImagenes.texto(r, "url"));
             lista.add(new ImagenSugerida(img, mini,
-                    ClienteJsonImagenes.entero(props, "width"), ClienteJsonImagenes.entero(props, "height"),
-                    ClienteJsonImagenes.texto(r, "title"), sitio, ImagenSugerida.BRAVE));
+                    ClienteHttpImagenes.entero(props, "width"), ClienteHttpImagenes.entero(props, "height"),
+                    ClienteHttpImagenes.texto(r, "title"), sitio, ClienteHttpImagenes.texto(r, "url"), ImagenSugerida.BRAVE));
         }
         return lista;
     }

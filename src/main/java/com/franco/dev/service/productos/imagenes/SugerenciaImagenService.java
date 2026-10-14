@@ -30,12 +30,13 @@ import java.util.concurrent.TimeUnit;
  * <ul>
  *   <li><b>Por código</b>: solo si es un GTIN comercial ({@link Ean13Utils#esCodigoComercial});
  *       los internos (2199…, balanza, códigos sueltos) no existen fuera del local. Open Food Facts
- *       primero (es el producto exacto) y después el código como texto en el buscador.</li>
+ *       primero (es el producto exacto) y después el código como texto en Bing.</li>
  *   <li><b>Por descripción</b>: producto + presentación, tal cual (una promo trae fotos de promos
  *       si las hay, y si no, del producto).</li>
  * </ul>
- * Las fuentes corren en paralelo y una que falla no tumba a las otras: queda en {@code avisos}.
- * Brave se usa solo de respaldo de SearXNG, porque cada búsqueda consume crédito.
+ * Todo corre dentro del central, sin nada instalado aparte. Las fuentes corren en paralelo y una
+ * que falla no tumba a las otras: queda en {@code avisos}. Brave (opcional, con key) se usa solo de
+ * respaldo de Bing, porque cada búsqueda consume crédito.
  */
 @Service
 public class SugerenciaImagenService {
@@ -49,13 +50,18 @@ public class SugerenciaImagenService {
      * ahí pesa más que sea el producto que la resolución.
      */
     private static final int LADO_MINIMO_POR_CODIGO = 300;
+    /**
+     * Bing busca mal números sueltos: el primer resultado suele ser el producto, el resto es ruido.
+     * Por código se muestran los que nombran el código y, del resto, solo estos primeros.
+     */
+    private static final int PRIMEROS_POR_CODIGO = 3;
     /** Lado menor / lado mayor desde el que una foto cuenta como "casi cuadrada". */
     private static final double PROPORCION_CUADRADA = 0.6;
 
     private final PresentacionService presentacionService;
     private final CodigoService codigoService;
     private final OpenFoodFactsImagenes openFoodFacts;
-    private final SearxngImagenes searxng;
+    private final BingImagenes bing;
     private final BraveImagenes brave;
     private final DescargaImagenService descarga;
     private final int ladoMinimo;
@@ -71,7 +77,7 @@ public class SugerenciaImagenService {
     public SugerenciaImagenService(PresentacionService presentacionService,
                                    CodigoService codigoService,
                                    OpenFoodFactsImagenes openFoodFacts,
-                                   SearxngImagenes searxng,
+                                   BingImagenes bing,
                                    BraveImagenes brave,
                                    DescargaImagenService descarga,
                                    @Value("${imagenes.sugerencias.lado-minimo:500}") int ladoMinimo,
@@ -79,7 +85,7 @@ public class SugerenciaImagenService {
         this.presentacionService = presentacionService;
         this.codigoService = codigoService;
         this.openFoodFacts = openFoodFacts;
-        this.searxng = searxng;
+        this.bing = bing;
         this.brave = brave;
         this.descarga = descarga;
         this.ladoMinimo = ladoMinimo;
@@ -108,22 +114,22 @@ public class SugerenciaImagenService {
         r.setTexto(texto != null && !texto.isBlank() ? texto.trim().replaceAll("\\s+", " ") : textoSugerido(presentacion));
 
         List<String> avisos = Collections.synchronizedList(new ArrayList<>());
-        boolean hayBuscador = searxng.habilitada() || brave.habilitada();
-        if (!hayBuscador) {
-            avisos.add("No hay buscador de imágenes configurado en el servidor (SearXNG o Brave): solo se busca por código en Open Food Facts.");
+        if (!bing.habilitada() && !brave.habilitada()) {
+            avisos.add("La búsqueda en internet está apagada en el servidor: solo se busca por código en Open Food Facts.");
         }
 
         CompletableFuture<List<ImagenSugerida>> off = r.getCodigo() != null && openFoodFacts.habilitada()
                 ? enParalelo("Open Food Facts", avisos, () -> openFoodFacts.buscar(r.getCodigo())) : vacio();
         CompletableFuture<List<ImagenSugerida>> webCodigo = r.getCodigo() != null
-                ? buscarEnLaWeb(r.getCodigo(), avisos) : vacio();
+                ? buscarEnLaWeb(consultaPorCodigo(r.getCodigo(), r.getTexto()), avisos) : vacio();
         CompletableFuture<List<ImagenSugerida>> webTexto = !r.getTexto().isEmpty()
                 ? buscarEnLaWeb(r.getTexto(), avisos) : vacio();
         CompletableFuture.allOf(off, webCodigo, webTexto).join();
 
         Set<String> vistas = new HashSet<>();
         List<ImagenSugerida> porCodigo = new ArrayList<>(ordenar(off.join(), vistas, 0, MAX_POR_CODIGO));
-        porCodigo.addAll(ordenar(webCodigo.join(), vistas, Math.min(ladoMinimo, LADO_MINIMO_POR_CODIGO), MAX_POR_CODIGO - porCodigo.size()));
+        porCodigo.addAll(filtrarPorCodigo(webCodigo.join(), r.getCodigo(), vistas,
+                Math.min(ladoMinimo, LADO_MINIMO_POR_CODIGO), MAX_POR_CODIGO - porCodigo.size()));
         r.setPorCodigo(porCodigo);
         r.setPorDescripcion(ordenar(webTexto.join(), vistas, ladoMinimo, MAX_POR_DESCRIPCION));
         r.setAvisos(new ArrayList<>(avisos));
@@ -139,10 +145,18 @@ public class SugerenciaImagenService {
         return r;
     }
 
-    /** SearXNG, y Brave si SearXNG no está, falla o no trae nada. */
+    /** Dos páginas de Bing a la vez (~70 fotos), y Brave si Bing no está, falla o no trae nada. */
     private CompletableFuture<List<ImagenSugerida>> buscarEnLaWeb(String q, List<String> avisos) {
-        CompletableFuture<List<ImagenSugerida>> primero = searxng.habilitada()
-                ? enParalelo("SearXNG", avisos, () -> searxng.buscar(q)) : vacio();
+        CompletableFuture<List<ImagenSugerida>> primero = vacio();
+        if (bing.habilitada()) {
+            CompletableFuture<List<ImagenSugerida>> p1 = enParalelo("Bing", avisos, () -> bing.buscar(q, 0));
+            CompletableFuture<List<ImagenSugerida>> p2 = enParalelo("Bing", avisos, () -> bing.buscar(q, 1));
+            primero = p1.thenCombine(p2, (a, b) -> {
+                List<ImagenSugerida> todas = new ArrayList<>(a);
+                todas.addAll(b);
+                return todas;
+            });
+        }
         return primero.thenCompose(l -> {
             if (!l.isEmpty() || !brave.habilitada()) return CompletableFuture.completedFuture(l);
             return enParalelo("Brave", avisos, () -> brave.buscar(q));
@@ -193,6 +207,47 @@ public class SugerenciaImagenService {
         boolean sumaPresentacion = !pres.isEmpty() && !pres.equalsIgnoreCase("UNIDAD")
                 && !producto.toUpperCase().contains(pres.toUpperCase());
         return (sumaPresentacion ? producto + " " + pres : producto).trim().replaceAll("\\s+", " ");
+    }
+
+    /**
+     * El código con la primera palabra de la descripción (casi siempre la marca): «7840050002561 BRAHMA».
+     * Con el número solo, Bing mezcla productos de cualquier rubro.
+     */
+    static String consultaPorCodigo(String codigo, String texto) {
+        String primera = texto == null ? "" : texto.trim().split("\\s+")[0];
+        return primera.isEmpty() ? codigo : codigo + " " + primera;
+    }
+
+    /**
+     * Resultados de buscar por código: primero los que nombran el código en el título o la página
+     * (es ese producto), después los {@value #PRIMEROS_POR_CODIGO} primeros del resto. En el orden del
+     * buscador: acá importa más que sea el producto que la forma de la foto.
+     */
+    static List<ImagenSugerida> filtrarPorCodigo(List<ImagenSugerida> imagenes, String codigo, Set<String> vistas,
+                                                int ladoMinimo, int max) {
+        List<ImagenSugerida> nombran = new ArrayList<>();
+        List<ImagenSugerida> resto = new ArrayList<>();
+        for (ImagenSugerida i : imagenes) {
+            if (i.getAncho() != null && i.getAlto() != null && Math.min(i.getAncho(), i.getAlto()) < ladoMinimo) continue;
+            if (vistas.contains(clave(i.getUrl()))) continue;
+            boolean nombra = (i.getTitulo() != null && i.getTitulo().contains(codigo))
+                    || (i.getPagina() != null && i.getPagina().contains(codigo))
+                    || i.getUrl().contains(codigo);
+            (nombra ? nombran : resto).add(i);
+        }
+        List<ImagenSugerida> res = new ArrayList<>();
+        for (ImagenSugerida i : nombran) {
+            if (res.size() < max && vistas.add(clave(i.getUrl()))) res.add(i);
+        }
+        int delResto = 0;
+        for (ImagenSugerida i : resto) {
+            if (res.size() >= max || delResto >= PRIMEROS_POR_CODIGO) break;
+            if (vistas.add(clave(i.getUrl()))) {
+                res.add(i);
+                delResto++;
+            }
+        }
+        return res;
     }
 
     /**

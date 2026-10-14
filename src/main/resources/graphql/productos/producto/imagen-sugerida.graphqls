@@ -8,7 +8,9 @@ type ImagenSugerida {
     alto: Int
     titulo: String
     sitio: String
-    # OPEN_FOOD_FACTS, SEARXNG o BRAVE
+    # Pagina donde esta la foto.
+    pagina: String
+    # OPEN_FOOD_FACTS, BING o BRAVE
     fuente: String!
 }
 

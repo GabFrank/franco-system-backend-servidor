@@ -20,7 +20,9 @@ public interface PersonaRepository extends HelperRepository<Persona, Long> {
             "where UPPER(CAST(p.id as text)) like UPPER(concat('%', ?1, '%')) " +
             "or UPPER(p.nombre) like UPPER(concat('%', ?1, '%')) " +
             "or UPPER(p.apodo) like UPPER(concat('%', ?1, '%')) " +
-            "or UPPER(p.documento) like UPPER(concat('%', ?1, '%'))")
+            "or UPPER(p.documento) like UPPER(concat('%', ?1, '%')) " +
+            // Sin orden fijo Postgres puede repetir o saltear filas entre paginas.
+            "order by p.id")
     public org.springframework.data.domain.Page<Persona> findByAll(String texto, org.springframework.data.domain.Pageable pageable);
 
     @Query("select p from Persona p where CAST(p.id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(p.apodo) like %?1% or UPPER(p.documento) like %?1%")

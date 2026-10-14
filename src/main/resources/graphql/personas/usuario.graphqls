@@ -36,6 +36,8 @@ input UsuarioInput {
     nickname: String
     usuarioId: Int
     activo: Boolean
+    """En un alta, guarda la clave enviada en vez de la de siempre. Un central sin este campo rechaza el input."""
+    respetarClave: Boolean
 }
 
 extend type Query {

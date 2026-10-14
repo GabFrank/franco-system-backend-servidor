@@ -1,0 +1,31 @@
+# Fotos de internet sugeridas para una presentacion (por codigo de barras y por descripcion).
+type ImagenSugerida {
+    # Tamano completo: la que se descarga al elegirla.
+    url: String!
+    miniatura: String!
+    # null si la fuente no informa el tamano.
+    ancho: Int
+    alto: Int
+    titulo: String
+    sitio: String
+    # OPEN_FOOD_FACTS, SEARXNG o BRAVE
+    fuente: String!
+}
+
+type SugerenciasImagen {
+    # Codigo que se busco; null si la presentacion no tiene uno comercial.
+    codigo: String
+    # Codigo interno (2199..., balanza, etc.) que no se busco porque no existe fuera del local.
+    codigoDescartado: String
+    texto: String!
+    porCodigo: [ImagenSugerida!]!
+    porDescripcion: [ImagenSugerida!]!
+    avisos: [String!]!
+}
+
+extend type Query {
+    # codigo null = el de la presentacion, "" = no buscar por codigo; texto null = producto + presentacion.
+    sugerenciasImagenPresentacion(presentacionId: ID!, codigo: String, texto: String): SugerenciasImagen!
+    # Baja una de las fotos devueltas por sugerenciasImagenPresentacion y la devuelve como data URL.
+    descargarImagenSugerida(url: String!): String!
+}

@@ -123,6 +123,13 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         return repository.findPage(funcionarioId, funcionarioNombre, periodo, estado, pageable);
     }
 
+    /** Igual que {@link #findPage}, solo con funcionarios de las sucursales dadas (rol acotado). */
+    public Page<LiquidacionSueldo> findPageEnSucursales(List<Long> sucursalIds, Long funcionarioId,
+                                                        String funcionarioNombre, String periodo,
+                                                        LiquidacionSueldoEstado estado, Pageable pageable) {
+        return repository.findPageEnSucursales(sucursalIds, funcionarioId, funcionarioNombre, periodo, estado, pageable);
+    }
+
     public List<LiquidacionItem> findItems(Long liquidacionId) {
         return itemRepository.findByLiquidacionIdOrderByIdAsc(liquidacionId);
     }

@@ -51,7 +51,8 @@ extend type Query {
     retiroListPorCajaSalidaId(id:ID!, sucId: ID):[Retiro]!
     countRetiro: Int
     filterRetiros(id:ID, cajaId:ID, sucId:ID, responsableId:ID, cajeroId:ID, page:Int, size:Int):RetiroPage
-    retirosFlotantes(sucId:ID, cajaId:ID, desde:String, hasta:String, page:Int = 0, size:Int = 20):RetiroPage
+    # cajaVirtualDestinoId: la caja mayor donde se van a ingresar; al rol acotado le deja solo los que esa caja puede recibir.
+    retirosFlotantes(sucId:ID, cajaId:ID, desde:String, hasta:String, page:Int = 0, size:Int = 20, cajaVirtualDestinoId:ID):RetiroPage
 }
 
 extend type Mutation {

@@ -100,6 +100,14 @@ public class SolicitudPago implements Identifiable<Long> {
     @JoinColumn(name = "pago_id", nullable = true)
     private Pago pago;
 
+    /**
+     * Caja a la que tesorería asignó esta solicitud para que la pague su operador (rol TESORERIA CAJA).
+     * Null = sin asignar: la paga tesorería. Va como id, no como relación: la solicitud la leen roles de
+     * compras, que no tienen por qué llegar a los saldos de la caja.
+     */
+    @Column(name = "caja_virtual_asignada_id")
+    private Long cajaVirtualAsignadaId;
+
     // Relationship with notas de recepcion
     @OneToMany(mappedBy = "solicitudPago", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<SolicitudPagoNotaRecepcion> notasRecepcion;

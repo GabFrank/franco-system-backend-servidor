@@ -28,6 +28,7 @@ class RetiroServiceTest {
     private RetiroRepository repository;
     private ApplicationEventPublisher publisher;
     private RetiroVerificacionRepository verificacionRepository;
+    private TesoreriaSecurityService seguridad;
     private RetiroService service;
 
     /** Lo que hay en la base: el mock la mantiene para que un segundo pedido vea lo que dejó el primero. */
@@ -40,7 +41,8 @@ class RetiroServiceTest {
         repository = mock(RetiroRepository.class);
         publisher = mock(ApplicationEventPublisher.class);
         verificacionRepository = mock(RetiroVerificacionRepository.class);
-        service = new RetiroService(repository, publisher, verificacionRepository);
+        seguridad = mock(TesoreriaSecurityService.class);
+        service = new RetiroService(repository, publisher, verificacionRepository, seguridad);
 
         // La instancia que devuelve el lock queda a propósito con el estado viejo (nulo): si el
         // servicio decidiera con ella, los tests de repetición fallarían.
@@ -210,5 +212,94 @@ class RetiroServiceTest {
         GraphQLException e = assertThrows(GraphQLException.class, () -> service.cancelarRetiro(99L, 1L, true));
 
         assertTrue(e.getMessage().contains("no encontrado"), e.getMessage());
+    }
+
+    // ── Retiros flotantes en el rol acotado (TESORERIA CAJA) ──
+
+    private static final org.springframework.data.domain.Pageable PAGINA =
+            org.springframework.data.domain.PageRequest.of(0, 20);
+
+    @Test
+    void flotantes_sin_rol_acotado_consulta_como_siempre() {
+        service.findFlotantes(null, null, null, null, PAGINA);
+
+        verify(repository).findFlotantes(null, null, null, null, PAGINA);
+        verify(repository, never()).findFlotantesEnSucursales(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void flotantes_acotado_sin_sucursal_pedida_usa_las_de_sus_cajas() {
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.sucursalesOperablesIds()).thenReturn(java.util.Arrays.asList(13L, 4L));
+
+        service.findFlotantes(null, null, null, null, PAGINA);
+
+        verify(repository).findFlotantesEnSucursales(java.util.Arrays.asList(13L, 4L), null, null, null, PAGINA);
+        verify(repository, never()).findFlotantes(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void flotantes_acotado_con_una_sucursal_suya_filtra_por_esa() {
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.sucursalesOperablesIds()).thenReturn(java.util.Arrays.asList(13L, 4L));
+
+        service.findFlotantes(4L, null, null, null, PAGINA);
+
+        verify(repository).findFlotantesEnSucursales(java.util.Collections.singletonList(4L), null, null, null, PAGINA);
+    }
+
+    @Test
+    void flotantes_acotado_pidiendo_una_sucursal_ajena_no_devuelve_nada() {
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.sucursalesOperablesIds()).thenReturn(java.util.Arrays.asList(13L, 4L));
+
+        org.springframework.data.domain.Page<Retiro> pagina = service.findFlotantes(7L, null, null, null, PAGINA);
+
+        assertEquals(0, pagina.getTotalElements());
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    void flotantes_acotado_sin_ninguna_sucursal_no_devuelve_nada_ni_consulta() {
+        // Vacío es «ninguna»: jamás puede terminar en la consulta sin filtro.
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.sucursalesOperablesIds()).thenReturn(java.util.Collections.emptyList());
+
+        org.springframework.data.domain.Page<Retiro> pagina = service.findFlotantes(null, null, null, null, PAGINA);
+
+        assertEquals(0, pagina.getTotalElements());
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    void flotantes_acotado_con_caja_destino_deja_solo_las_sucursales_que_esa_caja_cubre() {
+        // Opera dos cajas (sucursales 13, 4 y 9 entre las dos); la caja destino cubre solo 4 y 9.
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.sucursalesOperablesIds()).thenReturn(java.util.Arrays.asList(13L, 4L, 9L));
+        when(seguridad.sucursalesDeCajaIds(19L)).thenReturn(java.util.Arrays.asList(4L, 9L));
+
+        service.findFlotantes(null, null, 19L, null, null, PAGINA);
+
+        verify(repository).findFlotantesEnSucursales(java.util.Arrays.asList(4L, 9L), null, null, null, PAGINA);
+    }
+
+    @Test
+    void flotantes_acotado_con_una_caja_destino_ajena_no_devuelve_nada() {
+        // La caja destino cubre la 1, que no es de ninguna caja suya: no hay intersección.
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.sucursalesOperablesIds()).thenReturn(java.util.Arrays.asList(13L, 4L));
+        when(seguridad.sucursalesDeCajaIds(16L)).thenReturn(java.util.Collections.singletonList(1L));
+
+        org.springframework.data.domain.Page<Retiro> pagina = service.findFlotantes(null, null, 16L, null, null, PAGINA);
+
+        assertEquals(0, pagina.getTotalElements());
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    void flotantes_sin_rol_acotado_ignora_la_caja_destino() {
+        service.findFlotantes(null, null, 19L, null, null, PAGINA);
+
+        verify(repository).findFlotantes(null, null, null, null, PAGINA);
     }
 }

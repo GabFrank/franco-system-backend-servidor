@@ -26,6 +26,9 @@ public class LiquidacionConceptoGraphQL implements GraphQLQueryResolver, GraphQL
     @Autowired
     private com.franco.dev.service.rrhh.RrhhSecurityService seg;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.franco.dev.service.rrhh.RrhhAlcanceService alcance;
+
     @Autowired
     private UsuarioService usuarioService;
 
@@ -38,7 +41,8 @@ public class LiquidacionConceptoGraphQL implements GraphQLQueryResolver, GraphQL
 
     /** Conceptos elegibles al agregar un item manual a una liquidacion. */
     public List<LiquidacionConcepto> liquidacionConceptosParaItemManual() {
-        seg.requireVer();
+        // También el rol acotado: es el catálogo que usa para agregar un ítem a una liquidación suya.
+        alcance.requireVer();
         return service.findParaItemManual();
     }
 

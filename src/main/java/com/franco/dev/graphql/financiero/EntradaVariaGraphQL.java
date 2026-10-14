@@ -32,12 +32,12 @@ public class EntradaVariaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private final com.franco.dev.service.financiero.AltaIdempotenteService altaIdempotente;
 
     public List<EntradaVariaCategoria> entradaVariaCategorias() {
-        seg.requireVer();
+        seg.requireVerCaja();
         return categoriaRepository.findByActivoTrue();
     }
 
     public Page<EntradaVaria> entradasVarias(Long cajaVirtualId, int page, int size) {
-        seg.requireVer();
+        seg.requireVerCaja();
         seg.requireLecturaCaja(cajaVirtualId);
         return service.findByCaja(cajaVirtualId, PageRequest.of(page, size));
     }
@@ -58,7 +58,7 @@ public class EntradaVariaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     /** Con {@code claveIdempotencia}, el mismo pedido repetido devuelve la entrada ya registrada (issue #376). */
     public EntradaVaria registrarEntradaVaria(EntradaVariaInput input, String claveIdempotencia) {
-        seg.requireGestionar();
+        seg.requireOperarCaja();
         String huella = new com.franco.dev.service.financiero.HuellaPedido()
                 .id(input.getCajaVirtualId()).id(input.getMonedaId()).numero(com.franco.dev.service.financiero.AltaIdempotenteService.monto(input.getMonto()))
                 .bandera(input.getEsIngreso()).texto(input.getDescripcion()).id(input.getCategoriaId())
@@ -78,7 +78,7 @@ public class EntradaVariaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public EntradaVaria anularEntradaVaria(Long id, String motivo) {
-        seg.requireGestionar();
+        seg.requireOperarCaja();
         return service.anular(id, motivo, seg.currentUsuario());
     }
 }

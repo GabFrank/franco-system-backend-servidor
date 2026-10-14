@@ -55,6 +55,21 @@ public interface LiquidacionSueldoRepository extends HelperRepository<Liquidacio
                                      @Param("estado") LiquidacionSueldoEstado estado,
                                      Pageable pageable);
 
+    /** Idem, acotado a los funcionarios de un conjunto de sucursales (rol RRHH SUCURSAL). */
+    @Query("select l from LiquidacionSueldo l where " +
+            "l.funcionario.sucursal.id in :sucursalIds and " +
+            "(:funcionarioId is null or l.funcionario.id = :funcionarioId) and " +
+            "(:funcionarioNombre is null or upper(l.funcionario.persona.nombre) like upper(concat('%', :funcionarioNombre, '%'))) and " +
+            "(:periodo is null or l.periodo = :periodo) and " +
+            "(:estado is null or l.estado = :estado) " +
+            "order by l.periodo desc, l.id desc")
+    Page<LiquidacionSueldo> findPageEnSucursales(@Param("sucursalIds") List<Long> sucursalIds,
+                                                 @Param("funcionarioId") Long funcionarioId,
+                                                 @Param("funcionarioNombre") String funcionarioNombre,
+                                                 @Param("periodo") String periodo,
+                                                 @Param("estado") LiquidacionSueldoEstado estado,
+                                                 Pageable pageable);
+
     // Serie de nómina por período (los períodos son 'YYYY-MM', ordenan lexicográfico).
     // Solo liquidaciones APROBADA/PAGADA (lo efectivamente liquidado). Native SQL:
     // el enum se guarda como texto (@Enumerated(STRING)).

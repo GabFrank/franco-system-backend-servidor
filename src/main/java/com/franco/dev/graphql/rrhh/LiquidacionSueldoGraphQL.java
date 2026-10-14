@@ -31,9 +31,21 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
     @Autowired
     private com.franco.dev.service.financiero.AnulacionPagoRrhhService anulacionPagoRrhhService;
 
+    // Rol acotado RRHH SUCURSAL: ve, genera y edita solo lo de los funcionarios de sus sucursales. Lo que
+    // sigue con seg.requireVer()/requireAnyRole no lo acepta: aprobar, volver a borrador, pagar por el
+    // atajo, anular y los listados por período.
+    @Autowired
+    private com.franco.dev.service.rrhh.RrhhAlcanceService alcance;
+
     public Optional<LiquidacionSueldo> liquidacionSueldo(Long id) {
-        seg.requireVer();
+        alcance.requireVerLiquidacion(id);
         return service.findById(id);
+    }
+
+    /** Buscador de funcionarios del rol acotado: solo los de las sucursales a su cargo. */
+    public List<com.franco.dev.domain.personas.Funcionario> funcionariosACargo(String texto, Boolean soloActivos) {
+        seg.requireAnyRole(seg.SUCURSAL);
+        return alcance.buscarFuncionarios(texto, !Boolean.FALSE.equals(soloActivos));
     }
 
     /** Recibo de sueldo. anchoMm null = PDF A4; 58/80 = ticket; escpos=true = payload ESC/POS. */
@@ -41,14 +53,17 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
         // Rol RRHH, o autoservicio: el funcionario baja el recibo de su propia liquidacion
         // pagada (la PWA lo pide con usuarios sin rol). El rechazo no distingue "no existe",
         // "es de otro" ni "no esta pagada", para no confirmar ids.
-        if (!seg.hasAnyRole(seg.TODOS) && !service.esReciboPagadoDe(id, seg.currentPersonaId())) {
+        boolean acotadoEnAlcance = seg.hasAnyRole(seg.SUCURSAL) && alcance.liquidacionEnAlcance(id);
+        if (!seg.hasAnyRole(seg.TODOS) && !acotadoEnAlcance
+                && !service.esReciboPagadoDe(id, seg.currentPersonaId())) {
             throw new graphql.GraphQLException("No autorizado: el recibo no está disponible para este usuario.");
         }
         return reciboLiquidacionService.generarBase64(id, anchoMm, Boolean.TRUE.equals(escpos));
     }
 
     public List<LiquidacionSueldo> liquidacionesPorFuncionario(Long funcionarioId) {
-        seg.requireVer();
+        alcance.requireVer();
+        if (alcance.veAcotado()) alcance.exigirFuncionario(funcionarioId);
         return service.findByFuncionarioId(funcionarioId);
     }
 
@@ -60,33 +75,44 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
     /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
     public Page<LiquidacionSueldo> liquidacionesPage(int page, int size, Long funcionarioId, String funcionarioNombre,
                                                      String periodo, LiquidacionSueldoEstado estado) {
-        seg.requireVer();
+        alcance.requireVer();
+        if (alcance.veAcotado()) {
+            // Vacío es «ninguna»: se corta acá, nunca llega una lista vacía a la consulta.
+            List<Long> sucursales = alcance.sucursales();
+            if (sucursales.isEmpty()) return Page.empty(PageRequest.of(page, size));
+            return service.findPageEnSucursales(sucursales, funcionarioId, funcionarioNombre, periodo, estado,
+                    PageRequest.of(page, size));
+        }
         return service.findPage(funcionarioId, funcionarioNombre, periodo, estado, PageRequest.of(page, size));
     }
 
     public List<LiquidacionItem> liquidacionItems(Long liquidacionId) {
-        seg.requireVer();
+        alcance.requireVerLiquidacion(liquidacionId);
         return service.findItems(liquidacionId);
     }
 
     public LiquidacionSueldo generarLiquidacionBorrador(Long funcionarioId, String periodo, Long monedaId) {
-        seg.requireAnyRole(seg.LIQUIDAR);
+        alcance.requireLiquidar();
+        if (alcance.liquidaAcotado()) alcance.exigirFuncionario(funcionarioId);
         return service.generarBorrador(funcionarioId, periodo, monedaId);
     }
 
     public LiquidacionItem agregarItemLiquidacion(Long liquidacionId, String descripcion, BigDecimal monto,
                                                   LiquidacionItemTipo tipo, Long liquidacionConceptoId) {
-        seg.requireAnyRole(seg.LIQUIDAR);
+        alcance.requireLiquidar();
+        if (alcance.liquidaAcotado()) alcance.exigirLiquidacion(liquidacionId);
         return service.agregarItemManual(liquidacionId, descripcion, monto, tipo, liquidacionConceptoId);
     }
 
     public Boolean eliminarItemLiquidacion(Long itemId) {
-        seg.requireAnyRole(seg.LIQUIDAR);
+        alcance.requireLiquidar();
+        if (alcance.liquidaAcotado()) alcance.exigirItemDeLiquidacion(itemId);
         return service.eliminarItem(itemId);
     }
 
     public LiquidacionItem editarItemLiquidacion(Long itemId, String descripcion, BigDecimal monto, LiquidacionItemTipo tipo, Long usuarioId) {
-        seg.requireAnyRole(seg.LIQUIDAR);
+        alcance.requireLiquidar();
+        if (alcance.liquidaAcotado()) alcance.exigirItemDeLiquidacion(itemId);
         return service.editarItem(itemId, descripcion, monto, tipo, usuarioId);
     }
 
@@ -118,10 +144,22 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
 
     /** Genera borradores para una lista de funcionarios (vacia/null = todos los activos). */
     public Integer generarLiquidacionesLote(List<Integer> funcionarioIds, String periodo, Long monedaId) {
-        seg.requireAnyRole(seg.LIQUIDAR);
+        alcance.requireLiquidar();
         // [Int] de GraphQL llega como List<Integer>; kickstart no convierte los elementos.
         List<Long> ids = funcionarioIds == null ? null
                 : funcionarioIds.stream().map(Integer::longValue).collect(java.util.stream.Collectors.toList());
+        if (alcance.liquidaAcotado()) {
+            if (ids == null || ids.isEmpty()) {
+                // «Todos» son los activos de sus sucursales. Sin ninguno no se llama al servicio: para él
+                // una lista vacía significa toda la empresa.
+                ids = alcance.funcionariosActivosIds();
+                if (ids.isEmpty()) return 0;
+            } else {
+                // Uno fuera de alcance rechaza el pedido entero: el lote se traga los errores por
+                // funcionario y el rechazo pasaría en silencio.
+                for (Long id : ids) alcance.exigirFuncionario(id);
+            }
+        }
         return service.generarLote(ids, periodo, monedaId);
     }
 }

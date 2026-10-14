@@ -15,6 +15,9 @@ public class ReporteRrhhGraphQL implements GraphQLQueryResolver {
     @org.springframework.beans.factory.annotation.Autowired
     private com.franco.dev.service.rrhh.RrhhSecurityService seg;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.franco.dev.service.rrhh.RrhhAlcanceService alcance;
+
 
     @Autowired
     private ReporteRrhhService service;
@@ -33,7 +36,7 @@ public class ReporteRrhhGraphQL implements GraphQLQueryResolver {
 
     /** Recibo de finiquito. anchoMm null = PDF A4; 58/80 = ticket; escpos=true = payload ESC/POS. */
     public String imprimirReciboFinal(Long id, Integer anchoMm, Boolean escpos) {
-        seg.requireVer();
+        alcance.requireVerFiniquito(id);
         return service.finiquitoBase64(id, anchoMm, Boolean.TRUE.equals(escpos));
     }
 
@@ -92,13 +95,13 @@ public class ReporteRrhhGraphQL implements GraphQLQueryResolver {
 
     /** Recibo de un item de liquidacion de sueldo (HABER: recibo; DESCUENTO: constancia). */
     public String imprimirReciboItemLiquidacion(Long itemId, Integer anchoMm, Boolean escpos) {
-        seg.requireVer();
+        alcance.requireVerItemDeLiquidacion(itemId);
         return service.reciboItemLiquidacionBase64(itemId, anchoMm, Boolean.TRUE.equals(escpos));
     }
 
     /** Recibo de un item de liquidacion final (finiquito). */
     public String imprimirReciboItemLiquidacionFinal(Long itemId, Integer anchoMm, Boolean escpos) {
-        seg.requireVer();
+        alcance.requireVerItemDeFiniquito(itemId);
         return service.reciboItemLiquidacionFinalBase64(itemId, anchoMm, Boolean.TRUE.equals(escpos));
     }
 }

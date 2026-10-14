@@ -17,6 +17,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -69,6 +71,14 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
             logger.error("Error al buscar items por devolución: {}", ex.getMessage());
             throw new GraphQLException("Error al buscar items de devolución: " + ex.getMessage());
         }
+    }
+
+    /** Ítems de una devolución por página, para la pantalla de edición del desktop. */
+    public Page<DevolucionItem> devolucionItemsPorDevolucionPage(Long devolucionId, Integer page, Integer size) {
+        if (devolucionId == null) throw new GraphQLException("devolucionId es requerido");
+        if (page == null || page < 0) page = 0;
+        if (size == null || size <= 0) size = 20;
+        return service.findPageByDevolucionId(devolucionId, PageRequest.of(page, Math.min(size, 200)));
     }
 
     public List<DevolucionItem> devolucionItemsPorProducto(Long productoId) {

@@ -691,4 +691,35 @@ class TesoreriaServiceTest {
         assertSaldos("1000", "400");
         assertEquals(1, contras());
     }
+
+    // ── Entrada de un envío: la caja que recibe no exige escritura, exige estar habilitada ──
+
+    @Test
+    void la_entrada_de_un_envio_exige_envio_y_no_escritura_y_suma_al_saldo() {
+        MovimientoCajaVirtual m = service.registrarEntradaDeEnvio(mov(CajaVirtualTipoMovimiento.TRANSFERENCIA_ENTRADA, 300));
+
+        verify(seguridad).requireEnvioACaja(1L);
+        verify(seguridad, never()).requireEscrituraCaja(any());
+        assertEquals(1000d, m.getSaldoAnterior());
+        assertEquals(1300d, m.getSaldoPosterior());
+    }
+
+    @Test
+    void por_el_registro_de_envios_no_sale_plata_ni_se_ajusta_la_caja() {
+        for (CajaVirtualTipoMovimiento tipo : CajaVirtualTipoMovimiento.values()) {
+            if (tipo == CajaVirtualTipoMovimiento.TRANSFERENCIA_ENTRADA) continue;
+            assertThrows(GraphQLException.class, () -> service.registrarEntradaDeEnvio(mov(tipo, 300)), tipo.name());
+        }
+        verify(movimientoRepository, never()).save(any());
+    }
+
+    @Test
+    void si_la_caja_no_recibe_envios_no_se_asienta_nada() {
+        doThrow(new GraphQLException("No tenes permiso para enviar plata a esta caja.")).when(seguridad).requireEnvioACaja(1L);
+
+        assertThrows(GraphQLException.class,
+                () -> service.registrarEntradaDeEnvio(mov(CajaVirtualTipoMovimiento.TRANSFERENCIA_ENTRADA, 300)));
+
+        verify(movimientoRepository, never()).save(any());
+    }
 }

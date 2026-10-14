@@ -24,6 +24,7 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
     private final RetiroRepository repository;
     private final ApplicationEventPublisher publisher;
     private final RetiroVerificacionRepository verificacionRepository;
+    private final TesoreriaSecurityService seguridad;
 
     @Override
     public RetiroRepository getRepository() {
@@ -61,6 +62,30 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
     /** Retiros flotantes (replicados del PDV, sin caja mayor asignada); filtro por sucursal, caja y fechas. */
     public Page<Retiro> findFlotantes(Long sucId, Long cajaId, java.time.LocalDateTime desde,
                                       java.time.LocalDateTime hasta, Pageable pageable) {
+        return findFlotantes(sucId, cajaId, null, desde, hasta, pageable);
+    }
+
+    /**
+     * @param cajaVirtualDestinoId la caja mayor donde se van a ingresar. Al rol acotado le deja solo los
+     *                             retiros que esa caja puede recibir; para el resto no filtra.
+     */
+    public Page<Retiro> findFlotantes(Long sucId, Long cajaId, Long cajaVirtualDestinoId,
+                                      java.time.LocalDateTime desde, java.time.LocalDateTime hasta,
+                                      Pageable pageable) {
+        if (seguridad.esSoloCaja()) {
+            // El rol acotado solo ve los retiros de las sucursales de sus cajas. Vacío es «ninguna»:
+            // se corta acá, nunca llega una lista vacía ni un null a la consulta.
+            List<Long> operables = seguridad.sucursalesOperablesIds();
+            if (cajaVirtualDestinoId != null) {
+                // Lo que no cubre la caja destino lo rechazaría la verificación: no se lista.
+                operables = new java.util.ArrayList<>(operables);
+                operables.retainAll(seguridad.sucursalesDeCajaIds(cajaVirtualDestinoId));
+            }
+            if (sucId != null) operables = operables.contains(sucId) ? java.util.Collections.singletonList(sucId)
+                    : java.util.Collections.emptyList();
+            if (operables.isEmpty()) return Page.empty(pageable);
+            return repository.findFlotantesEnSucursales(operables, cajaId, desde, hasta, pageable);
+        }
         return repository.findFlotantes(sucId, cajaId, desde, hasta, pageable);
     }
 

@@ -45,30 +45,31 @@ public class CajaVirtualGraphQL implements GraphQLQueryResolver, GraphQLMutation
     private final TesoreriaSecurityService seg;
     private final com.franco.dev.service.financiero.CajaVirtualAccesoService accesoService;
     private final RrhhSecurityService rrhhSeg;
+    private final com.franco.dev.service.financiero.CajaVirtualSucursalService sucursalesDeCajaService;
 
     // Modelo AND: el rol habilita la capacidad (requireVer), el ACL delimita el alcance.
     // Caja puntual → se rechaza; listados → se filtran (devolver menos, no fallar).
 
     public CajaVirtual cajaVirtual(Long id) {
-        seg.requireVer();
+        seg.requireVerCaja();
         seg.requireLecturaCaja(id);
         return service.findById(id).orElse(null);
     }
 
     public Page<CajaVirtual> cajaVirtuales(int page, int size) {
-        seg.requireVer();
+        seg.requireVerCaja();
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(seg.cajasVisiblesIds(), pageable);
     }
 
     public Page<CajaVirtual> cajaVirtualesFilter(String nombre, CajaVirtualTipo tipo, Long sucursalId, Boolean activo, int page, int size) {
-        seg.requireVer();
+        seg.requireVerCaja();
         return service.filter(seg.cajasVisiblesIds(), nombre, tipo, sucursalId, activo, PageRequest.of(page, size));
     }
 
     /** Saldo de efectivo por moneda (fuente de verdad: caja_virtual_saldo). */
     public List<CajaVirtualSaldoItem> cajaVirtualSaldos(Long cajaVirtualId) {
-        seg.requireVer();
+        seg.requireVerCaja();
         seg.requireLecturaCaja(cajaVirtualId);
         return cajaSaldoRepository.findByCajaVirtualId(cajaVirtualId).stream()
                 .map(s -> new CajaVirtualSaldoItem(s.getMoneda(), s.getSaldo()))
@@ -91,6 +92,22 @@ public class CajaVirtualGraphQL implements GraphQLQueryResolver, GraphQLMutation
             out.add(new CuentaBancariaResumen(cb, cb.getSaldo(), cb.getSaldoReservado(), futuro));
         }
         return out;
+    }
+
+    /**
+     * Cuentas a las que se puede depositar desde la caja: las visibles de su configuración, en el mismo
+     * orden. La consume el depósito bancario del rol acotado, que no ve el resumen con saldos; el saldo de
+     * cada cuenta lo decide {@code CuentaBancariaResolver}.
+     */
+    @Transactional(readOnly = true)
+    public List<CuentaBancaria> cuentasBancariasParaDeposito(Long cajaVirtualId) {
+        seg.requireVerCaja();
+        seg.requireLecturaCaja(cajaVirtualId);
+        CajaVirtualConfiguracion cfg = configRepository.findByCajaVirtualId(cajaVirtualId).orElse(null);
+        if (cfg == null || cfg.getCuentasBancariasVisibles() == null || cfg.getCuentasBancariasVisibles().isEmpty()) {
+            return new ArrayList<>();
+        }
+        return ordenarCuentas(cfg.getCuentasBancariasVisibles(), cfg.getCuentasBancariasOrden());
     }
 
     /** Ordena las cuentas según el JSON de ids persistido; las faltantes van al final por id ascendente. */
@@ -121,22 +138,23 @@ public class CajaVirtualGraphQL implements GraphQLQueryResolver, GraphQLMutation
     }
 
     public List<CajaVirtual> cajaVirtualesPorTipo(CajaVirtualTipo tipo) {
-        seg.requireVer();
+        seg.requireVerCaja();
         return service.findByTipo(seg.cajasVisiblesIds(), tipo);
     }
 
     public List<CajaVirtual> cajaVirtualesPorSucursal(Long sucursalId) {
-        seg.requireVer();
+        seg.requireVerCaja();
         return service.findBySucursalId(seg.cajasVisiblesIds(), sucursalId);
     }
 
     /**
      * Lectura compartida: la usa Tesorería y también RRHH (para elegir la caja
      * mayor destino en liquidación/aguinaldo). Habilitada para cualquier rol de
-     * tesorería o de RRHH (o superusuario).
+     * tesorería (incluido el acotado TESORERIA CAJA) o de RRHH (o superusuario).
      */
     public List<CajaVirtual> cajaVirtualesActivas() {
         if (!seg.hasAnyRole(TesoreriaSecurityService.TODOS)
+                && !seg.hasAnyRole(TesoreriaSecurityService.CAJA)
                 && !rrhhSeg.hasAnyRole(RrhhSecurityService.TODOS)) {
             throw new GraphQLException("No autorizado: se requiere un rol de Tesorería o de RRHH.");
         }
@@ -167,6 +185,48 @@ public class CajaVirtualGraphQL implements GraphQLQueryResolver, GraphQLMutation
     public CajaVirtual transferirPropiedadCaja(Long cajaVirtualId, Long nuevoPropietarioId) {
         seg.requirePropietarioCaja(cajaVirtualId);
         return accesoService.transferirPropiedad(cajaVirtualId, nuevoPropietarioId);
+    }
+
+    /** Lo único que se muestra de una caja a quien solo puede enviarle: ni saldo ni responsable. */
+    @lombok.Value
+    public static class CajaVirtualDestino {
+        Long id;
+        String nombre;
+        String sucursalNombre;
+    }
+
+    /**
+     * Cajas activas que reciben envíos: destinos posibles de una transferencia para quien no tiene acceso
+     * sobre ellas. Devuelve solo nombre y sucursal.
+     */
+    public List<CajaVirtualDestino> cajasVirtualesReceptoras() {
+        seg.requireOperarCaja();
+        List<CajaVirtualDestino> out = new ArrayList<>();
+        for (CajaVirtual c : service.findReceptoras()) {
+            out.add(new CajaVirtualDestino(c.getId(), c.getNombre(),
+                    c.getSucursal() != null ? c.getSucursal().getNombre() : null));
+        }
+        return out;
+    }
+
+    /**
+     * Marca o desmarca la caja como receptora de envíos. Es abrirla a que cualquier operador le transfiera,
+     * así que lo decide su responsable (o un superusuario), igual que la lista de accesos.
+     */
+    public CajaVirtual marcarCajaRecibeEnvios(Long cajaVirtualId, Boolean recibe) {
+        seg.requireGestionar();
+        seg.requirePropietarioCaja(cajaVirtualId);
+        return service.marcarRecibeEnvios(cajaVirtualId, Boolean.TRUE.equals(recibe));
+    }
+
+    /**
+     * Reemplaza las sucursales adicionales que cubre la caja. Amplía de qué sucursales recibe retiros
+     * quien la opera, así que lo decide su responsable (o un superusuario), igual que la lista de accesos.
+     */
+    public CajaVirtual guardarSucursalesDeCaja(Long cajaVirtualId, List<Long> sucursalIds) {
+        seg.requireGestionar();
+        seg.requirePropietarioCaja(cajaVirtualId);
+        return sucursalesDeCajaService.guardar(cajaVirtualId, sucursalIds, seg.currentUsuario());
     }
 
     public CajaVirtual saveCajaVirtual(CajaVirtualInput input) {

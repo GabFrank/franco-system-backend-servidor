@@ -20,6 +20,14 @@ public interface CajaVirtualRepository extends JpaRepository<CajaVirtual, Long> 
 
     List<CajaVirtual> findByActivoTrue();
 
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("update CajaVirtual c set c.recibeEnvios = :recibe where c.id = :id")
+    int marcarRecibeEnvios(@org.springframework.data.repository.query.Param("id") Long id,
+                           @org.springframework.data.repository.query.Param("recibe") boolean recibe);
+
+    /** Cajas activas marcadas para recibir envíos de otras cajas. */
+    List<CajaVirtual> findByActivoTrueAndRecibeEnviosTrueOrderByNombreAsc();
+
     Page<CajaVirtual> findAll(Pageable pageable);
 
     // ── Variantes acotadas por el ACL de cajas ──

@@ -22,7 +22,7 @@ public class ReporteMovimientosCajaGraphQL implements GraphQLQueryResolver {
     public String imprimirReporteMovimientosCajaVirtual(Long cajaVirtualId, String desde, String fin,
                                                         CajaVirtualTipoMovimiento tipo, Long monedaId,
                                                         Boolean soloActivos) {
-        seg.requireVer();
+        seg.requireVerCaja();
         seg.requireLecturaCaja(cajaVirtualId);
         return service.reporteCajaVirtual(cajaVirtualId, desde, fin, tipo, monedaId, Boolean.TRUE.equals(soloActivos));
     }

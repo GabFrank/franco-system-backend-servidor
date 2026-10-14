@@ -52,7 +52,7 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
     }
 
     public java.util.List<com.franco.dev.domain.financiero.OperacionFinancieraCategoria> operacionFinancieraCategorias() {
-        seg.requireVer();
+        seg.requireVerCaja();
         return categoriaRepository.findByActivoTrue();
     }
 
@@ -76,7 +76,7 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
 
     /** Con {@code claveIdempotencia}, el mismo pedido repetido devuelve la operación ya registrada (issue #376). */
     public OperacionFinanciera registrarOperacionFinanciera(OperacionFinancieraInputWrapper in, String claveIdempotencia) {
-        seg.requireGestionar();
+        seg.requireOperarCaja();
         String huella = huellaDe(in);
         OperacionFinanciera op = new OperacionFinanciera();
         op.setTipoOperacion(in.getTipoOperacion());
@@ -117,7 +117,7 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
     }
 
     public OperacionFinanciera anularOperacionFinanciera(Long id, String motivo) {
-        seg.requireGestionar();
+        seg.requireOperarCaja();
         return service.anular(id, motivo, seg.currentUsuario());
     }
 

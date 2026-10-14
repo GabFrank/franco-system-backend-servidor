@@ -58,6 +58,13 @@ public class TesoreriaSecurityService {
     /** Cualquier rol de tesorería habilita la lectura. */
     public static final String[] TODOS = {VER, GESTIONAR, CPC_COBRAR, CPP_PAGAR};
 
+    /**
+     * Operador de caja acotado: ve y mueve el efectivo de las cajas a las que tiene acceso, y nada más.
+     * No está en {@link #TODOS} a propósito: {@code requireVer}/{@code requireGestionar} lo rechazan, y cada
+     * resolver delimitado por caja lo habilita con {@code requireVerCaja}/{@code requireOperarCaja}.
+     */
+    public static final String CAJA = "TESORERIA CAJA";
+
     /** Cobrar CPC: permiso dedicado, o GESTIONAR, o superusuario. */
     public void requireCobrarCpc() { requireAnyRole(CPC_COBRAR, GESTIONAR); }
 
@@ -134,6 +141,124 @@ public class TesoreriaSecurityService {
         }
     }
 
+    // ─────────────────────── Rol acotado (TESORERIA CAJA) ───────────────────────
+
+    /** Lectura delimitada por caja: cualquier rol de tesorería, o el acotado. El ACL decide qué cajas. */
+    public void requireVerCaja() {
+        if (!hasAnyRole(TODOS) && !hasAnyRole(CAJA)) {
+            throw new GraphQLException("No autorizado: se requiere un rol de Tesorería para ver estos datos.");
+        }
+    }
+
+    /** Mover el efectivo de una caja: GESTIONAR o el acotado. La escritura sobre la caja la exige el ACL. */
+    public void requireOperarCaja() { requireAnyRole(GESTIONAR, CAJA); }
+
+    /**
+     * Pagar desde la caja: lo mismo que {@link #requirePagarCpp()} más el rol acotado. Solo para los pagos
+     * que validan el modo acotado; el resto sigue con {@code requirePagarCpp}.
+     */
+    public void requirePagarCppCaja() { requireAnyRole(CPP_PAGAR, GESTIONAR, CAJA); }
+
+    /**
+     * true si el usuario <b>ve</b> en modo acotado: tiene TESORERIA CAJA y ningún rol amplio de tesorería.
+     * Sin usuario autenticado es false: un proceso de sistema no es un operador acotado.
+     */
+    public boolean esSoloCaja() {
+        return tieneCajaSin(TODOS);
+    }
+
+    /**
+     * true si el usuario <b>mueve plata</b> en modo acotado: tiene TESORERIA CAJA y no TESORERIA GESTIONAR.
+     *
+     * <p>No alcanza con {@link #esSoloCaja()}: {@code requireOperarCaja} deja pasar por TESORERIA CAJA, y un
+     * usuario con CAJA + VER no es «solo caja» pero tampoco gestiona. Si las restricciones dependieran de
+     * «ningún rol amplio», sumar un rol de solo lectura le daría las operaciones de GESTIONAR.</p>
+     */
+    public boolean operaAcotado() {
+        return tieneCajaSin(GESTIONAR);
+    }
+
+    /** Idem para pagar: tiene TESORERIA CAJA y ninguno de los roles que pagan (CPP PAGAR, GESTIONAR). */
+    public boolean pagaAcotado() {
+        return tieneCajaSin(CPP_PAGAR, GESTIONAR);
+    }
+
+    private boolean tieneCajaSin(String... amplios) {
+        String nick = currentNickname();
+        if (nick == null || ADMIN.equalsIgnoreCase(nick)) return false;
+        Set<String> mine = currentRoles();   // una sola lectura de roles por consulta
+        if (mine.contains(ADMIN) || !mine.contains(CAJA)) return false;
+        for (String r : amplios) {
+            if (mine.contains(r)) return false;
+        }
+        return true;
+    }
+
+    // Un listado pide el saldo de cada fila: el rol y las cajas visibles se resuelven una vez por request.
+    private static final String ATRIBUTO_SOLO_CAJA = TesoreriaSecurityService.class.getName() + ".soloCaja";
+    private static final String ATRIBUTO_VISIBLES = TesoreriaSecurityService.class.getName() + ".cajasVisibles";
+    private static final Object TODAS = new Object();
+
+    /** {@link #esSoloCaja()} resuelto una vez por request. Sin request (un test, otro hilo) se calcula cada vez. */
+    public boolean esSoloCajaEnRequest() {
+        org.springframework.web.context.request.RequestAttributes request =
+                org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+        if (request == null) return esSoloCaja();
+        Object guardado = request.getAttribute(ATRIBUTO_SOLO_CAJA,
+                org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+        if (guardado instanceof Boolean) return (Boolean) guardado;
+        boolean solo = esSoloCaja();
+        request.setAttribute(ATRIBUTO_SOLO_CAJA, solo,
+                org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+        return solo;
+    }
+
+    /** true si el usuario puede ver la caja, con {@link #cajasVisiblesIds()} resuelto una vez por request. */
+    @SuppressWarnings("unchecked")
+    public boolean puedeVerCajaEnRequest(Long cajaId) {
+        if (cajaId == null) return false;
+        org.springframework.web.context.request.RequestAttributes request =
+                org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+        Object guardado = request != null ? request.getAttribute(ATRIBUTO_VISIBLES,
+                org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST) : null;
+        if (guardado == null) {
+            java.util.List<Long> visibles = cajasVisiblesIds();   // null = ve todas
+            guardado = visibles == null ? TODAS : visibles;
+            if (request != null) {
+                request.setAttribute(ATRIBUTO_VISIBLES, guardado,
+                        org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+            }
+        }
+        return guardado == TODAS || ((java.util.List<Long>) guardado).contains(cajaId);
+    }
+
+    /**
+     * Sucursales que cubren las cajas sobre las que el usuario tiene escritura (propias u otorgadas): la de
+     * cada caja más sus adicionales. Nunca null: la lista vacía significa «ninguna», no «todas».
+     */
+    public java.util.List<Long> sucursalesOperablesIds() {
+        Long id = idUsuarioActual();
+        if (id == null) return java.util.Collections.emptyList();
+        return accesoRepository.sucursalesOperablesIds(id);
+    }
+
+    /** Sucursales que cubre una caja: la propia más las adicionales. Nunca null. */
+    public java.util.List<Long> sucursalesDeCajaIds(Long cajaId) {
+        if (cajaId == null) return java.util.Collections.emptyList();
+        java.util.List<Long> ids = accesoRepository.sucursalesDeCajaIds(cajaId);
+        return ids != null ? ids : java.util.Collections.emptyList();
+    }
+
+    /**
+     * Cajas que el usuario puede mover (propias u otorgadas con escritura). Nunca null: es para el rol
+     * acotado, donde la lista vacía significa «ninguna».
+     */
+    public java.util.List<Long> cajasEscribiblesIds() {
+        Long id = idUsuarioActual();
+        if (id == null) return java.util.Collections.emptyList();
+        return accesoRepository.cajasEscribiblesIds(id);
+    }
+
     // ─────────────────────── Acceso por caja (ACL) ───────────────────────
     //
     // El rol habilita la capacidad; el ACL delimita sobre que cajas (modelo AND). El
@@ -196,6 +321,20 @@ public class TesoreriaSecurityService {
             throw new GraphQLException("No tenes permiso para mover plata en esta caja. "
                     + "Pediselo a su responsable.");
         }
+    }
+
+    /**
+     * Enviar plata A una caja (la pata de entrada de una transferencia): alcanza con poder moverla, o con
+     * que la caja esté activa y marcada «recibe envíos». Lo segundo no da nada más: ni verla ni sacarle.
+     */
+    public void requireEnvioACaja(Long cajaId) {
+        if (esProcesoDeSistema()) return;
+        if (puedeEscribirCaja(cajaId)) return;
+        com.franco.dev.domain.financiero.CajaVirtual caja =
+                cajaId != null ? cajaVirtualRepository.findById(cajaId).orElse(null) : null;
+        if (caja != null && Boolean.TRUE.equals(caja.getActivo()) && Boolean.TRUE.equals(caja.getRecibeEnvios())) return;
+        throw new GraphQLException("No tenes permiso para enviar plata a esta caja. "
+                + "Pedile a tesorería que la habilite para recibir envíos.");
     }
 
     /** Administrar la lista de accesos: solo el propietario de la caja, o un superusuario. */

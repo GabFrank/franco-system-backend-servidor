@@ -32,5 +32,9 @@ public class ProductoVencimientoService extends CrudService<ProductoVencimiento,
     public java.util.List<ProductoVencimiento> findByProductoIdAndSucursalId(Long productoId, Long sucursalId) {
         return repository.findByProductoIdAndSucursalId(productoId, sucursalId);
     }
-}
 
+    public java.util.List<ProductoVencimiento> findByTipoOrigenAndOrigenId(
+            com.franco.dev.domain.operaciones.enums.TipoOrigenVencimiento tipoOrigen, Long origenId) {
+        return repository.findByTipoOrigenAndOrigenId(tipoOrigen, origenId);
+    }
+}

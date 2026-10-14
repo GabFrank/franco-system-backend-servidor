@@ -65,6 +65,8 @@ extend type Query {
     liquidacionesPage(page: Int = 0, size: Int = 20, funcionarioId: ID, funcionarioNombre: String, periodo: String, estado: LiquidacionSueldoEstado): LiquidacionSueldoPage
     liquidacionItems(liquidacionId: ID!): [LiquidacionItem]
     imprimirReciboLiquidacion(id: ID!, anchoMm: Int, escpos: Boolean): String
+    # Buscador del rol RRHH SUCURSAL: funcionarios de las sucursales a su cargo, hasta 30 por nombre.
+    funcionariosACargo(texto: String, soloActivos: Boolean = true): [Funcionario]
 }
 
 extend type Mutation {

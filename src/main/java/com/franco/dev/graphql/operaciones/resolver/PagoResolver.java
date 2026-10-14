@@ -25,6 +25,9 @@ public class PagoResolver implements GraphQLResolver<Pago> {
     @Autowired
     private RrhhSecurityService rrhhSecurityService;
 
+    @Autowired
+    private com.franco.dev.service.financiero.PagoProveedorService pagoProveedorService;
+
     /**
      * Solicitudes del evento de pago. Se llega sin rol desde una solicitud de compra ({@code solicitudPago.pago}); un
      * pago anterior a #302 pudo mezclar compras con obligaciones de RRHH, que solo se muestran con rol de tesoreria o
@@ -32,6 +35,10 @@ public class PagoResolver implements GraphQLResolver<Pago> {
      */
     public List<SolicitudPago> solicitudesPago(Pago pago) {
         List<SolicitudPago> solicitudes = solicitudPagoService.findByPagoId(pago.getId());
+        // El rol acotado de tesorería llega al pago desde lo que pagó él; del resto del evento ve solo lo suyo.
+        if (solicitudes != null && tesoreriaSecurityService.esSoloCajaEnRequest()) {
+            return solicitudes.stream().filter(pagoProveedorService::pagableEnModoAcotado).collect(Collectors.toList());
+        }
         if (solicitudes == null || solicitudes.stream().noneMatch(s -> s.getTipo() == TipoSolicitudPago.RRHH)) {
             return solicitudes;
         }

@@ -2,6 +2,8 @@ package com.franco.dev.graphql.administrativo;
 
 import com.franco.dev.domain.administrativo.EstadoMarcacionUsuario;
 import com.franco.dev.domain.administrativo.Jornada;
+import com.franco.dev.domain.administrativo.dto.JornadaHistorial;
+import com.franco.dev.domain.administrativo.enums.Turno;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.service.administrativo.EstadoMarcacionService;
 import com.franco.dev.service.administrativo.JornadaService;
@@ -42,6 +44,12 @@ public class JornadaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             size = 10;
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
+    }
+
+    public JornadaHistorial jornadasHistorial(Long usuarioId, String fechaInicio, String fechaFin, Turno turno,
+            Long sucursalEntradaId, Long sucursalSalidaId, Integer page, Integer size) {
+        return service.findHistorial(usuarioId, fechaInicio, fechaFin, turno, sucursalEntradaId, sucursalSalidaId,
+                page, size);
     }
 
     public List<Jornada> jornadasPorUsuario(Long usuarioId, String fechaInicio, String fechaFin) {

@@ -38,6 +38,11 @@ public class RrhhSecurityService {
     public static final String APROBAR = "RRHH APROBAR";
     public static final String PAGAR = "RRHH PAGAR";
     public static final String CONFIG = "RRHH CONFIG";
+    /**
+     * RRHH acotado a las sucursales a cargo (ver {@link RrhhAlcanceService}). No está en {@link #TODOS} a
+     * propósito: no abre la lectura general de RRHH.
+     */
+    public static final String SUCURSAL = "RRHH SUCURSAL";
 
     /** Todos los roles RRHH: cualquiera habilita la lectura. */
     public static final String[] TODOS = {VER, GESTIONAR, LIQUIDAR, APROBAR, PAGAR, CONFIG};
@@ -47,6 +52,16 @@ public class RrhhSecurityService {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || auth.getName() == null) return null;
         return usuarioService.findByNickname(auth.getName()).orElse(null);
+    }
+
+    /**
+     * Id de la persona del usuario autenticado, o null. El vinculo empleado<->login es la
+     * persona compartida (usuario.persona_id == funcionario.persona_id), no
+     * funcionario.usuario_id, que es auditoria.
+     */
+    public Long currentPersonaId() {
+        Usuario u = currentUsuario();
+        return u != null && u.getPersona() != null ? u.getPersona().getId() : null;
     }
 
     private String currentNickname() {

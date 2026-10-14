@@ -12,6 +12,7 @@ VERSION="${1:?Usage: deploy.sh <version> <instance> [firebase_json_path] [fireba
 INSTANCE="${2:?Usage: deploy.sh <version> <instance> [firebase_json_path] [firebase_target_path]}"
 FIREBASE_JSON_SOURCE="${3:-}"
 FIREBASE_TARGET_OVERRIDE="${4:-}"
+MAIL_ENV_SOURCE="${5:-}"
 
 BASE_DIR="/opt/frc-backend-central"
 INSTANCE_DIR="${BASE_DIR}/${INSTANCE}"
@@ -64,6 +65,25 @@ if [[ -f "${FIREBASE_TARGET}" ]]; then
   echo "Firebase config path set in ${INSTANCE_DIR}/.env"
 else
   echo "WARNING: Firebase credentials not found at ${FIREBASE_TARGET}. Push notifications will fail."
+fi
+
+# --- Cuenta de correo para el envio de facturas ---
+# El workflow sube este archivo solo si el environment de GitHub tiene MAIL_USERNAME y
+# MAIL_PASSWORD. Se pisan esas claves en el .env y se conserva el resto.
+if [[ -n "${MAIL_ENV_SOURCE}" && -f "${MAIL_ENV_SOURCE}" ]]; then
+  while IFS='=' read -r MAIL_KEY MAIL_VALUE; do
+    case "${MAIL_KEY}" in
+      MAIL_USERNAME|MAIL_PASSWORD|FACTURA_CORREO_ENABLED) ;;
+      *) continue ;;
+    esac
+    ENV_TMP=$(mktemp)
+    grep -v "^${MAIL_KEY}=" "${INSTANCE_DIR}/.env" > "${ENV_TMP}" || true
+    echo "${MAIL_KEY}=${MAIL_VALUE}" >> "${ENV_TMP}"
+    cat "${ENV_TMP}" > "${INSTANCE_DIR}/.env"
+    rm -f "${ENV_TMP}"
+  done < "${MAIL_ENV_SOURCE}"
+  rm -f "${MAIL_ENV_SOURCE}"
+  echo "Mail settings written to ${INSTANCE_DIR}/.env"
 fi
 
 # --- Save current version for rollback ---

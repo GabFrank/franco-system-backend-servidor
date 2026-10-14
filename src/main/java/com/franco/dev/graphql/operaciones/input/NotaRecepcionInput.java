@@ -7,7 +7,6 @@ import lombok.Data;
 public class NotaRecepcionInput {
     private Long id;
     private Long pedidoId;
-    private Long compraId;
     private Long documentoId;
     private Integer numero;
     private String tipoBoleta;

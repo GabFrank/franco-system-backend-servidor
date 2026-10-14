@@ -14,8 +14,10 @@ import com.franco.dev.service.configuracion.InicioSesionService;
 import com.franco.dev.service.financiero.CambioService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.financiero.NorteCambiosScraper;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -85,15 +87,33 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private org.springframework.context.ApplicationEventPublisher publisher;
 
+    @Autowired
+    private TesoreriaSecurityService seg;
+
+    /**
+     * Carga una cotizacion nueva. La cotizacion la usa todo el sistema para convertir (compras,
+     * recepciones, pagos, facturacion), asi que exige el rol y no confia en el cliente (issue #326):
+     * el autor es el usuario autenticado, no el {@code usuarioId} del input, y una cotizacion ya
+     * cargada no se pisa mandando su {@code id} — el historial se corrige cargando una nueva.
+     */
     public Cambio saveCambio(CambioInput input, List<Long> sucursalesIdList) {
+        seg.requireCambiarCotizacion();
+        if (input.getId() != null) {
+            throw new GraphQLException("Una cotización ya cargada no se modifica: cargá una nueva.");
+        }
+        if (input.getValorEnGs() == null || input.getValorEnGs() <= 0) {
+            throw new GraphQLException("La cotización tiene que ser mayor a cero.");
+        }
+        Moneda moneda = input.getMonedaId() != null
+                ? monedaService.findById(input.getMonedaId()).orElse(null)
+                : null;
+        if (moneda == null) {
+            throw new GraphQLException("La moneda de la cotización no existe.");
+        }
         ModelMapper m = new ModelMapper();
         Cambio e = m.map(input, Cambio.class);
-        if (input.getMonedaId() != null) {
-            e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
-        }
-        if (input.getUsuarioId() != null) {
-            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        }
+        e.setMoneda(moneda);
+        e.setUsuario(seg.currentUsuario());
         e = service.save(e);
 
         try {
@@ -159,7 +179,9 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         return service.findByDate(start, end);
     }
 
+    /** Ningun cliente borra cotizaciones: se deja solo para un superusuario (issue #326). */
     public Boolean deleteCambio(Long id) {
+        seg.requireSuperusuario();
         Boolean ok = service.deleteById(id);
         return ok;
     }

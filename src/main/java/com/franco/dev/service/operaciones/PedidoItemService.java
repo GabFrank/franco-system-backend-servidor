@@ -1,11 +1,9 @@
 package com.franco.dev.service.operaciones;
 
-import com.franco.dev.domain.operaciones.CompraItem;
 import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.domain.operaciones.PedidoItemDistribucion;
 import com.franco.dev.domain.operaciones.PedidoSucursalEntrega;
 import com.franco.dev.domain.operaciones.PedidoSucursalInfluencia;
-import com.franco.dev.domain.operaciones.enums.CompraItemEstado;
 import com.franco.dev.domain.operaciones.enums.PedidoItemEstado;
 import com.franco.dev.repository.operaciones.PedidoItemRepository;
 import com.franco.dev.service.CrudService;
@@ -28,9 +26,6 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
     public PedidoItemRepository getRepository() {
         return repository;
     }
-
-    @Autowired
-    public CompraItemService compraItemService;
 
     @Autowired
     private PedidoSucursalInfluenciaService pedidoSucursalInfluenciaService;

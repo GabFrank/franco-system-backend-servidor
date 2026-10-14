@@ -38,6 +38,8 @@ public class PrestamoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private UsuarioService usuarioService;
+    @Autowired
+    private com.franco.dev.service.financiero.AltaIdempotenteService altaIdempotente;
 
     public Optional<Prestamo> prestamo(Long id) {
         seg.requireVer();
@@ -65,8 +67,17 @@ public class PrestamoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.findCuotas(prestamoId);
     }
 
-    public Prestamo crearPrestamo(PrestamoInput input, Long cajaVirtualId) {
+    /**
+     * Crea el préstamo y lo desembolsa de la caja mayor. Con {@code claveIdempotencia}, el mismo pedido
+     * repetido devuelve el préstamo ya creado en vez de desembolsar otra vez (issue #376).
+     */
+    public Prestamo crearPrestamo(PrestamoInput input, Long cajaVirtualId, String claveIdempotencia) {
         seg.requireAnyRole(seg.GESTIONAR);
+        String huella = new com.franco.dev.service.financiero.HuellaPedido()
+                .id(input.getId()).id(input.getFuncionarioId()).texto(input.getDescripcion())
+                .numero(input.getMontoTotal()).id(input.getMonedaId()).texto(input.getFechaInicio())
+                .id(input.getCantidadCuotas() != null ? input.getCantidadCuotas().longValue() : null)
+                .texto(input.getObservacion()).id(input.getUsuarioId()).id(cajaVirtualId).calcular();
         Prestamo p = new Prestamo();
         if (input.getFuncionarioId() != null)
             p.setFuncionario(funcionarioService.findById(input.getFuncionarioId()).orElse(null));
@@ -80,7 +91,8 @@ public class PrestamoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         p.setObservacion(input.getObservacion());
         if (input.getUsuarioId() != null)
             p.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        return service.crearConDesembolso(p, cajaVirtualId);
+        return altaIdempotente.prestamo(claveIdempotencia, huella, seg.currentUsuario(),
+                () -> service.crearConDesembolso(p, cajaVirtualId));
     }
 
     /** {@code montoPagadoEsperado} es opcional: los desktops sin el fix de #299 no lo mandan. */

@@ -4,13 +4,29 @@ import com.franco.dev.domain.financiero.MovimientoBancario;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import javax.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface MovimientoBancarioRepository extends JpaRepository<MovimientoBancario, Long> {
+
+    /** Toma el movimiento con lock pesimista: serializa dos reversas simultaneas del mismo movimiento. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from MovimientoBancario m where m.id = :id")
+    Optional<MovimientoBancario> lockById(@Param("id") Long id);
+
+    /**
+     * Solo si esta anulado, leido de la base: {@link #lockById} devuelve la instancia que ya estuviera
+     * cargada, sin refrescar. Se llama <b>despues</b> del lock.
+     */
+    @Query("select coalesce(m.anulado, false) from MovimientoBancario m where m.id = :id")
+    Optional<Boolean> findAnuladoById(@Param("id") Long id);
+
     Page<MovimientoBancario> findByCuentaBancariaIdOrderByCreadoEnDesc(Long cuentaBancariaId, Pageable pageable);
 
     /**
@@ -41,6 +57,7 @@ public interface MovimientoBancarioRepository extends JpaRepository<MovimientoBa
                                         @Param("tipo") String tipo,
                                         @Param("soloActivos") boolean soloActivos);
 
-    /** Patas bancarias no anuladas de una operación dueña (para revertir todas al anularla). */
-    List<MovimientoBancario> findByOrigenTipoAndOrigenIdAndAnuladoFalse(String origenTipo, Long origenId);
+    /** Patas bancarias no anuladas de una operación dueña (para revertir todas al anularla), por cuenta ascendente. */
+    List<MovimientoBancario> findByOrigenTipoAndOrigenIdAndAnuladoFalseOrderByCuentaBancariaIdAscIdAsc(
+            String origenTipo, Long origenId);
 }

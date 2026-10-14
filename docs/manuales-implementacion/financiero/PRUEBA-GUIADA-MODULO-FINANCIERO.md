@@ -19,6 +19,11 @@
 - [ ] **Anular** un movimiento → se crea contra-movimiento con signo opuesto; el original queda visible (tachado), no se borra; saldo vuelve al valor previo.
 - [ ] Intentar anular un movimiento con origen en otro módulo (ej. RRHH) → **bloqueado** ("anular desde el módulo dueño").
 - [ ] Anular un movimiento más viejo que `diasLimiteAnulacion` (CN4) → bloqueado.
+- [ ] Con el límite cargado (`UPDATE empresarial.configuracion_general SET dias_limite_anulacion = 5`), anular algo
+      de más de 5 días desde su módulo → **bloqueado**, y el mensaje nombra el documento y su fecha: un **pago** a
+      proveedor (fila de caja y fila de banco), una **operación financiera**, una **entrada varia**, una
+      **verificación de retiro**, un pago hecho con **cheque**, una liquidación pagada. Lo mismo de hoy → anula.
+      Volver el límite a `NULL` al terminar.
 - [ ] `recalcularSaldos` (admin) → el saldo no cambia (reconstrucción coincide).
 - [ ] RRHH sigue funcionando: confirmar un vale descuenta de la caja mayor como antes.
 

@@ -78,4 +78,28 @@ public class DevolucionItem implements Identifiable<Long> {
     /** Nuevo vencimiento del producto reingresado por canje. */
     @Column(name = "vencimiento_reingreso")
     private LocalDate vencimientoReingreso;
+
+    /**
+     * Lote del maestro del que sale la mercaderia, para productos con control de lote.
+     * Opcional: sin el, la baja al separar se reparte por FEFO. El campo {@code lote}
+     * (texto) guarda su numero para pantallas y etiquetas.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lote_id")
+    private Lote loteMaestro;
+
+    /** Numero del lote que entrega el proveedor en un canje; el reingreso entra a ese lote. */
+    @Column(name = "lote_reingreso")
+    private String loteReingreso;
+
+    /**
+     * Movimiento de stock de la baja al separar. Solo se guarda para productos con control de
+     * lote: revertir o cancelar espeja su desglose por lote. Se limpia al revertir.
+     */
+    @Column(name = "movimiento_baja_id")
+    private Long movimientoBajaId;
+
+    /** Movimiento de stock del reingreso del canje, para revertirlo sobre el mismo lote. */
+    @Column(name = "movimiento_canje_id")
+    private Long movimientoCanjeId;
 } 

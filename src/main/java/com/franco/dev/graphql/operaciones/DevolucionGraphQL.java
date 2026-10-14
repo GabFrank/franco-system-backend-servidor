@@ -151,7 +151,15 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                     : com.franco.dev.domain.operaciones.enums.TipoDevolucion.SIN_PROVEEDOR);
         }
 
-        Devolucion saved = service.save(entity);
+        Devolucion saved;
+        if (input.getId() != null) {
+            // Edicion: solo en PENDIENTE y solo los campos editables. El estado, la
+            // ubicacion y el resto de lo que maneja la maquina de estados no sale del input.
+            saved = service.actualizarCabecera(entity);
+        } else {
+            entity.setEstado(DevolucionEstado.PENDIENTE);
+            saved = service.save(entity);
+        }
 
         // Persistir items incluidos en el input (si los hay)
         if (input.getItems() != null) {

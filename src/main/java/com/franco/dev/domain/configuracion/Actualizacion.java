@@ -3,7 +3,6 @@ package com.franco.dev.domain.configuracion;
 import com.franco.dev.domain.configuracion.enums.NivelActualizacion;
 import com.franco.dev.domain.configuracion.enums.TipoActualizacion;
 import com.franco.dev.domain.empresarial.Sucursal;
-import com.franco.dev.domain.operaciones.enums.CompraEstado;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;

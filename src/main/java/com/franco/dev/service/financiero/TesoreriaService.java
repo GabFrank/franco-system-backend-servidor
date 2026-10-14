@@ -11,6 +11,7 @@ import com.franco.dev.repository.financiero.CajaVirtualRepository;
 import com.franco.dev.repository.financiero.CajaVirtualSaldoRepository;
 import com.franco.dev.repository.financiero.MonedaRepository;
 import com.franco.dev.repository.financiero.MovimientoCajaVirtualRepository;
+import com.franco.dev.repository.financiero.MovimientoCajaVirtualVinculo;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -42,7 +43,7 @@ public class TesoreriaService {
     private final CajaVirtualRepository cajaVirtualRepository;
     private final MonedaRepository monedaRepository;
     private final MovimientoCajaVirtualRepository movimientoRepository;
-    private final com.franco.dev.repository.empresarial.ConfiguracionGeneralRepository configRepository;
+    private final LimiteAnulacionService limiteAnulacion;
 
     /** Los tipos que restan del saldo (además de AJUSTE, que ya llega firmado). */
     static boolean esEgreso(CajaVirtualTipoMovimiento tipo) {
@@ -77,6 +78,24 @@ public class TesoreriaService {
         // por aca (RRHH, CPP, gastos, maletin, retiros, entradas varias, devoluciones).
         // Los procesos de sistema (schedulers, replicacion) no tienen sesion y pasan.
         seguridad.requireEscrituraCaja(mov.getCajaVirtual() != null ? mov.getCajaVirtual().getId() : null);
+        return asentar(mov);
+    }
+
+    /**
+     * La pata de entrada de un envío entre cajas: en vez de escritura sobre la caja que recibe, alcanza
+     * con que esté marcada «recibe envíos» ({@code requireEnvioACaja}). Solo acepta
+     * {@code TRANSFERENCIA_ENTRADA}: por acá no sale plata de la caja ni se la ajusta.
+     */
+    @Transactional
+    public MovimientoCajaVirtual registrarEntradaDeEnvio(MovimientoCajaVirtual mov) {
+        if (mov.getTipoMovimiento() != CajaVirtualTipoMovimiento.TRANSFERENCIA_ENTRADA) {
+            throw new GraphQLException("Un envío solo registra la entrada de una transferencia.");
+        }
+        seguridad.requireEnvioACaja(mov.getCajaVirtual() != null ? mov.getCajaVirtual().getId() : null);
+        return asentar(mov);
+    }
+
+    private MovimientoCajaVirtual asentar(MovimientoCajaVirtual mov) {
         if (mov.getActivo() == null) mov.setActivo(true);
         Moneda moneda = resolverMoneda(mov.getMoneda());
         mov.setMoneda(moneda);
@@ -134,6 +153,14 @@ public class TesoreriaService {
     @Transactional
     public Boolean transferir(Long origenId, Long destinoId, Double cantidad,
                               Moneda moneda, String descripcion, Usuario usuario) {
+        transferirYDevolverSalida(origenId, destinoId, cantidad, moneda, descripcion, usuario);
+        return true;
+    }
+
+    /** {@link #transferir}, devolviendo la pata de salida: quien registra un lote necesita su id. */
+    @Transactional
+    public MovimientoCajaVirtual transferirYDevolverSalida(Long origenId, Long destinoId, Double cantidad,
+                                                           Moneda moneda, String descripcion, Usuario usuario) {
         if (origenId.equals(destinoId)) throw new GraphQLException("La caja origen y destino no pueden ser la misma");
         // Mover plata entre cajas exige permiso en las dos: es un egreso y un ingreso.
         seguridad.requireEscrituraCaja(origenId);
@@ -149,9 +176,15 @@ public class TesoreriaService {
                 cantidad, moneda, descripcion, usuario);
 
         // Orden canónico por id de caja (lock del menor primero) — evita deadlock.
-        if (origenId <= destinoId) { registrar(salida); registrar(entrada); }
-        else { registrar(entrada); registrar(salida); }
-        return true;
+        if (origenId <= destinoId) { salida = registrar(salida); entrada = registrar(entrada); }
+        else { entrada = registrar(entrada); salida = registrar(salida); }
+        // Cada pata apunta a la otra: es lo que permite anular la transferencia entera y no una mitad
+        // (issue #376). Mutuo y no de un solo sentido porque así la otra pata se busca por clave.
+        salida.setReferenciaId(entrada.getId());
+        entrada.setReferenciaId(salida.getId());
+        salida = movimientoRepository.save(salida);
+        movimientoRepository.save(entrada);
+        return salida;
     }
 
     private MovimientoCajaVirtual build(CajaVirtual caja, CajaVirtual origen, CajaVirtual destino,
@@ -183,6 +216,12 @@ public class TesoreriaService {
      */
     @Transactional
     public MovimientoCajaVirtual anular(Long movimientoId, String motivo, Usuario usuario) {
+        // Una pata de transferencia no se anula sola: devolver la plata a una caja sin sacarla de la otra
+        // la duplica (o la hace desaparecer). Se mira por proyección, sin cargar la entidad.
+        MovimientoCajaVirtualVinculo datos = movimientoRepository.findVinculoById(movimientoId).orElse(null);
+        if (datos != null && datos.esPataDeTransferencia()) {
+            return anularTransferencia(datos, motivo, usuario);
+        }
         // Con lock: sin él, dos anulaciones del mismo movimiento (dos usuarios, o un reintento tras
         // una respuesta perdida) pasaban las dos y posteaban dos contra-movimientos.
         MovimientoCajaVirtual orig = movimientoRepository.lockById(movimientoId)
@@ -206,25 +245,118 @@ public class TesoreriaService {
             throw new GraphQLException("Este movimiento proviene de " + origen
                     + "; anúlelo desde su módulo de origen, no desde la caja mayor.");
         }
-        // CN4: límite de anulación por antigüedad (null = sin límite).
-        Integer diasLimite = diasLimiteAnulacion();
-        if (diasLimite != null && diasLimite > 0 && orig.getCreadoEn() != null
-                && orig.getCreadoEn().isBefore(java.time.LocalDateTime.now().minusDays(diasLimite))) {
-            throw new GraphQLException("El movimiento supera el límite de " + diasLimite
-                    + " días para anular. Requiere autorización.");
-        }
+        // El límite de antigüedad (CN4) lo aplica revertir(), igual que a los módulos dueños.
         return revertir(orig, motivo, usuario);
     }
 
-    /** Días límite de anulación configurados (CN4), o null si no hay config/límite. */
-    private Integer diasLimiteAnulacion() {
-        try {
-            return configRepository.findAll().stream().findFirst()
-                    .map(com.franco.dev.domain.empresarial.ConfiguracionGeneral::getDiasLimiteAnulacion)
-                    .orElse(null);
-        } catch (Exception e) {
-            return null;
+    private static final String SIN_CONTRAPARTE = "No se pudo identificar la otra pata de esta transferencia:"
+            + " no se anula a medias. Avise a soporte.";
+
+    /**
+     * Anula una transferencia entre cajas <b>completa</b> a partir de cualquiera de sus dos patas.
+     *
+     * <p>Orden: permiso sobre las dos cajas → ubicar la otra pata por su vínculo → lock de los dos
+     * movimientos por id ascendente (dos anulaciones que entran cada una por una pata se cruzarían si
+     * cada una tomara «la suya» primero) → estado leído de la base → reversas por caja ascendente, el
+     * orden en que {@link #transferir} toma los saldos.</p>
+     *
+     * <p>Si la otra pata ya estaba anulada —alguien anuló antes esa mitad— se anula solo la pedida: es lo
+     * que deja la transferencia consistente. Sin un vínculo válido no se adivina: se rechaza.</p>
+     */
+    private MovimientoCajaVirtual anularTransferencia(MovimientoCajaVirtualVinculo pedida, String motivo, Usuario usuario) {
+        if (pedida.getCajaOrigenId() == null || pedida.getCajaDestinoId() == null) {
+            throw new GraphQLException(SIN_CONTRAPARTE);
         }
+        // Antes de buscar nada y de tomar ningún lock: quien no puede mover plata en las dos cajas no tiene
+        // por qué enterarse del estado de la transferencia. Mensaje propio: el genérico haría pensar que
+        // falta el permiso sobre la caja que se está mirando.
+        try {
+            seguridad.requireEscrituraCaja(pedida.getCajaOrigenId());
+            seguridad.requireEscrituraCaja(pedida.getCajaDestinoId());
+        } catch (GraphQLException e) {
+            throw new GraphQLException("Para anular una transferencia hace falta permiso de escritura en las dos cajas.");
+        }
+
+        MovimientoCajaVirtualVinculo otra = pedida.getReferenciaId() != null
+                ? movimientoRepository.findVinculoById(pedida.getReferenciaId()).orElse(null) : null;
+        if (!pedida.esContraparteDe(otra)) {
+            throw new GraphQLException(SIN_CONTRAPARTE);
+        }
+
+        Long menor = Math.min(pedida.getId(), otra.getId());
+        Long mayor = Math.max(pedida.getId(), otra.getId());
+        MovimientoCajaVirtual primero = movimientoRepository.lockById(menor)
+                .orElseThrow(() -> new GraphQLException("Movimiento no encontrado: " + menor));
+        MovimientoCajaVirtual segundo = movimientoRepository.lockById(mayor)
+                .orElseThrow(() -> new GraphQLException("Movimiento no encontrado: " + mayor));
+        MovimientoCajaVirtual movPedido = menor.equals(pedida.getId()) ? primero : segundo;
+        MovimientoCajaVirtual movOtra = movPedido == primero ? segundo : primero;
+
+        // El estado, de la base y después del lock (regla del módulo: lockById no refresca lo ya cargado).
+        if (!movimientoRepository.findActivoById(pedida.getId()).orElse(!Boolean.FALSE.equals(movPedido.getActivo()))) {
+            throw new GraphQLException("El movimiento #" + pedida.getId() + " ya está anulado.");
+        }
+        boolean otraActiva = movimientoRepository.findActivoById(otra.getId())
+                .orElse(!Boolean.FALSE.equals(movOtra.getActivo()));
+        if (!otraActiva && !movimientoRepository.existsByOrigenTipoAndOrigenId(OrigenMovimientoTipo.ANULACION, otra.getId())) {
+            // Inactiva pero sin contra-movimiento: su efecto sigue en el saldo. Anular solo esta descuadraría.
+            throw new GraphQLException(SIN_CONTRAPARTE);
+        }
+
+        // CN4 sobre la pata más vieja: que no dependa de por cuál de las dos se entra.
+        limiteAnulacion.requireDentroDelLimite(masVieja(pedida.getCreadoEn(), otra.getCreadoEn()),
+                "La transferencia");
+
+        String razon = motivo != null ? motivo : "";
+        if (!otraActiva) {
+            return revertirPata(movPedido, razon, usuario);
+        }
+        // La pata que nadie pidió anular dice por qué aparece su contra-movimiento en la otra caja.
+        String razonOtra = (razon.isEmpty() ? "" : razon + " — ") + "TRANSFERENCIA ANULADA JUNTO CON EL MOV #" + pedida.getId();
+        boolean pedidaPrimero = movPedido.getCajaVirtual().getId() <= movOtra.getCajaVirtual().getId();
+        MovimientoCajaVirtual contraPedida;
+        if (pedidaPrimero) {
+            contraPedida = revertirPata(movPedido, razon, usuario);
+            revertirPata(movOtra, razonOtra, usuario);
+        } else {
+            revertirPata(movOtra, razonOtra, usuario);
+            contraPedida = revertirPata(movPedido, razon, usuario);
+        }
+        return contraPedida;
+    }
+
+    /**
+     * Revierte una pata. Devolver la entrada saca plata de la caja destino: si esa plata ya se gastó, el
+     * rechazo dice cuál caja y por qué, en vez del «Saldo insuficiente» pelado. La transacción se deshace entera.
+     */
+    private MovimientoCajaVirtual revertirPata(MovimientoCajaVirtual pata, String motivo, Usuario usuario) {
+        try {
+            return revertir(pata, motivo, usuario);
+        } catch (GraphQLException e) {
+            if (pata.getTipoMovimiento() == CajaVirtualTipoMovimiento.TRANSFERENCIA_ENTRADA
+                    && e.getMessage() != null && e.getMessage().startsWith("Saldo insuficiente")) {
+                String caja = pata.getCajaVirtual() != null && pata.getCajaVirtual().getNombre() != null
+                        ? pata.getCajaVirtual().getNombre() : "destino";
+                throw new GraphQLException("No se puede anular la transferencia: la caja " + caja
+                        + " ya no tiene saldo suficiente para devolver lo transferido.");
+            }
+            throw e;
+        }
+    }
+
+    private static java.time.LocalDateTime masVieja(java.time.LocalDateTime a, java.time.LocalDateTime b) {
+        if (a == null) return b;
+        if (b == null) return a;
+        return a.isBefore(b) ? a : b;
+    }
+
+    /**
+     * Límite de antigüedad para anular (CN4) medido sobre la fecha de un documento. Lo llama el módulo
+     * dueño al entrar, antes de tocar nada: {@link #revertir} mide cada movimiento, y un pago viejo con un
+     * cheque cobrado hace poco tiene el débito bancario dentro del límite.
+     */
+    public void requireDentroDelLimiteDeAnulacion(java.time.LocalDateTime fecha, String queCosa) {
+        limiteAnulacion.requireDentroDelLimite(fecha, queCosa);
     }
 
     /** Busca un movimiento para revertirlo. Lo usan los servicios dueños al anular su operación. */
@@ -237,9 +369,34 @@ public class TesoreriaService {
      * Genera el contra-movimiento que revierte el efecto de {@code orig} (ledger
      * inmutable, nunca se edita/borra el original). Sin el guard cross-módulo: lo
      * invoca el módulo dueño de la operación al anularla.
+     *
+     * <p>Un movimiento se revierte <b>una sola vez</b> (issue #376): se toma con lock y se rechaza si ya
+     * está inactivo. El control vive acá y no en cada módulo dueño porque acá es donde se postea el
+     * contra-movimiento: dos anulaciones simultáneas del mismo vale, entrada o pago leían las dos el
+     * documento sin anular y cada una devolvía la plata.</p>
      */
     @Transactional
     public MovimientoCajaVirtual revertir(MovimientoCajaVirtual orig, String motivo, Usuario usuario) {
+        if (orig.getId() == null) {
+            throw new GraphQLException("No se puede revertir un movimiento que no está registrado.");
+        }
+        // El permiso sobre la caja va antes de mirar el estado, igual que en anular(): quien no puede mover
+        // plata en esta caja no tiene por qué enterarse de si el movimiento ya está anulado, ni esperar su
+        // lock. registrar() lo vuelve a exigir al postear el contra-movimiento.
+        seguridad.requireEscrituraCaja(orig.getCajaVirtual() != null ? orig.getCajaVirtual().getId() : null);
+        // El lock serializa; el estado se lee después y de la base. lockById devuelve la instancia que el
+        // llamador ya tuviera cargada (casi siempre: la buscó para pasarla acá), con el activo de antes de
+        // esperar. Sin fila en la proyección vale el de la entidad; un activo nulo cuenta como activo.
+        movimientoRepository.lockById(orig.getId());
+        boolean activo = movimientoRepository.findActivoById(orig.getId())
+                .orElse(!Boolean.FALSE.equals(orig.getActivo()));
+        if (!activo) {
+            throw new GraphQLException("El movimiento #" + orig.getId() + " ya está anulado.");
+        }
+        // CN4 acá y no en cada módulo dueño, por lo mismo que el control de arriba: acá se postea el
+        // contra-movimiento. Estaba solo en anular(), y un pago o una operación de la misma fecha que un
+        // ingreso manual sí se podían anular (issue #370).
+        limiteAnulacion.requireDentroDelLimite(orig.getCreadoEn(), "El movimiento de caja #" + orig.getId());
         // Recomputa el efecto con BigDecimal (no restando los snapshots Double, que arrastran
         // error de punto flotante en monedas con decimales). El contra-movimiento es el negado.
         BigDecimal cantidadOrig = orig.getCantidad() != null ? BigDecimal.valueOf(orig.getCantidad()) : BigDecimal.ZERO;

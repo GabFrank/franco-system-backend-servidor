@@ -26,7 +26,7 @@ public class EntradaVariaService {
 
     private final EntradaVariaRepository repository;
     private final TesoreriaService tesoreriaService;
-    private final ComprobanteSerieService comprobanteSerieService;
+    private final ComprobanteNumeracionService comprobanteNumeracionService;
 
     public Optional<EntradaVaria> findById(Long id) { return repository.findById(id); }
 
@@ -46,9 +46,10 @@ public class EntradaVariaService {
         boolean esIngreso = Boolean.TRUE.equals(e.getEsIngreso());
         e.setUsuario(usuario);
         e.setAnulado(false);
-        if (e.getNumeroComprobante() == null) {
-            e.setNumeroComprobante(comprobanteSerieService.siguienteNumero("ENTRADA_VARIA"));
-        }
+        // Antes del save: el tipeado no puede repetirse, y vacío es «sin número» (el desktop manda ''), que
+        // se autonumera si hay serie (issue #376).
+        e.setNumeroComprobante(comprobanteNumeracionService.resolver("ENTRADA_VARIA", e.getNumeroComprobante(),
+                repository::existeComprobante, "una entrada varia"));
         EntradaVaria saved = repository.save(e);
 
         MovimientoCajaVirtual mov = new MovimientoCajaVirtual();
@@ -70,11 +71,16 @@ public class EntradaVariaService {
     /** Anula la entrada/salida y revierte su movimiento de caja. */
     @Transactional
     public EntradaVaria anular(Long id, String motivo, Usuario usuario) {
-        EntradaVaria e = repository.findById(id)
+        // Con lock: sin él, dos anulaciones simultáneas leían las dos la entrada sin anular (issue #376). El
+        // estado se relee después del lock y de la base: lockById devuelve la instancia que ya estuviera
+        // cargada en la request, con el anulado de antes de esperar.
+        EntradaVaria e = repository.lockById(id)
                 .orElseThrow(() -> new GraphQLException("Entrada varia no encontrada: " + id));
-        if (Boolean.TRUE.equals(e.getAnulado())) {
+        if (repository.findAnuladoById(id).orElse(Boolean.TRUE.equals(e.getAnulado()))) {
             throw new GraphQLException("La entrada/salida ya está anulada");
         }
+        // Límite de antigüedad sobre la fecha de la entrada (issue #370).
+        tesoreriaService.requireDentroDelLimiteDeAnulacion(e.getCreadoEn(), "La entrada/salida #" + id);
         // Reversión desde el módulo dueño (EntradaVaria), vía el helper sin guard cross-módulo.
         if (e.getMovimientoCajaVirtualId() != null) {
             MovimientoCajaVirtual orig = tesoreriaService.findMovimiento(e.getMovimientoCajaVirtualId());

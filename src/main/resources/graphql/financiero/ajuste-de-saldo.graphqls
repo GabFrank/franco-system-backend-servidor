@@ -1,0 +1,8 @@
+extend type Mutation {
+    """
+    Deja el saldo de (caja, moneda) en lo contado. saldoEsperado es el saldo que el cliente tenia en
+    pantalla: si ya no es ese, o si ya coincide con lo contado, se rechaza. La diferencia la calcula
+    el central.
+    """
+    ajustarCajaVirtualPorConteo(cajaVirtualId: ID!, monedaId: ID!, saldoEsperado: Float!, contado: Float!): MovimientoCajaVirtual!
+}

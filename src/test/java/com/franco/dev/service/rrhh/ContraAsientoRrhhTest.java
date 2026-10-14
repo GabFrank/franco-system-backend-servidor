@@ -98,7 +98,8 @@ class ContraAsientoRrhhTest {
         });
 
         TesoreriaService tesoreria = new TesoreriaService(saldoRepository, mock(TesoreriaSecurityService.class),
-                cajaVirtualRepository, mock(MonedaRepository.class), movimientoRepository, configRepository);
+                cajaVirtualRepository, mock(MonedaRepository.class), movimientoRepository,
+                new com.franco.dev.service.financiero.LimiteAnulacionService(configRepository));
         movimientoCajaVirtualService = new MovimientoCajaVirtualService(movimientoRepository, tesoreria);
 
         cajaVirtualService = mock(CajaVirtualService.class);

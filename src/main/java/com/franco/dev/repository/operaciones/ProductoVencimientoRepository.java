@@ -1,6 +1,7 @@
 package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.operaciones.ProductoVencimiento;
+import com.franco.dev.domain.operaciones.enums.TipoOrigenVencimiento;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,6 +15,9 @@ public interface ProductoVencimientoRepository extends HelperRepository<Producto
     default Class<ProductoVencimiento> getEntityClass() {
         return ProductoVencimiento.class;
     }
+
+    /** Vencimientos que genero un origen puntual (ej. el canje de un item de devolucion). */
+    List<ProductoVencimiento> findByTipoOrigenAndOrigenId(TipoOrigenVencimiento tipoOrigen, Long origenId);
 
     @Query("SELECT pv FROM ProductoVencimiento pv " +
            "WHERE pv.producto.id = :productoId AND pv.sucursal.id = :sucursalId " +

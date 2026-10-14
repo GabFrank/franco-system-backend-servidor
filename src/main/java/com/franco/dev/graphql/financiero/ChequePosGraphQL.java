@@ -27,17 +27,22 @@ public class ChequePosGraphQL implements GraphQLMutationResolver {
     private final TesoreriaSecurityService seg;
 
     public Cheque emitirCheque(Long chequeraId, Double total, Boolean diferido, Long monedaId,
-                               Long cuentaBancariaId, String fechaPago, String concepto) {
+                               Long cuentaBancariaId, String fechaPago, String concepto,
+                               String claveIdempotencia) {
         seg.requireGestionar();
         Cheque c = new Cheque();
         c.setChequera(chequeraRepository.findById(chequeraId).orElseThrow(() -> new GraphQLException("Chequera no encontrada")));
         c.setTotal(total);
         c.setDiferido(diferido);
         c.setConcepto(concepto);
-        if (monedaId != null) c.setMoneda(monedaService.findById(monedaId).orElse(null));
-        if (cuentaBancariaId != null) c.setCuentaBancaria(cuentaBancariaRepository.findById(cuentaBancariaId).orElse(null));
+        // Un id que no existe se rechaza: ignorarlo dejaba el cheque sin moneda o sin cuenta, y las
+        // validaciones de la emisión no tenían contra qué comparar.
+        if (monedaId != null) c.setMoneda(monedaService.findById(monedaId)
+                .orElseThrow(() -> new GraphQLException("Moneda no encontrada: " + monedaId)));
+        if (cuentaBancariaId != null) c.setCuentaBancaria(cuentaBancariaRepository.findById(cuentaBancariaId)
+                .orElseThrow(() -> new GraphQLException("Cuenta bancaria no encontrada: " + cuentaBancariaId)));
         if (fechaPago != null) c.setFechaPago(stringToDate(fechaPago));
-        return chequeGestionService.emitir(c, seg.currentUsuario());
+        return chequeGestionService.emitir(c, seg.currentUsuario(), claveIdempotencia);
     }
 
     public Cheque cobrarCheque(Long chequeId) {

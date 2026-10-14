@@ -116,6 +116,7 @@ La clase `com.franco.dev.config.UserDevPropertiesEnvironmentPostProcessor` (regi
 - **Multi-tenancy:** Schema-based via Hibernate (`config/multitenant/`)
 - **SIFEN:** Factura electronica (jsifenlib 0.2.4-frc.13, fork custom en GitHub Packages)
 - **`factura_legal` llega del filial con parciales y `total_final` NETOS del descuento** (el filial los calcula con `ParcialesCalculator`). Un reporte no les vuelve a restar `descuento`: el Excel de facturas (`FacturaLegalService.convertToDto`) escala cada parcial por `totalFinal / (p0+p5+p10)`, que da 1 si ya son netos y lleva al neto alguna factura vieja que quedo con parciales brutos.
+- **`factura_legal.activo` en NULL es ACTIVA.** Entre fines de 2025 y el fix de la filial (#131) las facturas se insertaron sin el flag y no hubo backfill: `NULL` y `true` son sinonimos, solo `false` es cancelada. Todo lector compara contra `false` (`IS NOT FALSE`, `Boolean.FALSE.equals`), nunca contra `true`. Y `activo` solo no dice si una electronica esta anulada: hay cancelaciones que solo tocan el documento, asi que anulada = `activo IS FALSE` o documento electronico `CANCELADO` (criterio del resumen fiscal y del filtro Estado del listado, `FacturaLegalSpecification`). `cancelarFacturaLegal` solo manda el evento a SIFEN si el documento esta `APROBADO`.
 - **Firebase:** Push notifications (Firebase Admin SDK 9.1.1)
 - **Google Drive:** Upload/storage de imagenes
 - **Reportes:** JasperReports 6.20.0, iTextPDF, Apache POI, ZXing (QR/barcode)
@@ -290,3 +291,45 @@ Si los tests fallan, NO abrir PR — comentar en el issue explicando el fallo.
 - `DROP TABLE`, `DROP COLUMN`, `RENAME COLUMN` sin estrategia 2 versiones
 - Nombre de artefacto `frc-central-server.jar`
 - Codigo de auth en `security/TokenController.java` o `security/jwt/JwtGenerator.java` (ver REPORTE_VULNERABILIDADES.md)
+
+## Correo de facturas (KuDE por correo)
+
+`FacturaCorreoService` envia el PDF de la factura (y el XML si es electronica) al correo guardado del cliente. Dos caminos:
+
+- **Automatico** (`FacturaCorreoScheduler`, cada minuto): facturas electronicas APROBADAS por SIFEN de las ultimas `factura.correo.ventana-horas` (48) cuyo cliente tiene correo. Sin correo no se envia. Una sola vez por factura: tabla central-only `financiero.factura_legal_correo` (V240.1).
+- **Manual**: mutation `enviarFacturaLegalPorCorreo`, desde "Enviar por correo" en el listado de facturas del desktop.
+
+Se sondea en vez de reaccionar a un evento porque las facturas llegan al central por replicacion logica, sin pasar por codigo de la aplicacion.
+
+**Configuracion.** El repo es publico: la contrasena NO va en `application.properties`. Sale de los secrets del repo (Settings > Secrets and variables > Actions) y cada deploy la escribe sola en `/opt/frc-backend-central/<instancia>/.env` (`deploy.yml` -> `deploy.sh`):
+
+| Tipo | Nombre | Valor |
+|---|---|---|
+| Secret | `MAIL_USERNAME` | cuenta que envia |
+| Secret | `MAIL_PASSWORD` | contrasena de aplicacion |
+| Variable (opcional) | `FACTURA_CORREO_ENABLED` | `false` para dejar solo el envio manual; sin la variable queda en `true` |
+
+Es la misma cuenta para **todas las instancias** (alpha, beta, farmacia, bodega), por decision del negocio. Para apagar el envio automatico en una sola, definir la variable `FACTURA_CORREO_ENABLED=false` en su environment de GitHub (`alpha`, `beta` o `production`). Sin los secrets no se envia nada y el `.env` no se toca.
+
+- `MAIL_HOST` (default `smtp.gmail.com`) y `MAIL_PORT` (default `587`) solo si no es Gmail.
+- En el primer deploy con el envio automatico prendido salen las facturas aprobadas de las ultimas 48 h que tengan correo.
+- **Pruebas de envio: solo con el cliente DIEGO PAULINHO AMARILLA MERCADO.** Las bases dev son copias de produccion con correos reales de clientes.
+
+## Control de stock negativo
+
+`operaciones.control_stock_negativo` guarda una fila por cada salida de un producto cuyo stock en la sucursal ya era 0 o negativo. La mira el equipo de inventario desde el desktop (Inventario > «Control de stock negativo»). Es **central-only**: no está en `configuraciones.replication_table` ni en ninguna publicación (`V243.1`).
+
+- **Transferencias**: `ControlStockNegativoService.registrarTransferencia`, llamado desde `saveTransferenciaItem` solo para ítems **nuevos** y que no salen de COMPRAS. Escribe por `JdbcTemplate` y nunca lanza: el central usa open-in-view y un `save` de JPA fallido dejaría detached el ítem recién guardado.
+- **Ventas**: `ControlStockNegativoScheduler` + `ControlStockNegativoProcesador`. Se sondea porque los movimientos llegan por replicación lógica, sin pasar por código de la aplicación. Cada 60 s, en hilo propio (las tareas `@Scheduled` comparten uno solo), con tope de 20 s por ciclo y de 60 s por sucursal. Cursor por sucursal sobre los movimientos `VENTA`, que hoy nacen todos en la filial (ids pares): si el central empezara a crearlos habría dos series bajo un mismo cursor.
+- **Sin carga retroactiva**: el cursor arranca en la última venta existente y no se registran ventas de más de 7 días. Se registra por **movimiento**, no por ítem.
+- **Apagado**: `INVENTARIO_CONTROL_STOCK_NEGATIVO_ENABLED=false` en el `.env` de la instancia (default encendido; apagado en `dev` y `ci`). El registro de transferencias no tiene interruptor.
+- **Acceso**: rol `VER INVENTARIO` o ADMIN, por `InventarioSecurityService` (issue #177). Ninguna migración siembra ese rol; existe en bodega y en farmacia (verificado el 2026-10-10).
+
+Qué significan los números:
+
+- `stock_previo` de una venta: suma de movimientos activos con `creado_en` anterior al de la venta. De una transferencia: el stock al **cargar** el ítem (en esa etapa no se descuenta) y `cantidad` es lo pedido.
+- El stock es el del central, no el que veía el cajero.
+- `stockActual` (GraphQL) se calcula por fila al pedirlo; no es una columna.
+- La fila es una foto: no se actualiza si la venta se anula, el movimiento cambia o el ítem se borra.
+
+Plan, verificación y límites conocidos: [docs/manuales-implementacion/operaciones/CONTROL-STOCK-NEGATIVO-PLAN.md](docs/manuales-implementacion/operaciones/CONTROL-STOCK-NEGATIVO-PLAN.md).

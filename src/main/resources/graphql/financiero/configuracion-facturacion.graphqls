@@ -28,7 +28,7 @@ type ConfiguracionFacturacion {
     ventaTicketRespetaPolitica: Boolean!
     "false = el filial la ignora (la sucursal sigue a la global) pero conserva sus valores."
     activo: Boolean!
-    "Quien la modifico por ultima vez. Solo el nickname: el tipo Usuario expone password."
+    "Quien la modifico por ultima vez. Solo el nickname: no hace falta el Usuario entero."
     usuarioNickname: String
     creadoEn: Date
     modificadoEn: Date

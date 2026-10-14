@@ -136,13 +136,14 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         }
     }
 
-    public Boolean cancelarRetiro(Long id, Long sucId) {
-        Retiro retiro = retiro(id, sucId);
-        if (retiro != null) {
-            return service.cancelarRetiro(retiro);
-        } else {
-            throw new GraphQLException("No se pudo cancelar el retiro");
-        }
+    /**
+     * {@code cancelar}: true cancela, false habilita; nulo (desktop anterior) cancela y nunca habilita.
+     * No se carga el retiro acá: el servicio lo toma con lock y lee su estado de la base.
+     */
+    public Boolean cancelarRetiro(Long id, Long sucId, Boolean cancelar) {
+        // El desktop solo muestra el botón a un ADMIN; el central no pedía nada.
+        seg.requireSuperusuario();
+        return service.cancelarRetiro(id, sucId, cancelar);
     }
 
     public Long countRetiro() {
@@ -151,8 +152,8 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     /** Retiros flotantes (replicados del PDV, sin caja mayor asignada). Filtro por sucursal, caja y fechas. */
     public Page<Retiro> retirosFlotantes(Long sucId, Long cajaId, String desde, String hasta,
-                                         Integer page, Integer size) {
-        seg.requireVer();
+                                         Integer page, Integer size, Long cajaVirtualDestinoId) {
+        seg.requireVerCaja();
         if (page == null) page = 0;
         if (size == null) size = 20;
         java.time.LocalDateTime desdeDt = (desde != null && !desde.isEmpty())
@@ -163,7 +164,7 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         if (hastaDt != null && hastaDt.toLocalTime().equals(java.time.LocalTime.MIDNIGHT)) {
             hastaDt = hastaDt.toLocalDate().atTime(java.time.LocalTime.MAX);
         }
-        return service.findFlotantes(sucId, cajaId, desdeDt, hastaDt, PageRequest.of(page, size));
+        return service.findFlotantes(sucId, cajaId, cajaVirtualDestinoId, desdeDt, hastaDt, PageRequest.of(page, size));
     }
 
     /** Asigna una caja mayor a un retiro flotante y lo postea (INGRESO) de inmediato. */

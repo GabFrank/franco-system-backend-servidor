@@ -440,9 +440,8 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
 
     /**
      * Evolucion del costo unitario de compra de un producto: serie por periodo + resumen calculado.
-     * Fuente: operaciones.compra_item (precio_unitario real de factura) unido a compra.
-     * Solo compras ACTIVAS (interfieren en stock), con precio > 0 y excluyendo bonificaciones
-     * (items regalados con precio 0 que distorsionarian el promedio).
+     * Fuente: productos.costo_por_producto y los movimientos de stock tipo COMPRA
+     * (ver obtenerCostoCompraProductoPorPeriodo).
      *
      * @param agrupacion "dia" agrupa por fecha; cualquier otro valor (por defecto) agrupa por mes.
      */

@@ -69,6 +69,8 @@ public class RrhhMobileService {
 
     // ---------- Consulta ----------
 
+    // ⚠️ Lo que se lista aca (funcionario por persona + PAGADA) es lo que
+    // LiquidacionSueldoService.esReciboPagadoDe deja abrir sin rol RRHH. Cambiar los dos juntos.
     @Transactional(readOnly = true)
     public List<LiquidacionSueldo> misRecibos(Long usuarioId) {
         Funcionario f = funcionarioDe(usuarioId);

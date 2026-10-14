@@ -4,6 +4,8 @@ import com.franco.dev.domain.operaciones.DevolucionItem;
 import com.franco.dev.repository.operaciones.DevolucionItemRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -24,6 +26,11 @@ public class DevolucionItemService extends CrudService<DevolucionItem, Devolucio
      */
     public List<DevolucionItem> findByDevolucionId(Long devolucionId) {
         return repository.findByDevolucionId(devolucionId);
+    }
+
+    /** Ítems de una devolución por página, los últimos cargados primero. */
+    public Page<DevolucionItem> findPageByDevolucionId(Long devolucionId, Pageable pageable) {
+        return repository.findPageByDevolucionId(devolucionId, pageable);
     }
 
     /**

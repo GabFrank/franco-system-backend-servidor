@@ -27,6 +27,37 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
     @Query("select m from MovimientoCajaVirtual m where m.id = :id")
     Optional<MovimientoCajaVirtual> lockById(@Param("id") Long id);
 
+    /**
+     * Solo si sigue activo, leido de la base: si el movimiento ya estaba en el contexto de persistencia,
+     * {@link #lockById} espera el lock pero devuelve esa instancia sin refrescar (estado viejo). Se llama
+     * <b>despues</b> del lock; antes, leeria lo mismo que la carrera que se quiere cortar.
+     */
+    @Query("select coalesce(m.activo, true) from MovimientoCajaVirtual m where m.id = :id")
+    Optional<Boolean> findActivoById(@Param("id") Long id);
+
+    /**
+     * Ids de los ingresos <b>activos</b> del cierre de un maletín en una moneda: la marca de que ese cierre
+     * ya entró a la caja mayor. El cierre es la caja de PDV (id + sucursal: su clave es compuesta). Los
+     * ingresos de maletín hechos a mano no llevan sucursal de origen y no aparecen acá.
+     */
+    @Query("select m.id from MovimientoCajaVirtual m "
+            + "where m.origenTipo = com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo.MALETIN "
+            + "and m.tipoMovimiento = com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento.INGRESO "
+            + "and m.origenId = :maletinId and m.referenciaId = :cajaId and m.origenSucursalId = :sucursalId "
+            + "and m.moneda.id = :monedaId and coalesce(m.activo, true) = true order by m.id")
+    java.util.List<Long> findIngresosDeCierreDeMaletin(@Param("maletinId") Long maletinId, @Param("cajaId") Long cajaId,
+                                                       @Param("sucursalId") Long sucursalId, @Param("monedaId") Long monedaId);
+
+    /** Los datos de vínculo de un movimiento, sin cargar la entidad (ver {@link MovimientoCajaVirtualVinculo}). */
+    @Query("select new com.franco.dev.repository.financiero.MovimientoCajaVirtualVinculo("
+            + "m.id, m.tipoMovimiento, m.origenTipo, cv.id, co.id, cd.id, mo.id, m.cantidad, m.referenciaId, m.creadoEn) "
+            + "from MovimientoCajaVirtual m join m.cajaVirtual cv left join m.cajaOrigen co "
+            + "left join m.cajaDestino cd left join m.moneda mo where m.id = :id")
+    Optional<MovimientoCajaVirtualVinculo> findVinculoById(@Param("id") Long id);
+
+    /** ¿Existe el contra-movimiento de este movimiento? Un inactivo sin contra es un dato roto, no una anulación. */
+    boolean existsByOrigenTipoAndOrigenId(OrigenMovimientoTipo origenTipo, Long origenId);
+
     Page<MovimientoCajaVirtual> findByCajaVirtualIdOrderByCreadoEnDesc(Long cajaVirtualId, Pageable pageable);
 
     Page<MovimientoCajaVirtual> findByCajaVirtualIdAndCreadoEnBetweenOrderByCreadoEnDesc(
@@ -34,8 +65,12 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
 
     List<MovimientoCajaVirtual> findByCajaVirtualIdAndActivoTrue(Long cajaVirtualId);
 
-    /** Patas de caja activas de una operación dueña (para revertir todas al anularla). */
-    List<MovimientoCajaVirtual> findByOrigenTipoAndOrigenIdAndActivoTrue(OrigenMovimientoTipo origenTipo, Long origenId);
+    /**
+     * Patas de caja activas de una operación dueña (para revertir todas al anularla), por caja ascendente:
+     * el mismo orden en que se postearon, para que dos anulaciones no tomen los saldos cruzados.
+     */
+    List<MovimientoCajaVirtual> findByOrigenTipoAndOrigenIdAndActivoTrueOrderByCajaVirtualIdAscIdAsc(
+            OrigenMovimientoTipo origenTipo, Long origenId);
 
     /**
      * Igual que el anterior pero acotado a la sucursal del documento de origen.

@@ -289,7 +289,7 @@ class DevolucionOperacionesTest {
     @Test
     void revertir_estadoNoReversible_lanza() {
         DevolucionRepository repo = mock(DevolucionRepository.class);
-        Devolucion d = dev(1L, DevolucionEstado.CANJEADO, sucursal(10));
+        Devolucion d = dev(1L, DevolucionEstado.ACREDITADO, sucursal(10));
         when(repo.findById(1L)).thenReturn(Optional.of(d));
         DevolucionService service = build(repo, null, mock(ApplicationContext.class));
         assertThrows(GraphQLException.class, () -> service.revertirEstado(1L, null));

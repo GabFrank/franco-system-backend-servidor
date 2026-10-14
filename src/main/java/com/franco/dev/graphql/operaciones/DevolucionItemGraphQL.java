@@ -1,9 +1,13 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.domain.operaciones.Devolucion;
 import com.franco.dev.domain.operaciones.DevolucionItem;
+import com.franco.dev.domain.operaciones.Lote;
 import com.franco.dev.graphql.operaciones.input.DevolucionItemInput;
+import com.franco.dev.service.operaciones.DevolucionEdicionValidator;
 import com.franco.dev.service.operaciones.DevolucionItemService;
 import com.franco.dev.service.operaciones.DevolucionService;
+import com.franco.dev.service.operaciones.LoteService;
 import com.franco.dev.service.operaciones.RecepcionMercaderiaItemService;
 import com.franco.dev.service.productos.ProductoService;
 import graphql.GraphQLException;
@@ -30,6 +34,9 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
 
     @Autowired
     private DevolucionService devolucionService;
+
+    @Autowired
+    private LoteService loteService;
 
     @Autowired
     private ProductoService productoService;
@@ -109,6 +116,28 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
         logger.info("=== Starting DevolucionItem save operation ===");
         
         try {
+            // El estado se lee de la devolucion de la fila (si el item ya existe), no del input.
+            DevolucionItem existente = null;
+            if (input.getId() != null) {
+                existente = service.findById(input.getId())
+                        .orElseThrow(() -> new GraphQLException("Item de devolucion no encontrado con ID: " + input.getId()));
+            }
+            Devolucion devolucion = existente != null ? existente.getDevolucion() : null;
+            if (devolucion == null) {
+                if (input.getDevolucionId() == null) {
+                    throw new GraphQLException("devolucionId es requerido");
+                }
+                devolucion = devolucionService.findById(input.getDevolucionId())
+                        .orElseThrow(() -> new GraphQLException("Devolucion no encontrada con ID: " + input.getDevolucionId()));
+            }
+            if (existente != null && DevolucionEdicionValidator.admiteDatosDeCanje(devolucion.getEstado())) {
+                return guardarDatosDeCanje(existente, input);
+            }
+            String errorEdicion = DevolucionEdicionValidator.validarEdicion(devolucion.getEstado());
+            if (errorEdicion != null) {
+                throw new GraphQLException(errorEdicion);
+            }
+
             DevolucionItem entity = new DevolucionItem();
 
             // Map basic fields
@@ -126,10 +155,7 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
             }
 
             // Map navigation properties
-            if (input.getDevolucionId() != null) {
-                entity.setDevolucion(devolucionService.findById(input.getDevolucionId())
-                    .orElseThrow(() -> new GraphQLException("Devolucion no encontrada con ID: " + input.getDevolucionId())));
-            }
+            entity.setDevolucion(devolucion);
 
             if (input.getProductoId() != null) {
                 entity.setProducto(productoService.findById(input.getProductoId())
@@ -150,6 +176,36 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
                 double factor = entity.getPresentacion() != null && entity.getPresentacion().getCantidad() != null
                         ? entity.getPresentacion().getCantidad() : 1.0;
                 entity.setCostoUnitario(resolverCostoMedio(prodId) * factor);
+            }
+
+            // Lote del maestro: tiene que existir y ser de este producto. Su numero pasa al
+            // texto del item (lo que muestran pantallas y etiquetas) y, si el item no trae
+            // vencimiento, tambien el suyo.
+            // Solo para productos con control de lote: en el resto el lote es texto libre, y un
+            // lote_id guardado empezaria a mandar en la baja si mas adelante se activa el control.
+            boolean llevaLote = entity.getProducto() != null
+                    && Boolean.TRUE.equals(entity.getProducto().getLote());
+            if (input.getLoteId() != null && llevaLote) {
+                Lote loteMaestro = loteService.findById(input.getLoteId())
+                        .orElseThrow(() -> new GraphQLException("Lote no encontrado con ID: " + input.getLoteId()));
+                Long productoDelLote = loteMaestro.getProducto() != null ? loteMaestro.getProducto().getId() : null;
+                if (entity.getProducto() == null || !entity.getProducto().getId().equals(productoDelLote)) {
+                    throw new GraphQLException("El lote " + loteMaestro.getNumeroLote() + " no es de este producto");
+                }
+                entity.setLoteMaestro(loteMaestro);
+                entity.setLote(loteMaestro.getNumeroLote());
+                if (entity.getVencimiento() == null) {
+                    entity.setVencimiento(loteMaestro.getFechaVencimiento());
+                }
+            } else if (llevaLote && existente != null && existente.getLoteMaestro() != null
+                    && existente.getProducto() != null
+                    && existente.getProducto().getId().equals(entity.getProducto().getId())
+                    && existente.getLoteMaestro().getNumeroLote().equals(
+                            LoteService.normalizarNumeroLote(input.getLote()))) {
+                // Un cliente que todavia no conoce loteId reenvia el item con el mismo texto de
+                // lote: se conserva el lote elegido en vez de borrarlo. Si cambio el texto o el
+                // producto, se toma como que lo cambio a mano y el item queda sin lote del maestro.
+                entity.setLoteMaestro(existente.getLoteMaestro());
             }
 
             if (input.getMotivoAveriaId() != null) {
@@ -176,9 +232,39 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
         }
     }
 
+    /**
+     * Con la devolucion RETIRADA, de un item solo se cargan los datos del canje. El resto
+     * del input se ignora: lo que salio del stock al separar no puede cambiar.
+     */
+    private DevolucionItem guardarDatosDeCanje(DevolucionItem item, DevolucionItemInput input) {
+        String producto = item.getProducto() != null ? item.getProducto().getDescripcion() : "el item";
+        String error = DevolucionEdicionValidator.validarReingreso(
+                item.getCantidad(), input.getCantidadReingresada(), producto);
+        if (error != null) {
+            throw new GraphQLException(error);
+        }
+        item.setCantidadReingresada(input.getCantidadReingresada());
+        item.setVencimientoReingreso(input.getVencimientoReingreso() != null
+                ? stringToDate(input.getVencimientoReingreso()).toLocalDate() : null);
+        // Se guarda normalizado, igual que el maestro de lotes, para que al canjear caiga en el
+        // mismo lote si ya existia.
+        // Un cliente que no conoce el campo no lo manda: se conserva lo que habia.
+        if (input.getLoteReingreso() != null) {
+            item.setLoteReingreso(LoteService.normalizarNumeroLote(input.getLoteReingreso()));
+        }
+        return service.save(item);
+    }
+
     public Boolean deleteDevolucionItem(Long id) {
         logger.info("Eliminando DevolucionItem con ID: {}", id);
         try {
+            DevolucionItem item = service.findById(id).orElse(null);
+            if (item != null && item.getDevolucion() != null) {
+                String errorEdicion = DevolucionEdicionValidator.validarEdicion(item.getDevolucion().getEstado());
+                if (errorEdicion != null) {
+                    throw new GraphQLException(errorEdicion);
+                }
+            }
             return service.deleteById(id);
         } catch (Exception ex) {
             logger.error("Error al eliminar DevolucionItem: {}", ex.getMessage());

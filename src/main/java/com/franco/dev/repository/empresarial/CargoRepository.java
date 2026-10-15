@@ -23,8 +23,8 @@ public interface CargoRepository extends HelperRepository<Cargo, Long> {
     @Query("select p from Cargo p where CAST(id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(p.descripcion) like %?1%")
     public List<Cargo> findByAll(String texto);
 
-    /** Lista de cargos del ABM: mismo filtro que findByAll, paginado y ordenado por nombre. */
-    @Query(value = "select p from Cargo p where CAST(p.id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(p.descripcion) like %?1% order by p.nombre",
+    /** Lista de cargos del ABM: mismo filtro que findByAll, paginado, el ultimo creado primero. */
+    @Query(value = "select p from Cargo p where CAST(p.id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(p.descripcion) like %?1% order by p.id desc",
             countQuery = "select count(p) from Cargo p where CAST(p.id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(p.descripcion) like %?1%")
     Page<Cargo> findByAllWithPage(String texto, Pageable pageable);
 

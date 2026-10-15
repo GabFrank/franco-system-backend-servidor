@@ -15,7 +15,11 @@ public class SugerenciasImagen {
     private String codigoDescartado;
     /** Texto que se buscó. */
     private String texto;
+    /** «pack x 12» si la presentación es de varias unidades; null si no. */
+    private String pack;
     private List<ImagenSugerida> porCodigo = new ArrayList<>();
+    /** Solo con {@code pack}: las que nombran la cantidad en el título o la página. */
+    private List<ImagenSugerida> porPack = new ArrayList<>();
     private List<ImagenSugerida> porDescripcion = new ArrayList<>();
     /** Fuentes que no respondieron o no están configuradas, para mostrar al usuario. */
     private List<String> avisos = new ArrayList<>();

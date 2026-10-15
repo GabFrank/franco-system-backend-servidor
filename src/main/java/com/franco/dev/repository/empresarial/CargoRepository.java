@@ -3,6 +3,8 @@ package com.franco.dev.repository.empresarial;
 import com.franco.dev.domain.empresarial.Cargo;
 import com.franco.dev.domain.general.Ciudad;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
@@ -20,6 +22,11 @@ public interface CargoRepository extends HelperRepository<Cargo, Long> {
 
     @Query("select p from Cargo p where CAST(id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(p.descripcion) like %?1%")
     public List<Cargo> findByAll(String texto);
+
+    /** Lista de cargos del ABM: mismo filtro que findByAll, paginado y ordenado por nombre. */
+    @Query(value = "select p from Cargo p where CAST(p.id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(p.descripcion) like %?1% order by p.nombre",
+            countQuery = "select count(p) from Cargo p where CAST(p.id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(p.descripcion) like %?1%")
+    Page<Cargo> findByAllWithPage(String texto, Pageable pageable);
 
 //    public List<Pais> findBySubFamiliaId(Long id);
 

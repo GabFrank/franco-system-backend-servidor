@@ -6,6 +6,8 @@ import com.franco.dev.repository.empresarial.CargoRepository;
 import com.franco.dev.repository.general.CiudadRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -35,6 +37,12 @@ public class CargoService extends CrudService<Cargo, CargoRepository, Long> {
     public List<Cargo> findByAll(String texto){
         texto = texto.replace(' ', '%');
         return  repository.findByAll(texto.toUpperCase());
+    }
+
+    /** Sin texto filtra por "%%", o sea trae todos: una sola query para los dos casos. */
+    public Page<Cargo> findByAllWithPage(String texto, Pageable pageable){
+        texto = texto == null ? "" : texto.trim().replace(' ', '%');
+        return repository.findByAllWithPage(texto.toUpperCase(), pageable);
     }
 
     @Override

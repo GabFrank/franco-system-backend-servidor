@@ -14,6 +14,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -52,6 +53,11 @@ public class CargoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
     public List<Cargo> cargosSearch(String texto){
         return service.findByAll(texto);
+    }
+
+    /** Lista del ABM de cargos. cargos/cargosSearch siguen para los selectores. */
+    public Page<Cargo> cargosWithPage(int page, int size, String texto){
+        return service.findByAllWithPage(texto, PageRequest.of(page, size));
     }
 
 

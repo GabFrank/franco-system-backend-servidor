@@ -26,7 +26,7 @@ public class EntradaVariaService {
 
     private final EntradaVariaRepository repository;
     private final TesoreriaService tesoreriaService;
-    private final ComprobanteSerieService comprobanteSerieService;
+    private final ComprobanteNumeracionService comprobanteNumeracionService;
 
     public Optional<EntradaVaria> findById(Long id) { return repository.findById(id); }
 
@@ -46,9 +46,10 @@ public class EntradaVariaService {
         boolean esIngreso = Boolean.TRUE.equals(e.getEsIngreso());
         e.setUsuario(usuario);
         e.setAnulado(false);
-        if (e.getNumeroComprobante() == null) {
-            e.setNumeroComprobante(comprobanteSerieService.siguienteNumero("ENTRADA_VARIA"));
-        }
+        // Antes del save: el tipeado no puede repetirse, y vacío es «sin número» (el desktop manda ''), que
+        // se autonumera si hay serie (issue #376).
+        e.setNumeroComprobante(comprobanteNumeracionService.resolver("ENTRADA_VARIA", e.getNumeroComprobante(),
+                repository::existeComprobante, "una entrada varia"));
         EntradaVaria saved = repository.save(e);
 
         MovimientoCajaVirtual mov = new MovimientoCajaVirtual();

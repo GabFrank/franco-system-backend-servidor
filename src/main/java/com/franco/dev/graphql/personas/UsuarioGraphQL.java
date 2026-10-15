@@ -81,7 +81,7 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
                     ? service.findById(input.getId()).map(Usuario::getActivo).orElse(true)
                     : true);
         }
-        e = service.save(e);
+        e = service.save(e, Boolean.TRUE.equals(input.getRespetarClave()));
         return e;
     }
 

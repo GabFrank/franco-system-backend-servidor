@@ -4,6 +4,7 @@ import com.franco.dev.domain.administrativo.Jornada;
 import com.franco.dev.domain.administrativo.Marcacion;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.service.administrativo.JornadaService;
 import com.franco.dev.service.administrativo.MarcacionService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLResolver;
@@ -18,6 +19,25 @@ public class JornadaResolver implements GraphQLResolver<Jornada> {
 
     @Autowired
     private MarcacionService marcacionService;
+
+    @Autowired
+    private JornadaService jornadaService;
+
+    public Integer minutosLlegadaTardiaTotal(Jornada jornada) {
+        return jornadaService.minutosLlegadaTardiaTotal(jornada);
+    }
+
+    public Integer distanciaMaximaMetros(Jornada jornada) {
+        return jornadaService.distanciaMaximaMetros(jornada);
+    }
+
+    public Boolean tieneUbicacion(Jornada jornada) {
+        return jornadaService.tieneUbicacion(jornada);
+    }
+
+    public Boolean puedeAjustarA8Horas(Jornada jornada) {
+        return jornadaService.puedeAjustarA8Horas(jornada);
+    }
 
     public Usuario usuario(Jornada jornada) {
         if (jornada.getUsuario() != null && jornada.getUsuario().getId() != null) {

@@ -35,6 +35,24 @@ public interface SolicitudPagoRepository extends HelperRepository<SolicitudPago,
 
     java.util.List<SolicitudPago> findByEstadoIn(java.util.List<com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado> estados);
 
+    /**
+     * Solicitudes pagables asignadas a alguna de estas cajas. {@code compras} elige entre las de compra
+     * (incluye las viejas sin tipo) y las de gasto; las de RRHH nunca entran. {@code cajaIds} no puede
+     * venir vacía: sin cajas el servicio no consulta.
+     */
+    @Query("select s from SolicitudPago s where s.estado in :estados and s.cajaVirtualAsignadaId in :cajaIds "
+            + "and ((:compras = true and (s.tipo is null or s.tipo = com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.COMPRA)) "
+            + " or (:compras = false and s.tipo = com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO)) "
+            + "order by s.id")
+    java.util.List<SolicitudPago> findAsignadasACajas(
+            @Param("estados") java.util.List<com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado> estados,
+            @Param("cajaIds") java.util.List<Long> cajaIds, @Param("compras") boolean compras);
+
+    /** Las solicitudes de un tipo que cargó un usuario: los gastos pagables del rol acotado de tesorería. */
+    java.util.List<SolicitudPago> findByEstadoInAndTipoAndUsuario_Id(
+            java.util.List<com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado> estados,
+            com.franco.dev.domain.operaciones.enums.TipoSolicitudPago tipo, Long usuarioId);
+
     public List<SolicitudPago> findByUsuarioId(Long id);
     
     // public SolicitudPago findByTipoAndReferenciaId(TipoSolicitudPago tipo, Long referenciaId);
@@ -90,5 +108,13 @@ public interface SolicitudPagoRepository extends HelperRepository<SolicitudPago,
     //         LocalDateTime fechaInicio,
     //         LocalDateTime fechaFin,
     //         Pageable pageable);
-}
 
+    /**
+     * Próximo número de solicitud ({@code SP-…}), de la secuencia. Declara transacción de <b>escritura</b>:
+     * los métodos de consulta de un repositorio son de solo lectura por defecto, y nextval escribe. Hoy
+     * todos los que llegan acá ya vienen dentro de una transacción de escritura; esto lo deja explícito.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    @Query(value = "SELECT nextval('operaciones.solicitud_pago_numero_seq')", nativeQuery = true)
+    Long siguienteNumero();
+}

@@ -26,6 +26,7 @@ class ChequeYChequeraGraphQLSeguridadTest {
     @Mock private TesoreriaSecurityService seg;
     @Mock private ChequeService chequeService;
     @Mock private ChequeraService chequeraService;
+    @Mock private com.franco.dev.service.financiero.ChequeraGestionService chequeraGestionService;
 
     @InjectMocks private ChequeGraphQL chequeGraphQL;
     @InjectMocks private ChequeraGraphQL chequeraGraphQL;
@@ -85,5 +86,30 @@ class ChequeYChequeraGraphQLSeguridadTest {
 
         assertNotNull(chequeraGraphQL.chequerasPorCuenta(1L, true));
         verify(seg).requireVer();
+    }
+
+    @Test
+    void con_rol_guardar_una_chequera_pasa_por_el_servicio_con_el_usuario_de_la_sesion() {
+        com.franco.dev.domain.personas.Usuario sesion = new com.franco.dev.domain.personas.Usuario();
+        doNothing().when(seg).requireGestionar();
+        when(seg.currentUsuario()).thenReturn(sesion);
+        com.franco.dev.graphql.financiero.input.ChequeraInput in = new com.franco.dev.graphql.financiero.input.ChequeraInput();
+
+        chequeraGraphQL.saveChequera(in);
+
+        verify(chequeraGestionService).guardar(in, sesion);
+    }
+
+    @Test
+    void con_rol_editar_o_borrar_un_cheque_a_mano_igual_se_rechaza() {
+        // Issue #376: saveCheque y deleteCheque dejaban escribir cualquier número y borrar un cheque emitido.
+        doNothing().when(seg).requireGestionar();
+
+        GraphQLException guardar = assertThrows(GraphQLException.class, () -> chequeGraphQL.saveCheque(new ChequeInput()));
+        GraphQLException borrar = assertThrows(GraphQLException.class, () -> chequeGraphQL.deleteCheque(1L));
+
+        org.junit.jupiter.api.Assertions.assertTrue(guardar.getMessage().contains("no se editan ni se borran"), guardar.getMessage());
+        org.junit.jupiter.api.Assertions.assertTrue(borrar.getMessage().contains("no se editan ni se borran"), borrar.getMessage());
+        org.mockito.Mockito.verifyNoInteractions(chequeService);
     }
 }

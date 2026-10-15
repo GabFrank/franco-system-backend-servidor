@@ -13,6 +13,10 @@ public class DevolucionItemInput {
     private Double cantidad;
     private String motivo;
     private String lote;
+    /** Lote del maestro elegido para el item (productos con control de lote). */
+    private Long loteId;
+    /** Numero del lote que entrega el proveedor en un canje. */
+    private String loteReingreso;
     private String vencimiento;
     private Double costoUnitario;
     private Double cantidadReingresada;

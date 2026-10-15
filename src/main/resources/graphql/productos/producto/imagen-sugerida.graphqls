@@ -1,0 +1,52 @@
+# Fotos de internet sugeridas para una presentacion (por codigo de barras y por descripcion).
+type ImagenSugerida {
+    # Tamano completo: la que se descarga al elegirla.
+    url: String!
+    miniatura: String!
+    # null si la fuente no informa el tamano.
+    ancho: Int
+    alto: Int
+    titulo: String
+    sitio: String
+    # Pagina donde esta la foto.
+    pagina: String
+    # OPEN_FOOD_FACTS, BING, BRAVE o BRAVE_WEB
+    fuente: String!
+    # Es el producto del codigo buscado (Open Food Facts, o la foto/pagina nombra el codigo).
+    exacta: Boolean
+    # Solo BRAVE_WEB: se pasa a imagenesParecidasDe para buscar fotos visualmente parecidas.
+    similares: String
+}
+
+type SugerenciasImagen {
+    # Codigo que se busco; null si la presentacion no tiene uno comercial.
+    codigo: String
+    # Codigo interno (2199..., balanza, etc.) que no se busco porque no existe fuera del local.
+    codigoDescartado: String
+    texto: String!
+    # "pack x 12" si la presentacion es de varias unidades; null si no.
+    pack: String
+    porCodigo: [ImagenSugerida!]!
+    # Solo con pack: fotos cuyo titulo o pagina nombran la cantidad.
+    porPack: [ImagenSugerida!]!
+    porDescripcion: [ImagenSugerida!]!
+    avisos: [String!]!
+}
+
+type ParecidasImagen {
+    imagenes: [ImagenSugerida!]!
+    # La foto no estaba en Brave: son parecidas a la primera foto de Brave con su titulo.
+    aproximada: Boolean!
+    # Brave no respondio: son de Bing buscando el titulo de la foto.
+    porTexto: Boolean!
+}
+
+extend type Query {
+    # codigo null = el de la presentacion, "" = no buscar por codigo; texto null = producto + presentacion.
+    sugerenciasImagenPresentacion(presentacionId: ID!, codigo: String, texto: String): SugerenciasImagen!
+    # Baja una de las fotos devueltas por sugerenciasImagenPresentacion y la devuelve como data URL.
+    descargarImagenSugerida(url: String!): String!
+    # Parecidas a una foto sugerida: Brave visual (con su similares, o ubicandola por el titulo) y, si Brave
+    # no responde, Bing con el titulo. texto = titulo limpio de la foto.
+    imagenesParecidasDe(url: String!, texto: String, similares: String): ParecidasImagen!
+}

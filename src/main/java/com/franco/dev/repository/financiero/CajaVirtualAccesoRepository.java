@@ -27,4 +27,33 @@ public interface CajaVirtualAccesoRepository extends JpaRepository<CajaVirtualAc
             + "   or exists (select 1 from CajaVirtualAcceso a "
             + "              where a.cajaVirtual.id = c.id and a.usuario.id = :usuarioId and a.puedeLeer = true)")
     List<Long> cajasVisiblesIds(@Param("usuarioId") Long usuarioId);
+
+    /** Ids de las cajas que el usuario puede mover: las propias y las que tiene con escritura otorgada. */
+    @Query("select c.id from CajaVirtual c "
+            + "where c.usuario.id = :usuarioId "
+            + "   or exists (select 1 from CajaVirtualAcceso a "
+            + "              where a.cajaVirtual.id = c.id and a.usuario.id = :usuarioId and a.puedeEscribir = true)")
+    List<Long> cajasEscribiblesIds(@Param("usuarioId") Long usuarioId);
+
+    /**
+     * Sucursales que cubren las cajas que el usuario puede mover (propias o con escritura otorgada): la
+     * sucursal de cada caja más sus adicionales ({@code CajaVirtualSucursal}). Una caja sin sucursal ni
+     * adicionales no aporta.
+     */
+    @Query("select s.id from Sucursal s where exists ("
+            + "  select 1 from CajaVirtual c "
+            + "  where (c.sucursal.id = s.id "
+            + "         or exists (select 1 from CajaVirtualSucursal cs "
+            + "                    where cs.cajaVirtual.id = c.id and cs.sucursal.id = s.id)) "
+            + "    and (c.usuario.id = :usuarioId "
+            + "         or exists (select 1 from CajaVirtualAcceso a "
+            + "                    where a.cajaVirtual.id = c.id and a.usuario.id = :usuarioId and a.puedeEscribir = true)))")
+    List<Long> sucursalesOperablesIds(@Param("usuarioId") Long usuarioId);
+
+    /** Sucursales que cubre una caja: la propia más las adicionales. */
+    @Query("select s.id from Sucursal s "
+            + "where exists (select 1 from CajaVirtual c where c.id = :cajaId and c.sucursal.id = s.id) "
+            + "   or exists (select 1 from CajaVirtualSucursal cs "
+            + "              where cs.cajaVirtual.id = :cajaId and cs.sucursal.id = s.id)")
+    List<Long> sucursalesDeCajaIds(@Param("cajaId") Long cajaId);
 }

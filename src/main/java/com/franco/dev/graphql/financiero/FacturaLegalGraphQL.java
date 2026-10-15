@@ -8,6 +8,7 @@ import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.financiero.FacturaLegalItem;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
 import com.franco.dev.domain.financiero.dto.ResumenFacturasDto;
+import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.domain.operaciones.Delivery;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.personas.Cliente;
@@ -21,10 +22,12 @@ import com.franco.dev.service.financiero.DocumentoElectronicoService;
 import com.franco.dev.service.financiero.FacturaLegalItemService;
 import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.financiero.FacturaLegalFilialService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.financiero.TimbradoDetalleService;
 import com.franco.dev.graphql.financiero.dto.SaveFacturaLegalToFilialResponse;
 import com.franco.dev.service.financiero.dto.FacturaLegalFilialResponse;
 import com.franco.dev.service.sifen.SifenEventoService;
+import com.franco.dev.service.sifen.util.SifenTimbradoHelper;
 import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.operaciones.CobroDetalleService;
 import com.franco.dev.service.operaciones.DeliveryService;
@@ -90,6 +93,9 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Autowired
     private FacturaLegalService service;
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private com.franco.dev.service.financiero.FacturaSimilarService facturaSimilarService;
@@ -1367,7 +1373,52 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return null;
     }
 
+    /**
+     * Devuelve el mensaje de error si el documento electronico no esta APROBADO, o null si se puede
+     * seguir. Solo se cancela en SIFEN lo que SIFEN aprobo: con un DE pendiente, en lote o rechazado
+     * el evento puede quedar PENDIENTE sin excepcion, y el resolver seguia hasta cancelar la venta o
+     * marcar la factura inactiva sobre un documento que nunca valio. Sin DE no se bloquea nada.
+     */
+    String validarEstadoParaCancelar(Long facturaLegalId, Long sucursalId) {   // visible para el test
+        java.util.Optional<DocumentoElectronico> de =
+                documentoElectronicoService.findByFacturaLegalId(facturaLegalId, sucursalId);
+        if (!de.isPresent() || de.get().getEstado() == null
+                || de.get().getEstado() == com.franco.dev.domain.financiero.enums.EstadoDE.APROBADO) {
+            return null;
+        }
+        if (de.get().getEstado() == com.franco.dev.domain.financiero.enums.EstadoDE.CANCELADO) {
+            return "ERROR: La factura ya está cancelada";
+        }
+        return "ERROR: El documento electrónico está " + de.get().getEstado()
+                + ". Solo se puede cancelar una factura aprobada por SIFEN.";
+    }
+
+    /**
+     * cancelarVenta alterna: llamarlo sobre una venta ya cancelada la reactiva. Pasa cuando la venta
+     * se cancelo antes y su factura quedo activa (documento sin aprobar, o SIFEN no acepto el
+     * evento): al cancelar despues la factura "con la venta", la venta volvia a CONCLUIDA.
+     */
+    private static boolean ventaPorCancelar(FacturaLegal factura) {
+        return factura.getVenta() != null && factura.getVenta().getEstado() != VentaEstado.CANCELADA;
+    }
+
+    /**
+     * Telefono del emisor que imprime el KuDE de factura: el mismo que viaja en el XML (dTelEmi),
+     * para que el impreso coincida con el documento electronico.
+     */
+    static String telefonoEmisorKude(TimbradoDetalle detalle) {
+        String telefono = SifenTimbradoHelper.telefonoEmisor(detalle);
+        return telefono != null ? telefono : "";
+    }
+
+    private static String notaSobreLaVenta(FacturaLegal factura) {
+        boolean yaCancelada = factura.getVenta() != null && factura.getVenta().getEstado() == VentaEstado.CANCELADA;
+        return yaCancelada ? "(la venta ya estaba cancelada)" : "(venta mantiene activa)";
+    }
+
     public String cancelarFacturaLegal(Long facturaLegalId, Long sucursalId, Boolean cancelarVenta) {
+        // Fuera del try a proposito: adentro el catch lo devolveria como un string "ERROR: ..." (issue #340).
+        seg.requireCancelarVenta();
         try {
             // Buscar la factura
             FacturaLegal factura = service.findByIdAndSucursalId(facturaLegalId, sucursalId);
@@ -1384,6 +1435,11 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             boolean esElectronica = factura.getCdc() != null && !factura.getCdc().isEmpty();
 
             if (esElectronica) {
+                String estado = validarEstadoParaCancelar(facturaLegalId, sucursalId);
+                if (estado != null) {
+                    return estado;
+                }
+
                 // SIFEN solo acepta el evento de cancelacion dentro de las 48 h de la aprobacion.
                 // Pasado ese plazo la unica via es una nota de credito, y conviene decirlo aca en
                 // vez de esperar el rechazo: el cliente ofrece emitirla al ver ERROR_PLAZO_NC.
@@ -1399,8 +1455,9 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
                     // SIFEN aceptó el evento (puede estar PENDIENTE o APROBADO)
                     // Si también quiere cancelar la venta
-                    if (cancelarVenta && factura.getVenta() != null) {
-                        boolean ventaCancelada = ventaService.cancelarVenta(factura.getVenta());
+                    if (cancelarVenta && ventaPorCancelar(factura)) {
+                        // true: el evento ya se mando recien; sin esto cancelarVenta lo reenviaba.
+                        boolean ventaCancelada = ventaService.cancelarVenta(factura.getVenta(), true);
                         if (ventaCancelada) {
                             return "EXITO: Factura electrónica cancelada y venta cancelada";
                         } else {
@@ -1410,7 +1467,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                         // Solo cancelar factura - marcar como inactiva
                         factura.setActivo(false);
                         service.save(factura);
-                        return "EXITO: Factura electrónica cancelada (venta mantiene activa)";
+                        return "EXITO: Factura electrónica cancelada " + notaSobreLaVenta(factura);
                     }
 
                 } catch (Exception e) {
@@ -1422,7 +1479,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
             } else {
                 // Factura no electrónica
-                if (cancelarVenta && factura.getVenta() != null) {
+                if (cancelarVenta && ventaPorCancelar(factura)) {
                     // Cancelar venta
                     boolean ventaCancelada = ventaService.cancelarVenta(factura.getVenta());
                     if (ventaCancelada) {
@@ -1437,7 +1494,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     // Solo cancelar factura
                     factura.setActivo(false);
                     service.save(factura);
-                    return "EXITO: Factura cancelada (venta mantiene activa)";
+                    return "EXITO: Factura cancelada " + notaSobreLaVenta(factura);
                 }
             }
 
@@ -1709,13 +1766,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
                 parameters.put("direccionEmisor", direccionEmisorBuilder.toString());
 
-                if (factura.getTimbradoDetalle().getTelefono() != null) {
-                    parameters.put("telefonoEmisor", factura.getTimbradoDetalle().getTelefono());
-                } else if (timbrado.getTelefono() != null) {
-                    parameters.put("telefonoEmisor", timbrado.getTelefono());
-                } else {
-                    parameters.put("telefonoEmisor", "");
-                }
+                parameters.put("telefonoEmisor", telefonoEmisorKude(factura.getTimbradoDetalle()));
 
                 parameters.put("emailEmisor", timbrado.getEmail() != null ? timbrado.getEmail() : "");
                 parameters.put("actividadEconomica",

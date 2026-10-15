@@ -5,6 +5,7 @@ import com.franco.dev.domain.operaciones.dto.TopMotivoDevolucionDto;
 import com.franco.dev.domain.operaciones.dto.TopProductoDevueltoDto;
 import com.franco.dev.domain.operaciones.dto.TopProveedorDevolucionDto;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,6 +21,11 @@ public interface DevolucionItemRepository extends HelperRepository<DevolucionIte
 
     @Query("SELECT di FROM DevolucionItem di WHERE di.devolucion.id = :devolucionId")
     List<DevolucionItem> findByDevolucionId(@Param("devolucionId") Long devolucionId);
+
+    /** Ítems de una devolución por página, los últimos cargados primero (como los agrega la pantalla). */
+    @Query(value = "SELECT di FROM DevolucionItem di WHERE di.devolucion.id = :devolucionId ORDER BY di.id DESC",
+            countQuery = "SELECT COUNT(di) FROM DevolucionItem di WHERE di.devolucion.id = :devolucionId")
+    Page<DevolucionItem> findPageByDevolucionId(@Param("devolucionId") Long devolucionId, Pageable pageable);
 
     @Query("SELECT di FROM DevolucionItem di WHERE di.producto.id = :productoId")
     List<DevolucionItem> findByProductoId(@Param("productoId") Long productoId);

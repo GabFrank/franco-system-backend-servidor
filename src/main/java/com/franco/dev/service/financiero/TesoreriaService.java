@@ -78,6 +78,24 @@ public class TesoreriaService {
         // por aca (RRHH, CPP, gastos, maletin, retiros, entradas varias, devoluciones).
         // Los procesos de sistema (schedulers, replicacion) no tienen sesion y pasan.
         seguridad.requireEscrituraCaja(mov.getCajaVirtual() != null ? mov.getCajaVirtual().getId() : null);
+        return asentar(mov);
+    }
+
+    /**
+     * La pata de entrada de un envío entre cajas: en vez de escritura sobre la caja que recibe, alcanza
+     * con que esté marcada «recibe envíos» ({@code requireEnvioACaja}). Solo acepta
+     * {@code TRANSFERENCIA_ENTRADA}: por acá no sale plata de la caja ni se la ajusta.
+     */
+    @Transactional
+    public MovimientoCajaVirtual registrarEntradaDeEnvio(MovimientoCajaVirtual mov) {
+        if (mov.getTipoMovimiento() != CajaVirtualTipoMovimiento.TRANSFERENCIA_ENTRADA) {
+            throw new GraphQLException("Un envío solo registra la entrada de una transferencia.");
+        }
+        seguridad.requireEnvioACaja(mov.getCajaVirtual() != null ? mov.getCajaVirtual().getId() : null);
+        return asentar(mov);
+    }
+
+    private MovimientoCajaVirtual asentar(MovimientoCajaVirtual mov) {
         if (mov.getActivo() == null) mov.setActivo(true);
         Moneda moneda = resolverMoneda(mov.getMoneda());
         mov.setMoneda(moneda);
@@ -135,6 +153,14 @@ public class TesoreriaService {
     @Transactional
     public Boolean transferir(Long origenId, Long destinoId, Double cantidad,
                               Moneda moneda, String descripcion, Usuario usuario) {
+        transferirYDevolverSalida(origenId, destinoId, cantidad, moneda, descripcion, usuario);
+        return true;
+    }
+
+    /** {@link #transferir}, devolviendo la pata de salida: quien registra un lote necesita su id. */
+    @Transactional
+    public MovimientoCajaVirtual transferirYDevolverSalida(Long origenId, Long destinoId, Double cantidad,
+                                                           Moneda moneda, String descripcion, Usuario usuario) {
         if (origenId.equals(destinoId)) throw new GraphQLException("La caja origen y destino no pueden ser la misma");
         // Mover plata entre cajas exige permiso en las dos: es un egreso y un ingreso.
         seguridad.requireEscrituraCaja(origenId);
@@ -156,9 +182,9 @@ public class TesoreriaService {
         // (issue #376). Mutuo y no de un solo sentido porque así la otra pata se busca por clave.
         salida.setReferenciaId(entrada.getId());
         entrada.setReferenciaId(salida.getId());
-        movimientoRepository.save(salida);
+        salida = movimientoRepository.save(salida);
         movimientoRepository.save(entrada);
-        return true;
+        return salida;
     }
 
     private MovimientoCajaVirtual build(CajaVirtual caja, CajaVirtual origen, CajaVirtual destino,

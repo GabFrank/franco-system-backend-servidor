@@ -22,9 +22,15 @@ public class LiquidacionItemProgramadoGraphQL implements GraphQLQueryResolver, G
     @Autowired
     private RrhhSecurityService seg;
 
+    @Autowired
+    private com.franco.dev.service.rrhh.RrhhAlcanceService alcance;
+
     public List<LiquidacionItemProgramado> itemsProgramadosPorFuncionario(Long funcionarioId,
                                                                           LiquidacionItemProgramadoEstado estado) {
-        seg.requireVer();
+        // El rol acotado los ve (el detalle de la liquidación los muestra) para sus funcionarios; programar
+        // y anular siguen siendo de RRHH LIQUIDAR.
+        alcance.requireVer();
+        if (alcance.veAcotado()) alcance.exigirFuncionario(funcionarioId);
         return service.findPorFuncionario(funcionarioId, estado);
     }
 

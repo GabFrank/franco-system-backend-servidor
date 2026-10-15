@@ -173,15 +173,47 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
 
     @Override
     public Usuario save(Usuario entity) {
+        return save(entity, false);
+    }
+
+    /**
+     * @param respetarClave en un alta, guarda la clave recibida en vez de la de siempre ("123").
+     *                      Solo lo pide quien deja elegir la clave (saveUsuario con respetarClave).
+     */
+    public Usuario save(Usuario entity, boolean respetarClave) {
         if (entity.getId() == null) {
             entity.setCreadoEn(LocalDateTime.now());
-            entity.setPassword("123");
+            if (!respetarClave || esVacia(entity.getPassword()))
+                entity.setPassword("123");
+        } else {
+            conservarLoQueNoVino(entity);
         }
         entity.setNickname(entity.getNickname().toUpperCase());
         if (entity.getPassword() != null)
             entity.setPassword(entity.getPassword().toUpperCase());
         Usuario e = repository.save(entity);
         return e;
+    }
+
+    /**
+     * saveUsuario mapea el input entero: un update sin clave, email o creadoEn los dejaba en null
+     * (y una clave null hace fallar el login). Se copian de la fila guardada sin tocar esa entidad.
+     */
+    private void conservarLoQueNoVino(Usuario entity) {
+        if (!esVacia(entity.getPassword()) && entity.getEmail() != null && entity.getCreadoEn() != null)
+            return;
+        repository.findById(entity.getId()).ifPresent(guardado -> {
+            if (esVacia(entity.getPassword()))
+                entity.setPassword(guardado.getPassword());
+            if (entity.getEmail() == null)
+                entity.setEmail(guardado.getEmail());
+            if (entity.getCreadoEn() == null)
+                entity.setCreadoEn(guardado.getCreadoEn());
+        });
+    }
+
+    private static boolean esVacia(String clave) {
+        return clave == null || clave.trim().isEmpty();
     }
 
     public Boolean saveUserImage(Long id, String type, String image, List<Double> embedding, String embeddingGaleriaJson)

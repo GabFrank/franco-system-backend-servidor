@@ -17,6 +17,9 @@ type SolicitudPago {
     pago: Pago
     notasRecepcion: [SolicitudPagoNotaRecepcion]
     detalles: [SolicitudPagoDetalle]
+    # Caja a la que tesorería asignó la solicitud para que la pague su operador. Null = sin asignar.
+    cajaVirtualAsignadaId: ID
+    cajaVirtualAsignadaNombre: String
 }
 
 enum TipoSolicitudPago {

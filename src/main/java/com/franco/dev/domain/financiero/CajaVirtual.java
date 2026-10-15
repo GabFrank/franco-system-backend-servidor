@@ -77,6 +77,13 @@ public class CajaVirtual implements Serializable {
 
     private Boolean activo;
 
+    /**
+     * La caja recibe envíos: quien puede mover otra caja puede transferirle plata sin tener acceso sobre
+     * esta (no la ve ni puede sacarle). La marca tesorería en la caja mayor principal.
+     */
+    @Column(name = "recibe_envios")
+    private Boolean recibeEnvios = false;
+
     @CreationTimestamp
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;

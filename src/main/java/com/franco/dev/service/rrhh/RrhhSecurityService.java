@@ -38,6 +38,11 @@ public class RrhhSecurityService {
     public static final String APROBAR = "RRHH APROBAR";
     public static final String PAGAR = "RRHH PAGAR";
     public static final String CONFIG = "RRHH CONFIG";
+    /**
+     * RRHH acotado a las sucursales a cargo (ver {@link RrhhAlcanceService}). No está en {@link #TODOS} a
+     * propósito: no abre la lectura general de RRHH.
+     */
+    public static final String SUCURSAL = "RRHH SUCURSAL";
 
     /** Todos los roles RRHH: cualquiera habilita la lectura. */
     public static final String[] TODOS = {VER, GESTIONAR, LIQUIDAR, APROBAR, PAGAR, CONFIG};

@@ -24,16 +24,36 @@ input DevolucionItemInput {
     cantidad: Float
     motivo: String
     lote: String
+    # Lote del maestro (operaciones.lote) del que sale la mercaderia. Solo para productos con
+    # control de lote y solo con la devolucion PENDIENTE. Al separar, la baja se descuenta de el.
+    loteId: ID
     vencimiento: String
     costoUnitario: Float
     cantidadReingresada: Float
     vencimientoReingreso: String
+    # Numero del lote que entrega el proveedor en un canje. Obligatorio para canjear un producto
+    # con control de lote; se carga con la devolucion RETIRADA.
+    loteReingreso: String
     creadoEn: String
+}
+
+type DevolucionItemPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [DevolucionItem]
+    getPageable: Pageable
 }
 
 extend type Query {
     devolucionItem(id: ID!): DevolucionItem
     devolucionItemsPorDevolucion(devolucionId: ID!): [DevolucionItem]
+    # Ultimos cargados primero. size tope 200.
+    devolucionItemsPorDevolucionPage(devolucionId: ID!, page: Int = 0, size: Int = 20): DevolucionItemPage
     devolucionItemsPorProducto(productoId: ID!): [DevolucionItem]
     devolucionItemsPorRecepcionItem(recepcionItemId: ID!): [DevolucionItem]
     countDevolucionItem: Int

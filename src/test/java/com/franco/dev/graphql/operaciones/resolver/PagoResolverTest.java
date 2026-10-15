@@ -30,6 +30,7 @@ class PagoResolverTest {
     @Mock private SolicitudPagoService solicitudPagoService;
     @Mock private TesoreriaSecurityService tesoreriaSecurityService;
     @Mock private RrhhSecurityService rrhhSecurityService;
+    @Mock private com.franco.dev.service.financiero.PagoProveedorService pagoProveedorService;
 
     @InjectMocks private PagoResolver resolver;
 
@@ -85,6 +86,20 @@ class PagoResolverTest {
         when(solicitudPagoService.findByPagoId(9L)).thenReturn(Arrays.asList(solicitud(1L, TipoSolicitudPago.COMPRA)));
 
         assertEquals(Arrays.asList(1L), ids(resolver.solicitudesPago(pago)));
-        verifyNoInteractions(tesoreriaSecurityService, rrhhSecurityService);
+        // Solo pregunta si el usuario es el rol acotado de tesorería (una vez por request); los roles amplios no.
+        verify(tesoreriaSecurityService, never()).hasAnyRole((String[]) any());
+        verifyNoInteractions(rrhhSecurityService);
+    }
+
+    @Test
+    void el_rol_acotado_de_tesoreria_ve_del_evento_solo_lo_que_puede_pagar() {
+        // Tesorería pagó en un mismo evento una solicitud asignada a la caja del gerente y otra que no.
+        SolicitudPago suya = solicitud(1L, TipoSolicitudPago.COMPRA);
+        SolicitudPago ajena = solicitud(2L, TipoSolicitudPago.COMPRA);
+        when(solicitudPagoService.findByPagoId(9L)).thenReturn(Arrays.asList(suya, ajena));
+        when(tesoreriaSecurityService.esSoloCajaEnRequest()).thenReturn(true);
+        when(pagoProveedorService.pagableEnModoAcotado(suya)).thenReturn(true);
+
+        assertEquals(java.util.Collections.singletonList(1L), ids(resolver.solicitudesPago(pago)));
     }
 }

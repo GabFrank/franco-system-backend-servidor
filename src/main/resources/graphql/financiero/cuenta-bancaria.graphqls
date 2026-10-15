@@ -46,7 +46,9 @@ extend type Mutation {
     # Corrige el saldo de la cuenta contra el extracto real. Deja un movimiento AJUSTE_POSITIVO
     # o AJUSTE_NEGATIVO con el motivo, que es la unica trazabilidad que tiene: un ajuste no
     # tiene contrapartida, es plata que aparece o desaparece del ledger.
-    ajustarSaldoCuentaBancaria(cuentaBancariaId:ID!, monto:Float!, positivo:Boolean!, motivo:String!):MovimientoBancario!
+    # saldoEsperado: el saldo que el cliente tenia en pantalla; si ya no es ese, se rechaza.
+    # claveIdempotencia: el mismo pedido repetido devuelve el ajuste original en vez de aplicar otro.
+    ajustarSaldoCuentaBancaria(cuentaBancariaId:ID!, monto:Float!, positivo:Boolean!, motivo:String!, saldoEsperado:Float, claveIdempotencia:String):MovimientoBancario!
 }
 
 enum TipoCuenta {

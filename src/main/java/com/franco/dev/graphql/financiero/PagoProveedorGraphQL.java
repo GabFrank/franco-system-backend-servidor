@@ -23,9 +23,10 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
     private final PagoProveedorService service;
     private final GastoTesoreriaService gastoTesoreriaService;
     private final TesoreriaSecurityService seg;
+    private final com.franco.dev.service.financiero.AltaIdempotenteService altaIdempotente;
 
     public List<SolicitudPago> solicitudesPagoPendientes(Long proveedorId) {
-        seg.requireVer();
+        seg.requireVerCaja();
         return service.listarPendientes(proveedorId);
     }
 
@@ -35,24 +36,31 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Lo consume el detalle del movimiento consolidado en el historial de la caja.
      */
     public List<com.franco.dev.service.financiero.dto.DetallePagoItemDto> detalleDePago(Long pagoId) {
-        seg.requireVer();
+        seg.requireVerCaja();
         return service.detalleDePago(pagoId);
     }
 
     public List<SolicitudPago> gastosPendientes() {
-        seg.requireVer();
+        seg.requireVerCaja();
         return service.listarGastosPendientes();
     }
 
     /** Crea un gasto (PreGasto liviano) + su obligación de pago (SolicitudPago GASTO, SOLICITADO). */
-    public SolicitudPago crearGastoParaPago(GastoParaPagoWrapper input) {
-        seg.requireGestionar();
+    public SolicitudPago crearGastoParaPago(GastoParaPagoWrapper input, String claveIdempotencia) {
+        seg.requireOperarCaja();
+        // Antes de interpretar nada: la fecha entra como texto, tal como la mandó el cliente.
+        String huella = new com.franco.dev.service.financiero.HuellaPedido()
+                .id(input.getTipoGastoId()).texto(input.getDescripcion()).id(input.getMonedaId())
+                .numero(com.franco.dev.service.financiero.AltaIdempotenteService.monto(input.getMonto())).id(input.getBeneficiarioProveedorId())
+                .id(input.getBeneficiarioPersonaId()).texto(input.getFechaVencimiento()).id(input.getSucursalId())
+                .calcular();
         java.time.LocalDateTime venc = (input.getFechaVencimiento() != null && !input.getFechaVencimiento().isEmpty())
                 ? com.franco.dev.utilitarios.DateUtils.stringToDate(input.getFechaVencimiento()) : null;
-        return gastoTesoreriaService.crearGastoParaPago(
+        com.franco.dev.domain.personas.Usuario usuario = seg.currentUsuario();
+        return altaIdempotente.gastoParaPago(claveIdempotencia, huella, usuario, () -> gastoTesoreriaService.crearGastoParaPago(
                 input.getTipoGastoId(), input.getDescripcion(), input.getMonedaId(), input.getMonto(),
                 input.getBeneficiarioProveedorId(), input.getBeneficiarioPersonaId(), venc,
-                input.getSucursalId(), seg.currentUsuario());
+                input.getSucursalId(), usuario));
     }
 
     public Pago pagarSolicitudesLoteCajaMayor(Long cajaVirtualId, List<PagoLoteWrapper> pagos) {
@@ -78,7 +86,7 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Con {@code claveIdempotencia}, un pedido repetido devuelve el evento ya creado (issue #376).
      */
     public Pago pagarSolicitudesMixto(List<SolicitudConLineasWrapper> pagos, String claveIdempotencia) {
-        seg.requirePagarCpp();
+        seg.requirePagarCppCaja();
         List<PagoProveedorService.SolicitudConLineas> ls = new ArrayList<>();
         for (SolicitudConLineasWrapper w : pagos) {
             PagoProveedorService.SolicitudConLineas s = new PagoProveedorService.SolicitudConLineas();
@@ -89,9 +97,18 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
         return service.pagarLoteMixto(ls, seg.currentUsuario(), claveIdempotencia);
     }
 
+    /**
+     * Tesorería asigna una solicitud pagable a una caja para que la pague su operador (rol TESORERIA CAJA),
+     * o le quita la asignación con {@code cajaVirtualId} nulo. Es decidir quién paga: mismo rol que pagar.
+     */
+    public SolicitudPago asignarSolicitudPagoACaja(Long solicitudPagoId, Long cajaVirtualId) {
+        seg.requirePagarCpp();
+        return service.asignarACaja(solicitudPagoId, cajaVirtualId);
+    }
+
     /** Anula todo un evento de pago (revierte los movimientos consolidados y reabre sus solicitudes). */
     public Pago anularPagoCpp(Long pagoId, String motivo) {
-        seg.requirePagarCpp();
+        seg.requirePagarCppCaja();
         return service.anularPagoCpp(pagoId, motivo, seg.currentUsuario());
     }
 

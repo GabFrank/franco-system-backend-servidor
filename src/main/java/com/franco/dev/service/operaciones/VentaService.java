@@ -4,10 +4,12 @@ import com.franco.dev.service.financiero.VentaTarjetaService;
 import com.franco.dev.domain.financiero.VentaTarjeta;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.financiero.DocumentoElectronico;
 import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.financiero.MovimientoCaja;
 import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.financiero.VentaCredito;
+import com.franco.dev.domain.financiero.enums.EstadoDE;
 import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
 import com.franco.dev.domain.operaciones.*;
 import com.franco.dev.domain.operaciones.dto.LucroPorFuncionarioDto;
@@ -19,6 +21,7 @@ import com.franco.dev.repository.operaciones.VentaItemRepository;
 import com.franco.dev.repository.operaciones.VentaRepository;
 import com.franco.dev.repository.productos.ProductoRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.financiero.DocumentoElectronicoService;
 import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.financiero.MovimientoCajaService;
 import com.franco.dev.service.financiero.VentaCreditoService;
@@ -83,6 +86,9 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
     @Autowired
     private SifenEventoService sifenEventoService;
+
+    @Autowired
+    private DocumentoElectronicoService documentoElectronicoService;
 
     @Autowired
     private SucursalService sucursalService;
@@ -267,6 +273,15 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
     @Transactional()
     public Boolean cancelarVenta(Venta venta) {
+        return cancelarVenta(venta, false);
+    }
+
+    /**
+     * @param facturaYaCanceladaEnSifen quien llama ya mando el evento de cancelacion de la factura y
+     *                                  SIFEN lo acepto (cancelarFacturaLegal): aca no se reenvia.
+     */
+    @Transactional()
+    public Boolean cancelarVenta(Venta venta, boolean facturaYaCanceladaEnSifen) {
         try {
             if (venta.getEstado() == VentaEstado.CANCELADA) {
                 venta.setEstado(VentaEstado.CONCLUIDA);
@@ -322,47 +337,81 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                 ventaCreditoService.cancelarVentaCredito(ventaCredito.getId(), ventaCredito.getSucursalId(), venta);
             }
 
-            log.info("Buscando factura legal para venta ID: " + venta.getId() + ", Sucursal: " + venta.getSucursalId());
-            FacturaLegal facturaLegal = facturaLegalService.findByVentaIdAndSucursalId(venta.getId(),
-                    venta.getSucursalId());
-            if (facturaLegal != null) {
-                log.info("Factura legal encontrada - ID: " + facturaLegal.getId() + ", CDC: "
-                        + (facturaLegal.getCdc() != null ? facturaLegal.getCdc() : "null"));
-                // Si la factura es electrónica, cancelar el documento electrónico
-                if (facturaLegal.getCdc() != null && !facturaLegal.getCdc().isEmpty()) {
-                    log.info("Iniciando cancelación de documento electrónico con CDC: " + facturaLegal.getCdc());
-                    try {
-                        sifenEventoService.cancelarDE(facturaLegal.getCdc(), "Cancelación de venta");
-                        log.info("✅ Documento electrónico cancelado exitosamente para venta ID: "
-                                + venta.getId().toString());
-                    } catch (Exception e) {
-                        String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-                        log.warning("⚠️ Error al cancelar documento electrónico para venta ID: "
-                                + venta.getId().toString());
-                        log.warning("   Tipo de error: " + e.getClass().getName());
-                        log.warning("   Mensaje: " + errorMsg);
-                        e.printStackTrace();
-                        // No lanzamos excepción para no impedir la cancelación de la venta
-                        // El evento de cancelación se guardará en BD y podrá ser procesado
-                        // posteriormente
-                        log.info(
-                                "La venta se cancelará de todas formas. El evento puede ser procesado posteriormente.");
-                    }
-                } else {
-                    log.info("Factura legal no tiene CDC (no es electrónica)");
-                }
-                // Marcar factura como inactiva
-                log.info("Marcando factura legal como inactiva");
-                facturaLegal.setActivo(false);
-                facturaLegalService.save(facturaLegal);
-                log.info("✅ Factura legal marcada como inactiva");
-            } else {
-                log.info("No se encontró factura legal para esta venta");
+            // Solo al cancelar. Reactivar no toca la factura: un documento cancelado en SIFEN no
+            // revive, y antes este bloque volvia a mandar el evento de cancelacion.
+            if (venta.getEstado() == VentaEstado.CANCELADA) {
+                darDeBajaFactura(venta, facturaYaCanceladaEnSifen);
             }
             return true;
         } catch (Exception e) {
             e.printStackTrace();
             throw new GraphQLException("No se pudo cancelar la venta");
+        }
+    }
+
+    /** Que se hace con la factura legal de una venta que se cancela. */
+    enum BajaFactura { INACTIVAR, CANCELAR_EN_SIFEN, DEJAR_ACTIVA }
+
+    /**
+     * La venta se cancela siempre; la factura queda inactiva solo si fiscalmente dejo de valer.
+     * <p>
+     * Papel: no hay nada en SIFEN, se inactiva. Electronica: manda el documento. CANCELADO ya esta;
+     * RECHAZADO nunca valio; APROBADO hay que cancelarlo en SIFEN y recien si lo acepta se inactiva.
+     * PENDIENTE o EN_LOTE (o sin documento en el central) todavia no se puede cancelar y SIFEN lo
+     * puede aprobar despues: la factura queda activa, que es lo que es, y se resuelve desde el
+     * listado de facturas (cancelarla una vez aprobada, o nota de credito pasadas las 48 h).
+     * <p>
+     * Antes se inactivaba siempre, tambien cuando SIFEN rechazaba el evento: quedaban facturas
+     * vigentes en SIFEN que el sistema mostraba canceladas (#408).
+     */
+    static BajaFactura bajaDeFactura(boolean electronica, EstadoDE estadoDe, boolean yaCanceladaEnSifen) {
+        if (!electronica || yaCanceladaEnSifen) return BajaFactura.INACTIVAR;
+        if (estadoDe == EstadoDE.CANCELADO || estadoDe == EstadoDE.RECHAZADO) return BajaFactura.INACTIVAR;
+        if (estadoDe == EstadoDE.APROBADO) return BajaFactura.CANCELAR_EN_SIFEN;
+        return BajaFactura.DEJAR_ACTIVA;
+    }
+
+    void darDeBajaFactura(Venta venta, boolean yaCanceladaEnSifen) {   // visible para el test
+        FacturaLegal facturaLegal = facturaLegalService.findByVentaIdAndSucursalId(venta.getId(),
+                venta.getSucursalId());
+        if (facturaLegal == null) {
+            return;
+        }
+        boolean electronica = facturaLegal.getCdc() != null && !facturaLegal.getCdc().isEmpty();
+        EstadoDE estadoDe = null;
+        if (electronica && !yaCanceladaEnSifen) {
+            try {
+                estadoDe = documentoElectronicoService
+                        .findByFacturaLegalId(facturaLegal.getId(), facturaLegal.getSucursalId())
+                        .map(DocumentoElectronico::getEstado).orElse(null);
+            } catch (Exception e) {
+                // Sin poder leer el documento no se sabe si la factura vale: queda activa.
+                log.warning("No se pudo leer el documento electronico de la factura " + facturaLegal.getId()
+                        + " (sucursal " + facturaLegal.getSucursalId() + "): " + e.getMessage());
+            }
+        }
+
+        BajaFactura baja = bajaDeFactura(electronica, estadoDe, yaCanceladaEnSifen);
+        if (baja == BajaFactura.CANCELAR_EN_SIFEN) {
+            try {
+                sifenEventoService.cancelarDE(facturaLegal.getCdc(), "Cancelación de venta");
+                baja = BajaFactura.INACTIVAR;
+            } catch (Exception e) {
+                // No se frena la cancelacion de la venta, pero la factura sigue vigente en SIFEN.
+                log.warning("SIFEN no acepto cancelar la factura " + facturaLegal.getId() + " (sucursal "
+                        + facturaLegal.getSucursalId() + ", CDC " + facturaLegal.getCdc() + ") de la venta "
+                        + venta.getId() + ": " + e.getMessage());
+                baja = BajaFactura.DEJAR_ACTIVA;
+            }
+        }
+
+        if (baja == BajaFactura.INACTIVAR) {
+            facturaLegal.setActivo(false);
+            facturaLegalService.save(facturaLegal);
+        } else {
+            log.warning("La venta " + venta.getId() + " (sucursal " + venta.getSucursalId()
+                    + ") se cancela pero su factura " + facturaLegal.getId() + " queda ACTIVA: documento electronico "
+                    + estadoDe + ", CDC " + facturaLegal.getCdc());
         }
     }
 

@@ -9,6 +9,7 @@ import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.service.financiero.EventoCancelacionDEService;
 import com.franco.dev.service.financiero.EventoInutilizacionDEService;
 import com.franco.dev.service.financiero.EventoNominacionDEService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.financiero.TimbradoService;
 import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.sifen.SifenEventoService;
@@ -37,6 +38,9 @@ public class EventosSifenGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Autowired
     private SifenEventoService sifenEventoService;
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private EventoCancelacionDEService eventoCancelacionDEService;
@@ -129,6 +133,8 @@ public class EventosSifenGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Transactional
     public EventoCancelacionDE cancelarDocumentoElectronico(String cdc, String motivo) {
+        // Mismo permiso que cancelarFacturaLegal. Fuera del try: adentro el catch lo envolveria.
+        seg.requireCancelarVenta();
         try {
             log.info("Iniciando cancelación de DE con CDC: {}", cdc);
             

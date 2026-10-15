@@ -82,11 +82,14 @@ public class RetiroVerificacionGraphQL implements GraphQLQueryResolver, GraphQLM
     /**
      * Verifica un retiro y lo acredita. El ACL de caja lo aplica {@code TesoreriaService.registrar},
      * que es el choke point por donde pasa toda la plata — no hace falta duplicarlo acá.
+     *
+     * <p>Es el único camino de ingreso de un retiro desde la pantalla, así que lo usa también el rol
+     * acotado (TESORERIA CAJA): el servicio le exige que el retiro sea de la sucursal de su caja.</p>
      */
     public RetiroVerificacion verificarRetiro(Long retiroId, Long sucursalId, Long cajaVirtualId,
                                               List<Map<String, Object>> conteos, Boolean rapida,
                                               String observacion) {
-        seg.requireGestionar();
+        seg.requireOperarCaja();
         return service.verificar(retiroId, sucursalId, cajaVirtualId,
                 mapearConteos(conteos), Boolean.TRUE.equals(rapida), observacion, seg.currentUsuario());
     }

@@ -16,6 +16,7 @@ import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.operaciones.dto.TransferenciaItemAlertaDTO;
 import com.franco.dev.graphql.operaciones.input.TransferenciaItemInput;
 import com.franco.dev.service.financiero.MonedaService;
+import com.franco.dev.service.operaciones.ControlStockNegativoService;
 import com.franco.dev.service.operaciones.ConversionPresentacion;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.operaciones.TransferenciaItemAlertaService;
@@ -44,6 +45,8 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TransferenciaItemGraphQL.class);
 
     @Autowired
     private TransferenciaItemService service;
@@ -75,6 +78,9 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
 
     @Autowired
     private TransferenciaItemAlertaService transferenciaItemAlertaService;
+
+    @Autowired
+    private ControlStockNegativoService controlStockNegativoService;
 
     public Optional<TransferenciaItem> transferenciaItem(Long id) {
         return service.findById(id);
@@ -192,6 +198,10 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
             e.setVencimientoVerificado(false);
         }
         e = service.save(e);
+        // Solo items nuevos, y no los que salen de COMPRAS: ahi el stock es negativo por diseno.
+        if (existente == null && !esTransferenciaDesdeCompras(e)) {
+            registrarEnControlDeStock(e);
+        }
         // Antes de generar el movimiento: el desglose por lote lee esta asignacion para decidir
         // de que lotes sale la mercaderia. Si se guardara despues, la primera vez saldria por FEFO.
         guardarAsignacionDeLotes(input, e);
@@ -221,6 +231,20 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
             }
         }
         return e;
+    }
+
+    /**
+     * Control de stock negativo: un item nuevo cuyo origen ya estaba en 0 o negativo queda
+     * registrado para inventario. El servicio ya no lanza; el try/catch es la segunda red, para
+     * que ni un servicio sin inyectar (tests viejos) pueda impedir que el item se guarde.
+     */
+    private void registrarEnControlDeStock(TransferenciaItem item) {
+        try {
+            controlStockNegativoService.registrarTransferencia(item);
+        } catch (Exception ex) {
+            log.warn("Control de stock negativo: no se pudo registrar el item {} de transferencia: {}",
+                    item != null ? item.getId() : null, ex.getMessage());
+        }
     }
 
     /**

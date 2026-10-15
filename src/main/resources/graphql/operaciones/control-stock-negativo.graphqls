@@ -1,0 +1,45 @@
+enum TipoControlStock {
+    VENTA
+    TRANSFERENCIA
+}
+
+"""
+Filtro por el stock previo del registro. Sin filtro vienen todos.
+"""
+enum FiltroStockControl {
+    CERO
+    NEGATIVO
+}
+
+"""
+Salida de un producto cuyo stock en la sucursal ya era 0 o negativo.
+`referenciaId` es el id de la venta o de la transferencia; `itemId`, el del item.
+"""
+type ControlStockNegativo {
+    id: ID!
+    sucursal: Sucursal
+    producto: Producto
+    tipo: TipoControlStock
+    cantidad: Float
+    stockPrevio: Float
+    "Stock de hoy del producto en esa sucursal. Sirve para ver si el caso ya se regularizo."
+    stockActual: Float
+    usuario: Usuario
+    fecha: Date
+    referenciaId: ID
+    itemId: ID
+    creadoEn: Date
+}
+
+type ControlStockNegativoPage {
+    getContent: [ControlStockNegativo]
+    getTotalElements: Int
+    getTotalPages: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+}
+
+extend type Query {
+    controlStockNegativo(fechaInicio: String!, fechaFin: String!, sucursalId: ID, tipo: TipoControlStock, texto: String, stock: FiltroStockControl, page: Int!, size: Int!): ControlStockNegativoPage
+}

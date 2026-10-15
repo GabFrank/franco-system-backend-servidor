@@ -24,6 +24,21 @@ public interface ChequeraRepository extends HelperRepository<Chequera, Long> {
     @Query("select e from Chequera e where e.id = :id")
     Optional<Chequera> lockById(@Param("id") Long id);
 
+    /** La cuenta de una chequera, sin cargar la entidad (el lock que viene después tiene que ser su primera carga). */
+    @Query("select c.cuentaBancaria.id from Chequera c where c.id = :id")
+    Optional<Long> findCuentaIdById(@Param("id") Long id);
+
+    /**
+     * Chequeras no anuladas de la cuenta cuyo rango comparte algún número con {@code desde–hasta}.
+     * {@code exceptoId}: la que se está editando, o nulo en un alta.
+     */
+    @Query("select c from Chequera c where c.cuentaBancaria.id = :cuentaId "
+            + "and (c.estado is null or c.estado <> com.franco.dev.domain.financiero.enums.EstadoChequera.ANULADA) "
+            + "and c.rangoDesde <= :hasta and c.rangoHasta >= :desde "
+            + "and (:exceptoId is null or c.id <> :exceptoId) order by c.id")
+    List<Chequera> findSuperpuestas(@Param("cuentaId") Long cuentaId, @Param("desde") Double desde,
+                                    @Param("hasta") Double hasta, @Param("exceptoId") Long exceptoId);
+
     List<Chequera> findByEstadoOrderByIdDesc(com.franco.dev.domain.financiero.enums.EstadoChequera estado);
 
     List<Chequera> findByCuentaBancariaIdOrderByIdDesc(Long cuentaBancariaId);

@@ -58,7 +58,7 @@ import java.util.Map;
  * - SIN_PROVEEDOR: averia/vencido sin devolucion a proveedor. PENDIENTE -> SEPARADO -> DESCARTADO.
  *   Al DESCARTAR: baja de stock (DESCARTE) + genera un Gasto de merma (perdida contable).
  * - CON_PROVEEDOR: devolucion a proveedor. PENDIENTE -> SEPARADO -> RETIRADO -> (CANJEADO | ACREDITADO).
- *   Al RETIRAR: baja de stock (DEVOLUCION). Al CANJEAR: reingreso de stock con nuevo vencimiento.
+ *   Al SEPARAR: baja de stock (DEVOLUCION). Al CANJEAR: reingreso de stock con nuevo vencimiento.
  *   Al ACREDITAR: registra la nota de credito del proveedor.
  *
  * Usado en:
@@ -121,6 +121,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             if (origen == null || origen.getId() == null || origen.getId() == 0L) {
                 throw new GraphQLException("La devolucion debe tener una sucursal de origen valida (no el servidor)");
             }
+            validarProveedorDelTipo(entity.getTipo(), entity.getProveedor());
         }
         if (entity.getFecha() == null) entity.setFecha(LocalDateTime.now());
         if (entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
@@ -136,6 +137,49 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             saved = super.save(saved);
         }
         return saved;
+    }
+
+    /**
+     * Edita la cabecera de una devolucion existente. Solo en PENDIENTE: una vez separada,
+     * el stock ya salio de la sucursal de origen y cambiarla (o el tipo) haria que cancelar
+     * o revertir reingrese en otro lado. Del parametro se toman solo los campos editables;
+     * el estado y lo demas que maneja la maquina de estados se conserva de la fila.
+     */
+    @Transactional
+    public Devolucion actualizarCabecera(Devolucion cambios) {
+        Devolucion d = findById(cambios.getId()).orElseThrow(
+                () -> new GraphQLException("Devolucion no encontrada: " + cambios.getId()));
+        String error = DevolucionEdicionValidator.validarEdicion(d.getEstado());
+        if (error != null) {
+            throw new GraphQLException(error);
+        }
+        Sucursal origen = cambios.getSucursalOrigen();
+        if (origen == null || origen.getId() == null || origen.getId() == 0L) {
+            throw new GraphQLException("La devolucion debe tener una sucursal de origen valida (no el servidor)");
+        }
+        validarProveedorDelTipo(cambios.getTipo(), cambios.getProveedor());
+        d.setTipo(cambios.getTipo());
+        d.setProveedor(cambios.getProveedor());
+        d.setSucursalOrigen(origen);
+        d.setSucursalUbicacion(origen); // en PENDIENTE la mercaderia sigue en el origen
+        if (cambios.getFecha() != null) d.setFecha(cambios.getFecha());
+        d.setMotivo(cambios.getMotivo());
+        d.setObservacion(cambios.getObservacion());
+        if (cambios.getCajaVirtualId() != null) d.setCajaVirtualId(cambios.getCajaVirtualId());
+        if (cambios.getUsuario() != null) d.setUsuario(cambios.getUsuario());
+        return save(d);
+    }
+
+    /**
+     * Una devolucion con proveedor tiene que tener proveedor. Sin el, no aparece en el
+     * retiro ni en el aviso de compras (que filtran por proveedor) y recien falla al
+     * retirar, con el stock ya afuera. Se valida al crear y al editar la cabecera, no en
+     * los save internos de las transiciones.
+     */
+    private void validarProveedorDelTipo(TipoDevolucion tipo, Proveedor proveedor) {
+        if (tipo == TipoDevolucion.CON_PROVEEDOR && proveedor == null) {
+            throw new GraphQLException("Una devolucion con proveedor debe indicar un proveedor valido");
+        }
     }
 
     /**
@@ -225,11 +269,11 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
 
     /**
      * Revierte la devolucion un estado hacia atras, solo para transiciones
-     * seguras (sin efectos financieros): RETIRADO -> (COLECTADO|SEPARADO segun
-     * si fue colectada), COLECTADO -> SEPARADO (resetea ubicacion), SEPARADO ->
+     * seguras (sin efectos financieros): CANJEADO -> RETIRADO (saca del stock lo
+     * que reingreso el canje), RETIRADO -> (COLECTADO|SEPARADO segun si fue
+     * colectada), COLECTADO -> SEPARADO (resetea ubicacion), SEPARADO ->
      * PENDIENTE (reingresa el stock bajado al separar). No revierte
-     * CANJEADO/ACREDITADO/DESCARTADO (nota de credito / merma / reingreso de
-     * canje) ni PENDIENTE/CANCELADA.
+     * ACREDITADO/DESCARTADO (nota de credito / merma) ni PENDIENTE/CANCELADA.
      */
     @Transactional
     public Devolucion revertirEstado(Long devolucionId, Usuario usuario) {
@@ -240,6 +284,13 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         RetiroDevolucion retiroPrevio = d.getRetiro();
         ColectaDevolucion colectaPrevio = d.getColecta();
         switch (actual) {
+            case CANJEADO:
+                // Deshace el reingreso del canje; sigue dentro de su operacion de retiro.
+                revertirCanje(d, ejecutor);
+                d.setEstado(DevolucionEstado.RETIRADO);
+                d.setResolucion(null);
+                d.setFinalizado(false);
+                break;
             case RETIRADO: {
                 // El retiro no movio stock: solo vuelve al estado fisico previo. Se usa
                 // la existencia de la cabecera de colecta (no comparar ubicaciones, que
@@ -271,7 +322,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                 break;
             default:
                 throw new GraphQLException("No se puede revertir una devolucion en estado " + actual
-                        + ". Solo se permite revertir RETIRADO, COLECTADO o SEPARADO.");
+                        + ". Solo se permite revertir CANJEADO, RETIRADO, COLECTADO o SEPARADO.");
         }
         Devolucion saved = save(d);
         // Si la cabecera de la operacion quedo sin lineas, marcarla REVERTIDA.
@@ -310,7 +361,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                 .filter(d -> d.getEstado() != DevolucionEstado.RETIRADO).count();
         if (finalizadas > 0) {
             throw new GraphQLException("No se puede revertir el retiro: " + finalizadas
-                    + " devolucion(es) ya fueron canjeadas o acreditadas.");
+                    + " devolucion(es) ya fueron canjeadas o acreditadas. Si fue un canje, reverti el canje primero.");
         }
         DevolucionService self = applicationContext.getBean(DevolucionService.class);
         for (Devolucion d : lineas) {
@@ -436,14 +487,26 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             m.setReferencia(item.getId());
             m.setEstado(true);
             m.setUsuario(usuario);
-            movimientoStockService.save(m);
+            MovimientoStock baja = movimientoStockService.save(m);
+            // Producto con control de lote: la baja se anota tambien en el ledger por lote, y el
+            // item recuerda cual fue el movimiento para poder deshacerlo sobre los mismos lotes.
+            if (DevolucionLoteService.llevaLote(item) && baja != null) {
+                lotes().desglosarBaja(baja, item);
+                item.setMovimientoBajaId(baja.getId());
+                devolucionItemService.save(item);
+            }
         }
+    }
+
+    private DevolucionLoteService lotes() {
+        return applicationContext.getBean(DevolucionLoteService.class);
     }
 
     /**
      * Reingreso del stock bajado al SEPARAR, cuando se cancela desde SEPARADO.
      * Reingresa en la ubicacion actual (== origen: cancelar solo se permite antes
-     * de colectar).
+     * de colectar). Usa el mismo tipo que la baja, en positivo, para que en el
+     * historial quede como parte de la devolucion y no como una entrada comun.
      */
     private void reingresarSeparado(Devolucion d, Usuario usuario) {
         List<DevolucionItem> items = devolucionItemService.findByDevolucionId(d.getId());
@@ -454,11 +517,18 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             m.setProducto(item.getProducto());
             m.setSucursalId(sucId);
             m.setCantidad(cantidadBase);
-            m.setTipoMovimiento(TipoMovimiento.ENTRADA);
+            m.setTipoMovimiento(tipoBajaSeparado(d));
             m.setReferencia(item.getId());
             m.setEstado(true);
             m.setUsuario(usuario);
-            movimientoStockService.save(m);
+            MovimientoStock reingreso = movimientoStockService.save(m);
+            // Vuelve a los mismos lotes de los que salio: se espeja el desglose de la baja.
+            if (DevolucionLoteService.llevaLote(item) && item.getMovimientoBajaId() != null) {
+                lotes().espejar(reingreso, item.getMovimientoBajaId(),
+                        d.getSucursalOrigen().getId(), item, 1);
+                item.setMovimientoBajaId(null);
+                devolucionItemService.save(item);
+            }
         }
     }
 
@@ -467,9 +537,30 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         return d.getSucursalUbicacion() != null ? d.getSucursalUbicacion() : d.getSucursalOrigen();
     }
 
-    /** Reingreso del producto canjeado por el proveedor, con nuevo vencimiento. */
+    /**
+     * Reingreso del producto canjeado por el proveedor, con nuevo vencimiento.
+     * Entra en la ubicacion actual: si la devolucion fue colectada, en el deposito.
+     * Por item no se puede reingresar mas de lo devuelto, y un canje tiene que
+     * reingresar algo; se valida todo antes de mover stock.
+     */
     private void reingresarCanje(Devolucion d, Usuario usuario) {
         List<DevolucionItem> items = devolucionItemService.findByDevolucionId(d.getId());
+        double totalReingresado = 0.0;
+        for (DevolucionItem item : items) {
+            String error = DevolucionEdicionValidator.validarReingreso(item.getCantidad(),
+                    item.getCantidadReingresada(), descripcionProducto(item));
+            if (error == null) {
+                error = DevolucionLoteService.validarLoteReingreso(item);
+            }
+            if (error != null) {
+                throw new GraphQLException(error);
+            }
+            if (item.getCantidadReingresada() != null) totalReingresado += item.getCantidadReingresada();
+        }
+        if (totalReingresado <= 0) {
+            throw new GraphQLException("No se puede canjear sin reingreso: cargue la cantidad que repuso"
+                    + " el proveedor en al menos un item. Si no repuso nada, corresponde acreditar.");
+        }
         Sucursal sucUbicacion = sucursalUbicacion(d);
         Long sucId = sucUbicacion.getId();
         for (DevolucionItem item : items) {
@@ -482,11 +573,17 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             m.setProducto(item.getProducto());
             m.setSucursalId(sucId);
             m.setCantidad(cantidadBase);
-            m.setTipoMovimiento(TipoMovimiento.ENTRADA);
+            m.setTipoMovimiento(TipoMovimiento.DEVOLUCION);
             m.setReferencia(item.getId());
             m.setEstado(true);
             m.setUsuario(usuario);
-            movimientoStockService.save(m);
+            MovimientoStock entrada = movimientoStockService.save(m);
+            // Producto con control de lote: lo repuesto entra al lote que entrego el proveedor.
+            if (DevolucionLoteService.llevaLote(item) && entrada != null) {
+                lotes().desglosarCanje(entrada, item, d.getProveedor(), usuario);
+                item.setMovimientoCanjeId(entrada.getId());
+                devolucionItemService.save(item);
+            }
 
             ProductoVencimiento pv = new ProductoVencimiento();
             pv.setProducto(item.getProducto());
@@ -499,6 +596,70 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             pv.setUsuario(usuario);
             productoVencimientoService.save(pv);
         }
+    }
+
+    /**
+     * Deshace el reingreso de un canje. Lo que se saca no se calcula desde el item:
+     * sale de los vencimientos que dejo el canje (origen DEVOLUCION_CANJE), que guardan
+     * la cantidad en unidad base y la sucursal donde entro. Asi se revierte exactamente
+     * lo que entro, aunque el item se haya editado despues. Respeta permitirStockNegativo.
+     */
+    private void revertirCanje(Devolucion d, Usuario usuario) {
+        List<DevolucionItem> items = devolucionItemService.findByDevolucionId(d.getId());
+        Boolean permiteNegativo = null;
+        for (DevolucionItem item : items) {
+            List<ProductoVencimiento> ingresos = productoVencimientoService
+                    .findByTipoOrigenAndOrigenId(TipoOrigenVencimiento.DEVOLUCION_CANJE, item.getId());
+            for (ProductoVencimiento pv : ingresos) {
+                double cantidadBase = pv.getCantidad() != null ? pv.getCantidad() : 0.0;
+                if (cantidadBase > 0) {
+                    Long sucId = pv.getSucursal().getId();
+                    if (permiteNegativo == null) {
+                        permiteNegativo = Boolean.TRUE.equals(applicationContext
+                                .getBean(DevolucionConfiguracionService.class).getConfiguracion()
+                                .getPermitirStockNegativo());
+                    }
+                    if (!permiteNegativo) {
+                        Double stockActual = movimientoStockService
+                                .stockByProductoIdAndSucursalId(item.getProducto().getId(), sucId);
+                        if (stockActual == null) stockActual = 0.0;
+                        if (stockActual < cantidadBase) {
+                            throw new GraphQLException("Stock insuficiente para revertir el canje de "
+                                    + descripcionProducto(item) + ". Actual: " + stockActual + ", a retirar: "
+                                    + cantidadBase + ". Regularice el stock con un ajuste y vuelva a intentar.");
+                        }
+                    }
+                    MovimientoStock m = new MovimientoStock();
+                    m.setProducto(item.getProducto());
+                    m.setSucursalId(sucId);
+                    m.setCantidad(-cantidadBase);
+                    m.setTipoMovimiento(TipoMovimiento.DEVOLUCION);
+                    m.setReferencia(item.getId());
+                    m.setEstado(true);
+                    m.setUsuario(usuario);
+                    MovimientoStock salida = movimientoStockService.save(m);
+                    // Sale del mismo lote al que habia entrado el canje.
+                    if (DevolucionLoteService.llevaLote(item) && item.getMovimientoCanjeId() != null) {
+                        lotes().espejar(salida, item.getMovimientoCanjeId(), sucId, item, -1);
+                    }
+                }
+                // CrudService.delete no lanza: devuelve false. Si el vencimiento queda, un
+                // segundo revertir volveria a sacar el mismo stock.
+                if (!Boolean.TRUE.equals(productoVencimientoService.delete(pv))) {
+                    throw new GraphQLException("No se pudo revertir el canje de "
+                            + descripcionProducto(item) + ": no se borro su vencimiento");
+                }
+            }
+            // Se olvida el movimiento del canje recien al terminar con todos sus vencimientos.
+            if (item.getMovimientoCanjeId() != null) {
+                item.setMovimientoCanjeId(null);
+                devolucionItemService.save(item);
+            }
+        }
+    }
+
+    private String descripcionProducto(DevolucionItem item) {
+        return item.getProducto() != null ? item.getProducto().getDescripcion() : "el item";
     }
 
     /**

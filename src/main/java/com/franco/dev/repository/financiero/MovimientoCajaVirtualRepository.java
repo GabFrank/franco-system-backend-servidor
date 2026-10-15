@@ -35,6 +35,19 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
     @Query("select coalesce(m.activo, true) from MovimientoCajaVirtual m where m.id = :id")
     Optional<Boolean> findActivoById(@Param("id") Long id);
 
+    /**
+     * Ids de los ingresos <b>activos</b> del cierre de un maletín en una moneda: la marca de que ese cierre
+     * ya entró a la caja mayor. El cierre es la caja de PDV (id + sucursal: su clave es compuesta). Los
+     * ingresos de maletín hechos a mano no llevan sucursal de origen y no aparecen acá.
+     */
+    @Query("select m.id from MovimientoCajaVirtual m "
+            + "where m.origenTipo = com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo.MALETIN "
+            + "and m.tipoMovimiento = com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento.INGRESO "
+            + "and m.origenId = :maletinId and m.referenciaId = :cajaId and m.origenSucursalId = :sucursalId "
+            + "and m.moneda.id = :monedaId and coalesce(m.activo, true) = true order by m.id")
+    java.util.List<Long> findIngresosDeCierreDeMaletin(@Param("maletinId") Long maletinId, @Param("cajaId") Long cajaId,
+                                                       @Param("sucursalId") Long sucursalId, @Param("monedaId") Long monedaId);
+
     /** Los datos de vínculo de un movimiento, sin cargar la entidad (ver {@link MovimientoCajaVirtualVinculo}). */
     @Query("select new com.franco.dev.repository.financiero.MovimientoCajaVirtualVinculo("
             + "m.id, m.tipoMovimiento, m.origenTipo, cv.id, co.id, cd.id, mo.id, m.cantidad, m.referenciaId, m.creadoEn) "

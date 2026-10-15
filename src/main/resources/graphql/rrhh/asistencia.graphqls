@@ -1,0 +1,43 @@
+# =====================================================================
+# RRHH — Puntuacion de asistencia del legajo.
+# Solo informativa: se calcula al consultar a partir de las jornadas, el
+# horario, los feriados y los justificativos. No persiste nada.
+# =====================================================================
+
+enum EstadoAsistenciaDia {
+    TRABAJADO
+    TARDANZA
+    AUSENCIA_JUSTIFICADA
+    AUSENCIA_INJUSTIFICADA
+}
+
+# Un dia en que al funcionario le correspondia trabajar.
+type AsistenciaDia {
+    fecha: String
+    estado: EstadoAsistenciaDia
+    minutosLlegadaTardia: Int
+    minutosLlegadaTardiaAlmuerzo: Int
+    # nombre del tipo de justificativo del dia, si tiene
+    justificativo: String
+}
+
+type AsistenciaResumen {
+    anho: Int
+    mes: Int
+    tieneHorario: Boolean
+    diasEsperados: Int
+    diasTrabajados: Int
+    # eventos: la entrada y el regreso de almuerzo cuentan por separado
+    llegadasTardias: Int
+    ausenciasJustificadas: Int
+    ausenciasInjustificadas: Int
+    # % de dias trabajados sin llegada tardia; null sin dias trabajados
+    puntualidad: Int
+    # 0..10; null sin dias esperados
+    puntaje: Float
+    dias: [AsistenciaDia]
+}
+
+extend type Query {
+    asistenciaFuncionario(funcionarioId: ID!, anho: Int!, mes: Int!): AsistenciaResumen
+}

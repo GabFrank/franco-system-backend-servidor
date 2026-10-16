@@ -56,6 +56,11 @@ public class FuncionarioService extends CrudService<Funcionario, FuncionarioRepo
         return repository.findByIdOrPersonaNombre(texto.toUpperCase());
     }
 
+    public Page<Funcionario> searchPage(String texto, Boolean soloActivos, Pageable pageable) {
+        texto = texto != null && !texto.isBlank() ? texto.trim().replace(" ", "%").toUpperCase() : "%";
+        return repository.searchPage(texto, Boolean.TRUE.equals(soloActivos), pageable);
+    }
+
     @Override
     @Transactional
     public Funcionario save(Funcionario entity) {

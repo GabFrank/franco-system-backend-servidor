@@ -324,7 +324,6 @@ public class RecuperacionContrasenaService {
         r = repository.save(r);
         repository.anularAbiertas(usuario.getId(), r.getId());
 
-        String nombre = usuario.getPersona() != null ? usuario.getPersona().getNombre() : null;
         String documento = usuario.getPersona() != null ? usuario.getPersona().getDocumento() : null;
         SolicitudRrhhCreada creada = new SolicitudRrhhCreada();
         creada.solicitudId = r.getId();
@@ -332,11 +331,10 @@ public class RecuperacionContrasenaService {
         creada.horasParaAprobar = HORAS_APROBACION_RRHH;
         creada.mensajeWhatsapp = "*Solicitud de restablecimiento de contraseña N° " + r.getId() + "*\n"
                 + "Usuario: " + usuario.getNickname() + "\n"
-                + (nombre != null ? "Nombre: " + nombre + "\n" : "")
                 + (documento != null ? "Cédula: " + documento + "\n" : "")
                 + "Teléfono: " + tel + "\n"
                 + "Fecha: " + ahora.format(FECHA_HORA) + "\n\n"
-                + "Solicito la aprobación desde FRC Sistemas (RRHH > Recuperación de contraseñas).";
+                + "Solicito la aprobación.";
         return creada;
     }
 

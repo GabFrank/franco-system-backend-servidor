@@ -1,0 +1,61 @@
+enum TipoRecuperacionContrasena {
+    CORREO,
+    RRHH
+}
+
+enum EstadoRecuperacionContrasena {
+    PENDIENTE,
+    APROBADA,
+    RECHAZADA,
+    COMPLETADA,
+    ANULADA
+}
+
+"""
+Pedido de "¿Olvidó su contraseña?". El codigo (hash) no se expone.
+"""
+type RecuperacionContrasena {
+    id: ID!
+    usuario: Usuario
+    tipo: TipoRecuperacionContrasena
+    estado: EstadoRecuperacionContrasena
+    """PENDIENTE o APROBADA cuyo plazo ya paso."""
+    vencida: Boolean
+    """Correo que informo el usuario (opcional en las solicitudes a RRHH)."""
+    email: String
+    """Telefono que informo el usuario: compararlo con usuario.persona.telefono."""
+    telefono: String
+    observacion: String
+    intentos: Int
+    ip: String
+    venceEn: Date
+    resueltoPor: Usuario
+    resueltoEn: Date
+    motivoRechazo: String
+    completadoEn: Date
+    creadoEn: Date
+}
+
+type RecuperacionContrasenaPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [RecuperacionContrasena]
+    getPageable: Pageable
+}
+
+extend type Query {
+    """Solicitudes a RRHH. estado: PENDIENTE, APROBADA, RECHAZADA, COMPLETADA, ANULADA o TODAS. Rol RRHH APROBAR."""
+    solicitudesRecuperacionContrasena(estado: String, page: Int = 0, size: Int = 25): RecuperacionContrasenaPage
+    """Pendientes vigentes; 0 si el usuario no tiene el rol RRHH APROBAR."""
+    countSolicitudesRecuperacionContrasenaPendientes: Int
+}
+
+extend type Mutation {
+    aprobarRecuperacionContrasena(id: ID!): RecuperacionContrasena
+    rechazarRecuperacionContrasena(id: ID!, motivo: String!): RecuperacionContrasena
+}

@@ -10,8 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.Collections;
 import java.util.Map;
 
@@ -40,8 +38,6 @@ public class RecuperacionContrasenaController {
     public static class VerificarRequest {
         private String nickname;
         private String documento;
-        /** yyyy-MM-dd */
-        private String nacimiento;
         private String captchaId;
         private String captchaRespuesta;
     }
@@ -70,13 +66,7 @@ public class RecuperacionContrasenaController {
 
     @PostMapping("/verificar")
     public ResponseEntity<?> verificar(@RequestBody VerificarRequest req, HttpServletRequest http) {
-        LocalDate nacimiento;
-        try {
-            nacimiento = req.getNacimiento() == null ? null : LocalDate.parse(req.getNacimiento().trim());
-        } catch (DateTimeParseException e) {
-            throw new RecuperacionException("La fecha de nacimiento no es válida.");
-        }
-        return ResponseEntity.ok(service.verificarIdentidad(req.getNickname(), req.getDocumento(), nacimiento,
+        return ResponseEntity.ok(service.verificarIdentidad(req.getNickname(), req.getDocumento(),
                 req.getCaptchaId(), req.getCaptchaRespuesta(), ip(http)));
     }
 

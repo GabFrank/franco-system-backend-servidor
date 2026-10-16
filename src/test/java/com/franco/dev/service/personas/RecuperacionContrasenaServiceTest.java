@@ -18,7 +18,6 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.Optional;
@@ -85,7 +84,7 @@ class RecuperacionContrasenaServiceTest {
     void conCaptchaIncorrectoNoSeConsultaNada() {
         when(captcha.validar("c1", "XXXXX")).thenReturn(false);
         RecuperacionException e = assertThrows(RecuperacionException.class, () -> service.verificarIdentidad(
-                "jperez", "4567890", LocalDate.of(2000, 1, 1), "c1", "XXXXX", "10.0.0.1"));
+                "jperez", "4567890", "c1", "XXXXX", "10.0.0.1"));
         assertTrue(e.getMessage().contains("imagen"));
         verifyNoInteractions(jdbc);
     }
@@ -95,18 +94,18 @@ class RecuperacionContrasenaServiceTest {
         when(captcha.validar(any(), any())).thenReturn(true);
         when(jdbc.queryForObject(anyString(), eq(Long.class), any(), any())).thenReturn(5L);
         RecuperacionException e = assertThrows(RecuperacionException.class, () -> service.verificarIdentidad(
-                "jperez", "4567890", LocalDate.of(2000, 1, 1), "c1", "ABCDE", "10.0.0.1"));
+                "jperez", "4567890", "c1", "ABCDE", "10.0.0.1"));
         assertTrue(e.getMessage().contains("Demasiados intentos"));
-        verify(jdbc, never()).query(anyString(), any(RowMapper.class), any(), any(), any());
+        verify(jdbc, never()).query(anyString(), any(RowMapper.class), any(), any());
     }
 
     @Test
     void datosQueNoCoincidenSeRegistranComoFalloConMensajeGenerico() {
         when(captcha.validar(any(), any())).thenReturn(true);
         when(jdbc.queryForObject(anyString(), eq(Long.class), any(), any())).thenReturn(0L);
-        when(jdbc.query(anyString(), any(RowMapper.class), any(), any(), any())).thenReturn(Collections.emptyList());
+        when(jdbc.query(anyString(), any(RowMapper.class), any(), any())).thenReturn(Collections.emptyList());
         RecuperacionException e = assertThrows(RecuperacionException.class, () -> service.verificarIdentidad(
-                " jperez ", "4.567.890", LocalDate.of(2000, 1, 1), "c1", "ABCDE", "10.0.0.1"));
+                " jperez ", "4.567.890", "c1", "ABCDE", "10.0.0.1"));
         assertTrue(e.getMessage().contains("no coinciden"));
         verify(jdbc).update(anyString(), eq("JPEREZ"), eq("10.0.0.1"), eq(false));
     }
@@ -170,11 +169,11 @@ class RecuperacionContrasenaServiceTest {
     }
 
     @Test
-    void laContrasenaNoPuedeSerElUsuarioNiLaCedula() {
+    void laContrasenaNoPuedeSerVaciaNiElUsuarioNiLaCedula() {
         solicitud(TipoRecuperacionContrasena.CORREO, EstadoRecuperacionContrasena.PENDIENTE, "123456");
         assertThrows(RecuperacionException.class, () -> service.restablecer(10L, "123456", null, "jperez"));
         assertThrows(RecuperacionException.class, () -> service.restablecer(10L, "123456", null, "4567890"));
-        assertThrows(RecuperacionException.class, () -> service.restablecer(10L, "123456", null, "12345"));
+        assertThrows(RecuperacionException.class, () -> service.restablecer(10L, "123456", null, "  "));
         verify(usuarioService, never()).save(any(Usuario.class));
     }
 

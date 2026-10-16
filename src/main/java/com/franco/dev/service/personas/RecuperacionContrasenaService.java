@@ -23,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.mail.internet.MimeMessage;
 import java.security.SecureRandom;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
@@ -38,15 +37,15 @@ import java.util.regex.Pattern;
  * "¿Olvido su contrasena?" del login. Corre solo en el central: es el que tiene el correo
  * configurado, y la contrasena nueva baja a las filiales por la replicacion de personas.usuario.
  *
- * <p><b>Paso 1, identidad.</b> Usuario + cedula + fecha de nacimiento, con un captcha
- * ({@link CaptchaService}) y un bloqueo por intentos fallidos (por usuario y por IP). Cedula y
- * fecha no son secretos --cualquier compañero puede saberlas--: son un filtro, no la prueba.
+ * <p><b>Paso 1, identidad.</b> Usuario + cedula, con un captcha ({@link CaptchaService}) y un
+ * bloqueo por intentos fallidos (por usuario y por IP). La cedula no es secreta --cualquier
+ * compañero puede saberla--: es un filtro, no la prueba.
  *
  * <p><b>Paso 2, la prueba.</b>
  * <ul>
  *   <li>Con correo ({@code usuario.email} o, si esta vacio, {@code persona.email}): un codigo de 6
  *       digitos al correo. La prueba es tener acceso a ese correo.</li>
- *   <li>Sin correo (o sin fecha de nacimiento cargada): no hay autoservicio. Se registra una
+ *   <li>Sin correo: no hay autoservicio. Se registra una
  *       solicitud que aprueba RRHH, comparando el telefono del WhatsApp que recibe con el
  *       registrado. Al crearla se le muestra al usuario un codigo secreto que no viaja por
  *       WhatsApp: aunque alguien engañe a RRHH, sin ese codigo no puede usar la aprobacion.</li>
@@ -70,7 +69,6 @@ public class RecuperacionContrasenaService {
     static final int MAX_CORREOS_POR_HORA = 3;
     static final int MAX_SOLICITUDES_RRHH_POR_DIA = 3;
     static final int MINUTOS_VERIFICACION_SIN_CORREO = 20;
-    static final int LARGO_MINIMO_CONTRASENA = 6;
 
     private static final Pattern EMAIL = Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+$");
     private static final String ALFABETO_SECRETO = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -81,20 +79,9 @@ public class RecuperacionContrasenaService {
     private static final String MENSAJE_BLOQUEADO =
             "Demasiados intentos fallidos. Por seguridad, espere " + MINUTOS_BLOQUEO + " minutos e intente nuevamente.";
 
-    /**
-     * La identidad, de una: el documento se compara solo por digitos (hay cedulas cargadas con
-     * puntos).
-     *
-     * <p>La fecha de nacimiento se guardo como medianoche local en una columna timestamptz, a veces
-     * con UTC-3 y a veces con UTC-4 (03:00Z o 04:00Z). Con la zona {@code America/Asuncion} las
-     * fechas viejas de invierno se corren al dia anterior, porque el desktop las guardo con el
-     * UTC-3 de hoy; restando 3 horas fijas caen todas en su dia (verificado en bodega el 2026-10-16).
-     * {@code 1970-01-01 00:00Z} es un relleno, no una fecha: cuenta como sin fecha.
-     */
+    /** El documento se compara solo por digitos: hay cedulas cargadas con puntos. */
     private static final String SQL_IDENTIDAD =
-            "SELECT u.id, u.email AS usuario_email, p.email AS persona_email, "
-            + "  (p.nacimiento IS NOT NULL AND p.nacimiento <> 'epoch'::timestamptz) AS tiene_nacimiento, "
-            + "  ((p.nacimiento AT TIME ZONE 'UTC') - interval '3 hours')::date = ? AS nacimiento_ok "
+            "SELECT u.id, u.email AS usuario_email, p.email AS persona_email "
             + "FROM personas.usuario u JOIN personas.persona p ON p.id = u.persona_id "
             + "WHERE upper(u.nickname) = upper(?) AND u.activo IS NOT FALSE "
             + "  AND regexp_replace(coalesce(p.documento, ''), '\\D', '', 'g') = ?";
@@ -191,22 +178,20 @@ public class RecuperacionContrasenaService {
     private static class Identidad {
         Long usuarioId;
         String email;
-        boolean tieneNacimiento;
-        boolean nacimientoOk;
     }
 
     // ------------------------------------------------------------------ paso 1: identidad
 
     @Transactional(noRollbackFor = RecuperacionException.class)
-    public Verificacion verificarIdentidad(String nickname, String documento, LocalDate nacimiento,
+    public Verificacion verificarIdentidad(String nickname, String documento,
                                            String captchaId, String captchaRespuesta, String ip) {
         if (!captchaService.validar(captchaId, captchaRespuesta)) {
             throw new RecuperacionException("El código de la imagen no es correcto. Escriba el nuevo código.");
         }
         String nick = nickname == null ? "" : nickname.trim().toUpperCase();
         String doc = documento == null ? "" : documento.replaceAll("\\D", "");
-        if (nick.isEmpty() || doc.isEmpty() || nacimiento == null) {
-            throw new RecuperacionException("Complete usuario, cédula y fecha de nacimiento.");
+        if (nick.isEmpty() || doc.isEmpty()) {
+            throw new RecuperacionException("Complete usuario y cédula.");
         }
         if (bloqueado(nick, ip)) {
             throw new RecuperacionException(MENSAJE_BLOQUEADO);
@@ -216,21 +201,17 @@ public class RecuperacionContrasenaService {
             Identidad id = new Identidad();
             id.usuarioId = rs.getLong("id");
             id.email = primerCorreoValido(rs.getString("usuario_email"), rs.getString("persona_email"));
-            id.tieneNacimiento = rs.getBoolean("tiene_nacimiento");
-            id.nacimientoOk = rs.getBoolean("nacimiento_ok");
             return id;
-        }, java.sql.Date.valueOf(nacimiento), nick, doc);
+        }, nick, doc);
 
         Identidad identidad = encontradas.isEmpty() ? null : encontradas.get(0);
-        // Sin fecha de nacimiento cargada no se la puede comparar: esa persona va siempre por RRHH,
-        // nunca por correo, asi que la fecha que escribio no le abre nada.
-        boolean coincide = identidad != null && (identidad.nacimientoOk || !identidad.tieneNacimiento);
+        boolean coincide = identidad != null;
         jdbc.update(SQL_REGISTRAR_INTENTO, nick, ip, coincide);
         if (!coincide) {
             throw new RecuperacionException(MENSAJE_NO_COINCIDE);
         }
 
-        if (identidad.tieneNacimiento && identidad.email != null) {
+        if (identidad.email != null) {
             return enviarCodigoPorCorreo(identidad, ip);
         }
         limpiarVerificacionesVencidas();
@@ -489,8 +470,8 @@ public class RecuperacionContrasenaService {
     }
 
     private static void validarContrasena(Usuario usuario, String nueva) {
-        if (nueva == null || nueva.trim().length() < LARGO_MINIMO_CONTRASENA) {
-            throw new RecuperacionException("La contraseña debe tener al menos " + LARGO_MINIMO_CONTRASENA + " caracteres.");
+        if (nueva == null || nueva.trim().isEmpty()) {
+            throw new RecuperacionException("Escriba la contraseña nueva.");
         }
         if (nueva.length() > 50) {
             throw new RecuperacionException("La contraseña no puede superar los 50 caracteres.");

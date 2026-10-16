@@ -247,9 +247,11 @@ public class RecuperacionContrasenaService {
 
         // Primero el correo y despues la fila: si el envio falla no queda una solicitud huerfana
         // ni se anulan las que estaban abiertas.
-        enviarCorreo(identidad.email, "Código para restablecer su contraseña",
+        // La hora en el asunto evita que Gmail agrupe los correos en una conversacion y esconda
+        // detras de "..." el texto que se repite.
+        enviarCorreo(identidad.email, "Código para restablecer su contraseña - " + LocalDateTime.now().format(FECHA_HORA),
                 "<p>Hola <b>" + escapar(usuario.getNickname()) + "</b>,</p>"
-                + "<p>Recibimos un pedido para restablecer la contraseña de su usuario en FRC Sistemas.</p>"
+                + "<p>Recibimos un pedido para restablecer la contraseña de su usuario en FRC.</p>"
                 + "<p style=\"font-size:28px;letter-spacing:6px;font-weight:bold\">" + codigo + "</p>"
                 + "<p>El código vence en " + MINUTOS_CODIGO_CORREO + " minutos y sirve una sola vez.</p>"
                 + "<p>Si usted no lo pidió, ignore este correo: su contraseña no cambia. "
@@ -583,7 +585,7 @@ public class RecuperacionContrasenaService {
         try {
             MimeMessage mensaje = sender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mensaje, false, "UTF-8");
-            helper.setFrom(direccionRemitente(), "FRC Sistemas");
+            helper.setFrom(direccionRemitente(), "FRC");
             helper.setTo(destino);
             helper.setSubject(asunto);
             helper.setText("<div style=\"font-family:Arial,sans-serif;font-size:14px;color:#222\">" + html
@@ -601,11 +603,11 @@ public class RecuperacionContrasenaService {
                 usuario.getPersona() != null ? usuario.getPersona().getEmail() : null);
         if (destino == null) return;
         try {
-            enviarCorreo(destino, "Su contraseña fue cambiada",
+            String cuando = LocalDateTime.now().format(FECHA_HORA);
+            enviarCorreo(destino, "Su contraseña fue cambiada - " + cuando,
                     "<p>Hola <b>" + escapar(usuario.getNickname()) + "</b>,</p>"
-                    + "<p>La contraseña de su usuario en FRC Sistemas se cambió el "
-                    + LocalDateTime.now().format(FECHA_HORA) + ".</p>"
-                    + "<p>Si no fue usted, comuníquese de inmediato con RRHH o con el administrador del sistema.</p>");
+                    + "<p>La contraseña de su usuario en FRC se cambió el " + cuando + ".</p>"
+                    + "<p>Si no fue usted, comuníquese de inmediato con RRHH.</p>");
         } catch (RecuperacionException e) {
             log.warn("Recuperacion de contrasena: no se pudo avisar el cambio al usuario id={}", usuario.getId());
         }

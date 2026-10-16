@@ -89,6 +89,11 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
         return service.findByPersonaNombre(texto);
     }
 
+    public Page<Funcionario> funcionariosSearchPage(String texto, Integer page, Integer size, Boolean soloActivos) {
+        Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : 15);
+        return service.searchPage(texto, soloActivos, pageable);
+    }
+
     public Funcionario saveFuncionario(FuncionarioInput input) {
         ModelMapper m = new ModelMapper();
         Funcionario e;

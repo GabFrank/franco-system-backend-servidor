@@ -8,7 +8,7 @@
 --   Los codigos se guardan con BCrypt, nunca en claro.
 --
 -- recuperacion_contrasena_intento: cada verificacion de identidad
---   (usuario + cedula + fecha de nacimiento), para bloquear la fuerza bruta
+--   (usuario + cedula), para bloquear la fuerza bruta
 --   por usuario y por IP.
 --
 -- Aditivo e idempotente. Central-only: NO se registra en

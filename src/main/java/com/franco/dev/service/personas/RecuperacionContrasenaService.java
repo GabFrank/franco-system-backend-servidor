@@ -289,9 +289,17 @@ public class RecuperacionContrasenaService {
         if (tel.replace("+", "").length() < 6 || tel.length() > 20) {
             throw new RecuperacionException("Ingrese un número de teléfono válido.");
         }
-        String correo = email == null || email.trim().isEmpty() ? null : email.trim();
-        if (correo != null && !EMAIL.matcher(correo).matches()) {
+        // Obligatorio: queda como correo del usuario al restablecer, y la proxima vez recupera por
+        // correo sin pasar por RRHH.
+        String correo = email == null ? "" : email.trim();
+        if (correo.isEmpty()) {
+            throw new RecuperacionException("Ingrese su correo.");
+        }
+        if (!EMAIL.matcher(correo).matches()) {
             throw new RecuperacionException("El correo ingresado no es válido.");
+        }
+        if (Boolean.TRUE.equals(usuarioService.existsByEmail(correo))) {
+            throw new RecuperacionException("Ese correo ya está registrado para otro usuario. Ingrese otro.");
         }
         String obs = observacion == null || observacion.trim().isEmpty() ? null : observacion.trim();
         if (obs != null && obs.length() > 500) {
@@ -333,6 +341,7 @@ public class RecuperacionContrasenaService {
                 + "Usuario: " + usuario.getNickname() + "\n"
                 + (documento != null ? "Cédula: " + documento + "\n" : "")
                 + "Teléfono: " + tel + "\n"
+                + "Correo: " + correo + "\n"
                 + "Fecha: " + ahora.format(FECHA_HORA) + "\n\n"
                 + "Solicito la aprobación.";
         return creada;

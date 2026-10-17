@@ -104,7 +104,9 @@ public class ProcesoEtapaService extends CrudService<ProcesoEtapa, ProcesoEtapaR
      * Actualiza una etapa existente a estado EN_PROCESO
      * Usado cuando se inicia el trabajo en una etapa que ya existe
      */
-    @Transactional
+    // Quien la llama tolera que la etapa no exista (lo captura): sin noRollbackFor, esa excepción dejaba marcada para
+    // deshacer la transacción de quien llama, aunque la capturara. Se lanza antes de escribir nada.
+    @Transactional(noRollbackFor = IllegalStateException.class)
     public ProcesoEtapa actualizarEtapaAEnProceso(Long pedidoId, ProcesoEtapaTipo tipo) {
         Optional<ProcesoEtapa> etapaOpt = getEtapaByPedidoAndTipo(pedidoId, tipo);
         if (!etapaOpt.isPresent()) {

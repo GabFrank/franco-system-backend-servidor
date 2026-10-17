@@ -1,0 +1,4 @@
+extend type Mutation {
+    # Alta o edición de un ítem del pedido con sus distribuciones en una sola transacción
+    guardarPedidoItemConDistribuciones(pedidoItem: PedidoItemInput!, distribuciones: [PedidoItemDistribucionInput]!): PedidoItem!
+}

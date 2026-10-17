@@ -23,7 +23,8 @@ caja.
 
 ### Central
 
-1. `TesoreriaCambioEvent(cajaVirtualId, cuentaBancariaId)`: evento de Spring, uno de los dos ids va lleno.
+1. `TesoreriaCambio(cajaVirtualId, cuentaBancariaId)`: uno de los dos ids va lleno. El mismo POJO es el
+   evento de Spring y el tipo GraphQL (no hace falta una clase de evento aparte).
 2. Se publica desde los **dos únicos puntos que mutan saldos** (regla 2 de la skill financiera; la
    auditoría lo verificó: `AjusteDeSaldoService`, `MovimientosCajaEnLoteService`, el poller de retiros,
    maletín y verificación de retiros terminan todos en estos métodos):

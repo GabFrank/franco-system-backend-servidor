@@ -21,6 +21,7 @@ import static org.mockito.Mockito.*;
 class BancoLedgerServiceTest {
 
     private CuentaBancariaRepository cuentaRepository;
+    private org.springframework.context.ApplicationEventPublisher eventos;
     private MovimientoBancarioRepository movimientoRepository;
     private com.franco.dev.repository.empresarial.ConfiguracionGeneralRepository configRepository;
     private BancoLedgerService service;
@@ -31,10 +32,12 @@ class BancoLedgerServiceTest {
     @BeforeEach
     void setUp() {
         cuentaRepository = mock(CuentaBancariaRepository.class);
+        eventos = mock(org.springframework.context.ApplicationEventPublisher.class);
         movimientoRepository = mock(MovimientoBancarioRepository.class);
         configRepository = mock(com.franco.dev.repository.empresarial.ConfiguracionGeneralRepository.class);
         when(configRepository.findAll()).thenReturn(java.util.Collections.emptyList());
-        service = new BancoLedgerService(cuentaRepository, movimientoRepository, new LimiteAnulacionService(configRepository));
+        service = new BancoLedgerService(cuentaRepository, movimientoRepository, new LimiteAnulacionService(configRepository),
+                eventos);
         em = mock(javax.persistence.EntityManager.class);
         service.setEntityManager(em);
 
@@ -188,5 +191,27 @@ class BancoLedgerServiceTest {
         service.revertir(original, "ANULACION PAGO #7", null);
 
         assertEquals(0, new BigDecimal("1300").compareTo(cuenta.getSaldo()));
+    }
+
+    // ---- Aviso a la suscripción tesoreriaCambioSub ----
+
+    @Test
+    void registrar_avisa_el_cambio_de_la_cuenta() {
+        service.registrar(4L, MovimientoBancarioTipo.ENTRADA_MANUAL, new BigDecimal("200"),
+                "DEPOSITO", "MANUAL", null, null);
+        verify(eventos).publishEvent((Object) com.franco.dev.graphql.financiero.publisher.TesoreriaCambio.deCuenta(4L));
+    }
+
+    @Test
+    void una_salida_rechazada_por_descubierto_no_avisa() {
+        assertThrows(graphql.GraphQLException.class, () -> service.registrar(4L, MovimientoBancarioTipo.SALIDA_MANUAL,
+                new BigDecimal("5000"), "PAGO", "MANUAL", null, null));
+        verify(eventos, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void ajustar_reservado_avisa_el_cambio_de_la_cuenta() {
+        service.ajustarReservado(4L, new BigDecimal("50"));
+        verify(eventos).publishEvent((Object) com.franco.dev.graphql.financiero.publisher.TesoreriaCambio.deCuenta(4L));
     }
 }

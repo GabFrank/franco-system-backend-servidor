@@ -69,6 +69,46 @@ Fijo 2: `N/A para central porque el diff no trae migración ni .graphqls [ev: gi
 | `NOT IN` descartaría movimientos con `sucursal_id` nulo | Fijo 3 | Descartado: la columna es `NOT NULL` (0 filas) |
 | `Pageable.unpaged()` en el IT no ejercita la count query | Fijo 3 | Cubierto por pantalla: los totales 5631 y 5177 coinciden con SQL |
 
+## Fase 2 — Cantidad del PDF (pedida por Franco el 17/10)
+
+**Problema.** Con POSITIVO o NEGATIVO y sin sucursal, el PDF lista los productos de la regla nueva,
+pero su columna Cantidad sigue siendo el total de todas las sucursales (con COMPRAS para quien
+tiene el permiso): un reporte «STOCK: POSITIVO» muestra 4902 con −108.978.
+
+**Cambio.** En `ProductoService.exportarReporteConFiltros`, con `stockFiltro` positivo/negativo y
+sin `sucursalId`, la cantidad es la **suma de las sucursales de ese signo**, sin COMPRAS ni SERVIDOR,
+para cualquier usuario (opción a extendida, Franco 17/10). El encabezado lo aclara:
+`STOCK: POSITIVO (SUMA DE SUCURSALES POSITIVAS, SIN COMPRAS)`. El desktop alinea su fila desplegada
+en el mismo PR de la rama: con el filtro de signo y sin sucursal, tampoco muestra COMPRAS. `MovimientoStockService` gana
+`stockDelSignoExcluyendoNombresSucursal(proId, positivo, nombres)`, sobre la misma consulta
+agrupada (`stockPorSucursales`) y el mismo redondeo a `Float` que `sumarStockDeSucursales`.
+El costo total de la fila (cantidad × costo) la sigue.
+
+- TODOS o con sucursal elegida: sin cambios.
+- El «COSTO TOTAL» del encabezado es la suma de las filas (`costoTotalGeneral` en `productos.jrxml`), así que también cambia. «CANT. TOTAL» es la cantidad de productos: no cambia.
+
+**Llamadores.** `stockByProductoId` y `stockByProductoIdExcluyendoNombresSucursal` no cambian (los
+usan costo medio y otros); el método nuevo solo lo llama el PDF.
+
+- El signo se decide sobre el `double` de cada sucursal, antes del redondeo a `Float`: un producto
+  que la lista consideró positivo no puede dar 0 (1e-9 sigue siendo > 0 en `Float`). Cantidad nula:
+  se salta, como en `sumarStockDeSucursales`, que no se toca (su redondeo entra en el costo medio).
+
+**Auditoría (paso 5).**
+
+| Hallazgo | Eje | Qué se hizo |
+|---|---|---|
+| Para quien ve COMPRAS, la fila del desktop la sumaba y la lista no | A | Aplicado: sin COMPRAS en PDF y fila con filtro de signo |
+| El encabezado no decía qué suma la cantidad | A | Aplicado: rótulo en `filtroStock` |
+| COMPRAS elegida sin permiso cae en la rama sin sucursal | A | Correcto; queda cubierto por la regla general |
+| Signo con floats / cantidad nula | B | Signo sobre `double`; nulas se saltan; test con 1e-9 |
+| No tocar `sumarStockDeSucursales` | B | Método aparte |
+| Dos consultas por producto en el PDF | B | Previo; el método nuevo no agrega ninguna |
+
+**Tests.** `MovimientoStockServiceStockTest`: suma solo las sucursales del signo, excluye por nombre,
+el cero no entra, una sola consulta. Por pantalla: el PDF de «HEINEKEN» + POSITIVO muestra para 4902
++9.486 (las 18 sucursales positivas) y NEGATIVO solo cantidades negativas.
+
 ## Datos nuevos
 
 Ninguno: sin migración, sin cambio de `.graphqls`, sin campo nuevo.

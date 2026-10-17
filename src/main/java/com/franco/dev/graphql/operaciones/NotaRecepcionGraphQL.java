@@ -22,6 +22,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -141,6 +142,17 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
             e.setFecha(stringToDate(input.getFecha()));
         if (input.getCreadoEn() != null)
             e.setCreadoEn(stringToDate(input.getCreadoEn()));
+        // El save hace merge: lo que el input no trae se conserva de la nota guardada, no se pisa con null (#439)
+        if (input.getId() != null && (e.getCreadoEn() == null || e.getEsNotaRechazo() == null)) {
+            service.findById(input.getId()).ifPresent(guardada -> {
+                if (e.getCreadoEn() == null) e.setCreadoEn(guardada.getCreadoEn());
+                if (e.getEsNotaRechazo() == null) e.setEsNotaRechazo(guardada.getEsNotaRechazo());
+            });
+        }
+        if (e.getCreadoEn() == null)
+            e.setCreadoEn(LocalDateTime.now());
+        if (e.getEsNotaRechazo() == null)
+            e.setEsNotaRechazo(false);
         if (input.getMonedaId() != null)
             e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
 

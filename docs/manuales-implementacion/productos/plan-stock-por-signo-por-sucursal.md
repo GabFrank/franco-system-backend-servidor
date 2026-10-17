@@ -109,6 +109,18 @@ usan costo medio y otros); el método nuevo solo lo llama el PDF.
 el cero no entra, una sola consulta. Por pantalla: el PDF de «HEINEKEN» + POSITIVO muestra para 4902
 +9.486 (las 18 sucursales positivas) y NEGATIVO solo cantidades negativas.
 
+**Prueba y auditoría del diff de la fase 2 (pasos 8 y 9).** Por pantalla, PDF de «HEINEKEN»: POSITIVO,
+13 filas, todas positivas (4902 = 9.489, 70 = 7.318, 3161 = 6, 4500 = 353, 6070 = 3.864, iguales a
+SQL); NEGATIVO, 14 filas, todas negativas, 1,5 s; TODOS, igual que antes (total con COMPRAS, sin
+rótulo). El rótulo entra en una línea en los dos signos. Fila del 226 con NEGATIVO: sin COMPRAS; con
+TODOS: 21 sucursales, con COMPRAS.
+
+| Hallazgo | Qué se hizo |
+|---|---|
+| El rótulo podría partirse en dos líneas (campo de 305 × 11) | Descartado: el PDF renderizado lo muestra completo en una línea |
+| La fila del desktop no excluye SERVIDOR | Descartado: `cargarSucursales` ya lo saca de `this.sucursales` |
+| Mayúsculas en los nombres COMPRAS/SERVIDOR | Sin acción: en la base son exactos |
+
 ## Datos nuevos
 
 Ninguno: sin migración, sin cambio de `.graphqls`, sin campo nuevo.

@@ -122,3 +122,14 @@ extend type Mutation {
     # Reemplaza las sucursales adicionales que cubre la caja. La decide su responsable.
     guardarSucursalesDeCaja(cajaVirtualId: ID!, sucursalIds: [ID!]!): CajaVirtual!
 }
+
+# Señal de que cambió el saldo de una caja o de una cuenta (va lleno uno de los dos ids), para que el desktop
+# relea la caja mayor abierta. No lleva montos: los datos se leen con las consultas de siempre.
+type TesoreriaCambio {
+    cajaVirtualId: ID
+    cuentaBancariaId: ID
+}
+
+extend type Subscription {
+    tesoreriaCambioSub: TesoreriaCambio
+}

@@ -16,6 +16,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
+import org.springframework.context.ApplicationEventPublisher;
+import com.franco.dev.graphql.financiero.publisher.TesoreriaCambio;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -38,6 +40,7 @@ class TesoreriaServiceTest {
     private MovimientoCajaVirtualRepository movimientoRepository;
     private com.franco.dev.repository.empresarial.ConfiguracionGeneralRepository configRepository;
     private TesoreriaSecurityService seguridad;
+    private ApplicationEventPublisher eventos;
     private TesoreriaService service;
 
     private CajaVirtual caja;
@@ -56,8 +59,9 @@ class TesoreriaServiceTest {
         // aritmetica de saldos, no los permisos: el mock deja pasar todo (requireEscrituraCaja
         // es void y no hace nada por default en un mock).
         seguridad = mock(TesoreriaSecurityService.class);
+        eventos = mock(ApplicationEventPublisher.class);
         service = new TesoreriaService(saldoRepository, seguridad, cajaVirtualRepository, monedaRepository, movimientoRepository,
-                new LimiteAnulacionService(configRepository));
+                new LimiteAnulacionService(configRepository), eventos);
 
         caja = new CajaVirtual();
         caja.setId(1L);
@@ -721,5 +725,47 @@ class TesoreriaServiceTest {
                 () -> service.registrarEntradaDeEnvio(mov(CajaVirtualTipoMovimiento.TRANSFERENCIA_ENTRADA, 300)));
 
         verify(movimientoRepository, never()).save(any());
+    }
+
+    // ---- Aviso a la suscripción tesoreriaCambioSub ----
+
+    @Test
+    void registrar_avisa_el_cambio_de_la_caja() {
+        service.registrar(mov(CajaVirtualTipoMovimiento.INGRESO, 500));
+        verify(eventos).publishEvent((Object) TesoreriaCambio.deCaja(1L));
+    }
+
+    @Test
+    void un_egreso_rechazado_no_avisa() {
+        assertThrows(GraphQLException.class,
+                () -> service.registrar(mov(CajaVirtualTipoMovimiento.EGRESO, 2000)));
+        verify(eventos, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void transferir_avisa_las_dos_cajas() {
+        CajaVirtual destino = new CajaVirtual();
+        destino.setId(2L);
+        CajaVirtualSaldo saldoDestino = new CajaVirtualSaldo();
+        saldoDestino.setCajaVirtual(destino);
+        saldoDestino.setMoneda(gs);
+        saldoDestino.setSaldo(BigDecimal.ZERO);
+        when(cajaVirtualRepository.findById(2L)).thenReturn(Optional.of(destino));
+        when(saldoRepository.lockByCajaVirtualIdAndMonedaId(2L, 10L)).thenReturn(Optional.of(saldoDestino));
+
+        service.transferir(1L, 2L, 300.0, gs, "TRANSFERENCIA", null);
+
+        verify(eventos).publishEvent((Object) TesoreriaCambio.deCaja(1L));
+        verify(eventos).publishEvent((Object) TesoreriaCambio.deCaja(2L));
+    }
+
+    @Test
+    void recalcular_saldos_avisa_el_cambio_de_la_caja() {
+        when(movimientoRepository.findByCajaVirtualIdAndActivoTrue(1L))
+                .thenReturn(java.util.Collections.singletonList(mov(CajaVirtualTipoMovimiento.INGRESO, 500)));
+
+        service.recalcularSaldos(1L);
+
+        verify(eventos).publishEvent((Object) TesoreriaCambio.deCaja(1L));
     }
 }

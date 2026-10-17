@@ -7,6 +7,7 @@ import com.franco.dev.service.financiero.TerminalPosService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.ProveedorServicioService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.graphql.exceptions.ConstraintViolada;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -67,14 +68,8 @@ public class ProveedorServicioGraphQL implements GraphQLQueryResolver, GraphQLMu
                 ? cuentaBancariaService.findById(input.getCuentaBancariaId()).orElse(null) : null);
         try {
             return service.save(e);
-        } catch (Exception ex) {
-            // El nombre del constraint suele quedar en la causa raiz (PSQLException),
-            // no en el mensaje del wrapper de Spring.
-            for (Throwable t = ex; t != null; t = t.getCause()) {
-                if (t.getMessage() != null && t.getMessage().contains("proveedor_servicio_un")) {
-                    throw new GraphQLException("Esta persona ya es un proveedor de servicio");
-                }
-            }
+        } catch (RuntimeException ex) {
+            if (ConstraintViolada.en(ex, "proveedor_servicio_un")) throw new GraphQLException("Esta persona ya es un proveedor de servicio");
             throw ex;
         }
     }

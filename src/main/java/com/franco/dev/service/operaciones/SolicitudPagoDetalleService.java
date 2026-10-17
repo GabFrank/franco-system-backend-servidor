@@ -26,6 +26,8 @@ import java.util.List;
 @AllArgsConstructor
 public class SolicitudPagoDetalleService extends CrudService<SolicitudPagoDetalle, SolicitudPagoDetalleRepository, Long> {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SolicitudPagoDetalleService.class);
+
     private final SolicitudPagoDetalleRepository repository;
     private final MonedaService monedaService;
     private final FormaPagoService formaPagoService;
@@ -41,6 +43,21 @@ public class SolicitudPagoDetalleService extends CrudService<SolicitudPagoDetall
             entity.setCreadoEn(LocalDateTime.now());
         }
         return super.save(entity);
+    }
+
+    /**
+     * Borra una forma de pago. Si ya no existe devuelve true igual: el resultado que pidió el cliente ya está (doble
+     * clic, pantalla vieja). CrudService.deleteById lo convertía en un error de rollback-only (#435).
+     */
+    @Transactional
+    public Boolean eliminarDetalle(Long id) {
+        java.util.Optional<SolicitudPagoDetalle> detalle = repository.findById(id);
+        if (!detalle.isPresent()) {
+            log.warn("eliminarDetalle: la forma de pago {} ya no existe", id);
+            return true;
+        }
+        repository.delete(detalle.get());
+        return true;
     }
 
     public List<SolicitudPagoDetalle> findBySolicitudPagoId(Long solicitudPagoId) {

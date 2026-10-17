@@ -237,8 +237,8 @@ public class RecepcionDocumentalService {
 
     /**
      * Nota nueva PENDIENTE_CONCILIACION en la moneda del pedido. Una moneda que no es guaraní necesita su cotización:
-     * sin ella no se guarda (antes quedaba con 1 y el total en Gs salía mal, #390). La nota «de rechazo» numera aparte
-     * pero se guarda sin la marca esNotaRechazo, como siempre (el input de la nota nunca la tuvo).
+     * sin ella no se guarda (antes quedaba con 1 y el total en Gs salía mal, #390). Como {@code saveNotaRecepcion} desde
+     * #439: la nota «de rechazo» queda marcada y numera aparte, y el alta lleva creado_en.
      */
     private NotaRecepcion crearNota(Pedido pedido, boolean deRechazo) {
         Moneda moneda = pedido != null ? pedido.getMoneda() : null;
@@ -254,6 +254,8 @@ public class RecepcionDocumentalService {
         nota.setCotizacion(cotizacion(moneda));
         nota.setEstado(NotaRecepcionEstado.PENDIENTE_CONCILIACION);
         nota.setPagado(false);
+        nota.setEsNotaRechazo(deRechazo);
+        nota.setCreadoEn(LocalDateTime.now());
         return notaRecepcionService.save(nota);
     }
 

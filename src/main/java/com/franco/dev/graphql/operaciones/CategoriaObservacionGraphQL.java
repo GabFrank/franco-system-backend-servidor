@@ -4,6 +4,7 @@ import com.franco.dev.domain.operaciones.CategoriaObservacion;
 import com.franco.dev.graphql.operaciones.input.CategoriaObservacionInput;
 import com.franco.dev.service.operaciones.CategoriaObservacionService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.graphql.exceptions.ConstraintViolada;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -37,16 +38,11 @@ public class CategoriaObservacionGraphQL implements GraphQLQueryResolver, GraphQ
         if(input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if(input.getCreadoEn() != null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
         try {
-            e = service.save(e);
-        } catch (Exception err) {
-            err.printStackTrace();
-            if (err.getMessage().contains("categoria_observacion_unique")) {
-                throw new GraphQLException("Ya existe una categoria con ese nombre.");
-            } else {
-                throw new GraphQLException("No se pudo guardar");
-            }
+            return service.save(e);
+        } catch (RuntimeException ex) {
+            if (ConstraintViolada.en(ex, "categoria_observacion_unique")) throw new GraphQLException("Ya existe una categoria con ese nombre.");
+            throw ex;
         }
-        return e;
     }
 
     public CategoriaObservacion updateCategoriaObservacion(Long id, CategoriaObservacionInput input) {

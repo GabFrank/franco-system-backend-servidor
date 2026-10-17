@@ -5,6 +5,7 @@ import com.franco.dev.graphql.operaciones.input.SubcategoriaObservacionInput;
 import com.franco.dev.service.operaciones.CategoriaObservacionService;
 import com.franco.dev.service.operaciones.SubcategoriaObservacionService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.graphql.exceptions.ConstraintViolada;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -42,16 +43,11 @@ public class SubcategoriaObservacionGraphQL implements GraphQLQueryResolver, Gra
             e.setCategoriaObservacion(categoriaObservacionService.findById(input.getCategoriaObservacionId()).orElse(null));
         }
        try {
-           e = service.save(e);
-       } catch (Exception err) {
-           err.printStackTrace();
-           if (err.getMessage().contains("subcategoria_observacion_unique")) {
-               throw new GraphQLException("Ya existe una subcategoria con ese nombre");
-           } else {
-               throw new GraphQLException("No se pudo guardar");
-           }
+           return service.save(e);
+       } catch (RuntimeException ex) {
+           if (ConstraintViolada.en(ex, "subcategoria_observacion_unique")) throw new GraphQLException("Ya existe una subcategoria con ese nombre");
+           throw ex;
        }
-        return e;
     }
 
     public SubcategoriaObservacion updateSubcategoriaObservacion(Long id, SubcategoriaObservacionInput input) {

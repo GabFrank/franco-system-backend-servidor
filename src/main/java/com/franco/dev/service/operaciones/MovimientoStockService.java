@@ -134,6 +134,31 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
     }
 
     /**
+     * Suma solo las sucursales con stock del signo pedido (el cero no entra en ninguno): la cantidad
+     * del reporte de productos con el filtro POSITIVO/NEGATIVO, que trae los productos con alguna
+     * sucursal de ese signo. El signo se mira en el {@code double} de cada sucursal, antes del
+     * redondeo a {@code Float} que se conserva de {@link #sumarStockDeSucursales}.
+     */
+    public Double stockDelSignoExcluyendoNombresSucursal(Long proId, boolean positivo, List<String> nombresExcluidos) {
+        Set<Long> sucursalesQueCuentan = sucursalService.findAll2().stream()
+                .filter(s -> nombresExcluidos.stream().noneMatch(nombre -> nombre.equalsIgnoreCase(s.getNombre())))
+                .map(Sucursal::getId)
+                .collect(Collectors.toSet());
+
+        double total = 0.0;
+        for (StockPorSucursalDto fila : repository.stockPorSucursales(proId)) {
+            Double cantidad = fila.getCantidad();
+            if (cantidad == null || !sucursalesQueCuentan.contains(fila.getSucursalId())) {
+                continue;
+            }
+            if (positivo ? cantidad > 0 : cantidad < 0) {
+                total += cantidad.floatValue();
+            }
+        }
+        return total;
+    }
+
+    /**
      * Existencia total del producto, sumando el desglose por sucursal de UNA consulta agrupada.
      *
      * Antes esto era un bucle que preguntaba {@code stockByProductoIdAndSucursalId} una vez por

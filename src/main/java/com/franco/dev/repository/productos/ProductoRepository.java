@@ -241,15 +241,22 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         +
                         "WHERE c2.producto.id = c1.producto.id)) AND EXISTS (SELECT 1 FROM CostoPorProducto c3 " +
                         "WHERE c3.producto.id = p.id AND c3.costoMedio > 0))) " +
+                        // Positivo/negativo: alguna sucursal con stock de ese signo. Sin sucursal elegida no cuentan
+                        // COMPRAS ni SERVIDOR, que no venden: el negativo de COMPRAS tapaba al resto. EXISTS por producto
+                        // y no IN (subselect): dentro de este OR, agrupar todo movimiento_stock por sucursal tardaba ~16 s.
                         "and ((:stockFiltro) is null or :stockFiltro = 'todos' or " +
-                        "     ((:stockFiltro) = 'positivo' and p.id IN (SELECT ms.producto.id FROM MovimientoStock ms "
+                        "     ((:stockFiltro) = 'positivo' and EXISTS (SELECT ms.sucursalId FROM MovimientoStock ms "
                         +
-                        "WHERE ms.estado = true AND ((:sucursalId) is null or ms.sucursalId = :sucursalId) " +
-                        "GROUP BY ms.producto.id HAVING SUM(ms.cantidad) > 0)) or " +
-                        "     ((:stockFiltro) = 'negativo' and p.id IN (SELECT ms.producto.id FROM MovimientoStock ms "
+                        "WHERE ms.producto.id = p.id AND ms.estado = true AND (((:sucursalId) is null and ms.sucursalId NOT IN " +
+                        "(SELECT s.id FROM Sucursal s WHERE s.nombre IN ('COMPRAS', 'SERVIDOR'))) " +
+                        "or ms.sucursalId = :sucursalId) " +
+                        "GROUP BY ms.sucursalId HAVING SUM(ms.cantidad) > 0)) or " +
+                        "     ((:stockFiltro) = 'negativo' and EXISTS (SELECT ms.sucursalId FROM MovimientoStock ms "
                         +
-                        "WHERE ms.estado = true AND ((:sucursalId) is null or ms.sucursalId = :sucursalId) " +
-                        "GROUP BY ms.producto.id HAVING SUM(ms.cantidad) < 0))) " +
+                        "WHERE ms.producto.id = p.id AND ms.estado = true AND (((:sucursalId) is null and ms.sucursalId NOT IN " +
+                        "(SELECT s.id FROM Sucursal s WHERE s.nombre IN ('COMPRAS', 'SERVIDOR'))) " +
+                        "or ms.sucursalId = :sucursalId) " +
+                        "GROUP BY ms.sucursalId HAVING SUM(ms.cantidad) < 0))) " +
                         "order by p.id asc")
         public Page<Producto> searchWithFilters(
                         @Param("texto") String texto,
@@ -286,15 +293,22 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         +
                         "WHERE c2.producto.id = c1.producto.id)) AND EXISTS (SELECT 1 FROM CostoPorProducto c3 " +
                         "WHERE c3.producto.id = p.id AND c3.costoMedio > 0))) " +
+                        // Positivo/negativo: alguna sucursal con stock de ese signo. Sin sucursal elegida no cuentan
+                        // COMPRAS ni SERVIDOR, que no venden: el negativo de COMPRAS tapaba al resto. EXISTS por producto
+                        // y no IN (subselect): dentro de este OR, agrupar todo movimiento_stock por sucursal tardaba ~16 s.
                         "and ((:stockFiltro) is null or :stockFiltro = 'todos' or " +
-                        "     ((:stockFiltro) = 'positivo' and p.id IN (SELECT ms.producto.id FROM MovimientoStock ms "
+                        "     ((:stockFiltro) = 'positivo' and EXISTS (SELECT ms.sucursalId FROM MovimientoStock ms "
                         +
-                        "WHERE ms.estado = true AND ((:sucursalId) is null or ms.sucursalId = :sucursalId) " +
-                        "GROUP BY ms.producto.id HAVING SUM(ms.cantidad) > 0)) or " +
-                        "     ((:stockFiltro) = 'negativo' and p.id IN (SELECT ms.producto.id FROM MovimientoStock ms "
+                        "WHERE ms.producto.id = p.id AND ms.estado = true AND (((:sucursalId) is null and ms.sucursalId NOT IN " +
+                        "(SELECT s.id FROM Sucursal s WHERE s.nombre IN ('COMPRAS', 'SERVIDOR'))) " +
+                        "or ms.sucursalId = :sucursalId) " +
+                        "GROUP BY ms.sucursalId HAVING SUM(ms.cantidad) > 0)) or " +
+                        "     ((:stockFiltro) = 'negativo' and EXISTS (SELECT ms.sucursalId FROM MovimientoStock ms "
                         +
-                        "WHERE ms.estado = true AND ((:sucursalId) is null or ms.sucursalId = :sucursalId) " +
-                        "GROUP BY ms.producto.id HAVING SUM(ms.cantidad) < 0)))")
+                        "WHERE ms.producto.id = p.id AND ms.estado = true AND (((:sucursalId) is null and ms.sucursalId NOT IN " +
+                        "(SELECT s.id FROM Sucursal s WHERE s.nombre IN ('COMPRAS', 'SERVIDOR'))) " +
+                        "or ms.sucursalId = :sucursalId) " +
+                        "GROUP BY ms.sucursalId HAVING SUM(ms.cantidad) < 0)))")
         List<Producto> searchWithFiltersByIds(
                         @Param("ids") List<Long> ids,
                         @Param("activo") Boolean activo,

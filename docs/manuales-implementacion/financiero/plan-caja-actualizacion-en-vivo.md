@@ -163,3 +163,30 @@ el central.
 - **La PWA y la app mobile no tienen caja mayor** (grep sin resultados): no se tocan.
 - No verificado todavía: si el envío de kickstart por el websocket bloquea el hilo (se evita igual con
   `observeOn`), y la entrega real con el desktop servido desde `[::1]:4200` (prueba 2).
+
+## Registro de la ejecución (2026-10-17)
+
+**Auditoría del diff (paso 8), 3 ejes fijos.** Sin bloqueantes. Aplicado: la relectura de fondo de la lista
+de cajas no tenía guarda de secuencia y una respuesta lenta podía pisar una búsqueda nueva; ahora usa un
+contador de carga como el tablero. El resto quedó como riesgo aceptado (un aviso por movimiento, absorbido
+por el `auditTime`; carga proporcional a los desktops con la pantalla abierta).
+
+**Prueba por pantalla (paso 9).** Central de la rama en `:8084` (perfil `dev`), desktop `ng serve -c web` en
+`[::1]:4201`, usuario de prueba TESORERO1; los cambios «de otro» los hizo GERENTE12 por GraphQL. Todas pasaron:
+
+| # | Resultado |
+|---|---|
+| 1 | Al abrir el tablero, una sola carga (4 consultas). |
+| 2, 3 | Ingreso y anulación de otro usuario: fila nueva / tachada y saldo al instante. |
+| 4, 6 | Transferencia 18 → 19 desde la pantalla de Operaciones Financieras: tablero y lista al instante. |
+| 5 | Depósito de la caja 18 a la cuenta 1: la card bancaria del tablero de la 19 cambia; la caja 19 no. |
+| 7 | Lista de cajas: el saldo cambia sin volver a buscar. |
+| 8 | Egreso rechazado por saldo: ninguna consulta (no hubo aviso). |
+| 9 | «Refrescar» relee también los saldos. |
+| 10 | Filtro «Egreso» sin aplicar: la relectura de fondo usa el filtro anterior. |
+| 11 | Anulación en vuelo (demorada 6 s): la fila sigue bloqueada durante la relectura; una sola contra-anulación en la base. Conteo abierto: el central rechaza el ajuste porque el saldo cambió. |
+| 12 | Dos reinicios del central: una relectura al reconectar, el cliente reenvía las 2 suscripciones originales (sin duplicar) y un movimiento posterior da una sola relectura. |
+| 13 | Contra un central sin la suscripción (simulado reescribiendo el campo en el websocket: `FieldUndefined`): un error por pantalla, sin reintento ni aviso; la pantalla funciona como hoy. |
+
+Prueba directa del canal con un cliente websocket: ingreso → señal de la caja; egreso rechazado → nada;
+transferencia → señal de las dos cajas; depósito → señal de la caja y de la cuenta.

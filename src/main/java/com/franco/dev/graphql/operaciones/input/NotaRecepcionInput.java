@@ -16,6 +16,7 @@ public class NotaRecepcionInput {
     private Double cotizacion;
     private NotaRecepcionEstado estado;
     private Boolean pagado;
+    private Boolean esNotaRechazo;
     private String creadoEn;
     private Long usuarioId;
     private Boolean assignAllItems;

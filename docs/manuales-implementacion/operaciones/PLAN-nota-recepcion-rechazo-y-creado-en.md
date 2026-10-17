@@ -75,3 +75,23 @@ Datos de prueba creados en la base local se dejan (base local no llega a prod).
   informa cuántas hay si se puede consultar; el arreglo de datos va aparte.
 - frc-mobile (legacy) también llama `saveNotaRecepcion`; con el fix, si no manda los campos, el alta
   queda `false`/ahora y la edición conserva: no empeora.
+
+## Auditoría del diff (paso 8)
+
+Fijos 1, 2 y 3; condicionales A y B N/A (no toca release; `nota_recepcion` no está en ninguna
+publicación de la base local). Sin bloqueantes. Anotado:
+- una nota vieja con `creado_en` nulo toma la hora de su primera edición (aproximación, no la fecha real);
+- `findById` y `save` no comparten transacción: dos ediciones simultáneas podrían pisarse (improbable);
+- hallazgos de autorización: se informan por privado, no en el PR (repo público).
+
+## Resultado de la prueba de runtime (2026-10-17)
+
+Central del worktree en 8084 + desktop `develop` web en 4201, base `bodega` local:
+- Rechazar ítem → «Crear Nota de Rechazo»: nota 22 con `es_nota_rechazo = t`, `creado_en` completado;
+  la nota abre en solo lectura con el ítem RECHAZADO.
+- Rechazar ítem → «Crear Nueva Nota»: nota 23 con `f` y `creado_en` completado.
+- «+ Crear Nota»: nota 24 con `f` y `creado_en` del cliente.
+- Editar la nota común 488504 (id 12) desde el diálogo: `creado_en` y el flag sin cambios.
+- `saveNotaRecepcion` sin `creadoEn` ni `esNotaRechazo` sobre la nota 22 (como el mobile legacy):
+  conserva `true` y la fecha.
+Datos de prueba: ítem de pedido 8 (pedido 5) y notas 22-24 en la base local.

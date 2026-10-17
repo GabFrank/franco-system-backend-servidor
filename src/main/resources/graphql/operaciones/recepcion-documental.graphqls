@@ -1,0 +1,40 @@
+# Rechazo y división de ítems de la recepción documental, cada uno en una transacción
+extend type Mutation {
+    rechazarNotaRecepcionItem(input: RechazarNotaRecepcionItemInput!): RechazoNotaRecepcionItemResultado!
+    dividirPedidoItemEnNotas(input: DividirPedidoItemInput!): [NotaRecepcionItem]!
+}
+
+enum DestinoRechazoNotaRecepcion {
+    NOTA_EXISTENTE
+    NOTA_NUEVA
+    NOTA_RECHAZO
+}
+
+input RechazarNotaRecepcionItemInput {
+    pedidoItemId: ID
+    notaRecepcionItemId: ID
+    destino: DestinoRechazoNotaRecepcion!
+    notaRecepcionId: ID
+    presentacionId: ID
+    # En unidades de la presentación elegida
+    cantidad: Float!
+    motivoRechazo: String!
+    observacion: String
+}
+
+type RechazoNotaRecepcionItemResultado {
+    notaRecepcionItem: NotaRecepcionItem
+    cantidadEnUnidadesBase: Float
+}
+
+input DividirPedidoItemInput {
+    pedidoItemId: ID!
+    presentacionId: ID
+    partes: [ParteDivisionPedidoItemInput!]!
+}
+
+input ParteDivisionPedidoItemInput {
+    notaRecepcionId: ID
+    # En unidades de la presentación de la división
+    cantidad: Float!
+}

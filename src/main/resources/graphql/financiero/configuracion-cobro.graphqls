@@ -1,0 +1,26 @@
+type ConfiguracionCobro {
+    id: ID
+    "true = el aumento del cobro no puede pasar aumentoTopePorcentaje del total; false = sin tope."
+    aumentoConTope: Boolean!
+    "Tope del aumento, en porcentaje del total del cobro (0, 100]."
+    aumentoTopePorcentaje: Float!
+    usuario: Usuario
+    creadoEn: Date
+    modificadoEn: Date
+}
+
+"Semantica PATCH: un campo que no viene NO pisa lo guardado. El usuario sale de la sesion."
+input ConfiguracionCobroInput {
+    aumentoConTope: Boolean
+    aumentoTopePorcentaje: Float
+}
+
+extend type Query {
+    "Pide un rol de tesoreria. Sin fila devuelve el default (con tope del 20%) sin guardarlo: id null."
+    configuracionCobro: ConfiguracionCobro!
+}
+
+extend type Mutation {
+    "Pide TESORERIA GESTIONAR."
+    saveConfiguracionCobro(input: ConfiguracionCobroInput!): ConfiguracionCobro!
+}

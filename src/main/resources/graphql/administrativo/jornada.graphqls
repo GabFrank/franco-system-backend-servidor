@@ -18,6 +18,36 @@ type Jornada {
     estado: EstadoJornada
     observacion: String
     actualizadoEn: String
+
+    # Calculados en el central para el historial de marcaciones: el desktop solo los muestra.
+    minutosLlegadaTardiaTotal: Int
+    distanciaMaximaMetros: Int
+    tieneUbicacion: Boolean
+    puedeAjustarA8Horas: Boolean
+}
+
+type JornadaPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Jornada]
+}
+
+# Totales de TODO lo que cumple el filtro, no solo de la pagina.
+type JornadaResumen {
+    diasTrabajados: Int
+    minutosTrabajados: Int
+    minutosExtras: Int
+    minutosLlegadaTardia: Int
+}
+
+type JornadaHistorial {
+    pagina: JornadaPage
+    resumen: JornadaResumen
 }
 
 enum EstadoJornada {
@@ -47,6 +77,7 @@ extend type Query {
     jornada(id: ID!, sucursalId: ID!): Jornada
     jornadasPorUsuario(usuarioId: ID!, fechaInicio: String, fechaFin: String): [Jornada]
     jornadas(fechaInicio: String, fechaFin: String, page: Int, size: Int): [Jornada]
+    jornadasHistorial(usuarioId: ID, fechaInicio: String!, fechaFin: String!, turno: Turno, sucursalEntradaId: ID, sucursalSalidaId: ID, page: Int, size: Int): JornadaHistorial
     estadoMarcacionUsuario(usuarioId: ID!): EstadoMarcacionUsuario
 }
 

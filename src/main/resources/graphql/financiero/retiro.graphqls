@@ -51,14 +51,16 @@ extend type Query {
     retiroListPorCajaSalidaId(id:ID!, sucId: ID):[Retiro]!
     countRetiro: Int
     filterRetiros(id:ID, cajaId:ID, sucId:ID, responsableId:ID, cajeroId:ID, page:Int, size:Int):RetiroPage
-    retirosFlotantes(sucId:ID, cajaId:ID, desde:String, hasta:String, page:Int = 0, size:Int = 20):RetiroPage
+    # cajaVirtualDestinoId: la caja mayor donde se van a ingresar; al rol acotado le deja solo los que esa caja puede recibir.
+    retirosFlotantes(sucId:ID, cajaId:ID, desde:String, hasta:String, page:Int = 0, size:Int = 20, cajaVirtualDestinoId:ID):RetiroPage
 }
 
 extend type Mutation {
     saveRetiro(retiro:RetiroInput!, retiroDetalleInputList: [RetiroDetalleInput], printerName: String, local: String):Retiro!
     deleteRetiro(id:ID!, sucId: ID):Boolean!
     ingresarRetiroACajaMayor(retiroId:ID!, sucId:ID!, cajaVirtualId:ID!):Retiro!
-    cancelarRetiro(id:ID!, sucId: ID):Boolean!
+    # cancelar: true cancela, false habilita. Sin el argumento (desktop anterior) cancela y nunca habilita.
+    cancelarRetiro(id:ID!, sucId: ID, cancelar: Boolean):Boolean!
 }
 
 enum EstadoRetiro {

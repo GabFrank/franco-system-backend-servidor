@@ -77,6 +77,23 @@ public class CajaVirtualService {
         return repository.findBySucursalIdAndIdIn(sucursalId, visibles);
     }
 
+    /** Cajas activas marcadas «recibe envíos». No pasa por el ACL: quien envía no tiene acceso sobre ellas. */
+    /**
+     * Cambia solo la marca, con un UPDATE dirigido: guardar la entidad entera pisaría los saldos del shim
+     * si un movimiento los actualizó mientras tanto.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public CajaVirtual marcarRecibeEnvios(Long cajaVirtualId, boolean recibe) {
+        if (repository.marcarRecibeEnvios(cajaVirtualId, recibe) == 0) {
+            throw new graphql.GraphQLException("Caja no encontrada: " + cajaVirtualId);
+        }
+        return repository.findById(cajaVirtualId).orElse(null);
+    }
+
+    public List<CajaVirtual> findReceptoras() {
+        return repository.findByActivoTrueAndRecibeEnviosTrueOrderByNombreAsc();
+    }
+
     public List<CajaVirtual> findActivas(List<Long> visibles) {
         if (visibles == null) return repository.findByActivoTrue();
         if (visibles.isEmpty()) return java.util.Collections.emptyList();
@@ -84,6 +101,8 @@ public class CajaVirtualService {
     }
 
     public CajaVirtual save(CajaVirtual entity) {
+        // La columna es NOT NULL: quien arme la entidad sin la marca (un mapper, un test) no la deja en null.
+        if (entity.getRecibeEnvios() == null) entity.setRecibeEnvios(false);
         if (entity.getSaldoGs() == null) entity.setSaldoGs(0.0);
         if (entity.getSaldoRs() == null) entity.setSaldoRs(0.0);
         if (entity.getSaldoDs() == null) entity.setSaldoDs(0.0);

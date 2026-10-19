@@ -85,6 +85,7 @@ type GastoPorCategoria {
 extend type Mutation {
     saveGasto(entity:GastoInput!, printerName: String, local: String):Gasto!
     deleteGasto(id:ID!, sucId: ID):Boolean!
-    cancelarGasto(id:ID!, sucId: ID):Boolean!
+    # cancelar: true cancela, false habilita. Sin el argumento (desktop anterior) cancela y nunca habilita.
+    cancelarGasto(id:ID!, sucId: ID, cancelar: Boolean):Boolean!
 }
 

@@ -38,8 +38,6 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     private UsuarioService usuarioService;
 
     @Autowired
-    private CompraService compraService;
-    @Autowired
     private DocumentoService documentoService;
     @Autowired
     private PedidoService pedidoService;
@@ -133,8 +131,6 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     public NotaRecepcion saveNotaRecepcion(NotaRecepcionInput input) {
         ModelMapper m = new ModelMapper();
         NotaRecepcion e = m.map(input, NotaRecepcion.class);
-        if (input.getCompraId() != null)
-            e.setCompra(compraService.findById(input.getCompraId()).orElse(null));
         if (input.getDocumentoId() != null)
             e.setDocumento(documentoService.findById(input.getDocumentoId()).orElse(null));
         if (input.getPedidoId() != null)

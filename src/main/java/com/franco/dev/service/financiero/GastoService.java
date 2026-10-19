@@ -60,27 +60,45 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
     }
 
     /**
-     * Cancela o rehabilita un gasto, igual que RetiroService.cancelarRetiro: es un
-     * toggle cancelado <-> no cancelado.
+     * Cancela ({@code cancelar = true}) o habilita ({@code false}) un gasto, igual que
+     * {@link RetiroService#cancelarRetiro}: el pedido dice cómo tiene que quedar y repetirlo no cambia
+     * nada (issue #376). Sin el argumento —un desktop anterior— significa cancelar y nunca habilita.
      *
-     * No recalcula ningun balance. El monto vuelve a la caja porque
-     * PdvCajaService.generarBalance ignora los gastos cancelados, y la filial hace
-     * lo mismo cuando el flag le llega por replicacion.
+     * <p>No recalcula ningún balance: PdvCajaService.generarBalance ignora los gastos cancelados, y la
+     * filial hace lo mismo cuando el flag le llega por replicación. No pasa por {@link #save}: su
+     * override publica GastoRealizadoEvent, y cancelar no es realizar un gasto.</p>
      *
-     * Persiste con repository.save() a proposito, y no con this.save(): el override
-     * de save() publica GastoRealizadoEvent, que dispara la push notification de
-     * gasto realizado. Cancelar no es realizar un gasto.
+     * <p>Un gasto pagado desde la caja mayor es el espejo de su solicitud de pago: la fuente de verdad
+     * es la solicitud, y GastoTesoreriaService lo mantiene sincronizado. Tocarlo por separado dejaría
+     * el gasto cancelado con el pago intacto (y la próxima sincronización lo revertiría), así que se
+     * corta acá con un mensaje que dice dónde se hace de verdad.</p>
      */
     @Transactional
-    public Boolean cancelarGasto(Gasto gasto) {
-        try {
-            gasto.setCancelado(!Boolean.TRUE.equals(gasto.getCancelado()));
-            repository.save(gasto);
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw new GraphQLException("No se pudo cancelar el gasto");
+    public Boolean cancelarGasto(Long id, Long sucId, Boolean cancelar) {
+        repository.lockByIdAndSucursalId(id, sucId)
+                .orElseThrow(() -> new GraphQLException("Gasto no encontrado: " + id + "/" + sucId));
+        List<Object[]> filas = repository.findCanceladoYSolicitud(id, sucId);
+        if (filas.isEmpty()) throw new GraphQLException("Gasto no encontrado: " + id + "/" + sucId);
+        boolean cancelado = Boolean.TRUE.equals(filas.get(0)[0]);
+        Object solicitudPagoId = filas.get(0)[1];
+
+        if (solicitudPagoId != null) {
+            throw new GraphQLException("Este gasto se pagó desde la caja mayor: para "
+                    + (Boolean.FALSE.equals(cancelar) ? "habilitarlo" : "cancelarlo")
+                    + " hay que anular el pago del gasto #" + solicitudPagoId + " en la caja mayor.");
         }
+        if (Boolean.FALSE.equals(cancelar)) {
+            if (cancelado) repository.marcarCancelado(id, sucId, false);
+            return true;
+        }
+        if (cancelado) {
+            if (cancelar == null) {
+                throw new GraphQLException("El gasto #" + id + " ya está cancelado. Si querías habilitarlo, actualizá el sistema.");
+            }
+            return true;
+        }
+        repository.marcarCancelado(id, sucId, true);
+        return true;
     }
 
     public List<com.franco.dev.domain.financiero.GastoPorCategoria> gastosPorCategoria(String inicio, String fin,

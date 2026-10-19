@@ -7,6 +7,8 @@ import com.franco.dev.repository.personas.UsuarioRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -29,6 +31,13 @@ public class RoleService extends CrudService<Role, RoleRepository, Long> {
 
     public List<Role> findByUsuarioId(Long id){
         return repository.findByUsuarioId(id);
+    }
+
+    public Page<Role> findByNombrePaginated(String texto, Integer page, Integer size) {
+        if (texto == null) texto = "";
+        if (page == null) page = 0;
+        if (size == null) size = 15;
+        return repository.findByNombrePaginated(texto.trim().toUpperCase(), PageRequest.of(page, size));
     }
 
 

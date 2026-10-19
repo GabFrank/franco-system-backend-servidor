@@ -1,7 +1,10 @@
 extend type Mutation {
     emitirCheque(
         chequeraId: Int!, total: Float!, diferido: Boolean!,
-        monedaId: Int, cuentaBancariaId: Int, fechaPago: String, concepto: String
+        monedaId: Int, cuentaBancariaId: Int, fechaPago: String, concepto: String,
+        # La genera el cliente por cada intento del usuario y la reenvia al reintentar: un pedido repetido
+        # con la misma clave devuelve el cheque ya emitido en vez de emitir otro.
+        claveIdempotencia: String
     ): Cheque!
     cobrarCheque(chequeId: ID!): Cheque!
     anularCheque(chequeId: ID!, motivo: String): Cheque!

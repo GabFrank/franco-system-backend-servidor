@@ -28,10 +28,10 @@ public class CuentaBancariaGraphQL implements GraphQLQueryResolver, GraphQLMutat
     private CuentaBancariaService service;
 
     @Autowired
-    private com.franco.dev.service.financiero.BancoLedgerService bancoLedgerService;
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
 
     @Autowired
-    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+    private com.franco.dev.service.financiero.AjusteDeSaldoService ajusteDeSaldoService;
 
     @Autowired
     private UsuarioService usuarioService;
@@ -53,21 +53,25 @@ public class CuentaBancariaGraphQL implements GraphQLQueryResolver, GraphQLMutat
     private MultiTenantService multiTenantService;
 
     public Optional<CuentaBancaria> cuentaBancaria(Long id) {
+        seg.requireVer();
         return service.findById(id);
     }
 
     public List<CuentaBancaria> cuentasBancarias(int page, int size) {
+        seg.requireVer();
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
     /** Cuentas propias operables (activas + disponibles para operaciones financieras): para caja mayor y operaciones. */
     public List<CuentaBancaria> cuentasBancariasOperables() {
+        seg.requireVer();
         return service.getRepository().findOperables();
     }
 
 
     public CuentaBancaria saveCuentaBancaria(CuentaBancariaInput input) {
+        seg.requireGestionar();
         ModelMapper m = new ModelMapper();
         CuentaBancaria e = m.map(input, CuentaBancaria.class);
         // saldo/saldoReservado los administra el ledger (BancoLedgerService); nunca por el CRUD.
@@ -99,15 +103,18 @@ public class CuentaBancariaGraphQL implements GraphQLQueryResolver, GraphQLMutat
     }
 
     public List<CuentaBancaria> cuentaBancariasSearch(String texto) {
+        seg.requireVer();
         return service.findByAll(texto);
     }
 
     public Boolean deleteCuentaBancaria(Long id) {
+        seg.requireGestionar();
         Boolean ok = service.deleteById(id);
         return ok;
     }
 
     public Long countCuentaBancaria() {
+        seg.requireVer();
         return service.count();
     }
 
@@ -121,23 +128,13 @@ public class CuentaBancariaGraphQL implements GraphQLQueryResolver, GraphQLMutat
      * descripcion del movimiento, que es toda su trazabilidad.</p>
      */
     public com.franco.dev.domain.financiero.MovimientoBancario ajustarSaldoCuentaBancaria(
-            Long cuentaBancariaId, Double monto, Boolean positivo, String motivo) {
+            Long cuentaBancariaId, Double monto, Boolean positivo, String motivo,
+            Double saldoEsperado, String claveIdempotencia) {
         seg.requireGestionar();
-        if (monto == null || monto <= 0) {
-            throw new graphql.GraphQLException("El monto del ajuste debe ser mayor a cero");
-        }
-        if (motivo == null || motivo.trim().isEmpty()) {
-            throw new graphql.GraphQLException("El motivo del ajuste es obligatorio");
-        }
-        com.franco.dev.domain.financiero.enums.MovimientoBancarioTipo tipo =
-                Boolean.TRUE.equals(positivo)
-                        ? com.franco.dev.domain.financiero.enums.MovimientoBancarioTipo.AJUSTE_POSITIVO
-                        : com.franco.dev.domain.financiero.enums.MovimientoBancarioTipo.AJUSTE_NEGATIVO;
-        return bancoLedgerService.registrar(
-                cuentaBancariaId, tipo, java.math.BigDecimal.valueOf(monto),
-                "AJUSTE: " + motivo.trim().toUpperCase(),
-                com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo.MANUAL.name(),
-                null, seg.currentUsuario());
+        // saldoEsperado y claveIdempotencia son opcionales (issue #376): sin ellos, un desktop anterior
+        // ajusta como siempre. No se carga la cuenta acá: el servicio la toma con lock.
+        return ajusteDeSaldoService.ajustarSaldoBancario(cuentaBancariaId, monto, positivo, motivo,
+                saldoEsperado, claveIdempotencia, seg.currentUsuario());
     }
 
 }

@@ -47,10 +47,6 @@ public class NotaRecepcion implements Identifiable<Long> {
     private Pedido pedido;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "compra_id", nullable = true)
-    private Compra compra;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "documento_id", nullable = true)
     private Documento documento;
 

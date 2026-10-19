@@ -37,6 +37,7 @@ import com.franco.dev.service.financiero.FormaPagoService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.financiero.MovimientoCajaService;
 import com.franco.dev.service.financiero.PdvCajaService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.operaciones.DeliveryService;
 import com.franco.dev.service.operaciones.PrecioCobrado;
 import com.franco.dev.service.operaciones.VentaItemService;
@@ -95,6 +96,8 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     public CobroGraphQL cobroGraphQL;
     @Autowired
     private VentaService service;
+    @Autowired
+    private TesoreriaSecurityService seg;
     @Autowired
     private VentaItemService ventaItemService;
     @Autowired
@@ -455,6 +458,8 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Boolean cancelarVenta(Long id, Long sucId) {
+        // Alterna: tambien reactiva una venta cancelada. Antes solo lo frenaba el desktop (issue #340).
+        seg.requireCancelarVenta();
         Venta venta = service.findByIdAndSucursalId(id, sucId);
         return service.cancelarVenta(venta);
     }

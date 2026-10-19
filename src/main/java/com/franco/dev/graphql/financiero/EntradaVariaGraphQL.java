@@ -29,14 +29,15 @@ public class EntradaVariaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private final MonedaService monedaService;
     private final com.franco.dev.repository.financiero.FormaPagoRepository formaPagoRepository;
     private final TesoreriaSecurityService seg;
+    private final com.franco.dev.service.financiero.AltaIdempotenteService altaIdempotente;
 
     public List<EntradaVariaCategoria> entradaVariaCategorias() {
-        seg.requireVer();
+        seg.requireVerCaja();
         return categoriaRepository.findByActivoTrue();
     }
 
     public Page<EntradaVaria> entradasVarias(Long cajaVirtualId, int page, int size) {
-        seg.requireVer();
+        seg.requireVerCaja();
         seg.requireLecturaCaja(cajaVirtualId);
         return service.findByCaja(cajaVirtualId, PageRequest.of(page, size));
     }
@@ -55,8 +56,13 @@ public class EntradaVariaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return categoriaRepository.save(c);
     }
 
-    public EntradaVaria registrarEntradaVaria(EntradaVariaInput input) {
-        seg.requireGestionar();
+    /** Con {@code claveIdempotencia}, el mismo pedido repetido devuelve la entrada ya registrada (issue #376). */
+    public EntradaVaria registrarEntradaVaria(EntradaVariaInput input, String claveIdempotencia) {
+        seg.requireOperarCaja();
+        String huella = new com.franco.dev.service.financiero.HuellaPedido()
+                .id(input.getCajaVirtualId()).id(input.getMonedaId()).numero(com.franco.dev.service.financiero.AltaIdempotenteService.monto(input.getMonto()))
+                .bandera(input.getEsIngreso()).texto(input.getDescripcion()).id(input.getCategoriaId())
+                .id(input.getFormaPagoId()).texto(input.getNumeroComprobante()).calcular();
         EntradaVaria e = new EntradaVaria();
         e.setDescripcion(input.getDescripcion());
         e.setMonto(input.getMonto() != null ? BigDecimal.valueOf(input.getMonto()) : null);
@@ -67,11 +73,12 @@ public class EntradaVariaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (input.getMonedaId() != null) e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
         if (input.getCategoriaId() != null) e.setCategoria(categoriaRepository.findById(input.getCategoriaId()).orElse(null));
         if (input.getFormaPagoId() != null) e.setFormaPago(formaPagoRepository.findById(input.getFormaPagoId()).orElse(null));
-        return service.registrar(e, seg.currentUsuario());
+        com.franco.dev.domain.personas.Usuario usuario = seg.currentUsuario();
+        return altaIdempotente.entradaVaria(claveIdempotencia, huella, usuario, () -> service.registrar(e, usuario));
     }
 
     public EntradaVaria anularEntradaVaria(Long id, String motivo) {
-        seg.requireGestionar();
+        seg.requireOperarCaja();
         return service.anular(id, motivo, seg.currentUsuario());
     }
 }

@@ -3,6 +3,8 @@ package com.franco.dev.repository.administrativo;
 import com.franco.dev.domain.administrativo.Jornada;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.repository.HelperRepository;
+import com.franco.dev.domain.administrativo.enums.Turno;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -47,6 +49,38 @@ public interface JornadaRepository extends HelperRepository<Jornada, EmbebedPrim
             "WHERE cast(j.fecha as date) >= cast(?1 as date) AND cast(j.fecha as date) <= cast(?2 as date) " +
             "ORDER BY j.fecha DESC, COALESCE(me.fechaEntrada, me.fechaSalida) DESC NULLS LAST, j.id DESC")
     List<Jornada> findByFechaRange(String fechaInicio, String fechaFin);
+
+    String FILTRO_HISTORIAL = "FROM Jornada j LEFT JOIN j.marcacionEntrada me LEFT JOIN j.marcacionSalida ms " +
+            "WHERE cast(j.fecha as date) >= cast(:fechaInicio as date) AND cast(j.fecha as date) <= cast(:fechaFin as date) " +
+            "AND (:porUsuario = false OR j.usuario.id = :usuarioId) " +
+            "AND (:porTurno = false OR j.turno = :turno) " +
+            "AND (:porSucursalEntrada = false OR me.sucursalEntrada.id = :sucursalEntradaId) " +
+            "AND (:porSucursalSalida = false OR ms.sucursalSalida.id = :sucursalSalidaId) ";
+
+    /**
+     * Una pagina del historial de marcaciones, con el mismo orden que {@link #findByFechaRange}.
+     *
+     * Cada filtro opcional viaja con su bandera en vez de llegar en null: Postgres no sabe de que tipo es un
+     * parametro nulo en un {@code :x IS NULL} y rechaza la consulta.
+     */
+    @Query(value = "SELECT j " + FILTRO_HISTORIAL +
+            "ORDER BY j.fecha DESC, COALESCE(me.fechaEntrada, me.fechaSalida) DESC NULLS LAST, j.id DESC",
+            countQuery = "SELECT COUNT(j) " + FILTRO_HISTORIAL)
+    Page<Jornada> findHistorial(@Param("fechaInicio") String fechaInicio, @Param("fechaFin") String fechaFin,
+            @Param("porUsuario") boolean porUsuario, @Param("usuarioId") Long usuarioId,
+            @Param("porTurno") boolean porTurno, @Param("turno") Turno turno,
+            @Param("porSucursalEntrada") boolean porSucursalEntrada, @Param("sucursalEntradaId") Long sucursalEntradaId,
+            @Param("porSucursalSalida") boolean porSucursalSalida, @Param("sucursalSalidaId") Long sucursalSalidaId,
+            Pageable pageable);
+
+    /** Una fila: dias distintos, minutos trabajados, extras y de llegada tardia de todo el filtro. */
+    @Query("SELECT COUNT(DISTINCT j.fecha), COALESCE(SUM(j.minutosTrabajados), 0), " +
+            "COALESCE(SUM(j.minutosExtras), 0), COALESCE(SUM(j.minutosLlegadaTardia), 0) " + FILTRO_HISTORIAL)
+    List<Object[]> resumenHistorial(@Param("fechaInicio") String fechaInicio, @Param("fechaFin") String fechaFin,
+            @Param("porUsuario") boolean porUsuario, @Param("usuarioId") Long usuarioId,
+            @Param("porTurno") boolean porTurno, @Param("turno") Turno turno,
+            @Param("porSucursalEntrada") boolean porSucursalEntrada, @Param("sucursalEntradaId") Long sucursalEntradaId,
+            @Param("porSucursalSalida") boolean porSucursalSalida, @Param("sucursalSalidaId") Long sucursalSalidaId);
 
     @Query("SELECT j FROM Jornada j WHERE j.usuario.id = ?1 AND cast(j.fecha as date) = cast(?2 as date) ORDER BY j.id ASC")
     List<Jornada> findByUsuarioIdAndFecha(Long usuarioId, String fecha);

@@ -39,6 +39,13 @@ public interface ChequeRepository extends HelperRepository<Cheque, Long> {
                                      @Param("chequeraId") Long chequeraId,
                                      @Param("estado") com.franco.dev.domain.financiero.enums.EstadoCheque estado);
 
+    /** Primer y último número emitido por una chequera (anulados incluidos); nulo si no emitió ninguno. */
+    @Query("select min(c.numero) from Cheque c where c.chequera.id = :chequeraId")
+    Double minNumeroPorChequera(@Param("chequeraId") Long chequeraId);
+
+    @Query("select max(c.numero) from Cheque c where c.chequera.id = :chequeraId")
+    Double maxNumeroPorChequera(@Param("chequeraId") Long chequeraId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select e from Cheque e where e.id = :id")
     Optional<Cheque> lockById(@Param("id") Long id);

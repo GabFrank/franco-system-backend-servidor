@@ -31,32 +31,39 @@ public class LiquidacionFinalGraphQL implements GraphQLQueryResolver, GraphQLMut
     @Autowired
     private com.franco.dev.service.rrhh.RrhhSecurityService seg;
 
+    // Rol acotado RRHH SUCURSAL: ve, genera y edita solo finiquitos de funcionarios de sus sucursales.
+    @Autowired
+    private com.franco.dev.service.rrhh.RrhhAlcanceService alcance;
+
     // ----- Queries -----
 
     public Optional<LiquidacionFinal> liquidacionFinal(Long id) {
-        seg.requireVer();
+        alcance.requireVerFiniquito(id);
         return service.findById(id);
     }
 
     public List<LiquidacionFinal> liquidacionesFinalesPorFuncionario(Long funcionarioId) {
-        seg.requireVer();
+        alcance.requireVer();
+        if (alcance.veAcotado()) alcance.exigirFuncionario(funcionarioId);
         return service.findByFuncionarioId(funcionarioId);
     }
 
     public List<LiquidacionFinalItem> liquidacionFinalItems(Long liquidacionFinalId) {
-        seg.requireVer();
+        alcance.requireVerFiniquito(liquidacionFinalId);
         return service.findItems(liquidacionFinalId);
     }
 
     public LiquidacionFinalPreview previewLiquidacionFinal(Long funcionarioId, String fechaEgreso) {
-        seg.requireVer();
+        alcance.requireVer();
+        if (alcance.veAcotado()) alcance.exigirFuncionario(funcionarioId);
         return service.previewDefaults(funcionarioId, parseFecha(fechaEgreso));
     }
 
     // ----- Mutations -----
 
     public LiquidacionFinal generarLiquidacionFinal(LiquidacionFinalGenerarInput input) {
-        seg.requireAnyRole(seg.LIQUIDAR);
+        alcance.requireLiquidar();
+        if (alcance.liquidaAcotado()) alcance.exigirFuncionario(input != null ? input.getFuncionarioId() : null);
         return service.generarBorrador(input);
     }
 
@@ -82,17 +89,20 @@ public class LiquidacionFinalGraphQL implements GraphQLQueryResolver, GraphQLMut
     }
 
     public LiquidacionFinalItem agregarItemLiquidacionFinal(Long liquidacionFinalId, String descripcion, BigDecimal monto, LiquidacionItemTipo tipo) {
-        seg.requireAnyRole(seg.LIQUIDAR);
+        alcance.requireLiquidar();
+        if (alcance.liquidaAcotado()) alcance.exigirFiniquito(liquidacionFinalId);
         return service.agregarItemManual(liquidacionFinalId, descripcion, monto, tipo);
     }
 
     public LiquidacionFinalItem editarItemLiquidacionFinal(Long itemId, String descripcion, BigDecimal monto, LiquidacionItemTipo tipo, Long usuarioId) {
-        seg.requireAnyRole(seg.LIQUIDAR);
+        alcance.requireLiquidar();
+        if (alcance.liquidaAcotado()) alcance.exigirItemDeFiniquito(itemId);
         return service.editarItem(itemId, descripcion, monto, tipo, usuarioId);
     }
 
     public Boolean eliminarItemLiquidacionFinal(Long itemId) {
-        seg.requireAnyRole(seg.LIQUIDAR);
+        alcance.requireLiquidar();
+        if (alcance.liquidaAcotado()) alcance.exigirItemDeFiniquito(itemId);
         return service.eliminarItem(itemId);
     }
 

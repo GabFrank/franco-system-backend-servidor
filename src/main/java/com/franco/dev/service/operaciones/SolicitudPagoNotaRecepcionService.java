@@ -1,5 +1,6 @@
 package com.franco.dev.service.operaciones;
 
+import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.SolicitudPago;
 import com.franco.dev.domain.operaciones.SolicitudPagoNotaRecepcion;
@@ -12,6 +13,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -38,6 +41,19 @@ public class SolicitudPagoNotaRecepcionService extends CrudService<SolicitudPago
             entity.setCreadoEn(LocalDateTime.now());
         }
         return super.save(entity);
+    }
+
+    /**
+     * Redondea un monto a los decimales de la moneda de la solicitud (0 en guaranies). Una deuda con mas
+     * decimales que su moneda no se puede saldar: ningun pago valido la iguala y el motor rechaza el exceso.
+     * Sin {@code decimales} cargado: 0 para GUARANI y 2 para el resto. Sin moneda, devuelve el monto tal cual.
+     */
+    public static Double redondearAMoneda(Double valor, Moneda moneda) {
+        if (valor == null || moneda == null) return valor;
+        int decimales = moneda.getDecimales() != null
+                ? moneda.getDecimales()
+                : ("GUARANI".equalsIgnoreCase(moneda.getDenominacion()) ? 0 : 2);
+        return BigDecimal.valueOf(valor).setScale(decimales, RoundingMode.HALF_UP).doubleValue();
     }
 
     /**
@@ -74,7 +90,7 @@ public class SolicitudPagoNotaRecepcionService extends CrudService<SolicitudPago
         SolicitudPagoNotaRecepcion relacion = new SolicitudPagoNotaRecepcion();
         relacion.setSolicitudPago(solicitud);
         relacion.setNotaRecepcion(nota);
-        relacion.setMontoIncluido(monto);
+        relacion.setMontoIncluido(redondearAMoneda(monto, solicitud.getMoneda()));
         relacion.setCreadoEn(LocalDateTime.now());
         
         return save(relacion);
@@ -160,7 +176,8 @@ public class SolicitudPagoNotaRecepcionService extends CrudService<SolicitudPago
         SolicitudPago solicitud = solicitudPagoRepository.findById(solicitudId)
             .orElseThrow(() -> new IllegalArgumentException("Solicitud de pago no encontrada: " + solicitudId));
         
-        solicitud.setMontoTotal(nuevoTotal);
+        // La suma en double de montos con centavos deja ruido (300.29999999999995).
+        solicitud.setMontoTotal(redondearAMoneda(nuevoTotal, solicitud.getMoneda()));
         solicitudPagoRepository.save(solicitud);
     }
 }

@@ -39,7 +39,8 @@ extend type Query {
 
 extend type Mutation {
     # Alta de un vale ya listo para pagar: queda SOLICITADO, sin mover plata.
-    crearValeParaPago(input: ValeParaPagoInput!): Vale!
+    # claveIdempotencia: la genera el cliente por cada intento del usuario y la reenvia al reintentar.
+    crearValeParaPago(input: ValeParaPagoInput!, claveIdempotencia: String): Vale!
     # Paga N vales como un unico evento consolidado. El pago parcial de un vale esta prohibido.
     pagarValesMixto(pagos: [ValeConLineasInput!]!): Pago
 }

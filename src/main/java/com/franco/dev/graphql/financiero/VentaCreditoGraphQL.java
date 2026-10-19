@@ -14,6 +14,7 @@ import com.franco.dev.domain.financiero.enums.TipoMovimientoPersonas;
 import com.franco.dev.domain.operaciones.Delivery;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.operaciones.VentaItem;
+import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.financiero.input.ClienteVentaCreditoInput;
@@ -25,6 +26,7 @@ import com.franco.dev.security.Unsecured;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.CambioService;
 import com.franco.dev.service.financiero.MovimientoPersonasService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.financiero.VentaCreditoCuotaService;
 import com.franco.dev.service.financiero.VentaCreditoService;
 import com.franco.dev.service.general.PaisService;
@@ -81,6 +83,9 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Autowired
     private VentaCreditoService service;
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private UsuarioService usuarioService;
@@ -221,7 +226,24 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean cancelarVentaCredito(Long id, Long sucId) {
-        return service.cancelarVentaCredito(id, sucId, null);
+        // Mismo rol que cancelarVenta (issue #340).
+        seg.requireCancelarVenta();
+        VentaCredito ventaCredito = service.findByIdAndSucursalId(id, sucId);
+        if (ventaCredito == null) {
+            throw new GraphQLException("Venta credito no encontrada");
+        }
+        Venta venta = ventaCredito.getVenta() == null ? null
+                : ventaService.findByIdAndSucursalId(ventaCredito.getVenta().getId(), ventaCredito.getSucursalId());
+        if (venta == null) {
+            throw new GraphQLException("No se encontro la venta de la venta credito");
+        }
+        // Solo cancela. cancelarVenta alterna, y al reactivar tambien cancela la factura en SIFEN y
+        // deja la venta credito en ABIERTO: reactivar queda en cancelarVenta (issue #339).
+        if (venta.getEstado() == VentaEstado.CANCELADA) {
+            throw new GraphQLException("La venta ya esta cancelada");
+        }
+        // Por la cadena completa: caja, stock, tarjeta, delivery, venta credito y factura (issue #339).
+        return ventaService.cancelarVenta(venta);
     }
 
     public Boolean finalizarVentaCredito(Long id, Long sucId) {

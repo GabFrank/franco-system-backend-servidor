@@ -44,8 +44,19 @@ public class RetiroTesoreriaProcesador {
     @Transactional
     public boolean procesar(Long retiroId, Long sucursalId, com.franco.dev.domain.personas.Usuario usuario) {
         // Guard anti doble-ingreso: relee dentro de la transacción y confirma que sigue pendiente.
-        Retiro fresh = retiroRepository.findByIdAndSucursalId(retiroId, sucursalId);
+        // Con lock: el poller no pasa por RetiroIngresoService, y sin él una cancelación simultánea se colaba
+        // entre esta lectura y el posteo. Un retiro cancelado no se postea: la plata volvió a la caja del
+        // PDV (issue #376). El estado se lee de la base; el lock devuelve la instancia ya cargada.
+        Retiro fresh = retiroRepository.lockByIdAndSucursalId(retiroId, sucursalId).orElse(null);
         if (fresh == null || fresh.getCajaVirtualId() == null || fresh.getMovimientoCajaVirtualId() != null) {
+            return false;
+        }
+        com.franco.dev.repository.financiero.RetiroSituacion situacion =
+                retiroRepository.findSituacion(retiroId, sucursalId).orElse(null);
+        if (situacion == null) return false;
+        if (situacion.getMovimientoCajaVirtualId() != null) return false;
+        if (situacion.estaCancelado()) {
+            log.warn("RetiroTesoreriaProcesador: el retiro {}/{} está cancelado, no se ingresa", retiroId, sucursalId);
             return false;
         }
         CajaVirtual caja = cajaVirtualService.findById(fresh.getCajaVirtualId()).orElse(null);

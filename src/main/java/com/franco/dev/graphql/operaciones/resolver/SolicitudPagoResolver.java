@@ -16,6 +16,17 @@ public class SolicitudPagoResolver implements GraphQLResolver<SolicitudPago> {
     @Autowired
     private SolicitudPagoDetalleService solicitudPagoDetalleService;
 
+    @Autowired
+    private com.franco.dev.repository.financiero.CajaVirtualRepository cajaVirtualRepository;
+
+    /** Nombre de la caja asignada, sin exponer la caja: la solicitud la leen roles que no ven tesorería. */
+    public String cajaVirtualAsignadaNombre(SolicitudPago solicitudPago) {
+        Long cajaId = solicitudPago.getCajaVirtualAsignadaId();
+        if (cajaId == null) return null;
+        return cajaVirtualRepository.findById(cajaId)
+                .map(com.franco.dev.domain.financiero.CajaVirtual::getNombre).orElse(null);
+    }
+
     public Pago pago(SolicitudPago solicitudPago) {
         return solicitudPago.getPago();
     }

@@ -29,15 +29,50 @@ public class PagoRrhhTesoreriaGraphQL implements GraphQLQueryResolver, GraphQLMu
 
     private final PagoRrhhTesoreriaService service;
     private final RrhhSecurityService seg;
+    private final com.franco.dev.service.rrhh.RrhhAlcanceService alcance;
 
     public List<PagoRrhhPendienteDto> liquidacionesPendientesPago() {
-        seg.requireVer();
-        return service.listarLiquidacionesPendientes();
+        alcance.requireVer();
+        return soloEnAlcance(service.listarLiquidacionesPendientes());
     }
 
     public List<PagoRrhhPendienteDto> finiquitosPendientesPago() {
-        seg.requireVer();
-        return service.listarFiniquitosPendientes();
+        alcance.requireVer();
+        return soloEnAlcance(service.listarFiniquitosPendientes());
+    }
+
+    /** El rol acotado RRHH SUCURSAL ve pendientes solo de funcionarios de sus sucursales. */
+    private List<PagoRrhhPendienteDto> soloEnAlcance(List<PagoRrhhPendienteDto> pendientes) {
+        if (!alcance.veAcotado()) return pendientes;
+        List<PagoRrhhPendienteDto> out = new ArrayList<>();
+        for (PagoRrhhPendienteDto d : pendientes) {
+            if (alcance.enAlcance(d.getFuncionario())) out.add(d);
+        }
+        return out;
+    }
+
+    /**
+     * El rol acotado paga liquidaciones y finiquitos de sus sucursales, en efectivo y desde una caja que
+     * puede mover. Se recorre todo el pedido antes de pagar: un rechazo no deja nada asentado.
+     */
+    private void exigirPagoAcotado(List<PagoRrhhTesoreriaService.PagoRrhhConLineas> pagos) {
+        for (PagoRrhhTesoreriaService.PagoRrhhConLineas p : pagos) {
+            if (p.getConcepto() == PagoRrhhTesoreriaService.ConceptoRrhh.LIQUIDACION) {
+                alcance.exigirLiquidacion(p.getDocumentoId());
+            } else if (p.getConcepto() == PagoRrhhTesoreriaService.ConceptoRrhh.FINIQUITO) {
+                alcance.exigirFiniquito(p.getDocumentoId());
+            } else {
+                throw new graphql.GraphQLException("No autorizado: con tu rol solo podés pagar liquidaciones y finiquitos.");
+            }
+            if (p.getLineas() == null) continue;
+            for (com.franco.dev.service.financiero.PagoProveedorService.LineaPago l : p.getLineas()) {
+                if (l.getFuente() != com.franco.dev.domain.financiero.enums.FuentePago.CAJA_MAYOR || l.getCajaVirtualId() == null) {
+                    throw new graphql.GraphQLException("No autorizado: con tu rol solo podés pagar en efectivo desde tu caja.");
+                }
+                alcance.exigirCajaParaPagar(l.getCajaVirtualId());
+            }
+        }
+        service.exigirEfectivoEnLaMonedaDelDocumento(pagos);
     }
 
     public List<PagoRrhhPendienteDto> aguinaldosPendientesPago() {
@@ -47,7 +82,7 @@ public class PagoRrhhTesoreriaGraphQL implements GraphQLQueryResolver, GraphQLMu
 
     /** Paga documentos de RRHH (caja mayor / banco / cheque). El pago parcial esta prohibido. */
     public Pago pagarRrhhMixto(List<PagoRrhhConLineasWrapper> pagos) {
-        seg.requireAnyRole(seg.PAGAR);
+        alcance.requirePagar();
         List<PagoRrhhTesoreriaService.PagoRrhhConLineas> ls = new ArrayList<>();
         for (PagoRrhhConLineasWrapper w : pagos) {
             PagoRrhhTesoreriaService.PagoRrhhConLineas p = new PagoRrhhTesoreriaService.PagoRrhhConLineas();
@@ -56,6 +91,7 @@ public class PagoRrhhTesoreriaGraphQL implements GraphQLQueryResolver, GraphQLMu
             p.setLineas(PagoProveedorGraphQL.mapLineas(w.getLineas()));
             ls.add(p);
         }
+        if (alcance.pagaAcotado()) exigirPagoAcotado(ls);
         return service.pagarRrhhMixto(ls, seg.currentUsuario());
     }
 

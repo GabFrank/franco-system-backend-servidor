@@ -98,6 +98,30 @@ Una factura trabada por el bug (cliente identificado, DE innominado) el desktop 
 se destraba poniendo `cliente_id` en null por SQL y nominando desde el diálogo. No se agrega un campo
 GraphQL para eso.
 
+### Fase 3 — desktop: ajustes de pantalla pedidos en la prueba (19/10)
+
+Pedido de Franco al probar: el estado del diálogo en color, y el CDC del listado que se corta.
+
+- **Estado con color en el diálogo.** La clase que hoy calcula `getEstadoClass` del listado pasa a
+  `factura-legal-estado.ts` (`claseEstadoFactura`) y la usan el listado y el diálogo
+  (`estadoClaseComputed`, calculada en `updateComputedProperties`, nunca función en el HTML). El
+  diálogo muestra el estado con el mismo badge que el listado: verde aprobado/activa, naranja
+  pendiente/en lote, rojo rechazado/inactiva, gris cancelado. El bloque `.estado-badge` se copia al
+  scss del diálogo (`edit-factura-legal-dialog.component.scss`, el que referencia el `.ts`): los estilos
+  del listado están encapsulados y no llegan (auditoría A y B).
+- **Filtros del listado.** Fila 2: nombre 40%, RUC 30%, número de venta 30%. Fila 3: CDC 60%, tipo 12%,
+  estado 12%, «Sin nombre» 16% (hoy esa fila suma 120%; con 50% el CDC perdía el último dígito en
+  pantalla de 1512 px). Los pasos 3 y 4 del tutorial siguen colgados
+  de nombre y RUC.
+- **Búsqueda por CDC** (bug visto en la prueba): `FacturaLegalByCdcGQL` no pide `cdc`, `activo`,
+  `numeroFactura` ni `documentoElectronico`, así que una electrónica aprobada sale «PAPEL / ACTIVA», sin
+  número, y el menú la trata como de papel (habilita «Cancelar» por la regla de papel). Se le agregan
+  los mismos campos que pide la query del listado por fecha. Commit aparte.
+
+Tests: spec de `claseEstadoFactura` (los 7 casos). Prueba por pantalla: diálogo con electrónica
+aprobada (verde), papel activa (verde), búsqueda por CDC muestra tipo/estado/número correctos, el CDC
+entero visible en el filtro.
+
 ## Tabla de datos nuevos
 
 Ningún campo, columna ni clave nueva. Cambia **quién escribe** campos existentes:

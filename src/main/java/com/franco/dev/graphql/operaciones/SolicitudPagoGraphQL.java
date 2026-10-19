@@ -22,7 +22,6 @@ import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.rrhh.RrhhSecurityService;
-import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import graphql.schema.DataFetchingEnvironment;
@@ -95,6 +94,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Get all solicitudes pago for a specific pedido
      */
     public List<SolicitudPago> solicitudesPagoPorPedido(Long pedidoId) {
+        exigirRolCompras();
         return solicitudPagoService.getSolicitudesPorPedido(pedidoId);
     }
 
@@ -111,6 +111,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             String numero,
             String fechaDesde,
             String fechaHasta) {
+        exigirRolCompras();
         PageRequest pageRequest = PageRequest.of(page, size);
         Specification<SolicitudPago> spec = (root, query, cb) -> {
             java.util.List<Predicate> predicates = new java.util.ArrayList<>();
@@ -143,6 +144,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Get notas de recepcion available for payment for a specific pedido
      */
     public List<NotaRecepcion> notasDisponiblesParaPago(Long pedidoId) {
+        exigirRolCompras();
         return solicitudPagoService.getNotasDisponiblesParaPago(pedidoId);
     }
 
@@ -158,6 +160,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Check if a nota is already included in any solicitud
      */
     public Boolean isNotaIncludedInSolicitud(Long notaId) {
+        exigirRolCompras();
         return solicitudPagoNotaRecepcionService.isNotaIncludedInSolicitud(notaId);
     }
 
@@ -167,6 +170,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Returns null if none found or already included in a solicitud.
      */
     public NotaRecepcion notaRecepcionDisponibleParaPagoPorNumero(Integer numero, Long proveedorId) {
+        exigirRolCompras();
         return solicitudPagoService.getNotaDisponibleParaPagoPorNumero(numero, proveedorId);
     }
 
@@ -175,6 +179,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * dialog searchable select).
      */
     public List<NotaRecepcion> notasDisponiblesParaPagoPorProveedor(Long proveedorId) {
+        exigirRolCompras();
         return solicitudPagoService.getNotasDisponiblesParaPagoPorProveedor(proveedorId);
     }
 
@@ -184,6 +189,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      */
     public Page<NotaRecepcion> notasDisponiblesParaPagoPorProveedorPaginated(
             Long proveedorId, Integer page, Integer size, String filtroTexto) {
+        exigirRolCompras();
         int p = page != null ? page : 0;
         int s = size != null && size > 0 ? size : 20;
         return solicitudPagoService.getNotasDisponiblesParaPagoPorProveedorPaginated(
@@ -194,6 +200,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Datos iniciales para crear solicitud de pago desde una recepción (mobile).
      */
     public DatosInicialesSolicitudPagoDTO datosInicialesSolicitudPagoPorRecepcion(Long recepcionMercaderiaId) {
+        exigirRolCompras();
         return solicitudPagoService.getDatosInicialesSolicitudPagoPorRecepcion(recepcionMercaderiaId);
     }
 
@@ -204,6 +211,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      */
     @Transactional // la cabecera, las notas y las formas de pago se guardan juntas o nada (#435)
     public SolicitudPago saveSolicitudPago(SolicitudPagoInput input) {
+        exigirRolCompras();
         try {
             Proveedor proveedor = proveedorService.findById(Long.valueOf(input.getProveedorId()))
                     .orElseThrow(
@@ -258,6 +266,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      */
     @Transactional // cabecera, notas y formas de pago juntas o nada (#435)
     public SolicitudPago actualizarSolicitudPago(SolicitudPagoInput input) {
+        exigirRolCompras();
         exigirSolicitudDeCompra(input.getId());
         try {
             if (input.getId() == null) {
@@ -295,6 +304,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Delete solicitud pago (only if in PENDIENTE state)
      */
     public Boolean deleteSolicitudPago(Long id) {
+        exigirRolCompras();
         exigirSolicitudDeCompra(id);
         try {
             return solicitudPagoService.eliminarSolicitud(id);
@@ -307,6 +317,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Update estado of solicitud pago
      */
     public SolicitudPago actualizarEstadoSolicitudPago(Long id, SolicitudPagoEstado estado) {
+        exigirRolCompras();
         exigirSolicitudDeCompra(id);
         // PARCIAL / CONCLUIDO los fija el pago de la caja mayor (PagoProveedorService, que llama al
         // servicio directo). Marcarlos a mano dejaba las notas pagadas sin que saliera plata.
@@ -328,10 +339,10 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     /**
      * Compras cancela su solicitud, con motivo. Las reglas (sin pagos, solo compras) viven en
-     * {@link SolicitudPagoService#cancelar}. No exige rol: compras no tiene uno propio y su
-     * pantalla tampoco lo pide.
+     * {@link SolicitudPagoService#cancelar}. Pide los roles de compras, como el resto del resolver.
      */
     public SolicitudPago cancelarSolicitudPago(Long id, String motivo) {
+        exigirRolCompras();
         try {
             return solicitudPagoService.cancelar(id, motivo, tesoreriaSecurityService.currentUsuario());
         } catch (IllegalStateException | IllegalArgumentException e) {
@@ -358,15 +369,35 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     /**
+     * Roles que ven y gestionan las solicitudes de compra: los mismos del menú «Solicitud de pago» del desktop y del
+     * área solicitudPago de la PWA. ADMIN entra por el bypass de {@link TesoreriaSecurityService#hasAnyRole}.
+     */
+    static final String[] ROLES_COMPRAS = {
+            "ANALISIS DE CAJA", "ANALISIS FINANCIERO", "ANALISIS CONTABLE", "VER PRECIO COSTO", "RECIBIR PEDIDOS",
+            TesoreriaSecurityService.VER, TesoreriaSecurityService.GESTIONAR};
+
+    /** Va antes que exigirSolicitudDeCompra: sin rol no se puede usar un id para averiguar de qué tipo es. */
+    private void exigirRolCompras() {
+        if (!tesoreriaSecurityService.hasAnyRole(ROLES_COMPRAS)) {
+            throw errorParaMostrar(new IllegalStateException(
+                    "No autorizado: las solicitudes de pago de compras piden un rol de compras, análisis o tesorería."));
+        }
+    }
+
+    /**
      * Una obligacion de pago de RRHH (vale, liquidacion, finiquito, aguinaldo) solo se lee con rol de tesoreria o de
-     * RRHH (issue #306). Compras y gastos siguen sin rol. Id inexistente o sin tipo: sigue el flujo de siempre.
+     * RRHH (issue #306); una de compras, con los roles de compras. Las de gasto siguen sin rol (las imprime caja
+     * chica). Id inexistente o sin tipo: sigue el flujo de siempre.
      */
     private void exigirLectura(Long solicitudPagoId) {
         if (solicitudPagoId == null) return;
         TipoSolicitudPago tipo = solicitudPagoService.getRepository().findTipoById(solicitudPagoId).orElse(null);
-        if (tipo == TipoSolicitudPago.RRHH && !puedeVerObligacionesRrhh()) {
-            // Sin nombrar el tipo: el mensaje no debe revelar que el id es una obligacion de RRHH.
-            throw new GraphQLException("No autorizado para ver la solicitud #" + solicitudPagoId + ".");
+        boolean permitido = tipo == TipoSolicitudPago.RRHH ? puedeVerObligacionesRrhh()
+                : tipo != TipoSolicitudPago.COMPRA || tesoreriaSecurityService.hasAnyRole(ROLES_COMPRAS);
+        if (!permitido) {
+            // Sin nombrar el tipo: el mensaje no debe revelar de qué tipo es el id.
+            throw errorParaMostrar(new IllegalStateException(
+                    "No autorizado para ver la solicitud #" + solicitudPagoId + "."));
         }
     }
 
@@ -403,6 +434,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      */
     public SolicitudPagoNotaRecepcion agregarNotaASolicitudPago(Long solicitudPagoId, Long notaRecepcionId,
             Double montoIncluido) {
+        exigirRolCompras();
         exigirSolicitudDeCompra(solicitudPagoId);
         try {
             // montoIncluido queda en el esquema por compatibilidad: el monto lo calcula el servidor (#435)
@@ -417,6 +449,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      */
     @Transactional // el lock de exigirEditable dura hasta el commit
     public Boolean removerNotaDeSolicitudPago(Long solicitudPagoId, Long notaRecepcionId) {
+        exigirRolCompras();
         exigirSolicitudDeCompra(solicitudPagoId);
         exigirEditable(solicitudPagoId, SolicitudPagoService.ESTADOS_EDITABLES, "quitar notas");
         try {
@@ -435,6 +468,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      */
     @Transactional // el lock de exigirEditable dura hasta el commit
     public Boolean eliminarSolicitudPagoDetalle(Long id) {
+        exigirRolCompras();
         if (id != null) {
             solicitudPagoDetalleService.getRepository().findSolicitudIdById(id).ifPresent(solicitudId -> {
                 exigirSolicitudDeCompra(solicitudId);
@@ -457,6 +491,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     @Transactional // el lock de exigirEditable dura hasta el commit
     public SolicitudPagoDetalle agregarSolicitudPagoDetalle(Long solicitudPagoId,
             SolicitudPagoDetalleInput detalleInput) {
+        exigirRolCompras();
         exigirSolicitudDeCompra(solicitudPagoId);
         SolicitudPago solicitud = exigirEditable(solicitudPagoId, SolicitudPagoService.ESTADOS_EDITABLES,
                 "cambiar las formas de pago");

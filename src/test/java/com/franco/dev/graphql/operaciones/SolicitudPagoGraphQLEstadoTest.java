@@ -6,6 +6,7 @@ import com.franco.dev.domain.operaciones.enums.TipoSolicitudPago;
 import com.franco.dev.graphql.operaciones.input.SolicitudPagoDetalleInput;
 import com.franco.dev.repository.operaciones.SolicitudPagoDetalleRepository;
 import com.franco.dev.repository.operaciones.SolicitudPagoRepository;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.operaciones.SolicitudPagoDetalleService;
 import com.franco.dev.service.operaciones.SolicitudPagoNotaRecepcionService;
 import com.franco.dev.service.operaciones.SolicitudPagoService;
@@ -38,6 +39,7 @@ class SolicitudPagoGraphQLEstadoTest {
     @Mock private SolicitudPagoDetalleService detalleService;
     @Mock private SolicitudPagoRepository solicitudRepo;
     @Mock private SolicitudPagoDetalleRepository detalleRepo;
+    @Mock private TesoreriaSecurityService tesoreriaSecurityService;
 
     @InjectMocks private SolicitudPagoGraphQL resolver;
 
@@ -50,6 +52,7 @@ class SolicitudPagoGraphQLEstadoTest {
         when(detalleService.getRepository()).thenReturn(detalleRepo);
         when(solicitudRepo.findTipoById(ID)).thenReturn(Optional.of(TipoSolicitudPago.COMPRA));
         when(detalleRepo.findSolicitudIdById(DETALLE)).thenReturn(Optional.of(ID));
+        when(tesoreriaSecurityService.hasAnyRole(SolicitudPagoGraphQL.ROLES_COMPRAS)).thenReturn(true);
     }
 
     @AfterEach

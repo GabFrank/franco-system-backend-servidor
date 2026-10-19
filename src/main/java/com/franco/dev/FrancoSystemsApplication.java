@@ -65,6 +65,9 @@ public class FrancoSystemsApplication {
         factory.setConnectTimeout(10_000);
         // Tiempo maximo de espera por la respuesta una vez conectado.
         factory.setReadTimeout(30_000);
+        // Es el default, pero sin streaming HttpURLConnection reintenta el POST por dentro, y la factura a filial
+        // trata un ConnectException como «el pedido no salió» (#425).
+        factory.setOutputStreaming(true);
         return new RestTemplate(factory);
     }
 

@@ -1578,7 +1578,15 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             return graphQLResponse;
         } catch (Exception e) {
             e.printStackTrace();
-            throw new RuntimeException("Error al crear factura en servidor filial: " + e.getMessage(), e);
+            // Lo que no clasificó el servicio cae en el lado seguro: puede que el filial la haya emitido (#425)
+            boolean sinConfirmar = !(e instanceof FacturaLegalFilialService.EnvioAFilialException)
+                    || ((FacturaLegalFilialService.EnvioAFilialException) e).isSinConfirmar();
+            throw graphql.GraphqlErrorException.newErrorException()
+                    .message("Error al crear factura en servidor filial: " + e.getMessage())
+                    .errorClassification(graphql.ErrorType.DataFetchingException)
+                    .extensions(Map.of("codigo", sinConfirmar ? "FILIAL_SIN_CONFIRMAR" : "FILIAL_RECHAZO"))
+                    .cause(e)
+                    .build();
         }
     }
 

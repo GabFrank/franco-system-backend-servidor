@@ -27,6 +27,9 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
+import java.net.UnknownHostException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -49,6 +52,23 @@ public class FacturaLegalFilialService {
     @Autowired
     private com.franco.dev.service.personas.ClienteService clienteService;
 
+    /**
+     * Fallo al emitir una factura en el filial. {@code sinConfirmar}: el filial pudo haberla guardado (corte, 5xx,
+     * respuesta ilegible), así que reintentar puede emitir otra con otro número (#425).
+     */
+    public static class EnvioAFilialException extends RuntimeException {
+        private final boolean sinConfirmar;
+
+        EnvioAFilialException(String message, boolean sinConfirmar, Throwable cause) {
+            super(message, cause);
+            this.sinConfirmar = sinConfirmar;
+        }
+
+        public boolean isSinConfirmar() {
+            return sinConfirmar;
+        }
+    }
+
     public FacturaLegalFilialResponse crearFacturaLegalEnFilial(
             FacturaLegalInput facturaInput,
             List<FacturaLegalItemInput> items,
@@ -56,16 +76,14 @@ public class FacturaLegalFilialService {
             Long timbradoDetalleId
     ) throws RestClientException {
         Sucursal sucursal = sucursalService.findById(sucursalId)
-                .orElseThrow(() -> new RuntimeException("Sucursal no encontrada: " + sucursalId));
+                .orElseThrow(() -> new EnvioAFilialException("Sucursal no encontrada: " + sucursalId, false, null));
 
         if (sucursal.getIp() == null) {
-            throw new RuntimeException("La sucursal no tiene IP configurada");
+            throw new EnvioAFilialException("La sucursal no tiene IP configurada", false, null);
         }
 
         Integer puertoServidor = sucursal.getPuertoServidor() != null ? sucursal.getPuertoServidor() : 8082;
         String url = String.format("http://%s:%d/api/facturas-legales", sucursal.getIp(), puertoServidor);
-
-        FacturaLegalFilialRequest request = mapearRequest(facturaInput, items, timbradoDetalleId);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -73,6 +91,7 @@ public class FacturaLegalFilialService {
         // Serializar manualmente el request a JSON para asegurar formato correcto
         String requestJson;
         try {
+            FacturaLegalFilialRequest request = mapearRequest(facturaInput, items, timbradoDetalleId);
             requestJson = objectMapper.writeValueAsString(request);
             log.debug("Request JSON serializado: {}", requestJson);
             
@@ -83,7 +102,7 @@ public class FacturaLegalFilialService {
             }
         } catch (Exception e) {
             log.error("Error al serializar el request: {}", e.getMessage(), e);
-            throw new RuntimeException("Error al preparar la petición al servidor filial: " + e.getMessage(), e);
+            throw new EnvioAFilialException("Error al preparar la petición al servidor filial: " + e.getMessage(), false, e);
         }
 
         HttpEntity<String> entity = new HttpEntity<>(requestJson, headers);
@@ -104,7 +123,7 @@ public class FacturaLegalFilialService {
             } else {
                 String mensajeError = "Error al crear factura en servidor filial. Código: " + response.getStatusCode();
                 log.error(mensajeError);
-                throw new RuntimeException(mensajeError);
+                throw new EnvioAFilialException(mensajeError, true, null);
             }
             
         } catch (HttpClientErrorException e) {
@@ -112,20 +131,35 @@ public class FacturaLegalFilialService {
             ErrorResponseDTO errorResponse = parseErrorResponse(e.getResponseBodyAsString());
             String mensajeError = errorResponse != null ? errorResponse.getMensaje() : e.getMessage();
             log.error("Error al crear factura legal en servidor filial ({}): {}", e.getStatusCode(), mensajeError);
-            throw new RuntimeException("Error al crear factura legal: " + mensajeError, e);
+            throw new EnvioAFilialException("Error al crear factura legal: " + mensajeError, false, e);
             
         } catch (HttpServerErrorException e) {
             // Error 5xx (500, 503, etc.)
             ErrorResponseDTO errorResponse = parseErrorResponse(e.getResponseBodyAsString());
             String mensajeError = errorResponse != null ? errorResponse.getMensaje() : e.getMessage();
             log.error("Error del servidor filial ({}): {}", e.getStatusCode(), mensajeError);
-            throw new RuntimeException("Error del servidor filial: " + mensajeError, e);
+            throw new EnvioAFilialException("Error del servidor filial: " + mensajeError, true, e);
             
         } catch (RestClientException e) {
             // Error de conexión u otro error de RestTemplate
             log.error("Error al conectar con el servidor filial: {}", e.getMessage(), e);
-            throw new RuntimeException("Error al conectar con el servidor filial: " + e.getMessage(), e);
+            throw new EnvioAFilialException("Error al conectar con el servidor filial: " + e.getMessage(),
+                    !noLlegoAlFilial(e), e);
         }
+    }
+
+    /**
+     * Solo estas causas dicen que el pedido no salió. Un corte por tiempo (de conexión o de lectura, con
+     * SimpleClientHttpRequestFactory solo los separa el texto) o una conexión cortada pueden llegar después de que
+     * el filial guardó.
+     */
+    static boolean noLlegoAlFilial(Throwable e) {
+        for (Throwable c = e; c != null; c = c.getCause() == c ? null : c.getCause()) {
+            if (c instanceof ConnectException || c instanceof NoRouteToHostException || c instanceof UnknownHostException) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

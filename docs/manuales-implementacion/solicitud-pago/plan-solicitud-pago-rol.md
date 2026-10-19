@@ -79,3 +79,20 @@ mutation y la query rechazan. PWA contra el mismo central: con rol funciona.
 - Orden de despliegue: ninguno. Desktop y PWA (#88) ya piden los mismos roles.
 
 **Reversión.** Revertir el PR y desplegar. Sin migración.
+
+## Resultado de las pruebas (2026-10-19, central local del worktree)
+
+- `./mvnw clean verify -B -DskipFlyway=true`: 2117 tests, 0 fallas. Con el gate
+  apagado fallan los 3 tests nuevos de `SolicitudPagoGraphQLTipoTest`.
+- API, `PRUEBANR` (sin roles de compras): lista, por id, PDF de compra, notas
+  por proveedor, cancelar y borrar → «No autorizado…»; PDF de un **gasto** → OK.
+- API, `MR` (ADMIN): lista, por id, PDF de compra y de gasto → OK.
+- PWA, usuario con solo `RECIBIR PEDIDOS`: lista, detalle, constancia PDF y
+  «Solicitar» (SP-000007 pasó a SOLICITADO; restaurada a PENDIENTE).
+- Desktop web, `MR`: lista y «Editar pago» + Guardar (observación guardada;
+  restaurada). Usuario con solo `ANALISIS DE CAJA`: menú Compras → lista,
+  Imprimir PDF y diálogo de edición.
+
+## Sin verificar
+
+- Conteo en farmacia.

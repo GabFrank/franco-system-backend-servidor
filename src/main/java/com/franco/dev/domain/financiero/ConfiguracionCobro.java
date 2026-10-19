@@ -36,7 +36,11 @@ public class ConfiguracionCobro implements Identifiable<Long> {
     @Column(name = "aumento_tope_porcentaje", nullable = false)
     private BigDecimal aumentoTopePorcentaje = TOPE_DEFAULT;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    /**
+     * EAGER a proposito: GraphQL resuelve {@link #getUsuarioNickname()} fuera de la sesion de
+     * Hibernate, y un proxy LAZY reventaria al reabrir el dialogo despues del primer guardado.
+     */
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 
@@ -45,4 +49,9 @@ public class ConfiguracionCobro implements Identifiable<Long> {
 
     @Column(name = "modificado_en")
     private LocalDateTime modificadoEn;
+
+    /** Lo unico del usuario que expone el tipo GraphQL: no hace falta abrir el grafo de Usuario. */
+    public String getUsuarioNickname() {
+        return usuario != null ? usuario.getNickname() : null;
+    }
 }

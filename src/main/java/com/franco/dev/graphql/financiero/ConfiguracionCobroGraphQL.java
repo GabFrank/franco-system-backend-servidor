@@ -11,11 +11,14 @@ import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
 /**
- * La del central es la del dialogo de administracion y pide rol. El cobro del PDV no pasa por aca:
- * lee la copia replicada en el filial, que no pide rol y funciona sin internet.
+ * Lectura sin rol, escritura con TESORERIA GESTIONAR. El cobro del PDV lee la copia replicada en el
+ * filial (funciona sin internet), pero el desktop web no tiene filial local y la pide aca con la sesion
+ * del cajero: si pidiera rol, a ese cajero le regiria siempre el 20%. Solo expone el tope y el nickname
+ * de quien lo guardo.
  */
 @Component
 @AllArgsConstructor
@@ -27,14 +30,15 @@ public class ConfiguracionCobroGraphQL implements GraphQLQueryResolver, GraphQLM
     private final TesoreriaSecurityService seg;
 
     public ConfiguracionCobro configuracionCobro() {
-        seg.requireVer();
         return service.findOrDefault();
     }
 
     /** Semantica PATCH: un campo que no viene no pisa lo guardado. */
     public ConfiguracionCobro saveConfiguracionCobro(ConfiguracionCobroInput input) {
         seg.requireGestionar();
-        BigDecimal pct = input.getAumentoTopePorcentaje();
+        // A la escala de la columna (NUMERIC(6,2)) antes de validar: 0.004 pasaria el > 0 y se guardaria 0.00.
+        BigDecimal pct = input.getAumentoTopePorcentaje() == null ? null
+                : input.getAumentoTopePorcentaje().setScale(2, RoundingMode.HALF_UP);
         // Se valida aca y no se deja llegar al CHECK: la violacion subiria como un error opaco.
         if (pct != null && (pct.signum() <= 0 || pct.compareTo(CIEN) > 0)) {
             throw new GraphQLException("El tope del aumento es un porcentaje del total: tiene que ser mayor a 0"

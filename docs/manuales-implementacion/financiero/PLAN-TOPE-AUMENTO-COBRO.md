@@ -32,10 +32,16 @@ cambio de golpe, se guarda «sin tope» en el central y se ve replicado antes de
 - **La lectura del PDV va por Apollo directo** (`no-cache`, `errorPolicy: 'none'`, sin `GenericCrudService`) y
   en un documento gql propio con solo los dos campos, como `onGetTerminalObligatoria`. Así un filial sin la
   query (todavía sin desplegar) no muestra «Ups! Algo salió mal» en cada cobro: cae al 20% en silencio.
-- **La decisión es una función pura**, `aumentoPermitido(saldoGs, totalGs, config)`, que llaman las dos
-  `onAumento()`. Compara en guaraníes enteros: `Math.round(-saldo) <= Math.floor(total * pct / 100)`. El campo
-  `valor` del formulario está en la moneda elegida y no sirve. `total` es `data.valor` en `pago-touch` (ya
-  incluye el delivery) y `venta.valorTotal + precio.valor` en el delivery.
+- **La decisión es una función pura**, `aumentoPermitido(aumentoGs, totalGs, config)`, que llaman las dos
+  `onAumento()`. `aumentoGs` es **lo que se va a registrar** (el campo «valor», que el cajero puede editar,
+  pasado a guaraníes con la cotización elegida) **más los aumentos que el cobro ya tiene**
+  (`aumentosRegistradosGs`). No el saldo: el saldo se puede pasar por 1 Gs y registrar 500.000 de aumento.
+  Compara en guaraníes enteros, `Math.round(aumento) <= Math.floor(Math.round(total × pct × 100) / 10000)`
+  (el porcentaje tiene 2 decimales; sin el redondeo, 33,3% de 100.000 da 33.299). `total` es `data.valor` en
+  `pago-touch` (ya incluye el delivery) y `venta.valorTotal + precio.valor` en el delivery.
+- `onAumento()` de `pago-touch` limpia `isAumento` después de `addCobroDetalle()`: esa función sale sin registrar
+  en varios casos (delivery en vuelo, convenio, config de tarjeta) y la marca quedaba puesta para el próximo Enter,
+  que registraba un aumento sin pasar por el tope. En el delivery el Enter ya la limpia.
 - El botón deja de tener el `-0.2` en su `disableExpression` (sigue deshabilitado con saldo ≥ 0): botón, F8,
   ícono del delivery y cobro de crédito pasan por el mismo chequeo y los cuatro avisan por snackbar.
 - La condición que muestra el ícono del delivery (`<= total * 0.2`) no se toca: con vuelto negativo da siempre
@@ -60,10 +66,14 @@ cambio de golpe, se guarda «sin tope» en el central y se ve replicado antes de
   `aumento_tope_porcentaje NUMERIC(6,2) NOT NULL DEFAULT 20` + `CHECK (> 0 AND <= 100)`, `usuario_id` FK,
   `creado_en`, `modificado_en`, índice único sobre `((true))`; alta en `configuraciones.replication_table` como
   MAIN_TO_ALL. **Sin seed y sin ALTER PUBLICATION** (mismas razones que V231.1).
-- Entidad, repo, `ConfiguracionCobroService`: `findOrDefault()` sin persistir y `findOrCreate()` solo para el save.
-- `ConfiguracionCobroGraphQL`: query `configuracionCobro` con `seg.requireVer()` que llama a **`findOrDefault()`**
-  (abrir el diálogo no escribe nada); mutation `saveConfiguracionCobro(input)` con `seg.requireGestionar()` como
-  primera línea, semántica PATCH, porcentaje validado en (0, 100], usuario = `seg.currentUsuario()`.
+- Entidad, repo, `ConfiguracionCobroService`: `findOrDefault()` sin persistir y `findOrNew()` solo para el save.
+  `usuario` EAGER y el tipo GraphQL expone solo `usuarioNickname` (un LAZY se resuelve fuera de la sesión de
+  Hibernate y reventaba al reabrir el diálogo; además no abre el grafo de `Usuario`).
+- `ConfiguracionCobroGraphQL`: query `configuracionCobro` **sin rol** que llama a **`findOrDefault()`** (abrir el
+  diálogo no escribe nada). Sin rol porque el desktop web no tiene filial local y la pide al central con la
+  sesión del cajero; si pidiera rol, a ese cajero le regiría siempre el 20%. Mutation
+  `saveConfiguracionCobro(input)` con `seg.requireGestionar()` como primera línea, semántica PATCH, porcentaje
+  llevado a 2 decimales y validado en (0, 100], usuario = `seg.currentUsuario()`.
 - Tests: `ConfiguracionCobroGraphQLTest` — sin rol no guarda; porcentaje 0, negativo y > 100 rechazados; PATCH no
   pisa lo ausente; guarda el usuario de la sesión; la query no persiste.
 - Gate: `./mvnw clean verify -B -DskipFlyway=true`.
@@ -118,15 +128,32 @@ el comportamiento de hoy (botón al 20%, F8 sin tope) hasta que actualice.
 
 En cada canal:
 
-1. **Filial** con `106.1` en `flyway_schema_history` de cada filial del canal.
-2. **Central**: registra la tabla en `replication_table`. En alpha la agrega el sync. En farmacia y bodega los
-   schedulers están apagados: el alta es manual y la hace **Gabriel** al desplegar ese central:
-   `ALTER PUBLICATION central_pub ADD TABLE financiero.configuracion_cobro;` (autocommit) y en cada filial
-   `ALTER SUBSCRIPTION … REFRESH PUBLICATION WITH (copy_data = true);` (seguro: el espejo está vacío).
-3. **Ninguna escritura** en `configuracion_cobro` hasta ver `srsubstate = 'r'` en cada suscripción.
+1. **Filial** con `106.1` en `flyway_schema_history` de cada filial del canal. Listar antes las filiales
+   **apagadas o con una versión anterior** a la del canal: mientras haya una suscripta a `central_pub` sin la
+   tabla, la primera escritura en el central le corta **toda** la bajada de `central_pub` (el apply worker queda
+   en bucle con `target relation "financiero.configuracion_cobro" does not exist`), no solo esta tabla.
+2. **Central**: registra la tabla en `replication_table`. En alpha la agrega el sync (con `REPLICA IDENTITY FULL`
+   y `copy_data = false`). En farmacia y bodega los schedulers están apagados: el alta es manual y la hace
+   **Gabriel** al desplegar ese central, siguiendo `frc-cicd/runbook-publicar-formatos-pos-farmacia.md`:
+   - en el central: `ALTER TABLE financiero.configuracion_cobro REPLICA IDENTITY FULL;` (igual que lo deja el
+     sync en alpha) y `ALTER PUBLICATION central_pub ADD TABLE financiero.configuracion_cobro;` (autocommit);
+   - en cada filial, la suscripción **que lee `central_pub`** (por `subpublications`, `subenabled = t`; los
+     nombres están invertidos entre bodega y farmacia): `ALTER SUBSCRIPTION … REFRESH PUBLICATION WITH
+     (copy_data = true);`. Ojo: `copy_data` copia **todas** las tablas de `central_pub` que esa filial todavía no
+     tiene en `pg_subscription_rel`. Antes, comparar `pg_publication_tables` del central contra
+     `pg_subscription_rel` de la filial: si aparece otra tabla pendiente con filas en la filial, parar.
+   - `REFRESH` no tiene ensayo ni rollback: si sale mal, la salida es el backfill del punto 6.
+3. **Ninguna escritura** en `configuracion_cobro` hasta ver `srsubstate = 'r'` en cada suscripción y que no quede
+   ninguna filial del punto 1 sin `106.1`.
 4. **Desktop**. Regla: el desktop no se promueve a un canal hasta que el filial y el central de ese canal tengan
    lo suyo. Contra un filial viejo cae al 20% sin aviso; contra un central viejo el diálogo avisa y no guarda.
-5. Recién ahí, el primer guardado desde el diálogo.
+   Un desktop sin actualizar ignora la configuración (botón al 20%, F8 sin tope) hasta que actualice.
+5. Recién ahí, el primer guardado desde el diálogo. Después, **verificar por conteo** en cada filial:
+   `SELECT count(*) FROM financiero.configuracion_cobro` tiene que dar 1.
+6. **Filial nueva, recreada o que vuelve después del primer guardado**: la tabla tiene una sola fila que se
+   inserta una vez; con `copy_data = false` esa filial nunca la recibe y cada UPDATE posterior se descarta sin
+   error (queda en el 20% para siempre). Arreglo: `REFRESH … WITH (copy_data = true)` cuando ya tiene `106.1`, o
+   backfill de la fila (`pg_dump --data-only --column-inserts -t financiero.configuracion_cobro` del central).
 
 Rollback: todo aditivo. Un JAR anterior ignora la tabla (`ddl-auto=none`; el filial tiene
 `validate-on-migrate=false` y el central `ignore-missing-migrations=true`). Un desktop anterior ignora la config.
@@ -165,3 +192,21 @@ Rollback: todo aditivo. Un JAR anterior ignora la tabla (`ddl-auto=none`; el fil
 | Spec de `pago-touch` con constructor nuevo | A | Se ajusta o se anota |
 | Dos filas por guardados simultáneos | B | Índice único en el central |
 | «No cambia nada» era falso para F8 y el delivery | B | Anotado como cambio de comportamiento visible |
+
+## Hallazgos de la auditoría del diff (paso 8) y qué se hizo
+
+| Hallazgo | Eje | Qué se hizo |
+|---|---|---|
+| El tope miraba el saldo y se registra «valor» (editable): 1 Gs de más dejaba registrar cualquier aumento | Fijo 3 | Se mide la línea a registrar en Gs más los aumentos ya cargados |
+| Dos aumentos seguidos (borrando la línea de pago) pasaban el tope cada uno | Fijo 3 | `aumentosRegistradosGs` los acumula |
+| `isAumento` quedaba puesto si `addCobroDetalle` salía antes: el Enter siguiente lo registraba sin tope | Fijo 3 | `onAumento` lo limpia después de la llamada |
+| `Math.floor` perdía 1 Gs con porcentajes decimales (33,3%) | Fijo 3 | Redondeo de `total × pct × 100` antes de cortar, con spec |
+| La lectura del PDV esperaba 60 s y avisaba timeout | Fijo 3 | Corte de mostrador sin aviso (`CONTEXTO_MOSTRADOR`) |
+| Desktop web sin filial: la query del central pedía rol y al cajero le regía siempre el 20% | Fijo 3 | Query del central sin rol |
+| `usuario` LAZY resuelto fuera de sesión rompía el diálogo al reabrir | Fijo 2 | EAGER + `usuarioNickname` |
+| `usuario: Usuario` abría todo el grafo del usuario a quien leía la config | Fijo 1 y 2 | Solo `usuarioNickname` |
+| `0.004` pasaba la validación y violaba el CHECK como error opaco | Fijo 2 | `setScale(2)` antes de validar, con test |
+| Filiales apagadas/viejas, alta manual sin precisión, filial que pierde el INSERT | Cond. B | Orden de despliegue, puntos 1, 2, 3, 5 y 6 |
+| El diálogo culpaba al central de cualquier error | Fijo 3 | Texto neutro |
+| El tope solo se controla en el cliente (el filial guarda lo que llega) | Fijo 1 | Sin cambio: igual que antes, fuera del alcance de la issue |
+| En el delivery un aumento se guarda también con `vuelto = true` | Fijo 3 | Sin cambio: viene de antes y no lo toca este trabajo; anotado para Gabriel |

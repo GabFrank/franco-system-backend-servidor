@@ -36,6 +36,7 @@ class ConfiguracionCobroGraphQLTest {
         doAnswer(i -> i.getArgument(0)).when(service).save(any());
         seg = mock(TesoreriaSecurityService.class);
         sesion.setId(410L);
+        sesion.setNickname("CAJERO1");
         when(seg.currentUsuario()).thenReturn(sesion);
         resolver = new ConfiguracionCobroGraphQL(service, seg);
     }
@@ -62,7 +63,7 @@ class ConfiguracionCobroGraphQLTest {
     @Test
     void porcentajeFueraDeRangoSeRechaza() {
         when(repository.findAllByOrderByIdAsc()).thenReturn(Collections.emptyList());
-        for (String pct : new String[]{"0", "-5", "100.01", "150"}) {
+        for (String pct : new String[]{"0", "0.004", "-5", "100.01", "150"}) {
             assertThrows(GraphQLException.class, () -> resolver.saveConfiguracionCobro(input(true, pct)), pct);
         }
         verify(service, never()).save(any());
@@ -75,6 +76,15 @@ class ConfiguracionCobroGraphQLTest {
         ConfiguracionCobro out = resolver.saveConfiguracionCobro(input(true, "100"));
 
         assertEquals(0, new BigDecimal("100").compareTo(out.getAumentoTopePorcentaje()));
+    }
+
+    @Test
+    void elPorcentajeSeGuardaALaEscalaDeLaColumna() {
+        when(repository.findAllByOrderByIdAsc()).thenReturn(Collections.emptyList());
+
+        ConfiguracionCobro out = resolver.saveConfiguracionCobro(input(true, "33.333"));
+
+        assertEquals(new BigDecimal("33.33"), out.getAumentoTopePorcentaje());
     }
 
     @Test
@@ -99,6 +109,7 @@ class ConfiguracionCobroGraphQLTest {
         ConfiguracionCobro out = resolver.saveConfiguracionCobro(input(true, "30"));
 
         assertSame(sesion, out.getUsuario());
+        assertEquals("CAJERO1", out.getUsuarioNickname());
         assertNotNull(out.getCreadoEn());
         assertNotNull(out.getModificadoEn());
     }
@@ -109,7 +120,7 @@ class ConfiguracionCobroGraphQLTest {
 
         ConfiguracionCobro out = resolver.configuracionCobro();
 
-        verify(seg).requireVer();
+        verifyNoInteractions(seg); // sin rol: la lee el cobro del desktop web
         assertNull(out.getId());
         assertTrue(out.getAumentoConTope());
         assertEquals(0, new BigDecimal("20").compareTo(out.getAumentoTopePorcentaje()));

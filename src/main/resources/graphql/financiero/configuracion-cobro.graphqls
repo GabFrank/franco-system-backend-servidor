@@ -4,7 +4,8 @@ type ConfiguracionCobro {
     aumentoConTope: Boolean!
     "Tope del aumento, en porcentaje del total del cobro (0, 100]."
     aumentoTopePorcentaje: Float!
-    usuario: Usuario
+    "Quien la guardo por ultima vez."
+    usuarioNickname: String
     creadoEn: Date
     modificadoEn: Date
 }
@@ -16,7 +17,7 @@ input ConfiguracionCobroInput {
 }
 
 extend type Query {
-    "Pide un rol de tesoreria. Sin fila devuelve el default (con tope del 20%) sin guardarlo: id null."
+    "Sin rol: la lee tambien el cobro del desktop web, sin filial local. Sin fila devuelve el default (con tope del 20%) sin guardarlo: id null."
     configuracionCobro: ConfiguracionCobro!
 }
 

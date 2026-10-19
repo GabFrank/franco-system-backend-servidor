@@ -32,6 +32,7 @@ import org.springframework.data.domain.PageRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
@@ -201,6 +202,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     /**
      * Save/create solicitud pago
      */
+    @Transactional // la cabecera, las notas y las formas de pago se guardan juntas o nada (#435)
     public SolicitudPago saveSolicitudPago(SolicitudPagoInput input) {
         try {
             Proveedor proveedor = proveedorService.findById(Long.valueOf(input.getProveedorId()))
@@ -241,6 +243,8 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             }
             solicitudPagoDetalleService.sincronizarDetalles(solicitudGuardada.getId(), solicitudGuardada,
                     detalleInputs);
+            // Sin el flush, un error de la base saltaría en el commit, fuera de este catch y sin su mensaje
+            solicitudPagoService.getRepository().flush();
             return solicitudGuardada;
 
         } catch (Exception e) {
@@ -252,15 +256,17 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Update solicitud pago (only when estado is PENDIENTE).
      * Usado en: Desktop Sí (editar pago desde lista).
      */
+    @Transactional // cabecera, notas y formas de pago juntas o nada (#435)
     public SolicitudPago actualizarSolicitudPago(SolicitudPagoInput input) {
         exigirSolicitudDeCompra(input.getId());
         try {
             if (input.getId() == null) {
                 throw new IllegalArgumentException("Se requiere id para actualizar");
             }
-            SolicitudPago existente = solicitudPagoService.findById(input.getId())
-                    .orElseThrow(
-                            () -> new IllegalArgumentException("Solicitud de pago no encontrada: " + input.getId()));
+            // Cargarla ya bloqueada: un findById previo la dejaría en el contexto y el lock del servicio devolvería
+            // esa instancia sin refrescar, con el estado viejo si tesorería la cambió en el medio.
+            SolicitudPago existente = solicitudPagoService.exigirEditable(input.getId(),
+                    SolicitudPagoService.ESTADOS_EDITABLES, "editar la solicitud");
             List<SolicitudPagoDetalleService.DetalleInput> detalleInputs = mapToDetalleInputs(input.getDetalles());
             Moneda moneda = resolveMonedaForUpdate(input, detalleInputs, existente.getMoneda());
             FormaPago formaPago = resolveFormaPagoForUpdate(input, detalleInputs, existente.getFormaPago());
@@ -278,6 +284,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
                     input.getNotaRecepcionIds());
             solicitudPagoDetalleService.sincronizarDetalles(actualizada.getId(), actualizada,
                     detalleInputs != null ? detalleInputs : Collections.emptyList());
+            solicitudPagoService.getRepository().flush(); // ver saveSolicitudPago
             return solicitudPagoService.findById(actualizada.getId()).orElse(actualizada);
         } catch (Exception e) {
             throw new RuntimeException("Error al actualizar solicitud de pago: " + e.getMessage(), e);
@@ -373,6 +380,15 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Las mutations de compras solo tocan solicitudes de compra: las de gasto y RRHH se gestionan desde su modulo
      * (issue #306). Va en el resolver y no en el servicio: el motor de pago usa el servicio para concluirlas.
      */
+    /** Rechaza con el motivo a la vista cuando la solicitud no está en un estado que permita el cambio (#435). */
+    private SolicitudPago exigirEditable(Long solicitudPagoId, java.util.Set<SolicitudPagoEstado> permitidos, String accion) {
+        try {
+            return solicitudPagoService.exigirEditable(solicitudPagoId, permitidos, accion);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            throw errorParaMostrar(e);
+        }
+    }
+
     private void exigirSolicitudDeCompra(Long solicitudPagoId) {
         if (solicitudPagoId == null) return;
         TipoSolicitudPago tipo = solicitudPagoService.getRepository().findTipoById(solicitudPagoId).orElse(null);
@@ -389,8 +405,8 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             Double montoIncluido) {
         exigirSolicitudDeCompra(solicitudPagoId);
         try {
-            return solicitudPagoNotaRecepcionService.agregarNotaASolicitud(solicitudPagoId, notaRecepcionId,
-                    montoIncluido);
+            // montoIncluido queda en el esquema por compatibilidad: el monto lo calcula el servidor (#435)
+            return solicitudPagoService.agregarNota(solicitudPagoId, notaRecepcionId);
         } catch (Exception e) {
             throw new RuntimeException("Error al agregar nota a solicitud de pago: " + e.getMessage(), e);
         }
@@ -399,10 +415,14 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     /**
      * Remove nota recepcion from solicitud pago
      */
+    @Transactional // el lock de exigirEditable dura hasta el commit
     public Boolean removerNotaDeSolicitudPago(Long solicitudPagoId, Long notaRecepcionId) {
         exigirSolicitudDeCompra(solicitudPagoId);
+        exigirEditable(solicitudPagoId, SolicitudPagoService.ESTADOS_EDITABLES, "quitar notas");
         try {
-            return solicitudPagoNotaRecepcionService.removerNotaDeSolicitud(solicitudPagoId, notaRecepcionId);
+            Boolean removida = solicitudPagoNotaRecepcionService.removerNotaDeSolicitud(solicitudPagoId, notaRecepcionId);
+            solicitudPagoService.getRepository().flush(); // ver saveSolicitudPago
+            return removida;
         } catch (Exception e) {
             throw new RuntimeException("Error al remover nota de solicitud de pago: " + e.getMessage(), e);
         }
@@ -413,13 +433,18 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Usado en: Desktop (diálogo create/edit, al confirmar eliminación de forma de
      * pago).
      */
+    @Transactional // el lock de exigirEditable dura hasta el commit
     public Boolean eliminarSolicitudPagoDetalle(Long id) {
         if (id != null) {
-            solicitudPagoDetalleService.getRepository().findSolicitudIdById(id).ifPresent(this::exigirSolicitudDeCompra);
+            solicitudPagoDetalleService.getRepository().findSolicitudIdById(id).ifPresent(solicitudId -> {
+                exigirSolicitudDeCompra(solicitudId);
+                exigirEditable(solicitudId, SolicitudPagoService.ESTADOS_EDITABLES, "cambiar las formas de pago");
+            });
         }
         try {
-            Boolean deleted = solicitudPagoDetalleService.deleteById(id);
-            return deleted != null ? deleted : false;
+            Boolean eliminado = solicitudPagoDetalleService.eliminarDetalle(id);
+            solicitudPagoService.getRepository().flush(); // ver saveSolicitudPago
+            return eliminado;
         } catch (Exception e) {
             throw new RuntimeException("Error al eliminar detalle de solicitud de pago: " + e.getMessage(), e);
         }
@@ -429,11 +454,12 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Add a single solicitud pago detalle (forma de pago) to an existing solicitud.
      * Usado en: Desktop (diálogo adicionar forma de pago al confirmar guardado).
      */
+    @Transactional // el lock de exigirEditable dura hasta el commit
     public SolicitudPagoDetalle agregarSolicitudPagoDetalle(Long solicitudPagoId,
             SolicitudPagoDetalleInput detalleInput) {
         exigirSolicitudDeCompra(solicitudPagoId);
-        SolicitudPago solicitud = solicitudPagoService.findById(solicitudPagoId)
-                .orElseThrow(() -> new RuntimeException("Solicitud de pago no encontrada: " + solicitudPagoId));
+        SolicitudPago solicitud = exigirEditable(solicitudPagoId, SolicitudPagoService.ESTADOS_EDITABLES,
+                "cambiar las formas de pago");
         SolicitudPagoDetalleService.DetalleInput in = new SolicitudPagoDetalleService.DetalleInput();
         in.setMonedaId(detalleInput.getMonedaId());
         in.setFormaPagoId(detalleInput.getFormaPagoId());
@@ -445,7 +471,9 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
         in.setPortador(detalleInput.getPortador());
         in.setNominal(detalleInput.getNominal());
         in.setDiferido(detalleInput.getDiferido());
-        return solicitudPagoDetalleService.agregarDetalle(solicitud, in);
+        SolicitudPagoDetalle detalle = solicitudPagoDetalleService.agregarDetalle(solicitud, in);
+        solicitudPagoService.getRepository().flush(); // sin try: el error de la base sale tal cual, como antes
+        return detalle;
     }
 
     /**

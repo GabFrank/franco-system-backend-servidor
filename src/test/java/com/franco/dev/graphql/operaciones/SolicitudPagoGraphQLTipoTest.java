@@ -155,7 +155,7 @@ class SolicitudPagoGraphQLTipoTest {
         verify(solicitudPagoService, never()).eliminarSolicitud(anyLong());
         verify(solicitudPagoService, never()).actualizarEstado(anyLong(), any());
         verifyNoInteractions(notaService);
-        verify(detalleService, never()).deleteById(anyLong());
+        verify(detalleService, never()).eliminarDetalle(anyLong());
         verify(detalleService, never()).agregarDetalle(any(), any());
     }
 
@@ -166,7 +166,7 @@ class SolicitudPagoGraphQLTipoTest {
         verify(solicitudPagoService, never()).eliminarSolicitud(anyLong());
         verify(solicitudPagoService, never()).actualizarEstado(anyLong(), any());
         verifyNoInteractions(notaService);
-        verify(detalleService, never()).deleteById(anyLong());
+        verify(detalleService, never()).eliminarDetalle(anyLong());
     }
 
     @Test
@@ -180,7 +180,7 @@ class SolicitudPagoGraphQLTipoTest {
         verify(solicitudPagoService).eliminarSolicitud(COMPRA);
         verify(solicitudPagoService).actualizarEstado(COMPRA, SolicitudPagoEstado.SOLICITADO);
         verify(notaService).removerNotaDeSolicitud(COMPRA, 10L);
-        verify(detalleService).deleteById(50L);
+        verify(detalleService).eliminarDetalle(50L);
     }
 
     @Test
@@ -189,6 +189,6 @@ class SolicitudPagoGraphQLTipoTest {
 
         resolver.eliminarSolicitudPagoDetalle(77L);
 
-        verify(detalleService).deleteById(77L);
+        verify(detalleService).eliminarDetalle(77L);
     }
 }

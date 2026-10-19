@@ -449,6 +449,44 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
     }
 
     /**
+     * Estados en que compras puede cambiar la cabecera, las notas o las formas de pago de una solicitud. Igual que
+     * el diálogo del desktop, que solo edita con isEditable (PENDIENTE o DEVUELTO).
+     */
+    public static final Set<SolicitudPagoEstado> ESTADOS_EDITABLES =
+        java.util.EnumSet.of(SolicitudPagoEstado.PENDIENTE, SolicitudPagoEstado.DEVUELTO);
+
+    /**
+     * Toma la solicitud con lock pesimista y exige que esté en uno de los estados permitidos. Con el lock, nadie la
+     * cambia de estado entre esta validación y el cambio que sigue en la misma transacción (#435).
+     * @param accion lo que se quería hacer, para el mensaje («agregar notas»)
+     */
+    @Transactional
+    public SolicitudPago exigirEditable(Long solicitudId, Set<SolicitudPagoEstado> permitidos, String accion) {
+        SolicitudPago solicitud = repository.lockById(solicitudId).orElseThrow(
+            () -> new IllegalArgumentException("Solicitud de pago no encontrada: " + solicitudId));
+        if (!permitidos.contains(solicitud.getEstado())) {
+            throw new IllegalStateException("No se puede " + accion + ": la solicitud " + solicitud.getNumeroSolicitud()
+                + " está en " + solicitud.getEstado() + ".");
+        }
+        return solicitud;
+    }
+
+    /**
+     * Agrega una nota a una solicitud ya creada. El monto lo calcula el servidor en la moneda de la cabecera, igual
+     * que el alta y la edición: el cliente lo mandaba en la moneda de la nota. Recalcula el total (#435).
+     */
+    @Transactional
+    public SolicitudPagoNotaRecepcion agregarNota(Long solicitudId, Long notaId) {
+        SolicitudPago solicitud = exigirEditable(solicitudId, ESTADOS_EDITABLES, "agregar notas");
+        NotaRecepcion nota = notaRecepcionRepository.findById(notaId)
+            .orElseThrow(() -> new IllegalArgumentException("Nota de recepción no encontrada: " + notaId));
+        SolicitudPagoNotaRecepcion relacion = solicitudPagoNotaRecepcionService.agregarNotaASolicitud(
+            solicitudId, notaId, calcularMontoNotaEnMoneda(nota, solicitud.getMoneda()));
+        solicitudPagoNotaRecepcionService.recalcularMontoTotalSolicitud(solicitudId);
+        return relacion;
+    }
+
+    /**
      * Update solicitud pago (solo cuando estado es PENDIENTE).
      * Actualiza moneda, formaPago, fechaPagoPropuesta, observaciones y sincroniza notas.
      * Usado en: Desktop Sí (editar pago desde lista).
@@ -456,14 +494,8 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
     @Transactional
     public SolicitudPago actualizarSolicitudPago(Long solicitudId, Long monedaId, Long formaPagoId,
             LocalDateTime fechaPagoPropuesta, String observaciones, List<Long> nuevaListaNotaIds) {
-        SolicitudPago solicitud = findById(solicitudId).orElseThrow(
-            () -> new IllegalArgumentException("Solicitud de pago no encontrada: " + solicitudId)
-        );
         // Una devuelta se corrige antes de reenviarla, igual que un borrador.
-        if (solicitud.getEstado() != SolicitudPagoEstado.PENDIENTE
-                && solicitud.getEstado() != SolicitudPagoEstado.DEVUELTO) {
-            throw new IllegalStateException("Solo se pueden editar solicitudes en borrador (PENDIENTE) o devueltas por tesorería");
-        }
+        SolicitudPago solicitud = exigirEditable(solicitudId, ESTADOS_EDITABLES, "editar la solicitud");
         Moneda moneda = monedaRepository.findById(monedaId)
             .orElseThrow(() -> new IllegalArgumentException("Moneda no encontrada"));
         FormaPago formaPago = formaPagoId != null

@@ -130,12 +130,10 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
             throw new IllegalArgumentException("Factura no encontrada");
         }
 
-        // Validate electronic invoice editing rules
+        // El receptor de una electronica solo cambia cuando SIFEN aprueba la nominacion: si se editara aca,
+        // la base quedaria distinta de SIFEN y nominarFacturaElectronica la veria nominada (#433).
         if (existing.getCdc() != null && !existing.getCdc().isEmpty()) {
-            // Es factura electrónica - solo permitir edición si no está nominada
-            if (existing.getCliente() != null) {
-                throw new IllegalStateException("No se puede editar una factura electrónica que ya está nominada");
-            }
+            throw new IllegalStateException("Una factura electrónica no se edita: para asignarle un cliente hay que nominarla");
         }
 
         // Update allowed fields

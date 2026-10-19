@@ -559,15 +559,9 @@ public class SifenEventoService {
             throw new IllegalStateException("El DE ya fue nominado exitosamente. No se puede nominar nuevamente.");
         }
 
+        // Se desactivan recien despues de la respuesta: SifenException es checked y no hace rollback,
+        // y un corte de red dejaba los previos inactivos sin evento nuevo.
         List<EventoNominacionDE> eventosActivos = eventoNominacionDEService.findActivosByCdcDocumento(cdc);
-        if (!eventosActivos.isEmpty()) {
-            log.info("   🔄 Se encontraron {} evento(s) previo(s) - realizando reintento automático", eventosActivos.size());
-            for (EventoNominacionDE eventoAnterior : eventosActivos) {
-                eventoAnterior.setActivo(false);
-                eventoNominacionDEService.save(eventoAnterior);
-                log.info("      📝 Evento anterior ID {} marcado como inactivo (estado: {})", eventoAnterior.getId(), eventoAnterior.getEstado());
-            }
-        }
 
         BigDecimal totalFactura = BigDecimal.valueOf(factura.getTotalFinal());
         LocalDateTime fechaFirma = LocalDateTime.now();
@@ -674,7 +668,7 @@ public class SifenEventoService {
             de.setCodigoRespuestaSifen(codigoRespuesta);
             de.setMensajeRespuestaSifen(mensajeRespuesta);
             documentoElectronicoService.save(de);
-            factura.setCliente(cliente);
+            aplicarReceptorNominado(factura, cliente);
             facturaLegalService.save(factura);
             log.info("   ✅ Evento APROBADO - Factura actualizada con cliente nominado");
             log.info("   📋 Código SIFEN: {} - {}", codigoRespuesta, mensajeRespuesta);
@@ -696,7 +690,7 @@ public class SifenEventoService {
                 if (protocolo != null && !protocolo.isEmpty() && !"0".equals(protocolo)) {
                     eventoNominacion.setEstado(EstadoEvento.APROBADO);
                     eventoNominacion.setFechaProcesamiento(LocalDateTime.now());
-                    factura.setCliente(cliente);
+                    aplicarReceptorNominado(factura, cliente);
                     facturaLegalService.save(factura);
                     log.info("   ✅ Evento APROBADO (código 0600 + protocolo) - Factura actualizada");
                     log.info("   👤 Factura ID {} ahora tiene cliente ID {}", factura.getId(), cliente.getId());
@@ -713,9 +707,30 @@ public class SifenEventoService {
             log.warn("   ⚠️ Estado desconocido: {} - marcando como PENDIENTE", estadoResultado);
         }
 
+        for (EventoNominacionDE eventoAnterior : eventosActivos) {
+            eventoAnterior.setActivo(false);
+            eventoNominacionDEService.save(eventoAnterior);
+            log.info("      📝 Evento anterior ID {} marcado como inactivo (estado: {})", eventoAnterior.getId(), eventoAnterior.getEstado());
+        }
         eventoNominacionDEService.save(eventoNominacion);
         log.info("   💾 Evento guardado en BD - ID: {}, Estado: {}", eventoNominacion.getId(), eventoNominacion.getEstado());
         return respuesta;
+    }
+
+    /**
+     * Deja la factura con el receptor que SIFEN aprobo: cliente, nombre y RUC (sin DV, como se guarda al
+     * emitir). La direccion solo si la persona tiene una, para no pisar la que se cargo a mano.
+     */
+    public static void aplicarReceptorNominado(FacturaLegal factura, Cliente cliente) {
+        SifenReceptorHelper.ConfiguracionReceptor config =
+                SifenReceptorHelper.determinarConfiguracionReceptor(cliente, factura.getTotalFinal());
+        factura.setCliente(cliente);
+        factura.setNombre(config.getNombreReceptor());
+        factura.setRuc(config.getNumeroDocumento());
+        String direccion = cliente.getPersona() != null ? cliente.getPersona().getDireccion() : null;
+        if (direccion != null && !direccion.trim().isEmpty()) {
+            factura.setDireccion(direccion.trim().toUpperCase());
+        }
     }
 
     @Transactional

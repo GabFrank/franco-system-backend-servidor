@@ -3,6 +3,10 @@ package com.franco.dev.graphql.financiero;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.financiero.EventoNominacionDE;
+import com.franco.dev.domain.financiero.enums.EstadoEvento;
+import com.franco.dev.service.sifen.util.SifenReceptorHelper;
+import com.roshka.sifen.core.types.TiTipDocRec;
 import com.franco.dev.domain.financiero.DocumentoElectronico;
 import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.financiero.FacturaLegalItem;
@@ -151,6 +155,12 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Autowired
     private SifenEventoService sifenEventoService;
+
+    @Autowired
+    private com.franco.dev.service.financiero.EventoNominacionDEService eventoNominacionDEService;
+
+    @Autowired
+    private com.franco.dev.service.financiero.FacturacionSecurityService facturacionSeg;
 
     @Autowired
     private FacturaLegalFilialService facturaLegalFilialService;
@@ -1315,40 +1325,68 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.update(entity);
     }
 
-    // Mutation to nominate electronic invoice
-    @Transactional
+    /**
+     * Nomina en SIFEN una factura electronica emitida sin receptor. true si SIFEN aprobo, false si quedo
+     * pendiente, error con el motivo si rechazo.
+     *
+     * Sin @Transactional a proposito: nominarReceptor commitea el evento en su propia transaccion, asi el
+     * error que se lanza aca ante un rechazo no borra el evento ni la respuesta de SIFEN.
+     */
     public Boolean nominarFacturaElectronica(Long facturaLegalId, Long sucursalId, Long clienteId) {
+        // Fuera del try: es emision fiscal irreversible, mismo rol que emitir una nota de credito
+        facturacionSeg.requireEmitir();
         try {
-            // Get factura
             FacturaLegal factura = service.findByIdAndSucursalId(facturaLegalId, sucursalId);
             if (factura == null) {
                 throw new IllegalArgumentException("Factura no encontrada");
             }
-
-            // Validate it's electronic
             if (factura.getCdc() == null || factura.getCdc().isEmpty()) {
                 throw new IllegalArgumentException("La factura no es electrónica");
             }
 
-            // Validate it's not already nominada
-            if (factura.getCliente() != null) {
+            // Si salio innominada lo dice el XML enviado, no el cliente actual: el bug de #433 lo guardaba sin nominar
+            DocumentoElectronico de = documentoElectronicoService.findByFacturaLegalId(facturaLegalId, sucursalId)
+                    .orElseThrow(() -> new IllegalStateException("No se encontró el documento electrónico de la factura"));
+            if (!emitidoInnominado(de)) {
                 throw new IllegalStateException("La factura ya está nominada");
             }
 
-            // Get cliente
             Cliente cliente = clienteService.findById(clienteId).orElse(null);
             if (cliente == null) {
                 throw new IllegalArgumentException("Cliente no encontrado");
             }
+            if (SifenReceptorHelper.determinarConfiguracionReceptor(cliente, factura.getTotalFinal())
+                    .getTipoDocumentoReceptor() == TiTipDocRec.INNOMINADO) {
+                throw new IllegalArgumentException("Elegí un cliente identificado: con «SIN NOMBRE» no se nomina");
+            }
 
-            // Call SIFEN service to nominate
             sifenEventoService.nominarReceptor(factura.getCdc(), cliente);
 
-            return true;
+            EventoNominacionDE evento = eventoNominacionDEService.findActivosByCdcDocumento(factura.getCdc()).stream()
+                    .max(java.util.Comparator.comparing(EventoNominacionDE::getId))
+                    .orElseThrow(() -> new IllegalStateException("No se pudo recuperar el evento de nominación"));
+            if (evento.getEstado() == EstadoEvento.APROBADO) {
+                return true;
+            }
+            if (evento.getEstado() == EstadoEvento.PENDIENTE) {
+                return false;
+            }
+            String motivo = evento.getMensajeRespuesta() != null ? evento.getMensajeRespuesta() : String.valueOf(evento.getEstado());
+            throw new IllegalStateException("SIFEN no aprobó la nominación: "
+                    + (motivo.length() > 200 ? motivo.substring(0, 200) : motivo));
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException("Error al nominar factura electrónica: " + e.getMessage());
         }
+    }
+
+    private static final java.util.regex.Pattern RECEPTOR_INNOMINADO =
+            java.util.regex.Pattern.compile("<(\\w+:)?iTipIDRec>\\s*5\\s*</");
+
+    /** true si el XML enviado a SIFEN lleva el receptor innominado (iTipIDRec 5). Sin XML no se sabe: false. */
+    static boolean emitidoInnominado(DocumentoElectronico de) {   // visible para el test
+        String xml = de.getXmlFirmado() != null ? de.getXmlFirmado() : de.getXmlOriginal();
+        return xml != null && RECEPTOR_INNOMINADO.matcher(xml).find();
     }
 
     /** Horas que SIFEN da para cancelar una FACTURA electronica desde que la aprueba. */

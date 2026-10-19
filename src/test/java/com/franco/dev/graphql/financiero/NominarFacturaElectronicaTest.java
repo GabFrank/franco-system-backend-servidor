@@ -9,6 +9,8 @@ import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.service.financiero.DocumentoElectronicoService;
 import com.franco.dev.service.financiero.EventoNominacionDEService;
 import com.franco.dev.service.financiero.FacturaLegalService;
+import com.franco.dev.service.financiero.FacturacionSecurityService;
+import graphql.GraphQLException;
 import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.sifen.SifenEventoService;
 import org.junit.jupiter.api.AfterEach;
@@ -51,6 +53,7 @@ class NominarFacturaElectronicaTest {
     @Mock private ClienteService clienteService;
     @Mock private SifenEventoService sifenEventoService;
     @Mock private EventoNominacionDEService eventoNominacionDEService;
+    @Mock private FacturacionSecurityService facturacionSeg;
 
     @InjectMocks private FacturaLegalGraphQL resolver;
 
@@ -185,6 +188,18 @@ class NominarFacturaElectronicaTest {
         de.setXmlOriginal("<iTipIDRec>1</iTipIDRec>");
         assertFalse(FacturaLegalGraphQL.emitidoInnominado(de));
         assertFalse(FacturaLegalGraphQL.emitidoInnominado(new DocumentoElectronico()));
+    }
+
+    @Test
+    void sinElRolDeEmitirNoSeNominaYElMotivoNoSeEnvuelve() throws Exception {
+        emitidaCon(XML_INNOMINADO);
+        org.mockito.Mockito.doThrow(new GraphQLException("No autorizado: se requiere el rol FACTURACION EMITIR"))
+                .when(facturacionSeg).requireEmitir();
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> resolver.nominarFacturaElectronica(FACTURA, SUCURSAL, CLIENTE));
+        assertTrue(e.getMessage().startsWith("No autorizado"), e.getMessage());
+        verify(sifenEventoService, never()).nominarReceptor(anyString(), any());
     }
 
     @Test

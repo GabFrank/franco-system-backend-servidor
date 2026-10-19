@@ -160,6 +160,9 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private com.franco.dev.service.financiero.EventoNominacionDEService eventoNominacionDEService;
 
     @Autowired
+    private com.franco.dev.service.financiero.FacturacionSecurityService facturacionSeg;
+
+    @Autowired
     private FacturaLegalFilialService facturaLegalFilialService;
 
     @Autowired
@@ -1330,6 +1333,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
      * error que se lanza aca ante un rechazo no borra el evento ni la respuesta de SIFEN.
      */
     public Boolean nominarFacturaElectronica(Long facturaLegalId, Long sucursalId, Long clienteId) {
+        // Fuera del try: es emision fiscal irreversible, mismo rol que emitir una nota de credito
+        facturacionSeg.requireEmitir();
         try {
             FacturaLegal factura = service.findByIdAndSucursalId(facturaLegalId, sucursalId);
             if (factura == null) {
@@ -1366,8 +1371,9 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             if (evento.getEstado() == EstadoEvento.PENDIENTE) {
                 return false;
             }
+            String motivo = evento.getMensajeRespuesta() != null ? evento.getMensajeRespuesta() : String.valueOf(evento.getEstado());
             throw new IllegalStateException("SIFEN no aprobó la nominación: "
-                    + (evento.getMensajeRespuesta() != null ? evento.getMensajeRespuesta() : evento.getEstado()));
+                    + (motivo.length() > 200 ? motivo.substring(0, 200) : motivo));
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException("Error al nominar factura electrónica: " + e.getMessage());

@@ -40,7 +40,7 @@ public class FuncionarioFiltroCobraBancoIT {
 
     @Test
     void filtraPorCobraBanco() {
-        Page<Funcionario> todosAntes = service.findAllWithPage(null, null, null, true, null, null, null, null,
+        Page<Funcionario> todosAntes = service.findAllWithPage(null, null, null, true, null, null, null, null, null,
                 PageRequest.of(0, 5));
         assumeTrue(todosAntes.getTotalElements() > 0, "DB dev sin funcionarios activos");
 
@@ -49,19 +49,19 @@ public class FuncionarioFiltroCobraBancoIT {
         em.flush();
 
         // Si
-        Page<Funcionario> banco = service.findAllWithPage(null, null, null, true, null, null, null, true,
+        Page<Funcionario> banco = service.findAllWithPage(null, null, null, true, null, null, null, true, null,
                 PageRequest.of(0, 50));
         List<Long> idsBanco = banco.getContent().stream().map(Funcionario::getId).collect(java.util.stream.Collectors.toList());
         assertTrue(idsBanco.contains(elegido.getId()), "el funcionario marcado tiene que aparecer en el filtro Si");
 
         // No: el mismo no puede estar, y las filas en false/null si
-        Page<Funcionario> efectivo = service.findAllWithPage(null, null, null, true, null, null, null, false,
+        Page<Funcionario> efectivo = service.findAllWithPage(null, null, null, true, null, null, null, false, null,
                 PageRequest.of(0, 50));
         List<Long> idsEfectivo = efectivo.getContent().stream().map(Funcionario::getId).collect(java.util.stream.Collectors.toList());
         assertFalse(idsEfectivo.contains(elegido.getId()), "el funcionario marcado no puede aparecer en el filtro No");
 
         // Todos = Si + No, sin perder ninguna fila (el coalesce cubre los null)
-        long total = service.findAllWithPage(null, null, null, true, null, null, null, null,
+        long total = service.findAllWithPage(null, null, null, true, null, null, null, null, null,
                 PageRequest.of(0, 1)).getTotalElements();
         assertEquals(total, banco.getTotalElements() + efectivo.getTotalElements(),
                 "Si + No tiene que dar el total de Todos");

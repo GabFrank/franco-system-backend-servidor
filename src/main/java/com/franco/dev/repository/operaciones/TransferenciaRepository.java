@@ -9,11 +9,14 @@ import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import javax.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface TransferenciaRepository extends HelperRepository<Transferencia, Long> {
         /**
@@ -28,6 +31,15 @@ public interface TransferenciaRepository extends HelperRepository<Transferencia,
         default Class<Transferencia> getEntityClass() {
                 return Transferencia.class;
         }
+
+        /**
+         * Toma la transferencia con lock pesimista: serializa dos avances de etapa simultaneos (#450).
+         * Devuelve la instancia que ya estuviera cargada en el request sin refrescarla, asi que tiene
+         * que ser la primera carga de la transferencia.
+         */
+        @Lock(LockModeType.PESSIMISTIC_WRITE)
+        @Query("select t from Transferencia t where t.id = :id")
+        Optional<Transferencia> lockById(@Param("id") Long id);
 
         // public List<SolicitudCompra>
         // findByProveedorPersonaNombreContainingIgnoreCase(String texto);

@@ -13,11 +13,15 @@ import graphql.GraphQLException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.util.Collections;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -34,20 +38,25 @@ import static org.mockito.Mockito.when;
 class TransferenciaGraphQLEtapaTest {
 
     private TransferenciaService service;
+    private TransferenciaItemService transferenciaItemService;
+    private MovimientoStockService movimientoStockService;
+    private PlatformTransactionManager transactionManager;
     private TransferenciaGraphQL resolver;
 
     @BeforeEach
     void setUp() {
         service = mock(TransferenciaService.class);
         UsuarioService usuarioService = mock(UsuarioService.class);
-        TransferenciaItemService transferenciaItemService = mock(TransferenciaItemService.class);
-        MovimientoStockService movimientoStockService = mock(MovimientoStockService.class);
+        transferenciaItemService = mock(TransferenciaItemService.class);
+        movimientoStockService = mock(MovimientoStockService.class);
 
         resolver = new TransferenciaGraphQL();
         ReflectionTestUtils.setField(resolver, "service", service);
         ReflectionTestUtils.setField(resolver, "usuarioService", usuarioService);
         ReflectionTestUtils.setField(resolver, "transferenciaItemService", transferenciaItemService);
         ReflectionTestUtils.setField(resolver, "movimientoStockService", movimientoStockService);
+        transactionManager = mock(PlatformTransactionManager.class);
+        ReflectionTestUtils.setField(resolver, "transactionManager", transactionManager);
 
         when(usuarioService.findById(any())).thenReturn(Optional.of(new Usuario()));
         when(transferenciaItemService.findByTransferenciaId(any())).thenReturn(Collections.emptyList());
@@ -60,6 +69,7 @@ class TransferenciaGraphQLEtapaTest {
         t.setEtapa(etapa);
         t.setEstado(estado);
         when(service.findById(id)).thenReturn(Optional.of(t));
+        when(service.lockById(id)).thenReturn(Optional.of(t));
         return t;
     }
 
@@ -85,6 +95,39 @@ class TransferenciaGraphQLEtapaTest {
         verify(service).save(any());
     }
 
+    /**
+     * #450: reenviar la etapa actual volvia a correr su case y pisaba las cantidades ya verificadas
+     * (preparacion, transporte y recepcion copian las de la etapa anterior). Pasa con dos usuarios
+     * que aprietan el mismo boton, o con uno que tiene la pantalla sin refrescar.
+     */
+    @ParameterizedTest
+    @EnumSource(EtapaTransferencia.class)
+    @DisplayName("avanzarEtapaTransferencia rechaza la etapa en la que ya esta y no toca nada")
+    void avanzarNoRepiteLaEtapaActual(EtapaTransferencia etapa) {
+        persistida(6300L, etapa, TransferenciaEstado.EN_ORIGEN);
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> resolver.avanzarEtapaTransferencia(6300L, etapa, 1L));
+
+        assertTrue(e.getMessage().contains("ya esta en etapa " + etapa), e.getMessage());
+        verify(service, never()).save(any());
+        verify(transferenciaItemService, never()).save(any());
+        verify(movimientoStockService, never()).createMovimientoFromTransferenciaItem(any());
+    }
+
+    @Test
+    @DisplayName("avanzarEtapaTransferencia lee la transferencia con lock, no con findById")
+    void avanzarLeeConLock() {
+        persistida(6301L, EtapaTransferencia.PRE_TRANSFERENCIA_ORIGEN, TransferenciaEstado.EN_ORIGEN);
+
+        assertTrue(resolver.avanzarEtapaTransferencia(
+                6301L, EtapaTransferencia.PREPARACION_MERCADERIA, 1L));
+
+        verify(service).lockById(6301L);
+        verify(service, never()).findById(any());
+        assertEquals(EtapaTransferencia.PREPARACION_MERCADERIA, service.lockById(6301L).get().getEtapa());
+    }
+
     @Test
     @DisplayName("saveTransferencia rechaza un input que trae una etapa anterior a la persistida")
     void saveNoPisaLaEtapaHaciaAtras() {
@@ -97,6 +140,56 @@ class TransferenciaGraphQLEtapaTest {
 
         assertThrows(GraphQLException.class, () -> resolver.saveTransferencia(input));
 
+        verify(service, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("saveTransferencia de una existente lee con lock y dentro de una transaccion")
+    void saveLeeConLockEnTransaccion() {
+        persistida(6302L, EtapaTransferencia.PRE_TRANSFERENCIA_ORIGEN, TransferenciaEstado.EN_ORIGEN);
+
+        TransferenciaInput input = new TransferenciaInput();
+        input.setId(6302L);
+        input.setEtapa(EtapaTransferencia.PRE_TRANSFERENCIA_ORIGEN);
+        input.setObservacion("nueva");
+
+        resolver.saveTransferencia(input);
+
+        verify(transactionManager).getTransaction(any());
+        verify(service).lockById(6302L);
+        verify(service, never()).findById(any());
+        verify(service).save(any());
+    }
+
+    /**
+     * #462: el save leia antes de que commiteara un avance de la misma transferencia, validaba contra
+     * esa lectura (misma etapa que el input) y escribia de vuelta la etapa vieja y
+     * usuarioPreparacion = null. findById representa esa lectura vieja; lockById, lo que el save ve
+     * al soltarse el lock del avance.
+     */
+    @Test
+    @DisplayName("saveTransferencia cruzado con un avance valida contra la lectura bloqueada y no pisa la etapa")
+    void saveCruzadoConAvanceNoVuelveAtras() {
+        Transferencia leidaAntes = new Transferencia();
+        leidaAntes.setId(6303L);
+        leidaAntes.setEtapa(EtapaTransferencia.PRE_TRANSFERENCIA_ORIGEN);
+        leidaAntes.setEstado(TransferenciaEstado.EN_ORIGEN);
+        Transferencia avanzada = new Transferencia();
+        avanzada.setId(6303L);
+        avanzada.setEtapa(EtapaTransferencia.PREPARACION_MERCADERIA);
+        avanzada.setEstado(TransferenciaEstado.EN_ORIGEN);
+        avanzada.setUsuarioPreparacion(new Usuario());
+        when(service.findById(6303L)).thenReturn(Optional.of(leidaAntes));
+        when(service.lockById(6303L)).thenReturn(Optional.of(avanzada));
+
+        TransferenciaInput input = new TransferenciaInput();
+        input.setId(6303L);
+        input.setEtapa(EtapaTransferencia.PRE_TRANSFERENCIA_ORIGEN);
+        input.setObservacion("editada con la pantalla en origen");
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> resolver.saveTransferencia(input));
+
+        assertTrue(e.getMessage().contains("Volve a abrirla"), e.getMessage());
         verify(service, never()).save(any());
     }
 }

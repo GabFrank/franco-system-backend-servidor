@@ -125,6 +125,29 @@ Central local 8081 perfil `dev` (base `bodega@5551`) + desktop `ng serve -c web`
 
 Datos de prueba creados/tocados se restauran al final.
 
+### Resultado (2026-10-20, central local `c06c07be` + desktop `develop` `5ae0c215`, usuario MR)
+
+Funcionario 611 de la base local; verificado por SQL tras cada guardado y restaurado al final.
+
+| Caso | Resultado |
+|---|---|
+| 1. Asignar horario en lote (Marcaciones → Adicionar Horario → Asignar a otros) | OK: `horario_id` asignado, IPS/banco/código/contacto/`creado_en` intactos |
+| 2. Diálogo de edición eligiendo persona | **N/A**: `adicionar-funcionario-dialog` no tiene llamadores en develop, beta ni master (solo uno comentado en `maletin.component.ts:51`) |
+| 3. Legajo apaga IPS y banco | OK: `false`, número/fecha/cuenta en `null` |
+| 4. Legajo prende IPS y banco con datos | OK: se guardan |
+| 5. Alta por el wizard (Solicitudes de funcionarios → Registrar) | OK: `ips_activo=false`, `cobra_banco=false`, `creado_en` con fecha |
+| 6. Filtro «Cobra IPS» | OK: Sí/No coinciden con la base en los dos estados |
+| 7. Legajo vacía código interno y contacto | OK: quedan `''` |
+| 8. `creado_en` tras las ediciones | OK: sin cambios |
+
+Batería: `./mvnw clean verify -B -DskipFlyway=true` → 2151 tests, 0 fallos (sobre una copia fuera
+del workspace: el servidor de lenguaje que indexa `/home/franco/dev-frc` reescribía `target/` y
+la primera corrida dio `NoClassDefFound` en 404 tests ajenos). CI: solo corre en `pull_request`;
+queda para el PR.
+
+Hallazgo aparte (preexistente, desktop): el wizard guarda como sueldo el id de la sucursal
+(se cargó 3.000.000 con «1 - Suc. Central» y quedó `sueldo = 1.0`).
+
 ## Despliegue
 
 Solo central, sin migración ni variable nueva. Tras el merge, deploy manual (`gh workflow run
@@ -148,7 +171,12 @@ cambia (`funcionario` es `MAIN_TO_ALL` y el desktop guarda siempre contra el cen
 ## Fuera de alcance / sin verificar
 
 - `saveFuncionario` del filial tiene el mismo patrón; hoy no lo llama ningún cliente.
-- El wizard parece asignar `sueldo` desde el control de sucursal
-  (`funcionario-wizard.component.ts` ~200). No investigado; issue aparte si se confirma.
+- El wizard asigna `sueldo` desde el control de sucursal (`funcionario-wizard.component.ts`
+  ~200). **Confirmado en runtime** (ver resultado del paso 9); issue aparte.
+- `supervisadoPor` sigue el mismo mecanismo de borrado que este fix corrige (auditoría del diff,
+  Fijo 2): el resolver lo pone en `null` y solo lo repone si el input trae `supervisadoPorId`.
+  Bodega: 151 de 155 activos sin supervisor (no se sabe cuántos por borrado). Fuera de alcance.
+- Huecos menores de test señalados en la auditoría del diff: alta con `fechaIngresoIps`, prender
+  IPS sin fecha, banco apagado con IPS ausente. Cubiertos en runtime (casos 3-5), no en unit.
 - `mobile` y `mobile-pwa` no llaman a `saveFuncionario` (grep en `develop`).
 - Farmacia no se midió.

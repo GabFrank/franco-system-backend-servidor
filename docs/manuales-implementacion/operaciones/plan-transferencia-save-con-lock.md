@@ -97,8 +97,9 @@ Batería: `./mvnw clean verify -B -DskipFlyway=true` en una copia fuera de `dev-
   conexión del pool tomada. Sin `lock_timeout`, igual que los otros locks del repo. La asignación de
   hoja de ruta de `list-transferencia` guarda una por una y se demora igual.
 - **Deadlock**: el save con cambio de sucursal bloquea la transferencia y después los ítems, en el
-  mismo orden que el avance. Un `saveTransferenciaItem` concurrente que inserta un ítem toma
-  `FOR KEY SHARE` y espera. PostgreSQL abortaría uno en un ciclo; no se ve uno leyendo el código.
+  mismo orden que el avance. `transferencia_item` **no tiene FK** a `transferencia` en la base
+  (verificado en `pg_constraint`), así que un `saveTransferenciaItem` concurrente no espera el lock
+  del encabezado: entra en paralelo. Sin ciclo en la prueba 4.
 - **Rama vieja local** `fix/transferencia-bloquear-cambio-sucursal` (14/10, sin push, con cambios sin
   commitear en `saveTransferencia`): va a chocar al rebasarse. No es de esta rama.
 
@@ -140,6 +141,33 @@ Dos auditores en paralelo, sin verse.
 | B | Ninguna excepción tragada en el camino: rollback con el mensaje original, sin `UnexpectedRollbackException` | Sin cambios |
 | B | Si el commit externo falla, la notificación de cambio de sucursal no sale (antes salía igual) | Es lo correcto |
 | B | Deadlock con movimientos/lotes no verificado | Prueba 4 de runtime |
+
+## Resultado (2026-10-20, parcial)
+
+**Tests.** `./mvnw clean verify -B -DskipFlyway=true` (copia fuera de `dev-frc`): 2173 tests, 0
+fallas, salida 0. Con el fix revertido (`findById` y sin transacción) fallan los 2 tests nuevos
+(`saveLeeConLockEnTransaccion`, `saveCruzadoConAvanceNoVuelveAtras`) y pasan los otros 13.
+
+**Runtime** (central propio en 8085 desde la copia, perfil dev, bodega local; clones de la 51251 →
+58221 a 58224; 58221 y 58222 borradas al final con sus 7 ítems y 11 movimientos):
+
+| Prueba | Resultado |
+|---|---|
+| 2 · Avance primero con la fila tomada desde psql (58221) | Avance y save en `wait_event_type = Lock`; al soltar, avance `true` y save rechazado con «…solo avanza. Volve a abrirla para ver como quedo.»; fila en `PREPARACION_MERCADERIA`, `usuario_preparacion_id = 410`, 3 ítems preparados, 3 movimientos |
+| 3 · Save primero (58222) | Save guarda la observación; el avance pasa después; fila en `PREPARACION_MERCADERIA` con la observación del save |
+| 4 · Save con cambio de origen 13→12 + alta de ítem en paralelo (58221) | El save espera el lock y rearma movimientos; el ítem entra sin esperar (sin FK); sin deadlock en el log |
+| 4 · Primer intento, con un ítem de preparación sin `cantidadPreparacion` | El rearmado tiró NPE y **se revirtió el encabezado entero** (origen siguió en 13): lo nuevo de la transacción. Antes quedaba la sucursal cambiada con movimientos a medias |
+| 5 · SQL del save | `... from operaciones.transferencia transferen0_ where transferen0_.id=? for update of transferen0_`, solo esa fila |
+
+**Encontrado de paso (preexistente, fuera de alcance).** Cambiar el origen de una transferencia en
+preparación crea la salida en la sucursal nueva y **deja la de la vieja**: cada ítem quedó con
+movimiento en 13 y en 12. Es el bucle de `newSucursalOrigenId` de `saveTransferencia`, que este
+fix no toca (memoria «cambiar origen de transferencia no mueve stock»; rama local
+`fix/transferencia-bloquear-cambio-sucursal`).
+
+**Pendiente.** Pruebas 6 a 8 (desktop y PWA por pantalla): el central y el build del desktop se
+cortaron por falta de memoria en la máquina (otras sesiones compilando). Datos listos: 58223 y
+58224 en `PRE_TRANSFERENCIA_ORIGEN`.
 
 ## Sin verificar todavía
 

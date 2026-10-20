@@ -77,7 +77,6 @@ class FacturaCorreoServiceTest {
 
         service = new FacturaCorreoService(jdbc, facturaLegalService, documentoElectronicoService,
                 sucursalService, facturaLegalGraphQL, provider, mock(PlatformTransactionManager.class));
-        ReflectionTestUtils.setField(service, "mailHost", "smtp.ejemplo.com");
         ReflectionTestUtils.setField(service, "mailUsername", "facturas@ejemplo.com");
         ReflectionTestUtils.setField(service, "remitente", "");
         ReflectionTestUtils.setField(service, "ventanaHoras", 48);
@@ -155,8 +154,8 @@ class FacturaCorreoServiceTest {
     }
 
     @Test
-    void sinServidorDeCorreoConfiguradoNoBuscaFacturas() {
-        ReflectionTestUtils.setField(service, "mailHost", "");
+    void sinRemitenteConfiguradoNoBuscaFacturas() {
+        ReflectionTestUtils.setField(service, "mailUsername", "");
 
         assertEquals(0, service.enviarPendientes());
 

@@ -301,22 +301,22 @@ Si los tests fallan, NO abrir PR — comentar en el issue explicando el fallo.
 
 Se sondea en vez de reaccionar a un evento porque las facturas llegan al central por replicacion logica, sin pasar por codigo de la aplicacion.
 
-**Configuracion.** El repo es publico: la contrasena NO va en `application.properties`. Sale de los secrets del repo (Settings > Secrets and variables > Actions) y cada deploy la escribe sola en `/opt/frc-backend-central/<instancia>/.env` (`deploy.yml` -> `deploy.sh`):
+**Envio: solo por la API de Gmail (HTTPS, 443). No hay SMTP**: DigitalOcean bloquea la salida SMTP (25, 465 y 587) de sus droplets y en el servidor daba `Connect timed out`. `GmailApiMailConfig` arma el unico `JavaMailSender`, `GmailApiMailSender`, que manda el MIME por `users.messages.send`; lo usan facturas y recuperacion de contrasena. Si falta alguna clave no hay sender y el envio responde "no esta configurado".
+
+**Configuracion.** El repo es publico: las claves NO van en `application.properties`. Sale de los secrets del repo (Settings > Secrets and variables > Actions) y cada deploy la escribe sola en `/opt/frc-backend-central/<instancia>/.env` (`deploy.yml` -> `deploy.sh`):
 
 | Tipo | Nombre | Valor |
 |---|---|---|
 | Secret | `MAIL_USERNAME` | cuenta que envia |
-| Secret | `MAIL_PASSWORD` | contrasena de aplicacion (solo SMTP) |
 | Secret | `GMAIL_CLIENT_ID` | ID de cliente OAuth (proyecto `frc-facturas` de Google Cloud) |
 | Secret | `GMAIL_CLIENT_SECRET` | secreto de ese cliente |
 | Secret | `GMAIL_REFRESH_TOKEN` | refresh token de `MAIL_USERNAME` con permiso `gmail.send` |
 | Variable (opcional) | `FACTURA_CORREO_ENABLED` | `false` para dejar solo el envio manual; sin la variable queda en `true` |
 
-Es la misma cuenta para **todas las instancias** (alpha, beta, farmacia, bodega), por decision del negocio. Para apagar el envio automatico en una sola, definir la variable `FACTURA_CORREO_ENABLED=false` en su environment de GitHub (`alpha`, `beta` o `production`). Sin los secrets no se envia nada y el `.env` no se toca.
+Es la misma cuenta para **todas las instancias** (alpha, beta, farmacia, bodega), por decision del negocio. Para apagar el envio automatico en una sola, definir la variable `FACTURA_CORREO_ENABLED=false` en su environment de GitHub (`alpha`, `beta` o `production`). Sin los cuatro secrets no se envia nada y el `.env` no se toca; con ellos, el deploy ademas borra del `.env` las claves viejas del SMTP (`MAIL_PASSWORD`, `MAIL_HOST`, `MAIL_PORT`).
 
-- **DigitalOcean bloquea el SMTP saliente (25, 465 y 587) de sus droplets**: en el servidor el SMTP da `Connect timed out`. Con los tres `GMAIL_*` cargados, `GmailApiMailConfig` reemplaza el `JavaMailSender` por `GmailApiMailSender`, que manda el mismo MIME por la API de Gmail (HTTPS, 443). Sirve para facturas y para recuperar contrasena. Si falta alguno de los tres, sigue por SMTP.
 - El refresh token no vence mientras la app OAuth este **En produccion** (en modo Prueba vence a los 7 dias). Hay que volver a autorizar si se cambia la contrasena de la cuenta, se revoca el acceso o pasan 6 meses sin enviar; el error dice "hay que volver a autorizar la cuenta". Despues de reautorizar, actualizar el secret `GMAIL_REFRESH_TOKEN` y redesplegar.
-- `MAIL_HOST` (default `smtp.gmail.com`) y `MAIL_PORT` (default `587`) solo si no es Gmail.
+- La app OAuth es el proyecto `frc-facturas` de Google Cloud, de la cuenta de `MAIL_USERNAME`, con permiso `gmail.send` y cliente "App de escritorio".
 - En el primer deploy con el envio automatico prendido salen las facturas aprobadas de las ultimas 48 h que tengan correo.
 - **Pruebas de envio: solo con el cliente DIEGO PAULINHO AMARILLA MERCADO.** Las bases dev son copias de produccion con correos reales de clientes.
 

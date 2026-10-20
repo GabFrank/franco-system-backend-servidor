@@ -68,12 +68,17 @@ else
 fi
 
 # --- Cuenta de correo para el envio de facturas ---
-# El workflow sube este archivo solo si GitHub tiene MAIL_USERNAME y MAIL_PASSWORD o los tres
-# GMAIL_*. Se pisan esas claves en el .env y se conserva el resto.
+# El workflow sube este archivo solo si GitHub tiene MAIL_USERNAME y los tres GMAIL_*. Se pisan
+# esas claves en el .env y se conserva el resto. Las claves del SMTP (ya no se usa: DigitalOcean
+# lo bloquea) se borran para no dejar la contrasena de aplicacion en el servidor.
 if [[ -n "${MAIL_ENV_SOURCE}" && -f "${MAIL_ENV_SOURCE}" ]]; then
+  ENV_TMP=$(mktemp)
+  grep -v -E '^(MAIL_PASSWORD|MAIL_HOST|MAIL_PORT|MAIL_SMTP_AUTH|MAIL_SMTP_STARTTLS)=' "${INSTANCE_DIR}/.env" > "${ENV_TMP}" || true
+  cat "${ENV_TMP}" > "${INSTANCE_DIR}/.env"
+  rm -f "${ENV_TMP}"
   while IFS='=' read -r MAIL_KEY MAIL_VALUE; do
     case "${MAIL_KEY}" in
-      MAIL_USERNAME|MAIL_PASSWORD|GMAIL_CLIENT_ID|GMAIL_CLIENT_SECRET|GMAIL_REFRESH_TOKEN|FACTURA_CORREO_ENABLED) ;;
+      MAIL_USERNAME|GMAIL_CLIENT_ID|GMAIL_CLIENT_SECRET|GMAIL_REFRESH_TOKEN|FACTURA_CORREO_ENABLED) ;;
       *) continue ;;
     esac
     ENV_TMP=$(mktemp)

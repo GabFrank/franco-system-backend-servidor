@@ -8,9 +8,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.mail.javamail.JavaMailSender;
 
 /**
- * Con {@code GMAIL_CLIENT_ID}, {@code GMAIL_CLIENT_SECRET} y {@code GMAIL_REFRESH_TOKEN} cargados,
- * los correos salen por la API de Gmail en vez de SMTP (ver {@link GmailApiMailSender}). Este bean ocupa el lugar del {@link JavaMailSender} que arma
- * Spring Boot; si falta alguno no se crea y todo sigue por SMTP como antes.
+ * El unico {@link JavaMailSender} del central: envia por la API de Gmail (ver {@link GmailApiMailSender}).
+ * No hay SMTP. Se crea solo con {@code GMAIL_CLIENT_ID}, {@code GMAIL_CLIENT_SECRET} y
+ * {@code GMAIL_REFRESH_TOKEN} cargados; si falta alguno no hay sender y los envios responden
+ * que el correo no esta configurado.
  */
 @Slf4j
 @Configuration
@@ -23,7 +24,7 @@ public class GmailApiMailConfig {
     public JavaMailSender gmailApiMailSender(@Value("${gmail.api.client-id:}") String clientId,
                                              @Value("${gmail.api.client-secret:}") String clientSecret,
                                              @Value("${gmail.api.refresh-token:}") String refreshToken) {
-        log.info("Correo: se envia por la API de Gmail (HTTPS), no por SMTP");
+        log.info("Correo: se envia por la API de Gmail (HTTPS)");
         return new GmailApiMailSender(clientId, clientSecret, refreshToken);
     }
 }

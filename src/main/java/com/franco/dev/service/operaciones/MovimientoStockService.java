@@ -332,6 +332,12 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
 
     @Transactional
     public List<MovimientoStock> createMovimientoFromTransferenciaItem(TransferenciaItem e) {
+        // Antes de tocar ningún movimiento: la salida se vuelve a repartir por lote en cada etapa, y
+        // si el lock se pidiera recién al repartir, esta transacción esperaría con la fila de la
+        // salida ya tomada (#463).
+        if (Boolean.TRUE.equals(e.getPresentacionPreTransferencia().getProducto().getLote())) {
+            loteFefoService.bloquearSaldo(e.getTransferencia().getSucursalOrigen().getId());
+        }
         TransferenciaItem finalE = e;
         MovimientoStock movimientoStockSalida = findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(
                 TipoMovimiento.TRANSFERENCIA,

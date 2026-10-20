@@ -142,7 +142,7 @@ Dos auditores en paralelo, sin verse.
 | B | Si el commit externo falla, la notificación de cambio de sucursal no sale (antes salía igual) | Es lo correcto |
 | B | Deadlock con movimientos/lotes no verificado | Prueba 4 de runtime |
 
-## Resultado (2026-10-20, parcial)
+## Resultado (2026-10-20)
 
 **Tests.** `./mvnw clean verify -B -DskipFlyway=true` (copia fuera de `dev-frc`): 2173 tests, 0
 fallas, salida 0. Con el fix revertido (`findById` y sin transacción) fallan los 2 tests nuevos
@@ -165,9 +165,24 @@ movimiento en 13 y en 12. Es el bucle de `newSucursalOrigenId` de `saveTransfere
 fix no toca (memoria «cambiar origen de transferencia no mueve stock»; rama local
 `fix/transferencia-bloquear-cambio-sucursal`).
 
-**Pendiente.** Pruebas 6 a 8 (desktop y PWA por pantalla): el central y el build del desktop se
-cortaron por falta de memoria en la máquina (otras sesiones compilando). Datos listos: 58223 y
-58224 en `PRE_TRANSFERENCIA_ORIGEN`.
+**Por pantalla** (desktop `develop` 6c30ca4a, build web-production servido en 4202; PWA `develop`
+8f1e91ef con `ng serve` en 4301; los dos contra el central de 8085, usuario MR):
+
+| Prueba | Resultado |
+|---|---|
+| 6 · Desktop «Cambiar Sucursales» en la 58223 (destino 18→7) | «Guardado con éxito»; base con destino 7; el log muestra el `FOR UPDATE` del save |
+| 6 · Desktop «Nueva Transferencia»: sucursales (crea, `id == null`), solicitante, primer ítem | Crea la 58225 en `PRE_TRANSFERENCIA_CREACION`, solicitante 301, 1 ítem |
+| 6 · Desktop lista → «Entregadores» con 58223 (preparación) y 58224 (origen) | «Ruta asignada a 2 transferencias»; las dos con la hoja nueva |
+| 7 · Desktop con pantalla vieja: 58223 avanzada por fuera a preparación, «Cambiar Sucursales» desde la pantalla en origen | Snackbar «…no puede volver a PRE_TRANSFERENCIA_ORIGEN: una transferencia solo avanza. Volve a abrirla para ver como quedo.»; base sin cambios (destino 7, preparación 410); «Actualizar» muestra la etapa real |
+| 8 · PWA alta (Central → Rotonda, con solicitante) | Crea la 58226 en `PRE_TRANSFERENCIA_CREACION` y abre el borrador |
+
+Datos borrados al final: 58223 a 58226 con sus 7 ítems y 3 movimientos, y la hoja de ruta 5.
+
+**Encontrado de paso (preexistente, del desktop).** Todo guardado del encabezado desde el desktop
+pisa `usuario_pre_transferencia_id` con el usuario actual: `TransferenciaService.onSaveTransferencia`
+(`transferencia.service.ts:197`) pone `input.usuarioPreTransferenciaId = usuarioActual.id`. Por eso
+asignar una hoja de ruta cambia el «responsable» de la lista. El backend copia lo que recibe (por
+curl, sin ese campo, el valor se conserva): no lo causa este fix.
 
 ## Sin verificar todavía
 

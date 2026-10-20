@@ -184,24 +184,39 @@ jobs:
           rm -f firebase-credentials.json
 
       # Cuenta que envia las facturas por correo, la misma para todas las instancias. Sale de los
-      # secrets del repo (MAIL_USERNAME, MAIL_PASSWORD): es publico y la contrasena no puede ir en
-      # el codigo. Sin los secrets no se sube nada y el .env de la instancia queda como esta.
+      # secrets del repo: es publico y las claves no pueden ir en el codigo. MAIL_USERNAME es la
+      # cuenta; para enviar hace falta MAIL_PASSWORD (SMTP) o los tres GMAIL_* (API de Gmail por
+      # HTTPS, la unica que anda en DigitalOcean). Sin eso no se sube nada y el .env queda como esta.
       - name: Upload mail settings
         env:
           MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
           MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
+          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
           FACTURA_CORREO_ENABLED: ${{ vars.FACTURA_CORREO_ENABLED }}
           VERSION: ${{ steps.resolve.outputs.version }}
         run: |
-          if [[ -z "${MAIL_USERNAME}" || -z "${MAIL_PASSWORD}" ]]; then
-            echo "MAIL_USERNAME / MAIL_PASSWORD secrets not set. Skipping mail settings."
+          GMAIL_COMPLETO=""
+          if [[ -n "${GMAIL_CLIENT_ID}" && -n "${GMAIL_CLIENT_SECRET}" && -n "${GMAIL_REFRESH_TOKEN}" ]]; then
+            GMAIL_COMPLETO="si"
+          fi
+          if [[ -z "${MAIL_USERNAME}" || ( -z "${MAIL_PASSWORD}" && -z "${GMAIL_COMPLETO}" ) ]]; then
+            echo "MAIL_USERNAME plus MAIL_PASSWORD or GMAIL_* secrets not set. Skipping mail settings."
             exit 0
           fi
           MAIL_REMOTE_PATH="/tmp/mail-${{ inputs.instance }}-${VERSION}.env"
           umask 077
           {
             printf 'MAIL_USERNAME=%s\n' "${MAIL_USERNAME}"
-            printf 'MAIL_PASSWORD=%s\n' "${MAIL_PASSWORD}"
+            if [[ -n "${MAIL_PASSWORD}" ]]; then
+              printf 'MAIL_PASSWORD=%s\n' "${MAIL_PASSWORD}"
+            fi
+            if [[ -n "${GMAIL_COMPLETO}" ]]; then
+              printf 'GMAIL_CLIENT_ID=%s\n' "${GMAIL_CLIENT_ID}"
+              printf 'GMAIL_CLIENT_SECRET=%s\n' "${GMAIL_CLIENT_SECRET}"
+              printf 'GMAIL_REFRESH_TOKEN=%s\n' "${GMAIL_REFRESH_TOKEN}"
+            fi
             printf 'FACTURA_CORREO_ENABLED=%s\n' "${FACTURA_CORREO_ENABLED:-true}"
           } > mail-settings.env
           scp -i ~/.ssh/deploy_key \

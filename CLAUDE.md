@@ -306,11 +306,16 @@ Se sondea en vez de reaccionar a un evento porque las facturas llegan al central
 | Tipo | Nombre | Valor |
 |---|---|---|
 | Secret | `MAIL_USERNAME` | cuenta que envia |
-| Secret | `MAIL_PASSWORD` | contrasena de aplicacion |
+| Secret | `MAIL_PASSWORD` | contrasena de aplicacion (solo SMTP) |
+| Secret | `GMAIL_CLIENT_ID` | ID de cliente OAuth (proyecto `frc-facturas` de Google Cloud) |
+| Secret | `GMAIL_CLIENT_SECRET` | secreto de ese cliente |
+| Secret | `GMAIL_REFRESH_TOKEN` | refresh token de `MAIL_USERNAME` con permiso `gmail.send` |
 | Variable (opcional) | `FACTURA_CORREO_ENABLED` | `false` para dejar solo el envio manual; sin la variable queda en `true` |
 
 Es la misma cuenta para **todas las instancias** (alpha, beta, farmacia, bodega), por decision del negocio. Para apagar el envio automatico en una sola, definir la variable `FACTURA_CORREO_ENABLED=false` en su environment de GitHub (`alpha`, `beta` o `production`). Sin los secrets no se envia nada y el `.env` no se toca.
 
+- **DigitalOcean bloquea el SMTP saliente (25, 465 y 587) de sus droplets**: en el servidor el SMTP da `Connect timed out`. Con los tres `GMAIL_*` cargados, `GmailApiMailConfig` reemplaza el `JavaMailSender` por `GmailApiMailSender`, que manda el mismo MIME por la API de Gmail (HTTPS, 443). Sirve para facturas y para recuperar contrasena. Si falta alguno de los tres, sigue por SMTP.
+- El refresh token no vence mientras la app OAuth este **En produccion** (en modo Prueba vence a los 7 dias). Hay que volver a autorizar si se cambia la contrasena de la cuenta, se revoca el acceso o pasan 6 meses sin enviar; el error dice "hay que volver a autorizar la cuenta". Despues de reautorizar, actualizar el secret `GMAIL_REFRESH_TOKEN` y redesplegar.
 - `MAIL_HOST` (default `smtp.gmail.com`) y `MAIL_PORT` (default `587`) solo si no es Gmail.
 - En el primer deploy con el envio automatico prendido salen las facturas aprobadas de las ultimas 48 h que tengan correo.
 - **Pruebas de envio: solo con el cliente DIEGO PAULINHO AMARILLA MERCADO.** Las bases dev son copias de produccion con correos reales de clientes.

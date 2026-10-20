@@ -68,12 +68,12 @@ else
 fi
 
 # --- Cuenta de correo para el envio de facturas ---
-# El workflow sube este archivo solo si el environment de GitHub tiene MAIL_USERNAME y
-# MAIL_PASSWORD. Se pisan esas claves en el .env y se conserva el resto.
+# El workflow sube este archivo solo si GitHub tiene MAIL_USERNAME y MAIL_PASSWORD o los tres
+# GMAIL_*. Se pisan esas claves en el .env y se conserva el resto.
 if [[ -n "${MAIL_ENV_SOURCE}" && -f "${MAIL_ENV_SOURCE}" ]]; then
   while IFS='=' read -r MAIL_KEY MAIL_VALUE; do
     case "${MAIL_KEY}" in
-      MAIL_USERNAME|MAIL_PASSWORD|FACTURA_CORREO_ENABLED) ;;
+      MAIL_USERNAME|MAIL_PASSWORD|GMAIL_CLIENT_ID|GMAIL_CLIENT_SECRET|GMAIL_REFRESH_TOKEN|FACTURA_CORREO_ENABLED) ;;
       *) continue ;;
     esac
     ENV_TMP=$(mktemp)

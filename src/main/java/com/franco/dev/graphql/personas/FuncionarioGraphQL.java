@@ -123,7 +123,37 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
             e.setUsuario(null);
             e.setSupervisadoPor(null);
             Boolean activoPrevio = e.getActivo();
+            // ModelMapper copia los null del input: sin esta foto, un guardado que no gestiona
+            // los datos del legajo (horario en lote, edicion por persona) los borraba (#452).
+            Funcionario previo = new Funcionario();
+            previo.setIpsActivo(e.getIpsActivo());
+            previo.setNumeroIps(e.getNumeroIps());
+            previo.setFechaIngresoIps(e.getFechaIngresoIps());
+            previo.setCobraBanco(e.getCobraBanco());
+            previo.setCuentaBancaria(e.getCuentaBancaria());
+            previo.setCodigoInterno(e.getCodigoInterno());
+            previo.setContactoEmergenciaNombre(e.getContactoEmergenciaNombre());
+            previo.setContactoEmergenciaTelefono(e.getContactoEmergenciaTelefono());
+            previo.setCreadoEn(e.getCreadoEn());
             m.map(input, e);
+            // El flag decide el bloque entero: solo el legajo gestiona IPS y banco, y siempre
+            // manda el flag; cuando lo apaga, manda numero/cuenta en null para borrarlos.
+            if (input.getIpsActivo() == null) {
+                e.setIpsActivo(previo.getIpsActivo());
+                e.setNumeroIps(previo.getNumeroIps());
+            }
+            if (input.getCobraBanco() == null) {
+                e.setCobraBanco(previo.getCobraBanco());
+                e.setCuentaBancaria(previo.getCuentaBancaria());
+            }
+            if (input.getCodigoInterno() == null) e.setCodigoInterno(previo.getCodigoInterno());
+            if (input.getContactoEmergenciaNombre() == null)
+                e.setContactoEmergenciaNombre(previo.getContactoEmergenciaNombre());
+            if (input.getContactoEmergenciaTelefono() == null)
+                e.setContactoEmergenciaTelefono(previo.getContactoEmergenciaTelefono());
+            if (input.getCreadoEn() == null) e.setCreadoEn(previo.getCreadoEn());
+            // fechaIngresoIps no la mapea ModelMapper (String -> LocalDate): se resuelve abajo.
+            e.setFechaIngresoIps(previo.getFechaIngresoIps());
             // restaurar lo que el input no reemplaza explicitamente
             if (input.getPersonaId() == null) e.setPersona(personaActual);
             if (input.getCargoId() == null) e.setCargo(cargoActual);
@@ -145,16 +175,20 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
             if (input.getActivo() == null) {
                 e.setActivo(true);
             }
+            // Sin esto Hibernate inserta NULL y el DEFAULT false no se aplica: el legajo lo
+            // mostraba «no inscripto» y la liquidacion le descontaba IPS (#452).
+            if (e.getIpsActivo() == null) e.setIpsActivo(false);
+            if (e.getCobraBanco() == null) e.setCobraBanco(false);
         }
         if (input.getFechaIngreso() != null)
             e.setFechaIngreso(stringToDate(input.getFechaIngreso()));
         // ModelMapper no convierte String->LocalDate; el resto (ips, cuenta, contacto)
         // son String/Boolean y los mapea por nombre automaticamente.
-        if (input.getFechaIngresoIps() != null) {
-            java.time.LocalDateTime d = stringToDate(input.getFechaIngresoIps());
+        // En un update, solo quien gestiona el bloque IPS (manda el flag) toca la fecha.
+        if (input.getId() == null || input.getIpsActivo() != null) {
+            java.time.LocalDateTime d = input.getFechaIngresoIps() != null
+                    ? stringToDate(input.getFechaIngresoIps()) : null;
             e.setFechaIngresoIps(d != null ? d.toLocalDate() : null);
-        } else if (input.getId() != null) {
-            e.setFechaIngresoIps(null);
         }
         if (input.getUsuarioId() != null)
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));

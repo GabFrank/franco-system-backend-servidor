@@ -3,9 +3,13 @@ package com.franco.dev.service.financiero;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Lock por nombre, hasta el fin de la transacción ({@code pg_advisory_xact_lock}).
@@ -36,14 +40,48 @@ public class BloqueoTransaccionalService {
      *
      * <p>El {@code lock_timeout} vale solo para esta espera: después se restaura el valor que tenía la
      * transacción, así que las esperas de fila que vengan después quedan como estaban.</p>
+     *
+     * <p>Una clave ya tomada en esta transacción no se vuelve a pedir: el lock dura hasta el commit, y
+     * cada consulta nativa vuelca la sesión entera. Pedirlo por cada ítem duplicaba el tiempo de avanzar
+     * una transferencia de 118 ítems con lote (4,8 s → 10,3 s, #463).</p>
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void tomar(String clave, String esperaMaxima) {
+        Set<String> tomadas = tomadasEnEstaTransaccion();
+        if (tomadas != null && tomadas.contains(clave)) {
+            return;
+        }
         String previo = (String) entityManager.createNativeQuery("select current_setting('lock_timeout')")
                 .getSingleResult();
         fijarLockTimeout(esperaMaxima);
         bloquear(clave);
         fijarLockTimeout(previo);
+        if (tomadas != null) {
+            tomadas.add(clave);
+        }
+    }
+
+    /**
+     * Las claves que esta transacción ya tiene, colgadas de una sincronización de la propia transacción:
+     * Spring la descarta al terminar, y un {@code REQUIRES_NEW} (otra conexión, que no tiene el lock)
+     * arranca con la suya vacía. Null si no hay sincronización activa: entonces se pide siempre.
+     */
+    private static Set<String> tomadasEnEstaTransaccion() {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return null;
+        }
+        for (TransactionSynchronization s : TransactionSynchronizationManager.getSynchronizations()) {
+            if (s instanceof ClavesTomadas) {
+                return ((ClavesTomadas) s).claves;
+            }
+        }
+        ClavesTomadas nuevas = new ClavesTomadas();
+        TransactionSynchronizationManager.registerSynchronization(nuevas);
+        return nuevas.claves;
+    }
+
+    private static final class ClavesTomadas implements TransactionSynchronization {
+        private final Set<String> claves = new HashSet<>();
     }
 
     private void bloquear(String clave) {

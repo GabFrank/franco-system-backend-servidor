@@ -91,8 +91,6 @@ public class FacturaCorreoService {
     /** El hilo del scheduler no tiene sesion abierta: las relaciones lazy de la factura la necesitan. */
     private final TransactionTemplate lectura;
 
-    @Value("${spring.mail.host:}")
-    private String mailHost;
     @Value("${spring.mail.username:}")
     private String mailUsername;
     @Value("${factura.correo.remitente:}")
@@ -126,8 +124,8 @@ public class FacturaCorreoService {
     /** @return cuantas facturas se enviaron en esta vuelta. */
     public int enviarPendientes() {
         JavaMailSender sender = mailSender.getIfAvailable();
-        if (sender == null || esVacio(mailHost) || esVacio(direccionRemitente())) {
-            log.warn("Correo de facturas: falta configurar spring.mail.host y el remitente; no se envia nada");
+        if (sender == null || esVacio(direccionRemitente())) {
+            log.warn("Correo de facturas: falta configurar la API de Gmail o el remitente; no se envia nada");
             return 0;
         }
         Timestamp desde = Timestamp.valueOf(LocalDateTime.now().minusHours(ventanaHoras));
@@ -180,7 +178,7 @@ public class FacturaCorreoService {
             throw new GraphQLException("El correo no es una dirección válida");
         }
         JavaMailSender sender = mailSender.getIfAvailable();
-        if (sender == null || esVacio(mailHost) || esVacio(direccionRemitente())) {
+        if (sender == null || esVacio(direccionRemitente())) {
             throw new GraphQLException("El servidor de correo no está configurado");
         }
         Correo correo;

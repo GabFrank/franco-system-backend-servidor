@@ -108,8 +108,6 @@ public class RecuperacionContrasenaService {
     /** Identidades ya verificadas sin correo, a la espera del formulario de la solicitud a RRHH. */
     private final Map<String, VerificacionSinCorreo> verificacionesSinCorreo = new ConcurrentHashMap<>();
 
-    @Value("${spring.mail.host:}")
-    private String mailHost;
     @Value("${spring.mail.username:}")
     private String mailUsername;
     @Value("${factura.correo.remitente:}")
@@ -579,7 +577,7 @@ public class RecuperacionContrasenaService {
 
     private void enviarCorreo(String destino, String asunto, String html) {
         JavaMailSender sender = mailSender.getIfAvailable();
-        if (sender == null || esVacio(mailHost) || esVacio(direccionRemitente())) {
+        if (sender == null || esVacio(direccionRemitente())) {
             throw new RecuperacionException("El envío de correos no está configurado en el servidor. Comuníquese con RRHH.");
         }
         try {

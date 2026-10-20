@@ -126,7 +126,8 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         "0.0, 0.0, 0.0, 0.0, " +
                         "SUM(CASE WHEN (v.totalGs > 0) THEN ((vi.precio * vi.cantidad) / v.totalGs * COALESCE((SELECT SUM(cd.valor * cd.cambio) FROM CobroDetalle cd WHERE cd.cobro = v.cobro AND cd.descuento = true), 0.0)) ELSE 0.0 END), "
                         +
-                        "SUM(CASE WHEN (v.totalGs > 0) THEN ((vi.precio * vi.cantidad) / v.totalGs * COALESCE((SELECT SUM(cd.valor * cd.cambio) FROM CobroDetalle cd WHERE cd.cobro = v.cobro AND cd.aumento = true), 0.0)) ELSE 0.0 END) "
+                        "SUM(CASE WHEN (v.totalGs > 0) THEN ((vi.precio * vi.cantidad) / v.totalGs * COALESCE((SELECT SUM(ABS(cd.valor * COALESCE(cd.cambio, 1.0))) FROM CobroDetalle cd WHERE cd.cobro = v.cobro AND cd.aumento = true), 0.0)) ELSE 0.0 END) "
+                        // #457: antes de 2024-10 el aumento se guardaba en negativo aunque el pago lo incluía.
                         +
                         ") " +
                         "FROM VentaItem vi " +

@@ -104,3 +104,22 @@ Clientes (desktop, PWA): reciben el mismo campo `totalAumento`, solo cambia el v
 ## Sin verificar
 
 - Si la `bodega` local está al día con producción en las cajas elegidas (es una copia).
+
+## Resultados (20/10/2026)
+
+- Test nuevo: los 3 fallan con el código viejo (`expected: <true> but was: <false>`) y pasan con el fix.
+- Paso 9: `./mvnw clean verify -B -DskipFlyway=true` sobre la rama rebasada: 2.160 tests, 0 fallas.
+- Arranque del central local (8084, perfil `dev`, réplica apagada): la JPQL nueva valida al levantar y
+  corre (`abs(` en el SQL de Hibernate). Flyway: «Schema is up to date».
+- Auditoría del diff (Fijo 1, 2 y 3): sin hallazgos que bloqueen. Condicionales A y B: N/A, el diff no
+  toca release ni tablas que viajan entre nodos.
+- Por pantalla (desktop web `develop` contra el central local, usuario MR):
+
+| Pantalla | Caso | Antes (SQL) | Pantalla | Esperado (SQL) |
+|---|---|---|---|---|
+| Ventas de la caja → Descuento/Aumento | caja 2945 / suc 1 (24/09/2024) | −273 | 4.570 | 4.570 |
+| idem | caja 1177 / suc 24 (04/07/2026, reales) | 8.002 | 10.200 | 10.200 |
+| Lucro por producto, Aumento Total | 24/09/2024, todas | 10.027 | 21.344 | 21.345 |
+| Lucro por funcionario, Aumento Total | 24/09/2024, todas | 10.027 | 21.345 | 21.345 |
+
+  La diferencia de 1 Gs en lucro por producto es redondeo del prorrateo.

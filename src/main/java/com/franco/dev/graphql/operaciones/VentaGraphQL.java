@@ -578,10 +578,64 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             if (esVerdadero(cd.getDescuento())) {
                 ajustes.descuento += valorEnGs(cd);
             } else if (esVerdadero(cd.getAumento())) {
-                ajustes.aumento += valorEnGs(cd);
+                // Antes de 2024-10 la línea quedaba en negativo, pero el pago lo incluía igual.
+                ajustes.aumento += Math.abs(valorEnGs(cd));
             }
         }
         return ajustes;
+    }
+
+    /** Totales de los movimientos de un cobro para la fila del reporte detallado. */
+    static class TotalesMovimientos {
+        double recibidoGs = 0.0;
+        double recibidoRs = 0.0;
+        double recibidoDs = 0.0;
+        /** Pagos + vuelto, en Gs. */
+        double recibido   = 0.0;
+        double descuento  = 0.0;
+        double aumento    = 0.0;
+        double totalFinal = 0.0;
+    }
+
+    /**
+     * Suma los movimientos de un cobro por moneda. Solo cuentan GUARANI, REAL y
+     * DOLAR; en guaranies se usa el valor tal cual, sin el cambio. El Total
+     * final es lo recibido (pagos + vuelto): el descuento y el aumento ya
+     * estan dentro del pago.
+     */
+    static TotalesMovimientos totalesDeMovimientos(List<CobroDetalle> cobroDetalleList) {
+        TotalesMovimientos t = new TotalesMovimientos();
+        if (cobroDetalleList == null) {
+            return t;
+        }
+        for (CobroDetalle cd : cobroDetalleList) {
+            String denominacion = cd.getMoneda() != null ? cd.getMoneda().getDenominacion() : null;
+            boolean gs = "GUARANI".equals(denominacion);
+            boolean rs = "REAL".equals(denominacion);
+            boolean ds = "DOLAR".equals(denominacion);
+            if (!gs && !rs && !ds) {
+                continue;
+            }
+            double valor = cd.getValor() != null ? cd.getValor() : 0.0;
+            double enGs = gs ? valor : valorEnGs(cd);
+            if (esVerdadero(cd.getPago()) || esVerdadero(cd.getVuelto())) {
+                if (gs) {
+                    t.recibidoGs += valor;
+                } else if (rs) {
+                    t.recibidoRs += valor;
+                } else {
+                    t.recibidoDs += valor;
+                }
+                t.recibido += enGs;
+                t.totalFinal += enGs;
+            } else if (esVerdadero(cd.getAumento())) {
+                // El pago ya trae el excedente: el aumento no suma al Total final (#454).
+                t.aumento += Math.abs(enGs);
+            } else if (esVerdadero(cd.getDescuento())) {
+                t.descuento += enGs;
+            }
+        }
+        return t;
     }
 
     /**
@@ -868,13 +922,6 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
             // Movimientos de cobro (operación, forma de pago, moneda, valor en moneda/Gs) y totales
             List<MovimientoReporteDetalladoDto> movimientosDto = new ArrayList<>();
-            double totalRecibidoGs = 0.0;
-            double totalRecibidoRs = 0.0;
-            double totalRecibidoDs = 0.0;
-            double totalRecibido = 0.0;
-            double totalDescuento = 0.0;
-            double totalAumento = 0.0;
-            double totalFinal = 0.0;
             for (CobroDetalle cd : cobroDetalleList) {
                 String operacion = cd.getPago() != null && cd.getPago() ? "PAGO"
                         : cd.getDescuento() != null && cd.getDescuento() ? "DESCUENTO"
@@ -892,45 +939,8 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
                         denominacion,
                         valor,
                         valor * cambio));
-
-                boolean recibido = (cd.getPago() != null && cd.getPago()) || (cd.getVuelto() != null && cd.getVuelto());
-                boolean aumento = cd.getAumento() != null && cd.getAumento();
-                boolean descuento = cd.getDescuento() != null && cd.getDescuento();
-                if ("GUARANI".equals(denominacion)) {
-                    if (recibido) {
-                        totalRecibidoGs += valor;
-                        totalRecibido += valor;
-                        totalFinal += valor;
-                    } else if (aumento) {
-                        totalAumento += valor;
-                        totalFinal += valor;
-                    } else if (descuento) {
-                        totalDescuento += valor;
-                    }
-                } else if ("REAL".equals(denominacion)) {
-                    if (recibido) {
-                        totalRecibidoRs += valor;
-                        totalRecibido += valor * cambio;
-                        totalFinal += valor * cambio;
-                    } else if (aumento) {
-                        totalAumento += valor * cambio;
-                        totalFinal += valor * cambio;
-                    } else if (descuento) {
-                        totalDescuento += valor * cambio;
-                    }
-                } else if ("DOLAR".equals(denominacion)) {
-                    if (recibido) {
-                        totalRecibidoDs += valor;
-                        totalRecibido += valor * cambio;
-                        totalFinal += valor * cambio;
-                    } else if (aumento) {
-                        totalAumento += valor * cambio;
-                        totalFinal += valor * cambio;
-                    } else if (descuento) {
-                        totalDescuento += valor * cambio;
-                    }
-                }
             }
+            TotalesMovimientos totalesMov = totalesDeMovimientos(cobroDetalleList);
 
             // Observaciones de la venta (descripción + motivo)
             List<VentaObservacion> ventaObservacionList = ventaObservacionService
@@ -959,13 +969,13 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             dto.setResponsable(v.getUsuario() != null && v.getUsuario().getNickname() != null
                     ? v.getUsuario().getNickname() : "");
             dto.setTotalGs(ventaTotalGs);
-            dto.setTotalRecibidoGs(totalRecibidoGs);
-            dto.setTotalRecibidoRs(totalRecibidoRs);
-            dto.setTotalRecibidoDs(totalRecibidoDs);
-            dto.setTotalRecibido(totalRecibido);
-            dto.setTotalDescuento(totalDescuento);
-            dto.setTotalAumento(totalAumento);
-            dto.setTotalFinal(totalFinal);
+            dto.setTotalRecibidoGs(totalesMov.recibidoGs);
+            dto.setTotalRecibidoRs(totalesMov.recibidoRs);
+            dto.setTotalRecibidoDs(totalesMov.recibidoDs);
+            dto.setTotalRecibido(totalesMov.recibido);
+            dto.setTotalDescuento(totalesMov.descuento);
+            dto.setTotalAumento(totalesMov.aumento);
+            dto.setTotalFinal(totalesMov.totalFinal);
             dto.setCostoTotalVenta(costoTotalVenta);
             dto.setItemsDataSource(new JRBeanCollectionDataSource(itemsDto));
             dto.setMovimientosDataSource(new JRBeanCollectionDataSource(movimientosDto));

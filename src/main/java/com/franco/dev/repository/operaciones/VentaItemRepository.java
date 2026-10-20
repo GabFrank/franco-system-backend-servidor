@@ -66,7 +66,8 @@ public interface VentaItemRepository extends HelperRepository<VentaItem, Embebed
                         "), cd_agg AS ( " +
                         "  SELECT cd.cobro_id, cd.sucursal_id, " +
                         "    SUM(CASE WHEN cd.descuento = true THEN cd.valor * cd.cambio ELSE 0 END) AS desc_total, " +
-                        "    SUM(CASE WHEN cd.aumento = true THEN cd.valor * cd.cambio ELSE 0 END) AS aum_total " +
+                        // #457: antes de 2024-10 el aumento se guardaba en negativo aunque el pago lo incluía.
+                        "    SUM(CASE WHEN cd.aumento = true THEN ABS(cd.valor * COALESCE(cd.cambio, 1)) ELSE 0 END) AS aum_total " +
                         "  FROM operaciones.cobro_detalle cd " +
                         "  WHERE (cd.descuento = true OR cd.aumento = true) " +
                         "  AND (cd.cobro_id, cd.sucursal_id) IN (SELECT cobro_id, sucursal_id FROM ventas) " +

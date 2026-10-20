@@ -144,6 +144,38 @@ Dos auditores en paralelo, sin verse. Qué se hizo con cada hallazgo:
 - `saveTransferencia` sin lock (read-modify-write con `ModelMapper`).
 - Asignación FEFO concurrente del mismo lote entre transferencias distintas.
 
+## Resultado (2026-10-20)
+
+**Tests.** `./mvnw clean verify -B -DskipFlyway=true`: 2171 tests, 0 fallas, BUILD SUCCESS. Con
+`validarQueNoRepiteEtapa` comentado fallan los 9 casos de `avanzarNoRepiteLaEtapaActual`.
+
+**Runtime** (central local en 8084 desde copia, perfil dev, bodega local; datos de prueba: clones de
+la 51251 → 58216 a 58220, borrados al final con hoja de ruta 3 y sus 18 movimientos):
+
+| Prueba | Resultado |
+|---|---|
+| Dos `avanzarEtapaTransferencia` simultáneos en PREPARACION, TRANSPORTE_VERIFICACION, RECEPCION_EN_VERIFICACION y RECEPCION_CONCLUIDA (58216) | En cada etapa uno `true` y el otro «ya esta en etapa X»; un solo movimiento por ítem y sucursal |
+| Reenvío tardío tras verificar un ítem (prep 8, transp 7, recep 6) | Rechazado; las cantidades verificadas se conservan hasta el final |
+| Lock: fila tomada desde psql 6-8 s y avance en paralelo | El avance queda en `wait_event_type = Lock` y pasa al soltar. SQL: `... from operaciones.transferencia transferen0_ where transferen0_.id=$1 for update of transferen0_` (solo esa fila, sin joins) |
+| Dos `verificarParaTransporteMobile` simultáneos (58218) | Uno pasa, el otro se rechaza; una sola hoja de ruta nueva |
+| Desktop (build web-production de develop, 4201): «Preparar para envío» y «Continuar sin chofer» con la pantalla vieja (58219) | Snackbar con el motivo; diálogo queda abierto sin «Enviando…»; «Actualizar» muestra la etapa real; lo verificado no cambia |
+| Desktop: «Finalizar» y avance normal | Avanza igual que antes |
+| PWA (develop, 4300): «Preparar productos» con la pantalla vieja (58220) | Muestra el rechazo (con el prefijo crudo «Exception while fetching data», preexistente de la PWA); lo verificado no cambia |
+| Flujo completo creación → recepción concluida | Igual que antes |
+
+## Auditoría del diff (paso 8)
+
+3 fijos, sin condicionales (el diff no toca release, migraciones ni replicación).
+
+| Eje | Hallazgo | Decisión |
+|---|---|---|
+| Fijo 1 | Sin resolver ni dato nuevo expuesto; `lockById` no está en el schema; falta de rol en las mutations de transferencia es preexistente (#177) | Sin cambios |
+| Fijo 1 | El mensaje confirma la etapa de un id ajeno | La etapa ya se lee por `transferencia(id)`; sin cambios |
+| Fijo 2 | Sin migración ni enum; JPQL válida, PK simple; `FOR UPDATE` solo sobre `transferencia` | Confirmado en runtime (SQL capturado arriba) |
+| Fijo 2 | Sin `lock_timeout` | Ya decidido en el paso 5 (mismo patrón que Retiro/EntradaVaria) |
+| Fijo 3 | Schema y firma iguales; ningún cliente encadena algo tras un avance rechazado; desktop estable (master) muestra «Ups! Algo salió mal: <motivo>» por `onCustomMutation`; frc-mobile muestra «algo salió mal» | Sin orden de despliegue; anotado en residuales |
+
 ## Sin verificar todavía
 
 - Deadlock bajo carga real: solo por lectura.
+- PWA: el prefijo «Exception while fetching data» en los rechazos (preexistente, fuera de alcance).

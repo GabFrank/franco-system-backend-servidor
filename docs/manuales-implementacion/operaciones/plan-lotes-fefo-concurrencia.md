@@ -222,6 +222,36 @@ restaura y se compara con el snapshot CSV. El resultado de cada punto se anota e
 8. `./mvnw clean verify -B -DskipFlyway=true` en una copia fuera del workspace (jdtls), y después
    `gh pr checks`.
 
+## Resultado de la prueba de runtime (2026-10-20)
+
+Central local con la rama (perfil dev, 8081), corrido desde una copia fuera del workspace. Antes de
+cada corrida se restauró la base y se comparó con un snapshot CSV de las 17 transferencias, sus ítems,
+productos y movimientos previos: todas las comparaciones dieron igual.
+
+| Prueba | Resultado |
+|---|---|
+| R1 — carrera con el fix | **Pasa.** En `pg_locks`, una espera en el `INSERT` y la otra en el advisory (la corrida cuenta). 19248/19251 → 20 + 10, saldo de `REPRO463` **0** (antes del fix: 20 + 20 y −10). |
+| R2 — control secuencial | Igual que antes del fix: 20 + 10, saldo 0. |
+| R3 — 51221 y 51251, productos 7078/6964 en orden inverso | **Pasa.** Los dos esperan el advisory, avanzan, 0 deadlocks. |
+| R4a — avance + `saveTransferenciaItem` de un ítem existente | Sin deadlock. El save del ítem **falla con `40001`** (`could not serialize access`): `TransferenciaItemService.save` es `SERIALIZABLE` y, sin transacción de afuera, corre en la suya; espera la fila que el avance ya modificó. **Es previo al fix**: el control sin lote (sin advisory, avance frenado con `LOCK SHARE` sobre `movimiento_stock`) da el mismo error. El fix solo puede alargar esa ventana cuando el avance espera el lock. |
+| R4b — avance + ítem nuevo | **Pasa.** El insert del ítem no esperó la fila de la transferencia (commiteó solo); su movimiento esperó el advisory junto al avance. Los dos terminan, sin deadlock. |
+| R5 — 11 avances con el advisory retenido 40 s | **Pasa.** 10 esperan el lock (todo el pool) y se cortan a los **15 s** con «Hay otra operación con lotes en curso en la sucursal 13. Reintentá en unos segundos.»; el 11.º espera conexión y lock (**30 s**, debajo de los 60 del desktop). Ninguna transferencia cambió de etapa. Otra query durante la cola tardó **10 s** (esperó conexión) y respondió. |
+| R6 — avance de 51163 (118 ítems, todos con lote) | `develop` sin fix: **4,8 s**. Primer commit: **10,3 s**. Con el segundo commit: **4,8 s**. Sin lote: 1,8 s. |
+
+**Lo que cambió por R6.** El primer commit pedía el lock dos veces por ítem, y cada pedido son cuatro
+consultas nativas que vuelcan la sesión entera: unas 950 por avance. El segundo commit
+(`fix(lotes): pedir el lock de saldo una sola vez por transaccion`) recuerda las claves tomadas en una
+`TransactionSynchronization` de la propia transacción: Spring la descarta al terminar y un
+`REQUIRES_NEW` arranca con la suya vacía. R1, R3, R4b y R5 se repitieron con ese commit con el mismo
+resultado.
+
+**Tamaño real.** En los últimos 90 días de la base local, p50 = 5 ítems, p95 ≈ 144, máximo 170. Un
+avance de ~170 ítems con lote tarda unos 7 s: entra en el tope de 15 s de quien espera.
+
+**Batería**: `./mvnw clean verify -B -DskipFlyway=true` en copia aislada: 2183 tests (primer commit) y
+2187 (segundo), 0 fallas. Tests nuevos revertidos (paso 7): sin las llamadas al lock fallan 6 de 10;
+sin el corte por clave tomada falla el de `BloqueoTransaccionalServiceTest`.
+
 ## Auditoría del plan (paso 5)
 
 Dos auditores en paralelo, sin verse (`critic`, sonnet). Cada hallazgo se verificó contra el código
@@ -256,6 +286,9 @@ antes de aplicarlo.
 
 ## Sin verificar todavía
 
+- R7 por pantalla (transferencia, ajuste por lote y devolución desde el desktop): pendiente de
+  conectar la extensión de Chrome en mauro. Preparado: desktop `develop` 00f37c4a compilado
+  `web-production` y servido en `http://127.0.0.1:4201`, producto 4680 marcado con lote.
 - El tamaño del pool en producción (no está en el repo ni en `deploy.sh`; podría venir del `.env`
   del servidor).
 - Si ya hay saldos negativos en bodega o farmacia: la consulta de detección es de solo lectura y se

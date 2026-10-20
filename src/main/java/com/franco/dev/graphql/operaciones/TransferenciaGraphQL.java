@@ -151,7 +151,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         if (!actual.getEtapa().puedeAvanzarA(destino)) {
             throw new GraphQLException("La transferencia " + actual.getId() + " esta en etapa "
                     + actual.getEtapa() + " y no puede volver a " + destino
-                    + ": una transferencia solo avanza.");
+                    + ": una transferencia solo avanza. Volve a abrirla para ver como quedo.");
         }
     }
 
@@ -180,7 +180,17 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         }
     }
 
+    /**
+     * Corre en una transaccion con la fila bloqueada (#462), igual que el avance: si un
+     * {@code avanzarEtapaTransferencia} de la misma transferencia commitea en el medio, el save
+     * escribiria de vuelta la etapa y los responsables de su lectura vieja. Con el lock el save espera,
+     * valida contra lo que dejo el avance y se rechaza si el input trae la etapa anterior.
+     */
     public Transferencia saveTransferencia(TransferenciaInput input) {
+        return new TransactionTemplate(transactionManager).execute(status -> guardarTransferencia(input));
+    }
+
+    private Transferencia guardarTransferencia(TransferenciaInput input) {
         ModelMapper m = new ModelMapper();
         Transferencia e = m.map(input, Transferencia.class);
         Long oldSucursalOrigenId = null;
@@ -189,8 +199,9 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         Long newSucursalDestinoId = null;
         // La entidad se arma desde el input y se persiste con merge, por lo que toda
         // columna ausente en el input se guardaria como null. Se carga la transferencia
-        // existente para preservar los campos que el cliente no envia.
-        Transferencia transferencia = input.getId() != null ? service.findById(input.getId()).orElse(null) : null;
+        // existente para preservar los campos que el cliente no envia. Con lock y como primera carga
+        // del request: lockById no refresca una instancia ya cargada.
+        Transferencia transferencia = input.getId() != null ? service.lockById(input.getId()).orElse(null) : null;
 
         // El cliente reenvia la etapa en cada save (ver Transferencia.toInput en el desktop), asi
         // que un input viejo alcanza para retroceder el header si no se valida aca.

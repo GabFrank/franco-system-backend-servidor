@@ -40,6 +40,7 @@ class TransferenciaGraphQLEtapaTest {
     private TransferenciaService service;
     private TransferenciaItemService transferenciaItemService;
     private MovimientoStockService movimientoStockService;
+    private PlatformTransactionManager transactionManager;
     private TransferenciaGraphQL resolver;
 
     @BeforeEach
@@ -54,7 +55,8 @@ class TransferenciaGraphQLEtapaTest {
         ReflectionTestUtils.setField(resolver, "usuarioService", usuarioService);
         ReflectionTestUtils.setField(resolver, "transferenciaItemService", transferenciaItemService);
         ReflectionTestUtils.setField(resolver, "movimientoStockService", movimientoStockService);
-        ReflectionTestUtils.setField(resolver, "transactionManager", mock(PlatformTransactionManager.class));
+        transactionManager = mock(PlatformTransactionManager.class);
+        ReflectionTestUtils.setField(resolver, "transactionManager", transactionManager);
 
         when(usuarioService.findById(any())).thenReturn(Optional.of(new Usuario()));
         when(transferenciaItemService.findByTransferenciaId(any())).thenReturn(Collections.emptyList());
@@ -138,6 +140,56 @@ class TransferenciaGraphQLEtapaTest {
 
         assertThrows(GraphQLException.class, () -> resolver.saveTransferencia(input));
 
+        verify(service, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("saveTransferencia de una existente lee con lock y dentro de una transaccion")
+    void saveLeeConLockEnTransaccion() {
+        persistida(6302L, EtapaTransferencia.PRE_TRANSFERENCIA_ORIGEN, TransferenciaEstado.EN_ORIGEN);
+
+        TransferenciaInput input = new TransferenciaInput();
+        input.setId(6302L);
+        input.setEtapa(EtapaTransferencia.PRE_TRANSFERENCIA_ORIGEN);
+        input.setObservacion("nueva");
+
+        resolver.saveTransferencia(input);
+
+        verify(transactionManager).getTransaction(any());
+        verify(service).lockById(6302L);
+        verify(service, never()).findById(any());
+        verify(service).save(any());
+    }
+
+    /**
+     * #462: el save leia antes de que commiteara un avance de la misma transferencia, validaba contra
+     * esa lectura (misma etapa que el input) y escribia de vuelta la etapa vieja y
+     * usuarioPreparacion = null. findById representa esa lectura vieja; lockById, lo que el save ve
+     * al soltarse el lock del avance.
+     */
+    @Test
+    @DisplayName("saveTransferencia cruzado con un avance valida contra la lectura bloqueada y no pisa la etapa")
+    void saveCruzadoConAvanceNoVuelveAtras() {
+        Transferencia leidaAntes = new Transferencia();
+        leidaAntes.setId(6303L);
+        leidaAntes.setEtapa(EtapaTransferencia.PRE_TRANSFERENCIA_ORIGEN);
+        leidaAntes.setEstado(TransferenciaEstado.EN_ORIGEN);
+        Transferencia avanzada = new Transferencia();
+        avanzada.setId(6303L);
+        avanzada.setEtapa(EtapaTransferencia.PREPARACION_MERCADERIA);
+        avanzada.setEstado(TransferenciaEstado.EN_ORIGEN);
+        avanzada.setUsuarioPreparacion(new Usuario());
+        when(service.findById(6303L)).thenReturn(Optional.of(leidaAntes));
+        when(service.lockById(6303L)).thenReturn(Optional.of(avanzada));
+
+        TransferenciaInput input = new TransferenciaInput();
+        input.setId(6303L);
+        input.setEtapa(EtapaTransferencia.PRE_TRANSFERENCIA_ORIGEN);
+        input.setObservacion("editada con la pantalla en origen");
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> resolver.saveTransferencia(input));
+
+        assertTrue(e.getMessage().contains("Volve a abrirla"), e.getMessage());
         verify(service, never()).save(any());
     }
 }

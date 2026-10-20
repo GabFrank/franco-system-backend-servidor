@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @AllArgsConstructor
@@ -112,6 +113,11 @@ public class TransferenciaService extends CrudService<Transferencia, Transferenc
             publisher.publishEvent(new com.franco.dev.fmc.event.TransferenciaIniciadaEvent(this, e));
         }
         return e;
+    }
+
+    /** Lock pesimista de la fila: solo dentro de una transaccion. Ver {@link TransferenciaRepository#lockById}. */
+    public Optional<Transferencia> lockById(Long id) {
+        return repository.lockById(id);
     }
 
     public Page<Transferencia> findByChoferId(Long choferId, Pageable pageable) {

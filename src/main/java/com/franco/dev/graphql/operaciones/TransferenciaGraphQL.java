@@ -372,11 +372,35 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         }
     }
 
+    /**
+     * Corre en una transaccion con la fila bloqueada (#450): si dos usuarios aprietan el mismo boton
+     * a la vez, el segundo espera al primero, lee la etapa ya avanzada y se rechaza en vez de volver a
+     * copiar las cantidades encima de lo que el primero ya verifico.
+     */
     public Boolean avanzarEtapaTransferencia(Long id, EtapaTransferencia etapa, Long usuarioId) {
+        return new TransactionTemplate(transactionManager)
+                .execute(status -> avanzarEtapa(id, etapa, usuarioId));
+    }
+
+    /**
+     * Reenviar la etapa actual vuelve a correr su {@code case}: preparacion, transporte y recepcion
+     * copian las cantidades de la etapa anterior y pisan lo verificado. Ningun cliente lo hace a
+     * proposito, asi que se rechaza en todas. Solo aca: saveTransferencia reenvia la etapa actual en
+     * cada guardado y tiene que seguir aceptandola.
+     */
+    private void validarQueNoRepiteEtapa(Transferencia actual, EtapaTransferencia destino) {
+        if (actual.getEtapa() != null && actual.getEtapa() == destino) {
+            throw new GraphQLException("La transferencia " + actual.getId() + " ya esta en etapa " + destino
+                    + ": la avanzo otro usuario o un intento anterior. Volve a abrirla para ver como quedo.");
+        }
+    }
+
+    private Boolean avanzarEtapa(Long id, EtapaTransferencia etapa, Long usuarioId) {
         Boolean ok = false;
-        Transferencia transferencia = transferencia(id).orElse(null);
+        Transferencia transferencia = service.lockById(id).orElse(null);
         if (transferencia != null) {
             validarAvanceDeEtapa(transferencia, etapa);
+            validarQueNoRepiteEtapa(transferencia, etapa);
             validarSolicitanteCargado(transferencia.getId(), transferencia.getEtapa(), etapa,
                     transferencia.getSolicitante());
             Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
@@ -507,7 +531,8 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     private Transferencia verificarParaTransporte(VerificarParaTransporteInput input) {
-        Transferencia transferencia = service.findById(input.getTransferenciaId())
+        // Con la fila bloqueada, dos verificaciones simultaneas no crean dos hojas de ruta (#450).
+        Transferencia transferencia = service.lockById(input.getTransferenciaId())
                 .orElseThrow(() -> new GraphQLException("No existe la transferencia " + input.getTransferenciaId()));
         if (transferencia.getEtapa() != EtapaTransferencia.PREPARACION_MERCADERIA_CONCLUIDA) {
             throw new GraphQLException("La transferencia " + transferencia.getId() + " esta en etapa "

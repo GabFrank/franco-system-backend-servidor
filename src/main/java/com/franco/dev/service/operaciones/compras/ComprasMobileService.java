@@ -34,6 +34,7 @@ import com.franco.dev.graphql.operaciones.compras.CompraPedidoMobile;
 import com.franco.dev.graphql.operaciones.compras.CompraPedidoResumenMobile;
 import com.franco.dev.graphql.operaciones.compras.FacturaProveedorMobile;
 import com.franco.dev.graphql.operaciones.compras.OpcionMobile;
+import com.franco.dev.graphql.operaciones.compras.PresentacionCompraMobile;
 import com.franco.dev.graphql.operaciones.compras.OpcionesNuevaCompraMobile;
 import com.franco.dev.graphql.operaciones.GuardadoPedidoItemGraphQL;
 import com.franco.dev.graphql.operaciones.PedidoGraphQL;
@@ -476,6 +477,79 @@ public class ComprasMobileService {
             vincularProductosConProveedor(nota, usuario);
         }
         return armarPedido(pedidoObligatorio(pedido.getId()));
+    }
+
+    /**
+     * Las presentaciones del producto para vincular un renglón, con la sugerida marcada: la del bulto que dice la
+     * descripción («10X15G» → la de 10), si no la que tiene el código de barras del renglón, si no la unidad.
+     */
+    @Transactional(readOnly = true)
+    public List<PresentacionCompraMobile> presentacionesParaRenglon(Long productoId, Long renglonId) {
+        seguridad.exigirCompras();
+        List<Presentacion> presentaciones = presentacionService.findByProductoIdOrderByCantidadAsc(productoId).stream()
+                .filter(p -> !Boolean.FALSE.equals(p.getActivo()))
+                .collect(Collectors.toList());
+        DocumentoRecibidoItem renglon = renglonId != null ? renglonRepository.findById(renglonId).orElse(null) : null;
+        Long sugerida = null;
+        String motivo = null;
+        if (renglon != null) {
+            Integer bulto = Similitud.unidadesPorBulto(renglon.getDescripcion());
+            if (bulto != null && bulto > 1) {
+                for (Presentacion p : presentaciones) {
+                    if (p.getCantidad() != null && Math.abs(p.getCantidad() - bulto) < 0.001) {
+                        sugerida = p.getId();
+                        motivo = "La factura dice " + bulto + " por bulto";
+                        break;
+                    }
+                }
+            }
+            if (sugerida == null) {
+                for (String[] c : codigosDelRenglon(renglon)) {
+                    Presentacion p = presentaciones.isEmpty() ? null : presentacionConCodigo(presentaciones, c[0]);
+                    if (p != null) {
+                        sugerida = p.getId();
+                        motivo = "Tiene el código " + c[0];
+                        break;
+                    }
+                }
+            }
+        }
+        if (sugerida == null && !presentaciones.isEmpty()) {
+            Presentacion unidad = presentaciones.stream()
+                    .filter(p -> p.getCantidad() != null && Math.abs(p.getCantidad() - 1) < 0.001)
+                    .findFirst().orElse(presentaciones.get(0));
+            sugerida = unidad.getId();
+            motivo = null;
+        }
+        List<PresentacionCompraMobile> lista = new ArrayList<>();
+        for (Presentacion p : presentaciones) {
+            PresentacionCompraMobile pm = new PresentacionCompraMobile();
+            pm.setId(p.getId());
+            pm.setDescripcion(p.getDescripcion());
+            pm.setCantidad(p.getCantidad() != null && p.getCantidad() > 0 ? p.getCantidad() : 1.0);
+            Codigo principal = codigoRepository.findByPresentacionId(p.getId()).stream()
+                    .filter(c -> !Boolean.FALSE.equals(c.getActivo()))
+                    .sorted(Comparator.comparing((Codigo c) -> !Boolean.TRUE.equals(c.getPrincipal())))
+                    .findFirst().orElse(null);
+            pm.setCodigo(principal != null ? principal.getCodigo() : null);
+            pm.setSugerida(p.getId().equals(sugerida));
+            pm.setMotivo(p.getId().equals(sugerida) ? motivo : null);
+            lista.add(pm);
+        }
+        return lista;
+    }
+
+    private Presentacion presentacionConCodigo(List<Presentacion> presentaciones, String codigo) {
+        String buscado = sinCeros(codigo);
+        for (Presentacion p : presentaciones) {
+            for (Codigo c : codigoRepository.findByPresentacionId(p.getId())) {
+                String propio = sinCeros(c.getCodigo());
+                if (propio != null && propio.length() >= 4 && (propio.equals(buscado) || buscado.contains(propio) || propio.contains(buscado))) {
+                    return p;
+                }
+            }
+        }
+        return null;
     }
 
     // =================================================================================== Nueva compra

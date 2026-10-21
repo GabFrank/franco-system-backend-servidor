@@ -219,7 +219,17 @@ type OpcionesNuevaCompraMobile {
     sucursales: [OpcionMobile!]!
 }
 
+type PresentacionCompraMobile {
+    id: ID!
+    descripcion: String
+    cantidad: Float
+    codigo: String
+    sugerida: Boolean
+    motivo: String
+}
+
 extend type Query {
+    presentacionesCompraMobile(productoId: ID!, renglonId: ID): [PresentacionCompraMobile!]!
     facturaNuevaCompraMobile(id: ID!): FacturaProveedorMobile
     opcionesNuevaCompraMobile: OpcionesNuevaCompraMobile
     pedidosEsperandoFacturaMobile(texto: String, proveedorId: ID, page: Int = 0, size: Int = 20): CompraPedidoResumenMobilePage

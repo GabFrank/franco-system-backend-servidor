@@ -42,6 +42,10 @@ public class ComprasMobileGraphQL implements GraphQLQueryResolver, GraphQLMutati
         return service.facturaNuevaCompra(id);
     }
 
+    public java.util.List<PresentacionCompraMobile> presentacionesCompraMobile(Long productoId, Long renglonId) {
+        return service.presentacionesParaRenglon(productoId, renglonId);
+    }
+
     public OpcionesNuevaCompraMobile opcionesNuevaCompraMobile() {
         return service.opcionesNuevaCompra();
     }

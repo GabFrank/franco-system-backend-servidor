@@ -146,6 +146,16 @@ public class ComprasMobileService {
     /** Pedidos con RECEPCION_NOTA en PENDIENTE o EN_PROCESO, del más nuevo al más viejo. */
     @Transactional(readOnly = true)
     public Page<CompraPedidoResumenMobile> pedidosEsperandoFactura(String texto, Long proveedorId, int page, int size) {
+        return compras(texto, proveedorId, true, page, size);
+    }
+
+    /**
+     * Las compras, la última primero. Con {@code soloEsperandoFactura}, solo las que tienen la etapa de notas
+     * pendiente o en proceso; sin él, todas menos las canceladas, con la etapa en la que está cada una (una compra
+     * creada desde la factura y finalizada ya está en recepción de mercadería).
+     */
+    @Transactional(readOnly = true)
+    public Page<CompraPedidoResumenMobile> compras(String texto, Long proveedorId, boolean soloEsperandoFactura, int page, int size) {
         seguridad.exigirCompras();
         int tamano = size > 0 ? Math.min(size, 50) : 20;
         int pagina = Math.max(page, 0);
@@ -155,8 +165,11 @@ public class ComprasMobileService {
                 + "LEFT JOIN personas.proveedor pr ON pr.id = p.proveedor_id "
                 + "LEFT JOIN personas.persona per ON per.id = pr.persona_id "
                 + "LEFT JOIN financiero.moneda m ON m.id = p.moneda_id "
-                + "WHERE EXISTS (SELECT 1 FROM operaciones.proceso_etapa pe WHERE pe.pedido_id = p.id "
-                + "  AND pe.tipo_etapa::text = 'RECEPCION_NOTA' AND pe.estado_etapa::text IN ('PENDIENTE','EN_PROCESO')) "
+                + "WHERE (" + (soloEsperandoFactura
+                    ? "EXISTS (SELECT 1 FROM operaciones.proceso_etapa pe WHERE pe.pedido_id = p.id "
+                        + "  AND pe.tipo_etapa::text = 'RECEPCION_NOTA' AND pe.estado_etapa::text IN ('PENDIENTE','EN_PROCESO'))"
+                    : "NOT EXISTS (SELECT 1 FROM operaciones.proceso_etapa pe WHERE pe.pedido_id = p.id "
+                        + "  AND pe.estado_etapa::text = 'CANCELADA')") + ") "
                 + "AND (? = 0 OR p.proveedor_id = ?) "
                 + "AND (? = '' OR UPPER(per.nombre) LIKE ? OR CAST(p.id AS text) = ? OR per.documento LIKE ?) ";
         Object[] filtros = {prov, prov, filtro, "%" + filtro + "%", filtro, filtro + "%"};
@@ -168,6 +181,10 @@ public class ComprasMobileService {
                 "SELECT p.id, p.proveedor_id, per.nombre, per.documento, p.creado_en, m.simbolo, "
                         + "(SELECT pe.estado_etapa::text FROM operaciones.proceso_etapa pe WHERE pe.pedido_id = p.id "
                         + "   AND pe.tipo_etapa::text = 'RECEPCION_NOTA' ORDER BY pe.id DESC LIMIT 1) AS estado_etapa, "
+                        + "(SELECT pe.tipo_etapa::text FROM operaciones.proceso_etapa pe WHERE pe.pedido_id = p.id "
+                        + "   AND pe.estado_etapa::text NOT IN ('COMPLETADA','OMITIDA') ORDER BY CASE pe.tipo_etapa::text "
+                        + "   WHEN 'CREACION' THEN 1 WHEN 'RECEPCION_NOTA' THEN 2 WHEN 'RECEPCION_MERCADERIA' THEN 3 ELSE 4 END "
+                        + "   LIMIT 1) AS etapa_actual, "
                         + "(SELECT COALESCE(SUM(pi.cantidad_solicitada * COALESCE(pi.precio_unitario_solicitado, 0)), 0) "
                         + "   FROM operaciones.pedido_item pi WHERE pi.pedido_id = p.id "
                         + "   AND COALESCE(pi.es_bonificacion, false) = false) AS total, "
@@ -188,6 +205,8 @@ public class ComprasMobileService {
                     r.setFecha(ts != null ? ts.toLocalDateTime().format(FECHA_HORA) : null);
                     r.setMonedaSimbolo(rs.getString("simbolo"));
                     r.setEstadoEtapa(rs.getString("estado_etapa"));
+                    r.setEtapaActual(rs.getString("etapa_actual") != null ? rs.getString("etapa_actual") : "CONCLUIDA");
+                    r.setEtapaEtiqueta(etiquetaEtapa(r.getEtapaActual(), r.getEstadoEtapa()));
                     r.setTotalPedido(rs.getDouble("total"));
                     r.setCantidadItems(rs.getInt("items"));
                     r.setItemsPendientes(rs.getInt("pendientes"));
@@ -1952,6 +1971,18 @@ public class ComprasMobileService {
             case DIFERENCIA: return "Diferencia con el pedido";
             case FUERA_DE_PEDIDO: return "No estaba en el pedido";
             default: return "Producto no reconocido";
+        }
+    }
+
+    /** La etapa en la que está la compra, en palabras del comprador. */
+    static String etiquetaEtapa(String etapaActual, String estadoNotas) {
+        if (etapaActual == null) return "Sin etapas";
+        switch (etapaActual) {
+            case "CREACION": return "En planificación";
+            case "RECEPCION_NOTA": return "EN_PROCESO".equals(estadoNotas) ? "Con facturas cargadas" : "Esperando factura";
+            case "RECEPCION_MERCADERIA": return "Recepción de mercadería";
+            case "SOLICITUD_PAGO": return "Solicitud de pago";
+            default: return "Concluida";
         }
     }
 

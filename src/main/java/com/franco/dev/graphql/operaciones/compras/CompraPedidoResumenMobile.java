@@ -16,4 +16,7 @@ public class CompraPedidoResumenMobile {
     private Integer itemsPendientes;
     private Integer cantidadNotas;
     private String estadoEtapa;
+    /** CREACION, RECEPCION_NOTA, RECEPCION_MERCADERIA, SOLICITUD_PAGO o CONCLUIDA. */
+    private String etapaActual;
+    private String etapaEtiqueta;
 }

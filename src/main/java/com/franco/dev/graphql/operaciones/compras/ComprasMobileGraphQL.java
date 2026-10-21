@@ -22,6 +22,10 @@ public class ComprasMobileGraphQL implements GraphQLQueryResolver, GraphQLMutati
         return service.pedidosEsperandoFactura(texto, proveedorId, page != null ? page : 0, size != null ? size : 20);
     }
 
+    public Page<CompraPedidoResumenMobile> comprasMobile(String texto, Boolean soloEsperandoFactura, Integer page, Integer size) {
+        return service.compras(texto, null, Boolean.TRUE.equals(soloEsperandoFactura), page != null ? page : 0, size != null ? size : 20);
+    }
+
     public CompraPedidoMobile pedidoComprasMobile(Long pedidoId) {
         return service.pedido(pedidoId);
     }

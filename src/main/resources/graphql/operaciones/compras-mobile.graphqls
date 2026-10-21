@@ -14,6 +14,8 @@ type CompraPedidoResumenMobile {
     itemsPendientes: Int
     cantidadNotas: Int
     estadoEtapa: String
+    etapaActual: String
+    etapaEtiqueta: String
 }
 
 type CompraPedidoResumenMobilePage {
@@ -233,6 +235,8 @@ type PresentacionCompraMobile {
 }
 
 extend type Query {
+    # Todas las compras, la última primero; con soloEsperandoFactura, solo las de la etapa de notas abierta
+    comprasMobile(texto: String, soloEsperandoFactura: Boolean, page: Int = 0, size: Int = 20): CompraPedidoResumenMobilePage
     presentacionesCompraMobile(productoId: ID!, renglonId: ID): [PresentacionCompraMobile!]!
     facturaNuevaCompraMobile(id: ID!): FacturaProveedorMobile
     opcionesNuevaCompraMobile: OpcionesNuevaCompraMobile

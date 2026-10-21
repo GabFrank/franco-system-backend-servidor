@@ -4,10 +4,13 @@ import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import javax.persistence.LockModeType;
 import java.util.List;
+import java.util.Optional;
 
 public interface TransferenciaItemRepository extends HelperRepository<TransferenciaItem, Long> {
     default Class<TransferenciaItem> getEntityClass() {
@@ -49,6 +52,15 @@ public interface TransferenciaItemRepository extends HelperRepository<Transferen
     public List<TransferenciaItem> findByTransferenciaIdOrderByIdAsc(Long id);//
 
     List<TransferenciaItem> findByIdInAndTransferenciaId(List<Long> ids, Long transferenciaId);
+
+    /** Id de la transferencia del item sin cargar la entidad: para bloquear la transferencia antes que el item (#468). */
+    @Query("select t.transferencia.id from TransferenciaItem t where t.id = :id")
+    Long transferenciaIdDe(@Param("id") Long id);
+
+    /** Lee el item con {@code FOR UPDATE}: dos saves del mismo item se serializan (#468). Primera carga del item. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from TransferenciaItem t where t.id = :id")
+    Optional<TransferenciaItem> lockById(@Param("id") Long id);
     // public List<Transferencia> findBySucursalDestinoId(Long id);
 //
 //    @Query("select e from Transferencia e " +

@@ -24,9 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -133,5 +136,33 @@ class TransferenciaItemGraphQLDesconfirmarTest {
     void etapaInvalida() {
         assertThrows(GraphQLException.class, () -> resolver.desconfirmarTransferenciaItem(
                 ITEM_ID, EtapaTransferencia.TRANSPORTE_EN_CAMINO));
+    }
+
+    @Test
+    @DisplayName("#468: no des-verifica una etapa que la transferencia ya cerro")
+    void noDesverificaUnaEtapaCerrada() {
+        TransferenciaItem ti = itemCompleto();
+        ti.getTransferencia().setEtapa(EtapaTransferencia.PREPARACION_MERCADERIA_CONCLUIDA);
+        when(service.findById(ITEM_ID)).thenReturn(Optional.of(ti));
+
+        GraphQLException ex = assertThrows(GraphQLException.class,
+                () -> resolver.desconfirmarTransferenciaItem(ITEM_ID, EtapaTransferencia.PREPARACION_MERCADERIA));
+
+        assertTrue(ex.getMessage().contains("Volve a abrirla"), ex.getMessage());
+        assertEquals(2D, ti.getCantidadPreparacion());
+        verify(service, never()).save(any());
+        verify(movimientoStockService, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("#468: en la etapa en curso des-verifica igual que antes")
+    void desverificaLaEtapaEnCurso() {
+        TransferenciaItem ti = itemCompleto();
+        ti.getTransferencia().setEtapa(EtapaTransferencia.PREPARACION_MERCADERIA);
+        when(service.findById(ITEM_ID)).thenReturn(Optional.of(ti));
+
+        TransferenciaItem out = resolver.desconfirmarTransferenciaItem(ITEM_ID, EtapaTransferencia.PREPARACION_MERCADERIA);
+
+        assertNull(out.getCantidadPreparacion());
     }
 }

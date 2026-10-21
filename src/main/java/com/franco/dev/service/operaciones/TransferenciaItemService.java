@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @AllArgsConstructor
@@ -58,6 +59,16 @@ public class TransferenciaItemService extends CrudService<TransferenciaItem, Tra
 
     public List<TransferenciaItem> findByTransferenciaItemIdAsc(Long id) {
         return repository.findByTransferenciaIdOrderByIdAsc(id);
+    }
+
+    /** Ver {@link TransferenciaItemRepository#transferenciaIdDe}. */
+    public Long transferenciaIdDe(Long id) {
+        return repository.transferenciaIdDe(id);
+    }
+
+    /** Lock pesimista del item: solo dentro de una transaccion. Ver {@link TransferenciaItemRepository#lockById}. */
+    public Optional<TransferenciaItem> lockById(Long id) {
+        return repository.lockById(id);
     }
 
     @Override

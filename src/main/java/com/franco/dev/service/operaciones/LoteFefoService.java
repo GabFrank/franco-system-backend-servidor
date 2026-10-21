@@ -66,10 +66,11 @@ public class LoteFefoService {
      * <p>⚠️ Invariantes de los que depende que no haya deadlocks:</p>
      * <ul>
      *   <li>Quien espera este lock no tiene tomada ninguna fila que el dueño vaya a escribir después.
-     *   El avance de una transferencia sí guarda ítems con el lock ya tomado (el del ítem anterior),
-     *   pero bloqueó antes la fila de la transferencia, y {@code saveTransferenciaItem} commitea el
-     *   ítem en su propia transacción antes de pedir el lock. Código nuevo que pida el lock teniendo
-     *   filas de ítems o de movimientos bloqueadas abre un ciclo.</li>
+     *   El avance de una transferencia y {@code saveTransferenciaItem} (#468) sí llegan acá con filas
+     *   de ítems tomadas, pero siempre en el orden transferencia → ítem → saldo: bloquearon antes la
+     *   fila de la transferencia, así que nadie que tenga el saldo de esa sucursal puede estar
+     *   esperando sus ítems. Código nuevo que pida el lock teniendo filas de ítems o de movimientos
+     *   bloqueadas sin haber tomado antes su transferencia abre un ciclo.</li>
      *   <li>El lock es reentrante por <b>conexión</b>: un {@code REQUIRES_NEW} que llegue acá mientras
      *   la transacción de afuera lo tiene se espera a sí mismo hasta {@link #ESPERA_MAXIMA}.</li>
      * </ul>

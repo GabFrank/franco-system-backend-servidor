@@ -175,6 +175,64 @@ public final class CruceFactura {
     }
 
     /**
+     * Una factura que <b>crea</b> la compra: todavía no hay pedido contra el cual comparar, el pedido sale de la
+     * factura. Cada renglón con producto queda OK; sin producto, SIN_PRODUCTO. Lo único que se avisa es el IVA del
+     * producto distinto al de la factura.
+     */
+    public static List<Resultado> sinPedido(List<Renglon> renglones) {
+        List<Resultado> resultados = new ArrayList<>();
+        for (Renglon r : renglones) {
+            Resultado res = new Resultado();
+            res.renglonId = r.id;
+            res.bonificacion = esBonificacion(r);
+            double factor = r.factor != null && r.factor > 0 ? r.factor : 1.0;
+            res.cantidadBase = redondear(r.cantidad * factor, 4);
+            res.precioBase = res.bonificacion ? 0.0 : redondear((r.precioUnitario - r.descuentoUnitario) / factor, 4);
+            if (r.productoId == null) {
+                res.estado = Estado.SIN_PRODUCTO;
+            } else {
+                res.estado = Estado.OK;
+                avisoIvaDelProducto(r, res);
+                if (res.bonificacion) {
+                    res.avisos.add("Bonificación: " + cantidad(res.cantidadBase) + " u. sin cargo");
+                }
+            }
+            resultados.add(res);
+        }
+        return resultados;
+    }
+
+    /**
+     * Compara el precio de la factura con el de la última compra del producto (por unidad base, misma moneda).
+     * Si la diferencia es justo el IVA, lo dice: la compra anterior se cargó sin IVA, o esta factura trae el IVA
+     * sumado dos veces. Si no, avisa solo los cambios grandes (más de un 15 %).
+     *
+     * @return el aviso, o null si no hay nada que decir
+     */
+    public static String avisoUltimaCompra(double precioBase, Double ultimoPrecio, Integer tasaIva) {
+        if (ultimoPrecio == null || ultimoPrecio <= 0 || precioBase <= 0) return null;
+        int[] tasas = tasaIva != null && tasaIva > 0 ? new int[]{tasaIva} : new int[]{10, 5};
+        for (int tasa : tasas) {
+            double tolerancia = Math.max(1.0, ultimoPrecio * 0.002);
+            if (Math.abs(precioBase - ultimoPrecio * (1 + tasa / 100.0)) <= tolerancia) {
+                return "IVA: la última compra se cargó a " + importe(ultimoPrecio) + ", que es este precio sin el IVA del "
+                        + tasa + " %. La nota se carga con IVA, como la factura.";
+            }
+            if (Math.abs(precioBase * (1 + tasa / 100.0) - ultimoPrecio) <= tolerancia) {
+                return "IVA: la última compra se cargó a " + importe(ultimoPrecio) + ", que es este precio más el "
+                        + tasa + " %: revisá si la factura trae el precio sin IVA.";
+            }
+        }
+        double variacion = (precioBase - ultimoPrecio) / ultimoPrecio;
+        if (Math.abs(variacion) > 0.15) {
+            return "Precio " + (variacion > 0 ? "más alto" : "más bajo") + " que la última compra: "
+                    + importe(ultimoPrecio) + " → " + importe(precioBase) + " ("
+                    + (variacion > 0 ? "+" : "") + Math.round(variacion * 100) + " %).";
+        }
+        return null;
+    }
+
+    /**
      * El ítem del pedido del mismo producto. Una bonificación solo va contra un ítem bonificado del pedido; lo
      * cobrado prefiere uno no bonificado, con pendiente y de la misma presentación.
      */

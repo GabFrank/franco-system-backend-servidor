@@ -38,6 +38,23 @@ public class ComprasMobileGraphQL implements GraphQLQueryResolver, GraphQLMutati
         return service.resumenFinalizar(pedidoId);
     }
 
+    public FacturaProveedorMobile facturaNuevaCompraMobile(Long id) {
+        return service.facturaNuevaCompra(id);
+    }
+
+    public OpcionesNuevaCompraMobile opcionesNuevaCompraMobile() {
+        return service.opcionesNuevaCompra();
+    }
+
+    public FacturaProveedorMobile leerFacturaNuevaCompraMobile(String qr) {
+        return service.leerFacturaNuevaCompra(qr);
+    }
+
+    public CompraPedidoMobile crearCompraDesdeFacturaMobile(Long documentoId, Long formaPagoId, Integer plazoCredito,
+                                                           Long sucursalId, Boolean finalizarNotas) {
+        return service.crearCompraDesdeFactura(documentoId, formaPagoId, plazoCredito, sucursalId, finalizarNotas);
+    }
+
     public FacturaProveedorMobile leerFacturaProveedorMobile(Long pedidoId, String qr) {
         return service.leerFactura(pedidoId, qr);
     }

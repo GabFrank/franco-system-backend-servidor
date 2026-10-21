@@ -9,6 +9,8 @@ import java.util.List;
 @Data
 public class FacturaProveedorMobile {
     private Long id;
+    /** PEDIDO: se carga a un pedido existente. NUEVA_COMPRA: la factura crea el pedido. */
+    private String modo;
     private Long pedidoId;
     private String cdc;
     private Integer tipoDocumento;
@@ -24,6 +26,13 @@ public class FacturaProveedorMobile {
     private String numeroCompleto;
     private String fechaEmision;
     private String condicion;
+    /** La forma de pago, solo si la factura la trae (pago al contado con su tipo). Si no, la elige el usuario. */
+    private Long formaPagoId;
+    private String formaPagoDescripcion;
+    /** Cómo lo escribió el proveedor: «Cheque», «Efectivo»… */
+    private String tipoPagoFactura;
+    /** Días de crédito, solo si la factura los trae. */
+    private Integer plazoCredito;
     private String moneda;
     private String monedaSimbolo;
     private Double cotizacion;

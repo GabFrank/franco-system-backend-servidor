@@ -195,4 +195,41 @@ class CruceFacturaTest {
         assertEquals(9500.0, res.precioBase);
         assertEquals(CruceFactura.Estado.OK, res.estado);
     }
+
+    // ------------------------------------------------------------------ La factura crea la compra
+
+    @Test
+    void sinPedidoLoReconocidoCoincideYLoDemasFaltaVincular() {
+        List<CruceFactura.Resultado> r = CruceFactura.sinPedido(Arrays.asList(
+                renglon(1, 7L, 80, 15651, 0), renglon(2, 7L, 8, 15651, 15651), renglon(3, null, 60, 2688, 0)));
+        assertEquals(CruceFactura.Estado.OK, r.get(0).estado);
+        assertEquals(15651.0, r.get(0).precioBase);
+        assertFalse(r.get(0).requiereObservacion);
+        assertTrue(r.get(1).bonificacion);
+        assertEquals(0.0, r.get(1).precioBase);
+        assertEquals(CruceFactura.Estado.SIN_PRODUCTO, r.get(2).estado);
+    }
+
+    @Test
+    void laUltimaCompraSinIvaSeAvisa() {
+        // Papas Sensei: la nota anterior se cargó a 14.228, la factura cobra 15.651 (+10 %)
+        String aviso = CruceFactura.avisoUltimaCompra(15651, 14228.0, 10);
+        assertNotNull(aviso);
+        assertTrue(aviso.startsWith("IVA: "));
+        assertTrue(aviso.contains("sin el IVA del 10 %"));
+    }
+
+    @Test
+    void elMismoPrecioQueLaUltimaCompraNoAvisa() {
+        assertNull(CruceFactura.avisoUltimaCompra(5218, 5218.0, 10));
+        assertNull(CruceFactura.avisoUltimaCompra(5300, 5218.0, 10), "un cambio chico no es un aviso");
+        assertNull(CruceFactura.avisoUltimaCompra(5218, null, 10), "sin compra anterior no hay con qué comparar");
+    }
+
+    @Test
+    void unCambioGrandeQueNoEsElIvaSeAvisaComoPrecio() {
+        String aviso = CruceFactura.avisoUltimaCompra(8000, 5218.0, 10);
+        assertNotNull(aviso);
+        assertTrue(aviso.startsWith("Precio más alto"));
+    }
 }

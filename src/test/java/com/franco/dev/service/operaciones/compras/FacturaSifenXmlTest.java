@@ -23,7 +23,8 @@ class FacturaSifenXmlTest {
                 + "<gEmis><dRucEm>80062507</dRucEm><dDVEmi>2</dDVEmi><dNomEmi>MARVI S.R.L.</dNomEmi></gEmis>"
                 + "<gDatRec><dRucRec>80099482</dRucRec><dDVRec>5</dDVRec><dNomRec>FRANCO AREVALOS S.A</dNomRec></gDatRec>"
                 + "</gDatGralOpe><gDtipDE><gCamFE><iIndPres>1</iIndPres></gCamFE>"
-                + "<gCamCond><iCondOpe>2</iCondOpe><dDCondOpe>Crédito</dDCondOpe></gCamCond>"
+                + "<gCamCond><iCondOpe>2</iCondOpe><dDCondOpe>Crédito</dDCondOpe>"
+                + "<gPagCred><iCondCred>1</iCondCred><dDCondCred>Plazo</dDCondCred><dPlazoCre>30 días</dPlazoCre></gPagCred></gCamCond>"
                 + item("3002169", "07841503002169", "SENSEI PAPAS FRITAS ORIGINAL 140gr.C/20", "80", "15651", "0", "0.00", "1252080")
                 + item("3002169", "07841503002169", "SENSEI PAPAS FRITAS ORIGINAL 140gr.C/20", "8", "15651", "15651", "100.00", "0")
                 + "</gDtipDE><gTotSub><dSubExe>0</dSubExe><dSub5>0</dSub5><dSub10>1252080</dSub10>"
@@ -90,6 +91,32 @@ class FacturaSifenXmlTest {
         assertEquals(LocalDate.of(2027, 3, 31), bonif.vencimiento);
         assertEquals("UNI", bonif.unidadMedida);
         assertEquals(2, bonif.orden);
+    }
+
+    @Test
+    void unaVentaACreditoTraeElPlazoPeroNoElTipoDePago() {
+        FacturaSifenXml.Cabecera c = FacturaSifenXml.leer(respuestaMarvi(false));
+        assertEquals(30, c.plazoCredito);
+        assertNull(c.tipoPago, "a crédito la factura no dice con qué se paga: lo elige el comprador");
+    }
+
+    @Test
+    void unaVentaAlContadoTraeElTipoDePago() {
+        String contado = respuestaMarvi(false).replaceAll("<gCamCond>.*?</gCamCond>",
+                "<gCamCond><iCondOpe>1</iCondOpe><gPaConEIni><iTiPago>2</iTiPago><dDesTiPag>Cheque</dDesTiPag>"
+                        + "<dMonTiPag>8812800</dMonTiPag></gPaConEIni></gCamCond>");
+        FacturaSifenXml.Cabecera c = FacturaSifenXml.leer(contado);
+        assertEquals(1, c.condicionOperacion);
+        assertEquals(2, c.tipoPago);
+        assertEquals("Cheque", c.tipoPagoDescripcion);
+        assertNull(c.plazoCredito);
+    }
+
+    @Test
+    void elPlazoSeLeeDeCualquierTexto() {
+        assertEquals(30, FacturaSifenXml.dias("30 días"));
+        assertEquals(45, FacturaSifenXml.dias("45"));
+        assertNull(FacturaSifenXml.dias("sin plazo"));
     }
 
     @Test

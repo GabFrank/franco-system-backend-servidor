@@ -49,6 +49,12 @@ public final class FacturaSifenXml {
         public String moneda;
         public Double cotizacion;
         public Integer condicionOperacion;
+        /** iTiPago del primer pago al contado (1 efectivo, 2 cheque, 3/4 tarjeta, 5 transferencia…). Null si no viene. */
+        public Integer tipoPago;
+        /** dDesTiPag: «Cheque», «Efectivo»… tal como lo escribió el proveedor. */
+        public String tipoPagoDescripcion;
+        /** Días de plazo de una venta a crédito (dPlazoCre «30 días» → 30). Null si no viene. */
+        public Integer plazoCredito;
         public Double subtotalExenta;
         public Double subtotalIva5;
         public Double subtotalIva10;
@@ -118,7 +124,12 @@ public final class FacturaSifenXml {
         c.razonSocialReceptor = texto(gDatRec, "dNomRec");
 
         Element gDtipDE = primero(de, "gDtipDE");
-        c.condicionOperacion = entero(texto(primero(gDtipDE, "gCamCond"), "iCondOpe"));
+        Element gCamCond = primero(gDtipDE, "gCamCond");
+        c.condicionOperacion = entero(texto(gCamCond, "iCondOpe"));
+        Element pago = primero(gCamCond, "gPaConEIni");
+        c.tipoPago = entero(texto(pago, "iTiPago"));
+        c.tipoPagoDescripcion = texto(pago, "dDesTiPag");
+        c.plazoCredito = dias(texto(primero(gCamCond, "gPagCred"), "dPlazoCre"));
         int orden = 1;
         for (Element item : hijos(gDtipDE, "gCamItem")) {
             c.renglones.add(renglon(item, orden++));
@@ -244,6 +255,13 @@ public final class FacturaSifenXml {
     private static Integer entero(String t) {
         Double d = numero(t);
         return d != null ? d.intValue() : null;
+    }
+
+    /** «30 días», «30», «30 DIAS» → 30. */
+    static Integer dias(String t) {
+        if (t == null) return null;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)").matcher(t);
+        return m.find() ? Integer.valueOf(m.group(1)) : null;
     }
 
     private static String sinCeros(String ruc) {

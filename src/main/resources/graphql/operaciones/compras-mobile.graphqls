@@ -138,6 +138,13 @@ type RenglonFacturaMobile {
 
 type FacturaProveedorMobile {
     id: ID!
+    # PEDIDO: se carga a un pedido existente. NUEVA_COMPRA: la factura crea el pedido.
+    modo: String
+    # Solo si la factura los trae; si no, los elige el comprador
+    formaPagoId: ID
+    formaPagoDescripcion: String
+    tipoPagoFactura: String
+    plazoCredito: Int
     pedidoId: ID
     cdc: String!
     tipoDocumento: Int
@@ -202,7 +209,19 @@ type PedidosParaFacturaMobile {
     pedidos: [CompraPedidoResumenMobile!]!
 }
 
+type OpcionMobile {
+    id: ID!
+    descripcion: String
+}
+
+type OpcionesNuevaCompraMobile {
+    formasPago: [OpcionMobile!]!
+    sucursales: [OpcionMobile!]!
+}
+
 extend type Query {
+    facturaNuevaCompraMobile(id: ID!): FacturaProveedorMobile
+    opcionesNuevaCompraMobile: OpcionesNuevaCompraMobile
     pedidosEsperandoFacturaMobile(texto: String, proveedorId: ID, page: Int = 0, size: Int = 20): CompraPedidoResumenMobilePage
     pedidoComprasMobile(pedidoId: ID!): CompraPedidoMobile
     pedidosParaFacturaMobile(qr: String!): PedidosParaFacturaMobile
@@ -211,6 +230,15 @@ extend type Query {
 }
 
 extend type Mutation {
+    # La factura crea la compra: pedido, ítems, reparto, nota y (opcional) fin de la recepción documental
+    leerFacturaNuevaCompraMobile(qr: String!): FacturaProveedorMobile!
+    crearCompraDesdeFacturaMobile(
+        documentoId: ID!
+        formaPagoId: ID
+        plazoCredito: Int
+        sucursalId: ID!
+        finalizarNotas: Boolean
+    ): CompraPedidoMobile!
     leerFacturaProveedorMobile(pedidoId: ID!, qr: String!): FacturaProveedorMobile!
     vincularRenglonFacturaMobile(renglonId: ID!, presentacionId: ID!, factor: Float, recordar: Boolean): FacturaProveedorMobile!
     observarRenglonFacturaMobile(renglonId: ID!, observacion: String): FacturaProveedorMobile!

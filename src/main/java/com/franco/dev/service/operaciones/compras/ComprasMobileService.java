@@ -32,6 +32,17 @@ import com.franco.dev.graphql.operaciones.compras.CompraPedidoItemMobile;
 import com.franco.dev.graphql.operaciones.compras.CompraPedidoMobile;
 import com.franco.dev.graphql.operaciones.compras.CompraPedidoResumenMobile;
 import com.franco.dev.graphql.operaciones.compras.FacturaProveedorMobile;
+import com.franco.dev.graphql.operaciones.compras.OpcionMobile;
+import com.franco.dev.graphql.operaciones.compras.OpcionesNuevaCompraMobile;
+import com.franco.dev.graphql.operaciones.GuardadoPedidoItemGraphQL;
+import com.franco.dev.graphql.operaciones.PedidoGraphQL;
+import com.franco.dev.graphql.operaciones.input.PedidoInput;
+import com.franco.dev.graphql.operaciones.input.PedidoItemDistribucionInput;
+import com.franco.dev.graphql.operaciones.input.PedidoItemInput;
+import com.franco.dev.domain.operaciones.enums.PedidoItemEstado;
+import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.financiero.FormaPagoService;
+import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.graphql.operaciones.compras.PedidosParaFacturaMobile;
 import com.franco.dev.graphql.operaciones.compras.RenglonFacturaMobile;
 import com.franco.dev.graphql.operaciones.compras.ResumenFinalizarNotasMobile;
@@ -87,6 +98,8 @@ public class ComprasMobileService {
     private static final Logger log = LoggerFactory.getLogger(ComprasMobileService.class);
     private static final DateTimeFormatter FECHA_HORA = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    /** El formato que lee {@code DateUtils.stringToDate} en los inputs del pedido. */
+    private static final DateTimeFormatter FECHA_HORA_SEG = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final String GUARANI = "GUARANI";
     private static final double TOLERANCIA_TOTAL = 1.0;
 
@@ -120,6 +133,11 @@ public class ComprasMobileService {
     @Autowired private ProductoProveedorService productoProveedorService;
     @Autowired private BuscadorProductoInteligenteService buscadorProductoService;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private PedidoGraphQL pedidoGraphQL;
+    @Autowired private GuardadoPedidoItemGraphQL guardadoPedidoItemGraphQL;
+    @Autowired private SucursalService sucursalService;
+    @Autowired private FormaPagoService formaPagoService;
+    @Autowired private ProveedorService proveedorService;
 
     // =================================================================================== Pedidos
 
@@ -290,7 +308,7 @@ public class ComprasMobileService {
         if (Boolean.TRUE.equals(recordar) && doc.getProveedor() != null && !vacio(renglon.getCodigoProveedor())) {
             aprender(doc.getProveedor(), renglon, presentacion, f);
         }
-        return armarFactura(doc, pedidoDe(doc), true);
+        return armarSegunModo(doc);
     }
 
     /** La observación que justifica una diferencia o un producto fuera del pedido. */
@@ -301,7 +319,7 @@ public class ComprasMobileService {
         exigirSinNota(renglon.getDocumentoRecibido());
         renglon.setObservacion(vacio(observacion) ? null : observacion.trim());
         renglonRepository.save(renglon);
-        return armarFactura(renglon.getDocumentoRecibido(), pedidoDe(renglon.getDocumentoRecibido()), true);
+        return armarSegunModo(renglon.getDocumentoRecibido());
     }
 
     /**
@@ -311,8 +329,10 @@ public class ComprasMobileService {
     @Transactional
     public CompraNotaMobile confirmarFactura(Long documentoId, Long pedidoId) {
         seguridad.exigirCompras();
-        DocumentoRecibido doc = documentoObligatorio(documentoId);
-        Pedido pedido = pedidoObligatorio(pedidoId);
+        return cargarNota(documentoObligatorio(documentoId), pedidoObligatorio(pedidoId));
+    }
+
+    private CompraNotaMobile cargarNota(DocumentoRecibido doc, Pedido pedido) {
         exigirSinNota(doc);
         exigirEtapaAbierta(pedido);
         FacturaProveedorMobile factura = armarFactura(doc, pedido, true);
@@ -455,6 +475,365 @@ public class ComprasMobileService {
             vincularProductosConProveedor(nota, usuario);
         }
         return armarPedido(pedidoObligatorio(pedido.getId()));
+    }
+
+    // =================================================================================== Nueva compra
+
+    /**
+     * La factura <b>crea</b> la compra: desde la etapa de creación hasta la recepción documental, sin cargar el
+     * pedido a mano. Trae de SIFEN la factura del proveedor (el CDC dice de quién es) y la deja lista para elegir lo
+     * que la factura no trae (forma de pago si no viene, sucursal) y vincular los productos que no se reconocen.
+     */
+    @Transactional
+    public FacturaProveedorMobile leerFacturaNuevaCompra(String qr) {
+        seguridad.exigirCompras();
+        KudeQr kude = KudeQr.leer(qr);
+        if (!kude.isOk()) {
+            throw new GraphQLException(kude.getMensaje());
+        }
+        if (kude.getTipoDocumento() != 1 && kude.getTipoDocumento() != 4) {
+            throw new GraphQLException("Ese documento es una " + KudeQr.descripcionTipo(kude.getTipoDocumento()).toLowerCase()
+                    + ", no una factura.");
+        }
+        Proveedor proveedor = proveedorPorRuc(kude.getRucEmisor());
+        if (proveedor == null) {
+            throw new GraphQLException("El RUC " + kude.getRucEmisor() + "-" + kude.getDvEmisor()
+                    + " de la factura no es de ningún proveedor cargado. Dalo de alta como proveedor en el desktop.");
+        }
+        DocumentoRecibido doc = documentoRecibidoService.obtener(kude.getCdc());
+        if (doc.getNotaRecepcion() != null) {
+            NotaRecepcion nota = doc.getNotaRecepcion();
+            throw new GraphQLException("Esta factura ya está cargada: nota " + nota.getNumero() + " del pedido "
+                    + (nota.getPedido() != null ? nota.getPedido().getId() : "?") + ".");
+        }
+        Set<String> nuestros = rucsPropios();
+        if (!nuestros.isEmpty() && doc.getRucReceptor() != null
+                && nuestros.stream().noneMatch(r -> mismoRuc(r, doc.getRucReceptor()))) {
+            throw new GraphQLException("La factura está a nombre de " + texto(doc.getRazonSocialReceptor())
+                    + " (RUC " + doc.getRucReceptor() + "), no de la empresa.");
+        }
+        doc.setPedido(null);
+        doc.setProveedor(proveedor);
+        if (doc.getUsuario() == null) doc.setUsuario(seguridad.usuarioActual());
+        documentoRepository.save(doc);
+        return armarBorrador(doc, true);
+    }
+
+    @Transactional
+    public FacturaProveedorMobile facturaNuevaCompra(Long documentoId) {
+        seguridad.exigirCompras();
+        DocumentoRecibido doc = documentoObligatorio(documentoId);
+        return armarBorrador(doc, doc.getNotaRecepcion() == null);
+    }
+
+    @Transactional(readOnly = true)
+    public OpcionesNuevaCompraMobile opcionesNuevaCompra() {
+        seguridad.exigirCompras();
+        OpcionesNuevaCompraMobile o = new OpcionesNuevaCompraMobile();
+        jdbc.query("SELECT id, descripcion FROM financiero.forma_pago WHERE COALESCE(activo, true) = true ORDER BY id",
+                rs -> {
+                    o.getFormasPago().add(new OpcionMobile(rs.getLong(1), rs.getString(2)));
+                });
+        for (Sucursal s : sucursalService.findAllSucursalesEntrega()) {
+            if (s.getId() != null && s.getId() != 0L) o.getSucursales().add(new OpcionMobile(s.getId(), s.getNombre()));
+        }
+        return o;
+    }
+
+    /**
+     * Crea el pedido con lo que dice la factura y lo lleva hasta la recepción documental, en una sola transacción:
+     * los mismos pasos que el desktop (crear el pedido con sus sucursales, cargar cada ítem con su reparto,
+     * «Finalizar planificación», cargar la nota y, si se pide, «Finalizar conciliación»), con las mismas operaciones.
+     *
+     * Lo que la factura trae se toma de la factura (proveedor, moneda, cotización, ítems, precios con IVA, forma de
+     * pago y plazo si vienen). Lo que no trae lo elige el comprador: la forma de pago si la factura no la dice, y la
+     * sucursal, que recibe todo.
+     */
+    @Transactional
+    public CompraPedidoMobile crearCompraDesdeFactura(Long documentoId, Long formaPagoId, Integer plazoCredito,
+                                                       Long sucursalId, Boolean finalizarNotas) {
+        seguridad.exigirCompras();
+        DocumentoRecibido doc = documentoObligatorio(documentoId);
+        exigirSinNota(doc);
+        FacturaProveedorMobile factura = armarBorrador(doc, true);
+        if (!Boolean.TRUE.equals(factura.getPuedeConfirmar())) {
+            throw new GraphQLException(factura.getMotivoNoConfirma());
+        }
+        Long formaPago = formaPagoId != null ? formaPagoId : factura.getFormaPagoId();
+        if (formaPago == null || !formaPagoService.findById(formaPago).isPresent()) {
+            throw new GraphQLException("Elegí la forma de pago: la factura no la trae.");
+        }
+        if (plazoCredito != null && plazoCredito < 0) {
+            throw new GraphQLException("El plazo de crédito no puede ser negativo.");
+        }
+        if (sucursalId == null || sucursalService.findAllSucursalesEntrega().stream().noneMatch(s -> sucursalId.equals(s.getId()))) {
+            throw new GraphQLException("Elegí la sucursal que recibe la mercadería.");
+        }
+        Moneda moneda = monedaDe(doc.getMoneda());
+        Usuario usuario = seguridad.usuarioActual();
+        Long usuarioId = usuario != null ? usuario.getId() : null;
+
+        // 1. El pedido, con sus sucursales y sus etapas: como «Guardar» de la creación en el desktop
+        PedidoInput input = new PedidoInput();
+        input.setProveedorId(doc.getProveedor().getId());
+        input.setFormaPagoId(formaPago);
+        input.setMonedaId(moneda.getId());
+        input.setPlazoCredito(plazoCredito != null ? plazoCredito : factura.getPlazoCredito());
+        input.setUsuarioId(usuarioId);
+        List<Integer> sucursales = Collections.singletonList(sucursalId.intValue());
+        Pedido pedido = pedidoGraphQL.savePedidoFull(input, null, sucursales, sucursales,
+                usuarioId != null ? usuarioId.intValue() : null);
+        pedido.setFormaPago(formaPagoService.findById(formaPago).orElse(null));
+        pedido.setCotizacion(cotizacionOrNull(moneda, doc, pedido));
+        pedido = pedidoService.save(pedido);
+
+        // 2. Un ítem por renglón, con todo para la sucursal elegida: como «Agregar ítem» con una sola sucursal
+        Map<Long, RenglonFacturaMobile> porId = factura.getRenglones().stream()
+                .collect(Collectors.toMap(RenglonFacturaMobile::getId, r -> r));
+        for (DocumentoRecibidoItem renglon : documentoRecibidoService.renglones(doc.getId())) {
+            RenglonFacturaMobile cruce = porId.get(renglon.getId());
+            PedidoItemInput item = new PedidoItemInput();
+            item.setPedidoId(pedido.getId());
+            item.setProductoId(renglon.getProducto().getId());
+            item.setPresentacionCreacionId(renglon.getPresentacion() != null ? renglon.getPresentacion().getId() : null);
+            item.setCantidadSolicitada(cruce.getCantidadBase());
+            item.setPrecioUnitarioSolicitado(cruce.getPrecioUnitarioBase());
+            item.setEsBonificacion(Boolean.TRUE.equals(cruce.getEsBonificacion()));
+            item.setEstado(PedidoItemEstado.ACTIVO);
+            item.setVencimientoEsperado(renglon.getVencimiento() != null ? renglon.getVencimiento().atStartOfDay().format(FECHA_HORA_SEG) : null);
+            item.setCreadoEn(LocalDateTime.now().format(FECHA_HORA_SEG));
+            item.setUsuarioCreacionId(usuarioId);
+            PedidoItemDistribucionInput reparto = new PedidoItemDistribucionInput();
+            reparto.setSucursalInfluenciaId(sucursalId);
+            reparto.setSucursalEntregaId(sucursalId);
+            reparto.setCantidadAsignada(cruce.getCantidadBase());
+            guardadoPedidoItemGraphQL.guardarPedidoItemConDistribuciones(item, new ArrayList<>(Collections.singletonList(reparto)));
+        }
+
+        // 3. «Finalizar planificación»: la creación termina y la recepción documental queda esperando la nota
+        try {
+            pedidoService.finalizarCreacion(pedido.getId());
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            throw new GraphQLException(e.getMessage());
+        }
+        pedidoItemService.getRepository().flush();
+
+        // 4. La nota, con la misma lógica que cargar la factura a un pedido existente
+        cargarNota(doc, pedido);
+
+        // 5. «Finalizar conciliación», si el comprador no espera más facturas para esta compra
+        if (Boolean.TRUE.equals(finalizarNotas)) {
+            try {
+                pedidoService.finalizarRecepcionNotas(pedido.getId());
+            } catch (IllegalStateException | IllegalArgumentException e) {
+                throw new GraphQLException(e.getMessage());
+            }
+            for (NotaRecepcion nota : notaRecepcionService.findByPedidoId(pedido.getId())) {
+                vincularProductosConProveedor(nota, usuario);
+            }
+        }
+        notaRecepcionItemService.getRepository().flush();
+        return armarPedido(pedidoObligatorio(pedido.getId()));
+    }
+
+    private FacturaProveedorMobile armarSegunModo(DocumentoRecibido doc) {
+        return doc.getPedido() == null ? armarBorrador(doc, true) : armarFactura(doc, doc.getPedido(), true);
+    }
+
+    /** La factura que va a crear la compra: productos reconocidos, avisos de IVA y lo que trae de forma de pago. */
+    private FacturaProveedorMobile armarBorrador(DocumentoRecibido doc, boolean recalcular) {
+        List<DocumentoRecibidoItem> renglones = documentoRecibidoService.renglones(doc.getId());
+        Proveedor proveedor = doc.getProveedor();
+        if (recalcular) {
+            for (DocumentoRecibidoItem r : renglones) {
+                if (!TipoMatch.MANUAL.name().equals(r.getTipoMatch())) {
+                    resolverProducto(r, proveedor, Collections.emptySet());
+                }
+            }
+        }
+        List<CruceFactura.Renglon> entrada = new ArrayList<>();
+        for (DocumentoRecibidoItem r : renglones) entrada.add(entradaDe(r));
+        List<CruceFactura.Resultado> resultados = CruceFactura.sinPedido(entrada);
+        Moneda moneda = monedaDeOrNull(doc.getMoneda());
+        boolean enGuaranies = moneda != null && GUARANI.equals(moneda.getDenominacion());
+
+        FacturaProveedorMobile f = cabecera(doc, null);
+        f.setModo("NUEVA_COMPRA");
+        FacturaSifenXml.Cabecera leida = leerXml(doc);
+        if (leida != null) {
+            f.setTipoPagoFactura(leida.tipoPagoDescripcion);
+            f.setPlazoCredito(leida.plazoCredito);
+            Long formaPago = formaPagoDeTipo(leida.tipoPago);
+            if (formaPago != null) {
+                f.setFormaPagoId(formaPago);
+                f.setFormaPagoDescripcion(formaPagoService.findById(formaPago).map(fp -> fp.getDescripcion()).orElse(null));
+            }
+        }
+        int ok = 0, sinProd = 0, ivaProducto = 0, ivaUltima = 0;
+        double totalNota = 0, totalRenglones = 0;
+        for (int k = 0; k < renglones.size(); k++) {
+            DocumentoRecibidoItem r = renglones.get(k);
+            CruceFactura.Resultado res = resultados.get(k);
+            if (recalcular) {
+                r.setPedidoItem(null);
+                r.setEsBonificacion(res.bonificacion);
+                renglonRepository.save(r);
+            }
+            if (res.estado == CruceFactura.Estado.OK && !res.bonificacion && enGuaranies && r.getProducto() != null) {
+                String aviso = CruceFactura.avisoUltimaCompra(res.precioBase, ultimoPrecioCompra(r.getProducto().getId()), r.getTasaIva());
+                if (aviso != null) {
+                    res.avisosIva.add(aviso.startsWith("IVA: ") ? aviso.substring(5) : aviso);
+                    if (aviso.startsWith("IVA: ")) ivaUltima++;
+                }
+            }
+            RenglonFacturaMobile rm = armarRenglon(r, res);
+            if (res.estado == CruceFactura.Estado.SIN_PRODUCTO) {
+                rm.setSugerencias(sugerencias(r, proveedor));
+                sinProd++;
+            } else {
+                ok++;
+            }
+            if (res.avisosIva.stream().anyMatch(a -> a.startsWith("En el sistema"))) ivaProducto++;
+            f.getRenglones().add(rm);
+            if (!res.bonificacion) totalNota += res.cantidadBase * res.precioBase;
+            totalRenglones += nz(r.getTotal());
+        }
+        f.setTotalNota(CruceFactura.redondear(totalNota, 2));
+        f.setRenglonesOk(ok);
+        f.setRenglonesConDiferencia(0);
+        f.setRenglonesFueraDePedido(0);
+        f.setRenglonesSinProducto(sinProd);
+        f.setRenglonesSinObservacion(0);
+
+        List<AvisoFacturaMobile> a = f.getAvisos();
+        if (documentoRecibidoService.cancelada(doc)) {
+            a.add(new AvisoFacturaMobile("CANCELADA", "BLOQUEO", "SIFEN informa que esta factura fue cancelada por el proveedor."));
+        }
+        if (moneda == null) {
+            a.add(new AvisoFacturaMobile("MONEDA", "BLOQUEO", "La factura está en " + texto(doc.getMoneda())
+                    + ", una moneda que el sistema no tiene."));
+        } else if (!enGuaranies) {
+            Double cot = doc.getCotizacion() != null && doc.getCotizacion() > 1 ? doc.getCotizacion() : null;
+            if (cot == null) {
+                Cambio cambio = cambioService.findLastByMonedaId(moneda.getId());
+                cot = cambio != null && cambio.getValorEnGsCompraMercado() != null ? cambio.getValorEnGsCompraMercado()
+                        : cambio != null ? cambio.getValorEnGs() : null;
+            }
+            a.add(cot == null || cot <= 1
+                    ? new AvisoFacturaMobile("MONEDA", "BLOQUEO", "No hay cotización de " + moneda.getDenominacion() + ". Cargá la del día.")
+                    : new AvisoFacturaMobile("MONEDA", "INFO", "Cotización " + CruceFactura.importe(cot)
+                        + (doc.getCotizacion() != null && doc.getCotizacion() > 1 ? " (la de la factura)." : " (la última cargada en el sistema).")));
+        }
+        a.add(new AvisoFacturaMobile("IVA", "INFO", textoIva(doc)));
+        if (ivaUltima > 0) {
+            a.add(new AvisoFacturaMobile("IVA", "ADVERTENCIA", ivaUltima == 1
+                    ? "1 producto: la última compra se cargó con otro criterio de IVA. Mirá el aviso en el renglón."
+                    : ivaUltima + " productos: la última compra se cargó con otro criterio de IVA. Mirá el aviso en cada renglón."));
+        }
+        if (ivaProducto > 0) {
+            a.add(new AvisoFacturaMobile("IVA", "ADVERTENCIA", ivaProducto == 1
+                    ? "1 producto tiene en el sistema un IVA distinto al de la factura. Revisá su ficha."
+                    : ivaProducto + " productos tienen en el sistema un IVA distinto al de la factura. Revisá sus fichas."));
+        }
+        if (sinProd > 0) {
+            a.add(new AvisoFacturaMobile("PRODUCTOS", "ADVERTENCIA", (sinProd == 1
+                    ? "1 renglón no se reconoció" : sinProd + " renglones no se reconocieron")
+                    + ": el producto no está en el sistema con ese código. Vinculalo con uno parecido o dalo de alta."));
+        }
+        if (doc.getTotalGeneral() != null && Math.abs(totalRenglones - doc.getTotalGeneral()) > TOLERANCIA_TOTAL) {
+            a.add(new AvisoFacturaMobile("TOTAL", "ADVERTENCIA", "La suma de los renglones (" + CruceFactura.importe(totalRenglones)
+                    + ") no da el total de la factura (" + CruceFactura.importe(doc.getTotalGeneral()) + "): puede haber un descuento global."));
+        }
+        if (f.getFormaPagoId() == null) {
+            a.add(new AvisoFacturaMobile("PAGO", "INFO", "La factura no dice la forma de pago: elegila antes de crear la compra."));
+        }
+        boolean bloqueada = a.stream().anyMatch(x -> "BLOQUEO".equals(x.getNivel()));
+        f.setPuedeConfirmar(doc.getNotaRecepcion() == null && !bloqueada && sinProd == 0 && !renglones.isEmpty());
+        if (!f.getPuedeConfirmar()) {
+            f.setMotivoNoConfirma(doc.getNotaRecepcion() != null ? "La factura ya está cargada."
+                    : bloqueada ? a.stream().filter(x -> "BLOQUEO".equals(x.getNivel())).findFirst().get().getMensaje()
+                    : renglones.isEmpty() ? "La factura no trae renglones."
+                    : sinProd == 1 ? "Falta vincular 1 producto." : "Faltan vincular " + sinProd + " productos.");
+        }
+        return f;
+    }
+
+    private CruceFactura.Renglon entradaDe(DocumentoRecibidoItem r) {
+        CruceFactura.Renglon c = new CruceFactura.Renglon();
+        c.id = r.getId();
+        c.productoId = r.getProducto() != null ? r.getProducto().getId() : null;
+        c.presentacionId = r.getPresentacion() != null ? r.getPresentacion().getId() : null;
+        c.presentacionDescripcion = r.getPresentacion() != null ? r.getPresentacion().getDescripcion() : null;
+        c.factor = r.getFactor();
+        c.cantidad = nz(r.getCantidad());
+        c.precioUnitario = nz(r.getPrecioUnitario());
+        c.descuentoUnitario = nz(r.getDescuentoUnitario());
+        c.porcentajeDescuento = r.getPorcentajeDescuento();
+        c.tasaIva = r.getTasaIva();
+        c.ivaProducto = r.getProducto() != null ? r.getProducto().getIva() : null;
+        c.observacion = r.getObservacion();
+        return c;
+    }
+
+    private static FacturaSifenXml.Cabecera leerXml(DocumentoRecibido doc) {
+        try {
+            return doc.getXml() != null ? FacturaSifenXml.leer(doc.getXml()) : null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /**
+     * El tipo de pago de SIFEN (iTiPago) en nuestras formas de pago. Solo los que tienen equivalente claro; el
+     * resto (giro, billetera, retención…) lo elige el comprador.
+     */
+    private Long formaPagoDeTipo(Integer tipoPago) {
+        if (tipoPago == null) return null;
+        String descripcion;
+        switch (tipoPago) {
+            case 1: descripcion = "EFECTIVO"; break;
+            case 2: descripcion = "CHEQUE"; break;
+            case 3: case 4: case 8: descripcion = "TARJETA"; break;
+            case 5: case 16: case 21: descripcion = "TRANSFERENCIA"; break;
+            default: return null;
+        }
+        List<Long> ids = jdbc.queryForList("SELECT id FROM financiero.forma_pago WHERE UPPER(descripcion) = ? "
+                + "AND COALESCE(activo, true) = true ORDER BY id LIMIT 1", Long.class, descripcion);
+        return ids.isEmpty() ? null : ids.get(0);
+    }
+
+    /** El último precio de compra del producto (por unidad base, con lo que se cargó en la nota). */
+    private Double ultimoPrecioCompra(Long productoId) {
+        List<Double> precios = jdbc.queryForList("SELECT nri.precio_unitario_en_nota FROM operaciones.nota_recepcion_item nri "
+                + "JOIN operaciones.nota_recepcion nr ON nr.id = nri.nota_recepcion_id "
+                + "JOIN financiero.moneda m ON m.id = nr.moneda_id "
+                + "WHERE nri.producto_id = ? AND COALESCE(nri.es_bonificacion, false) = false "
+                + "AND COALESCE(nri.estado::text, '') <> 'RECHAZADO' AND nri.precio_unitario_en_nota > 0 "
+                + "AND m.denominacion = 'GUARANI' ORDER BY nri.id DESC LIMIT 1", Double.class, productoId);
+        return precios.isEmpty() ? null : precios.get(0);
+    }
+
+    private Proveedor proveedorPorRuc(String ruc) {
+        List<Map<String, Object>> proveedores = jdbc.queryForList(
+                "SELECT pr.id, per.documento FROM personas.proveedor pr "
+                        + "JOIN personas.persona per ON per.id = pr.persona_id WHERE per.documento IS NOT NULL ORDER BY pr.id");
+        for (Map<String, Object> p : proveedores) {
+            if (mismoRuc((String) p.get("documento"), ruc)) {
+                return proveedorService.findById(((Number) p.get("id")).longValue()).orElse(null);
+            }
+        }
+        return null;
+    }
+
+    private static String textoIva(DocumentoRecibido doc) {
+        StringBuilder iva = new StringBuilder("Los precios de la factura incluyen IVA");
+        List<String> partes = new ArrayList<>();
+        if (nz(doc.getTotalIva10()) > 0) partes.add("IVA 10 %: " + CruceFactura.importe(nz(doc.getTotalIva10())));
+        if (nz(doc.getTotalIva5()) > 0) partes.add("IVA 5 %: " + CruceFactura.importe(nz(doc.getTotalIva5())));
+        if (nz(doc.getSubtotalExenta()) > 0) partes.add("exentas: " + CruceFactura.importe(nz(doc.getSubtotalExenta())));
+        if (!partes.isEmpty()) iva.append(" (").append(String.join(" · ", partes)).append(")");
+        iva.append(". La compra se carga con IVA incluido, igual que en el desktop.");
+        return iva.toString();
     }
 
     // =================================================================================== Armado
@@ -694,7 +1073,8 @@ public class ComprasMobileService {
     private FacturaProveedorMobile cabecera(DocumentoRecibido doc, Pedido pedido) {
         FacturaProveedorMobile f = new FacturaProveedorMobile();
         f.setId(doc.getId());
-        f.setPedidoId(pedido.getId());
+        f.setModo(pedido != null ? "PEDIDO" : "NUEVA_COMPRA");
+        f.setPedidoId(pedido != null ? pedido.getId() : null);
         f.setCdc(doc.getCdc());
         f.setTipoDocumento(doc.getTipoDocumento());
         f.setTipoDocumentoDescripcion(KudeQr.descripcionTipo(doc.getTipoDocumento()));
@@ -722,9 +1102,10 @@ public class ComprasMobileService {
         f.setTotalIva10(doc.getTotalIva10());
         f.setTotalIva(doc.getTotalIva());
         f.setConsultadaEn(doc.getFechaConsulta() != null ? doc.getFechaConsulta().format(FECHA_HORA) : null);
-        if (pedido.getProveedor() != null) {
-            f.setProveedorId(pedido.getProveedor().getId());
-            f.setProveedorNombre(nombreDe(pedido.getProveedor()));
+        Proveedor proveedor = pedido != null ? pedido.getProveedor() : doc.getProveedor();
+        if (proveedor != null) {
+            f.setProveedorId(proveedor.getId());
+            f.setProveedorNombre(nombreDe(proveedor));
         }
         f.setNotaRecepcionId(doc.getNotaRecepcion() != null ? doc.getNotaRecepcion().getId() : null);
         return f;

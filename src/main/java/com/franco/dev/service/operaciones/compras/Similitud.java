@@ -68,4 +68,26 @@ final class Similitud {
                 .compile("(?<![\\d.,])(\\d{1,3})\\s*(?:UND|UN|U)?\\s*[*xX]\\s*\\d").matcher(descripcion);
         return m.find() ? Integer.valueOf(m.group(1)) : null;
     }
+
+    /**
+     * Los números de bulto de la descripción: los que van antes de una «x» o un «*» («30X15G», «12*24*18G»), los
+     * de «24UN», y los entre paréntesis («(12)», «FILI(10)»). No los gramajes: «15G», «810gr».
+     */
+    static java.util.List<Integer> numerosDeBulto(String descripcion) {
+        java.util.List<Integer> numeros = new java.util.ArrayList<>();
+        if (descripcion == null) return numeros;
+        String d = descripcion.toUpperCase(java.util.Locale.ROOT);
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("(?<![\\d.,])(\\d{1,4})\\s*(?:UND|UN|U)?\\s*[*X]\\s*\\d").matcher(d);
+        int desde = 0;
+        while (m.find(desde)) {
+            numeros.add(Integer.valueOf(m.group(1)));
+            desde = m.end(1);
+        }
+        m = java.util.regex.Pattern.compile("\\((\\d{1,4})\\)").matcher(d);
+        while (m.find()) numeros.add(Integer.valueOf(m.group(1)));
+        m = java.util.regex.Pattern.compile("(?<![\\d,])(\\d{1,4})\\s*UN(?:D|IDADES)?\\b").matcher(d);
+        while (m.find()) numeros.add(Integer.valueOf(m.group(1)));
+        return numeros;
+    }
 }

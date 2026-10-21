@@ -492,8 +492,25 @@ public class ComprasMobileService {
         DocumentoRecibidoItem renglon = renglonId != null ? renglonRepository.findById(renglonId).orElse(null) : null;
         Long sugerida = null;
         String motivo = null;
-        if (renglon != null) {
-            Integer bulto = Similitud.unidadesPorBulto(renglon.getDescripcion());
+        Double factorSugerido = null;
+        Double ultimo = ultimoPrecioCompra(productoId);
+        double precio = renglon != null ? nz(renglon.getPrecioUnitario()) - nz(renglon.getDescuentoUnitario()) : 0;
+        if (renglon != null && precio > 0) {
+            List<Double> candidatos = presentaciones.stream().map(p -> p.getCantidad() != null && p.getCantidad() > 0 ? p.getCantidad() : 1.0)
+                    .collect(Collectors.toList());
+            Double factor = CruceFactura.factorPorPrecio(precio, ultimo, candidatos, Similitud.numerosDeBulto(renglon.getDescripcion()));
+            if (factor != null) {
+                Presentacion p = presentacionQueDivide(presentaciones, factor);
+                if (p != null) {
+                    sugerida = p.getId();
+                    factorSugerido = factor;
+                    motivo = "Bulto de " + CruceFactura.cantidad(factor) + " u.: el precio por unidad cierra con la última compra";
+                }
+            }
+        }
+        if (sugerida == null && renglon != null) {
+            Integer bulto = CruceFactura.productosDe(Similitud.numerosDeBulto(renglon.getDescripcion())).stream()
+                    .max(Integer::compare).orElse(null);
             if (bulto != null && bulto > 1) {
                 for (Presentacion p : presentaciones) {
                     if (p.getCantidad() != null && Math.abs(p.getCantidad() - bulto) < 0.001) {
@@ -532,7 +549,22 @@ public class ComprasMobileService {
                     .sorted(Comparator.comparing((Codigo c) -> !Boolean.TRUE.equals(c.getPrincipal())))
                     .findFirst().orElse(null);
             pm.setCodigo(principal != null ? principal.getCodigo() : null);
+            if (precio > 0) {
+                double unidades = p.getId().equals(sugerida) && factorSugerido != null ? factorSugerido : pm.getCantidad();
+                double porUnidad = precio / unidades;
+                pm.setPrecioPorUnidad(CruceFactura.redondear(porUnidad, 2));
+                if (ultimo != null && ultimo > 0) {
+                    double variacion = (porUnidad - ultimo) / ultimo;
+                    pm.setComparacion(Math.abs(variacion) <= CruceFactura.TOLERANCIA_BULTO
+                            ? "como la última compra (" + CruceFactura.importe(ultimo) + ")"
+                            : (variacion > 0 ? "+" : "") + Math.round(variacion * 100) + " % sobre la última compra ("
+                                + CruceFactura.importe(ultimo) + ")");
+                    pm.setCierraConUltimaCompra(Math.abs(variacion) <= CruceFactura.TOLERANCIA_BULTO);
+                }
+            }
             pm.setSugerida(p.getId().equals(sugerida));
+            // El bulto puede ser varias veces la presentación (12 bolsas de 67): el factor va aparte
+            pm.setFactorSugerido(p.getId().equals(sugerida) && factorSugerido != null ? factorSugerido : null);
             pm.setMotivo(p.getId().equals(sugerida) ? motivo : null);
             lista.add(pm);
         }
@@ -757,12 +789,18 @@ public class ComprasMobileService {
             }
             if (res.estado == CruceFactura.Estado.OK && !res.bonificacion && enGuaranies && r.getProducto() != null) {
                 String aviso = CruceFactura.avisoUltimaCompra(res.precioBase, ultimoPrecioCompra(r.getProducto().getId()), r.getTasaIva());
-                if (aviso != null) {
-                    res.avisosIva.add(aviso.startsWith("IVA: ") ? aviso.substring(5) : aviso);
-                    if (aviso.startsWith("IVA: ")) ivaUltima++;
+                if (aviso != null && aviso.startsWith("IVA: ")) {
+                    res.avisosIva.add(aviso.substring(5));
+                    ivaUltima++;
+                } else if (aviso != null) {
+                    // Un cambio grande de precio no es IVA: suele ser la presentación equivocada
+                    res.diferencias.add(aviso);
                 }
             }
             RenglonFacturaMobile rm = armarRenglon(r, res);
+            if (res.estado == CruceFactura.Estado.OK) {
+                rm.setEstadoEtiqueta(res.bonificacion ? "Bonificación" : "Producto reconocido");
+            }
             if (res.estado == CruceFactura.Estado.SIN_PRODUCTO) {
                 rm.setSugerencias(sugerencias(r, proveedor));
                 sinProd++;
@@ -1389,6 +1427,19 @@ public class ComprasMobileService {
         }
     }
 
+    /** La presentación más grande que entra justa en el bulto (804 → la de 67, 12 veces); si no, la unidad. */
+    private static Presentacion presentacionQueDivide(List<Presentacion> presentaciones, double factor) {
+        Presentacion mejor = null;
+        for (Presentacion p : presentaciones) {
+            Double c = p.getCantidad();
+            if (c == null || c <= 0 || c > factor + 0.001) continue;
+            double veces = factor / c;
+            if (Math.abs(veces - Math.rint(veces)) > 0.001) continue;
+            if (mejor == null || c > mejor.getCantidad()) mejor = p;
+        }
+        return mejor;
+    }
+
     /** Los códigos con los que se puede buscar el renglón, del más confiable al menos. */
     private static List<String[]> codigosDelRenglon(DocumentoRecibidoItem r) {
         List<String[]> codigos = new ArrayList<>();
@@ -1453,35 +1504,48 @@ public class ComprasMobileService {
     }
 
     /**
-     * El proveedor factura por bulto («SALADIX JAMON 6*100GR» a 141.865) y el código de barras es el de la unidad.
-     * Si la descripción dice cuántas unidades trae el bulto, y el precio de la factura dividido por esas unidades se
-     * parece al de la última compra mucho más que el precio entero, se toma el bulto: la presentación de N si existe,
-     * o la unidad con factor N. Sin compra anterior no se adivina: se avisa.
+     * El proveedor puede facturar por caja, pack o display aunque el código sea el de la unidad («SALADIX JAMON
+     * 6*100GR» a 141.865, y la unidad se compró a 4.729: la caja trae 30). Decide el <b>precio</b>: entre las
+     * presentaciones del producto, el número de la descripción y la proporción con la última compra, se toma el
+     * bulto cuyo precio por unidad cierra con la última compra (±10 %). Si ninguno cierra, o no hay compra anterior,
+     * no se adivina: se avisa para que el comprador elija la presentación.
      */
     private void ajustarBulto(DocumentoRecibidoItem r) {
-        Presentacion actual = r.getPresentacion();
-        if (actual == null || r.getProducto() == null || (actual.getCantidad() != null && actual.getCantidad() > 1)) return;
-        Integer n = Similitud.unidadesPorBulto(r.getDescripcion());
-        if (n == null || n < 2) return;
+        if (r.getProducto() == null || r.getPresentacion() == null) return;
         double precio = nz(r.getPrecioUnitario()) - nz(r.getDescuentoUnitario());
+        if (precio <= 0) return; // bonificación: el precio no dice nada
+        List<Presentacion> presentaciones = presentacionService.findByProductoIdOrderByCantidadAsc(r.getProducto().getId()).stream()
+                .filter(p -> !Boolean.FALSE.equals(p.getActivo()) && p.getCantidad() != null && p.getCantidad() > 0)
+                .collect(Collectors.toList());
+        List<Double> candidatos = presentaciones.stream().map(Presentacion::getCantidad).collect(Collectors.toList());
+        List<Integer> numeros = Similitud.numerosDeBulto(r.getDescripcion());
+        Integer bulto = CruceFactura.productosDe(numeros).stream().max(Integer::compare).orElse(null);
         Double ultimo = ultimoPrecioCompra(r.getProducto().getId());
-        Presentacion deN = presentacionService.findByProductoIdOrderByCantidadAsc(r.getProducto().getId()).stream()
-                .filter(p -> !Boolean.FALSE.equals(p.getActivo()) && p.getCantidad() != null && Math.abs(p.getCantidad() - n) < 0.001)
-                .findFirst().orElse(null);
-        if (ultimo == null || ultimo <= 0 || precio <= 0) {
-            r.setNotaReconocimiento("La descripción dice " + n + " unidades por bulto: revisá las unidades por cada "
-                    + texto(r.getUnidadMedida()) + " de la factura (Cambiar producto).");
+        double actual = r.getFactor() != null && r.getFactor() > 0 ? r.getFactor() : 1.0;
+        Double factor = CruceFactura.factorPorPrecio(precio, ultimo, candidatos, numeros);
+        if (factor == null) {
+            if (ultimo != null && ultimo > 0) {
+                r.setNotaReconocimiento("Revisá la presentación: a " + CruceFactura.importe(precio) + " por "
+                        + texto(r.getUnidadMedida()) + ", ninguna da un precio por unidad parecido a la última compra ("
+                        + CruceFactura.importe(ultimo) + ").");
+            } else if (bulto != null && bulto > 1 && actual < 2) {
+                r.setNotaReconocimiento("La descripción dice " + bulto + " por bulto y no hay compra anterior para"
+                        + " comparar el precio: revisá la presentación.");
+            }
             return;
         }
-        if (Math.abs(precio / n - ultimo) < Math.abs(precio - ultimo)) {
-            if (deN != null) {
-                r.setPresentacion(deN);
-            }
-            r.setFactor((double) n);
-            r.setNotaReconocimiento("Se toma el bulto de " + n + " (" + (deN != null ? deN.getDescripcion() : "unidades")
-                    + "): la descripción lo dice y " + CruceFactura.importe(precio / n) + " por unidad se parece a la última compra ("
-                    + CruceFactura.importe(ultimo) + ").");
-        }
+        if (Math.abs(factor - actual) < 0.001) return;
+        double f = factor;
+        Presentacion deF = presentacionQueDivide(presentaciones, f);
+        if (deF != null) r.setPresentacion(deF);
+        r.setFactor(f);
+        double porPresentacion = deF != null && deF.getCantidad() != null && deF.getCantidad() > 0 ? f / deF.getCantidad() : f;
+        r.setNotaReconocimiento("Cada " + texto(r.getUnidadMedida()) + " de la factura es un bulto de "
+                + CruceFactura.cantidad(f) + " u."
+                + (deF != null && deF.getCantidad() != null && deF.getCantidad() > 1
+                    ? " (" + CruceFactura.cantidad(porPresentacion) + " × " + deF.getDescripcion() + ")" : "")
+                + ": " + CruceFactura.importe(precio) + " ÷ " + CruceFactura.cantidad(f) + " = "
+                + CruceFactura.importe(precio / f) + " por unidad, como la última compra (" + CruceFactura.importe(ultimo) + ").");
     }
 
     private boolean porCodigo(DocumentoRecibidoItem r, String codigo, TipoMatch tipo, Set<Long> productosDelPedido) {

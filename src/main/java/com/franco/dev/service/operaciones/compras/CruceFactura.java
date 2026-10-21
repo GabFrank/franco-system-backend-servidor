@@ -232,6 +232,103 @@ public final class CruceFactura {
         return null;
     }
 
+    /** Hasta dónde se acepta que el precio por unidad difiera de la última compra para elegir el bulto. */
+    static final double TOLERANCIA_BULTO = 0.25;
+    /** Una proporción «casi entera» entre precio y última compra (141.865 / 4.729 = 30,0). */
+    static final double TOLERANCIA_ENTERO = 0.03;
+    /**
+     * Desempate: la unidad multiplicada por la proporción del precio siempre cierra, así que pierde contra un bulto
+     * que además dice la descripción o arma una presentación (804 = 12 bolsas de 67 le gana a 805 sueltas).
+     */
+    private static final double PENALIDAD_SOLO_PRECIO = 0.02;
+
+    /**
+     * Cuántas unidades base trae lo que factura el proveedor, mirando el precio contra la última compra.
+     *
+     * El proveedor factura por caja, display o bulto aunque el código sea el de la unidad: en GENFI «BONOBON
+     * 30X15G (12)» es un bulto de 360 (30 × 12) y «SALADIX JAMON 6*100GR» uno de 30 (lo dice el precio, no la
+     * descripción). Candidatos:
+     * <ul>
+     *   <li>los números de bulto de la descripción y sus productos;</li>
+     *   <li>cada presentación del producto, y la presentación por un entero cuando el precio lo sugiere
+     *   (804 = 12 × 67);</li>
+     * </ul>
+     * Primero se prueba lo explícito (unidad, presentaciones, descripción); lo deducido del precio solo si eso no
+     * cierra. En cada nivel gana el que deja el precio por unidad más cerca de la última compra, dentro de
+     * {@link #TOLERANCIA_BULTO}.
+     *
+     * @return el factor, o null si no hay compra anterior o ninguno cierra (no se adivina)
+     */
+    public static Double factorPorPrecio(double precioFactura, Double ultimoPrecioUnidad,
+                                         java.util.Collection<Double> presentaciones, java.util.List<Integer> numerosDescripcion) {
+        if (ultimoPrecioUnidad == null || ultimoPrecioUnidad <= 0 || precioFactura <= 0) return null;
+        // 1.º lo explícito: la unidad, las presentaciones y lo que dice la descripción
+        java.util.Set<Double> explicitos = new java.util.LinkedHashSet<>();
+        explicitos.add(1.0);
+        java.util.List<Double> bases = new java.util.ArrayList<>();
+        bases.add(1.0);
+        if (presentaciones != null) {
+            for (Double c : presentaciones) {
+                if (c != null && c > 0) {
+                    explicitos.add(c);
+                    bases.add(c);
+                }
+            }
+        }
+        java.util.Set<Integer> deDescripcion = productosDe(numerosDescripcion);
+        for (Integer n : deDescripcion) explicitos.add((double) n);
+        java.util.Map<Double, Boolean> nivel1 = new java.util.LinkedHashMap<>();
+        for (Double c : explicitos) nivel1.put(c, false);
+        Double elegido = mejorFactor(precioFactura, ultimoPrecioUnidad, nivel1);
+        if (elegido != null) return elegido;
+
+        // 2.º solo si nada de eso cierra: lo deducido del precio (una presentación o la unidad por un entero)
+        double proporcion = precioFactura / ultimoPrecioUnidad;
+        java.util.Map<Double, Boolean> nivel2 = new java.util.LinkedHashMap<>();
+        for (Double base : bases) {
+            double k = proporcion / base;
+            double redondo = Math.rint(k);
+            if (redondo < 2 || Math.abs(k - redondo) / redondo > TOLERANCIA_ENTERO) continue;
+            double bulto = base * redondo;
+            // Si la descripción dice números, el bulto tiene que ser múltiplo de alguno
+            // (SALADIX «6*100GR» → 30 = 5 × 6 sí; GOMAS «12X30G (12)» → 44 no)
+            boolean coherente = deDescripcion.isEmpty()
+                    || deDescripcion.stream().anyMatch(n -> Math.abs(bulto / n - Math.rint(bulto / n)) < 1e-9);
+            if (coherente) nivel2.putIfAbsent(bulto, base <= 1.0);
+        }
+        return mejorFactor(precioFactura, ultimoPrecioUnidad, nivel2);
+    }
+
+    private static Double mejorFactor(double precioFactura, double ultimo, java.util.Map<Double, Boolean> candidatos) {
+        Double mejor = null;
+        double mejorPuntaje = Double.MAX_VALUE;
+        for (java.util.Map.Entry<Double, Boolean> c : candidatos.entrySet()) {
+            double error = Math.abs(precioFactura / c.getKey() - ultimo) / ultimo;
+            if (error > TOLERANCIA_BULTO) continue;
+            double puntaje = error + (c.getValue() ? PENALIDAD_SOLO_PRECIO : 0);
+            if (puntaje < mejorPuntaje - 1e-9) {
+                mejorPuntaje = puntaje;
+                mejor = c.getKey();
+            }
+        }
+        return mejor;
+    }
+
+    /** Los números y todos sus productos: [30, 12] → 30, 12, 360. */
+    static java.util.Set<Integer> productosDe(java.util.List<Integer> numeros) {
+        java.util.Set<Integer> productos = new java.util.LinkedHashSet<>();
+        if (numeros == null) return productos;
+        java.util.List<Integer> lista = new java.util.ArrayList<>();
+        for (Integer n : numeros) if (n != null && n > 1) lista.add(n);
+        int total = lista.size();
+        for (int mascara = 1; mascara < (1 << Math.min(total, 6)); mascara++) {
+            long p = 1;
+            for (int i = 0; i < Math.min(total, 6); i++) if ((mascara & (1 << i)) != 0) p *= lista.get(i);
+            if (p > 1 && p < 100000) productos.add((int) p);
+        }
+        return productos;
+    }
+
     /**
      * El ítem del pedido del mismo producto. Una bonificación solo va contra un ítem bonificado del pedido; lo
      * cobrado prefiere uno no bonificado, con pendiente y de la misma presentación.

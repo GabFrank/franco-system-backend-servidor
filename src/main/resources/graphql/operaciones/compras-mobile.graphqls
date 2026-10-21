@@ -226,6 +226,10 @@ type PresentacionCompraMobile {
     codigo: String
     sugerida: Boolean
     motivo: String
+    precioPorUnidad: Float
+    comparacion: String
+    cierraConUltimaCompra: Boolean
+    factorSugerido: Float
 }
 
 extend type Query {

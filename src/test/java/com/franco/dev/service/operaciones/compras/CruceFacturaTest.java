@@ -232,4 +232,58 @@ class CruceFacturaTest {
         assertNotNull(aviso);
         assertTrue(aviso.startsWith("Precio más alto"));
     }
+
+    // ------------------------------------------------------------------ El bulto por el precio
+    // Casos de la factura real de GENFI (001-001-0055357) contra la última compra de cada producto en bodega.
+
+    private static Double factor(double precio, Double ultimo, List<Double> presentaciones, String descripcion) {
+        return CruceFactura.factorPorPrecio(precio, ultimo, presentaciones, Similitud.numerosDeBulto(descripcion));
+    }
+
+    @Test
+    void saladixEsUnBultoDe30AunqueLaDescripcionDiga6() {
+        // 141.865 / 4.729 = 30: lo dice el precio, no la descripción
+        assertEquals(30.0, factor(141865, 4729.0, Arrays.asList(1.0), "SALADIX JAMON 6*100GR"));
+    }
+
+    @Test
+    void bonobonEsElProductoDeLosNumerosDeLaDescripcion() {
+        // 30 × 12 = 360 bombones; 455.150 / 360 = 1.264
+        assertEquals(360.0, factor(455150, 1264.27, Arrays.asList(1.0, 18.0, 30.0), "BONOBON ORIGINAL 30X15G (12)"));
+        assertEquals(400.0, factor(729485, 1823.7, Arrays.asList(1.0, 20.0), "TOPLINE STRONG 20X11G (20)"));
+    }
+
+    @Test
+    void conElPrecioCambiadoIgualGanaElBultoDeLaDescripcion() {
+        // 12 × 16 = 192 da 3.188 por unidad contra 2.869 de la última compra (+11 %): cierra dentro del margen
+        assertEquals(192.0, factor(612128, 2869.38, Arrays.asList(1.0, 16.0), "TOPLINE SEVEN FRUT 12*16*14.7"));
+    }
+
+    @Test
+    void unBultoQueArmaUnaPresentacionLeGanaALasUnidadesSueltas() {
+        // 229.434 / 285 = 805,03: 12 bolsas de 67 = 804 le gana a 805 sueltas
+        assertEquals(804.0, factor(229434, 285.0, Arrays.asList(1.0, 67.0), "BASTON VIENA 470gr"));
+    }
+
+    @Test
+    void unPrecioUnitarioQueCierraNoSeConvierteEnBulto() {
+        assertEquals(1.0, factor(5218, 5218.0, Arrays.asList(1.0, 30.0), "MAZZEI CRACKERS SALVADO 190G C/30"));
+    }
+
+    @Test
+    void sinUltimaCompraOSiNingunoCierraNoSeAdivina() {
+        assertNull(factor(141865, null, Arrays.asList(1.0), "SALADIX JAMON 6*100GR"));
+        // GOMAS MOGUL: 273.997 contra 6.184 no cierra con 12, 144 ni ningún entero
+        assertNull(factor(273997, 6184.0, Arrays.asList(1.0), "GOMAS MOGUL COLA 12X30G (12)"));
+    }
+
+    @Test
+    void losNumerosDeBultoNoTomanGramajes() {
+        assertEquals(Arrays.asList(30, 12), Similitud.numerosDeBulto("BONOBON ORIGINAL 30X15G (12)"));
+        assertEquals(Arrays.asList(12, 24), Similitud.numerosDeBulto("MR.POPS EVOLU.CHERRY 12*24*18G"));
+        assertEquals(Arrays.asList(24), Similitud.numerosDeBulto("MR.POPS EVOL.BLUEBER.24UN"));
+        assertEquals(Arrays.asList(12), Similitud.numerosDeBulto("CAR M.PLUS SANDIA 12X29,4G"));
+        assertEquals(Arrays.asList(10), Similitud.numerosDeBulto("CAR.MAST.FTA ARC.800G  FILI(10)"));
+        assertTrue(Similitud.numerosDeBulto("RELLENOS FRUTALES 810gr").isEmpty());
+    }
 }

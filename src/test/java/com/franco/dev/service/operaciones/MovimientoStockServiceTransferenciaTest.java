@@ -160,6 +160,17 @@ class MovimientoStockServiceTransferenciaTest {
 
         assertFalse(res.getEstado());
         assertEquals(-10, res.getCantidad());
+        verify(repository).save(salida);
+    }
+
+    @Test
+    void transporteSinSalidaNiCantidadNoHaceNada() {
+        TransferenciaItem ti = item(EtapaTransferencia.TRANSPORTE_VERIFICACION);
+
+        List<MovimientoStock> res = service.createMovimientoFromTransferenciaItem(ti);
+
+        assertNull(res.get(0));
+        verify(repository, never()).save(any());
     }
 
     @Test
@@ -173,6 +184,7 @@ class MovimientoStockServiceTransferenciaTest {
 
         assertFalse(res.get(0).getEstado());
         assertNull(res.get(1));
+        verify(repository).save(salida);
     }
 
     @Test
@@ -226,6 +238,7 @@ class MovimientoStockServiceTransferenciaTest {
         assertTrue(res.getEstado());
         assertEquals(-10, res.getCantidad());
         assertEquals(50L, res.getId());
+        verify(repository).save(salida);
     }
 
     @Test

@@ -395,9 +395,13 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
                 }
                 break;
             case TRANSPORTE_VERIFICACION:
+                // Sin salida, transporte nunca generó movimiento: se sigue salteando como antes.
+                if (movimientoStockSalida == null) {
+                    break;
+                }
                 if (e.getCantidadTransporte() == null || e.getPresentacionTransporte() == null) {
                     movimientoStockSalida = sinCantidad(e, esRechazado, movimientoStockSalida, "transporte");
-                } else if (movimientoStockSalida != null) {
+                } else {
                     ms = movimientoStockSalida;
                     ms.setCantidad(e.getCantidadTransporte() * e.getPresentacionTransporte().getCantidad() * -1);
                     ms.setProducto(e.getPresentacionTransporte().getProducto());

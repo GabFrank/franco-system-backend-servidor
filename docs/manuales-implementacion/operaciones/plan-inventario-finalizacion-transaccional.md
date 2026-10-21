@@ -115,3 +115,33 @@ Revertir el fix y comprobar que 1, 3, 5 y 6 fallan por la lógica (no por un cam
   condicionado a lote no deja una carrera extra. Hallazgos: doble finalización por reintento →
   **incorporado** (`lockById` + re-chequeo); auditoría (mismo que A) → incorporado; registros
   huérfanos y pool → **anotados**; tests 4–6 y mocks de las dos fuentes de `lote` → **incorporados**.
+
+## Auditoría del diff (paso 8)
+
+3 ejes fijos; ningún condicional (sin migración, workflows ni réplica en el diff).
+
+- **Autorización**: sin acceso nuevo; `finalizarInventario` ya no tenía control de rol (preexistente,
+  #177). Nuevo y acotado: un usuario logueado que finaliza una toma con lotes frena las operaciones
+  por lote de esa sucursal mientras dura (tope de espera 15 s).
+- **Esquema**: sin migración. `lockById` genera `for update of inventario0_` (la `sucursal` EAGER va
+  en un select aparte): verificado en el log.
+- **Clientes**: sin cambio de contrato. Desktop y PWA muestran el mensaje del backend; la PWA toma
+  el `null` de un doble clic como éxito; la app vieja muestra «Algo salió mal» genérico (como antes).
+
+## Resultado de las pruebas (paso 9, 2026-10-21)
+
+Batería `clean verify`: 2216 tests, 0 fallas. Los 6 tests nuevos fallan con el fix revertido.
+
+Central local 8081 (perfil dev) + desktop web servido desde `develop`, sucursal 24, usuario MR. Datos
+creados por SQL/API y borrados al terminar (base de vuelta a la línea base).
+
+| Caso | Por | Resultado |
+|---|---|---|
+| T1: toma con lote (133: A 55, B 38) + sin lote (145: 25) | pantalla | 133 −14 = A −5, B −2, SIN LOTE −7; 145 −4; CONCLUIDO. `FOR UPDATE` + advisory en el log |
+| Auditoría de la toma | base | registra estado ABIERTO→CONCLUIDO, abierto y fechaFin (antes «Entidad actualizada» por OSIV). Ruido: `usuario` 410→410 por proxy |
+| T2: falla forzada en el 2.º producto (trigger) | pantalla | «Ups! Algo salió mal…»; 0 ajustes, 0 desglose, toma ABIERTO. Quedan 2 registros de auditoría huérfanos (esperado) |
+| T3: lock de lotes tomado por otro, se suelta a los 14 s | pantalla | espera 13,8 s y finaliza |
+| T5: lock tomado más de 15 s | pantalla | a los 15,0 s «Hay otra operación con lotes en curso en la sucursal 24. Reintentá en unos segundos.»; nada escrito; reintento posterior OK |
+| T4: dos finalizaciones simultáneas | API | la 1.ª CONCLUIDO, la 2.ª `null`; un solo ajuste por producto |
+| T6: toma sin lote con el lock de lotes tomado | API | 0,07 s, no espera |
+| T7: 236 productos (copia de la toma 2006) + 1 con lote | API | 10,3 s; lock de lotes tomado ~10,2 s (log SQL en DEBUG) |

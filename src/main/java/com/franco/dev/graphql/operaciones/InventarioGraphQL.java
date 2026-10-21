@@ -15,6 +15,7 @@ import com.franco.dev.service.operaciones.InventarioProductoItemService;
 import com.franco.dev.service.operaciones.PlanConteoLote;
 import com.franco.dev.service.operaciones.InventarioProductoService;
 import com.franco.dev.service.operaciones.InventarioService;
+import com.franco.dev.service.operaciones.LoteFefoService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.ProductoService;
@@ -29,6 +30,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import lombok.extern.java.Log;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -66,6 +69,12 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     @Autowired
     private InventarioLoteService inventarioLoteService;
+
+    @Autowired
+    private LoteFefoService loteFefoService;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @Autowired
     private MultiTenantService multiTenantService;
@@ -134,9 +143,18 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         return ok;
     }
 
+    /**
+     * Todo en una transaccion (#465): si falla un producto no queda ningun ajuste, y la toma sigue
+     * abierta. La fila se toma con lock antes de mirar el estado: un reintento o un doble clic espera
+     * al primero, lo ve CONCLUIDO y no escribe ajustes duplicados.
+     */
     public Inventario finalizarInventario(Long id) throws GraphQLException {
-        Inventario inventario = service.findById(id).orElse(null);
-        if (inventario.getId() != null && inventario.getEstado() != InventarioEstado.CONCLUIDO) {
+        return new TransactionTemplate(transactionManager).execute(status -> finalizarBloqueado(id));
+    }
+
+    private Inventario finalizarBloqueado(Long id) {
+        Inventario inventario = service.lockById(id).orElse(null);
+        if (inventario != null && inventario.getEstado() != InventarioEstado.CONCLUIDO) {
             inventario = finalizarInventarioEnSucursal(id);
             if (inventario != null) {
                 return service.save(inventario);
@@ -222,6 +240,7 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         }
         Map<Long, Double> cantidadesPorProducto = new HashMap<>();
         Producto selectedProducto = null;
+        boolean hayProductoConLote = false;
         try {
             if (inventario.getId() != null) {
                 inventario.setEstado(InventarioEstado.CONCLUIDO);
@@ -252,6 +271,7 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                             continue;
                         }
                         selectedProducto = ipi.getPresentacion().getProducto();
+                        hayProductoConLote |= Boolean.TRUE.equals(selectedProducto.getLote());
                         cantidadesPorProducto.merge(
                                 ipi.getPresentacion().getProducto().getId(),
                                 ipi.getCantidad() * ipi.getPresentacion().getCantidad(),
@@ -267,6 +287,15 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                  */
                 Map<Long, Map<Long, Double>> contadoPorLote =
                         inventarioLoteService.contadoPorProductoYLote(id);
+
+                /*
+                 * Antes de leer stock y saldos por lote (#463/#465): una transferencia o un ajuste por
+                 * lote de la sucursal no puede mover un lote entre la lectura y el ajuste. Solo con
+                 * productos con lote: los demas no toman este lock en ningun lado.
+                 */
+                if (hayProductoConLote) {
+                    loteFefoService.bloquearSaldo(inventario.getSucursal().getId());
+                }
 
                 /*
                  * ESTE BUCLE VA AFUERA DEL DE ZONAS, y no es un detalle de estilo.

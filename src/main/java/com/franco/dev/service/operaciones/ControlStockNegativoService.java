@@ -13,6 +13,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
@@ -30,12 +31,16 @@ import java.util.List;
  * Las escrituras van por JdbcTemplate y no por JPA a proposito. El central usa
  * OpenEntityManagerInViewFilter: todo el request comparte un EntityManager, y un save de JPA que
  * falle hace rollback y clear() de ese EntityManager, dejando detached el item que
- * saveTransferenciaItem acaba de guardar. JdbcTemplate usa su propia conexion.
+ * saveTransferenciaItem acaba de guardar. Fuera de una transaccion JdbcTemplate usa su propia
+ * conexion; dentro (saveTransferenciaItem desde #468) comparte la de JPA, y por eso
+ * registrarTransferencia trabaja bajo un savepoint.
  */
 @Service
 public class ControlStockNegativoService {
 
     private static final Logger log = LoggerFactory.getLogger(ControlStockNegativoService.class);
+
+    private static final String SAVEPOINT = "control_stock_negativo";
 
     private final JdbcTemplate jdbc;
     private final EntityManager em;
@@ -59,7 +64,11 @@ public class ControlStockNegativoService {
      * @return true si quedo registrado
      */
     public boolean registrarTransferencia(TransferenciaItem item) {
+        // Dentro de la transaccion de saveTransferenciaItem, JdbcTemplate usa la misma conexion: un error
+        // aca abortaria la transaccion y se perderia el item. El savepoint lo deja como estaba (#468).
+        boolean conSavepoint = TransactionSynchronizationManager.isActualTransactionActive();
         try {
+            if (conSavepoint) jdbc.execute("SAVEPOINT " + SAVEPOINT);
             if (item == null || item.getTransferencia() == null
                     || item.getTransferencia().getSucursalOrigen() == null) {
                 return false;
@@ -83,9 +92,18 @@ public class ControlStockNegativoService {
                     usuarioId, item.getTransferencia().getId(), item.getId());
             return true;
         } catch (Exception ex) {
+            if (conSavepoint) volverAlSavepoint();
             log.warn("Control de stock negativo: no se pudo registrar el item {} de transferencia: {}",
                     item != null ? item.getId() : null, ex.getMessage());
             return false;
+        }
+    }
+
+    private void volverAlSavepoint() {
+        try {
+            jdbc.execute("ROLLBACK TO SAVEPOINT " + SAVEPOINT);
+        } catch (Exception ex) {
+            log.warn("Control de stock negativo: no se pudo volver al savepoint: {}", ex.getMessage());
         }
     }
 

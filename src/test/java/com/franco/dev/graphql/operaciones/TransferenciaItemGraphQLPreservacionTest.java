@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -54,6 +55,7 @@ class TransferenciaItemGraphQLPreservacionTest {
 
         resolver = new TransferenciaItemGraphQL();
         ReflectionTestUtils.setField(resolver, "service", service);
+        ReflectionTestUtils.setField(resolver, "transactionManager", mock(PlatformTransactionManager.class));
         ReflectionTestUtils.setField(resolver, "usuarioService", usuarioService);
         ReflectionTestUtils.setField(resolver, "transferenciaService", transferenciaService);
         ReflectionTestUtils.setField(resolver, "transferenciaItemLoteService", loteService);
@@ -61,10 +63,10 @@ class TransferenciaItemGraphQLPreservacionTest {
         ReflectionTestUtils.setField(resolver, "movimientoStockService", movimientoStockService);
 
         when(usuarioService.findById(55L)).thenReturn(Optional.of(new Usuario()));
-        when(transferenciaService.findById(any())).thenReturn(Optional.of(new Transferencia()));
+        when(transferenciaService.lockCompartidoById(any())).thenReturn(Optional.of(new Transferencia()));
         when(presentacionService.findById(any())).thenAnswer(i -> Optional.of(new Presentacion()));
         when(service.save(any())).thenAnswer(i -> i.getArgument(0));
-        when(service.findById(ITEM_ID)).thenReturn(Optional.of(itemYaRecepcionado()));
+        when(service.lockById(ITEM_ID)).thenReturn(Optional.of(itemYaRecepcionado()));
     }
 
     /** El item 65830 tal como estaba antes de que un save incompleto le borrara las etapas. */

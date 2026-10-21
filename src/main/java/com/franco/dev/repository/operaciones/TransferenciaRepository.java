@@ -41,6 +41,14 @@ public interface TransferenciaRepository extends HelperRepository<Transferencia,
         @Query("select t from Transferencia t where t.id = :id")
         Optional<Transferencia> lockById(@Param("id") Long id);
 
+        /**
+         * {@code FOR SHARE}: choca con el {@link #lockById} del avance y del save del encabezado, pero no
+         * entre dos saves de items, que siguen en paralelo (#468). Misma advertencia: primera carga.
+         */
+        @Lock(LockModeType.PESSIMISTIC_READ)
+        @Query("select t from Transferencia t where t.id = :id")
+        Optional<Transferencia> lockCompartidoById(@Param("id") Long id);
+
         // public List<SolicitudCompra>
         // findByProveedorPersonaNombreContainingIgnoreCase(String texto);
 

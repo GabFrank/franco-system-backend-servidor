@@ -35,9 +35,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -81,6 +85,9 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
 
     @Autowired
     private ControlStockNegativoService controlStockNegativoService;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     public Optional<TransferenciaItem> transferenciaItem(Long id) {
         return service.findById(id);
@@ -156,6 +163,12 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         if (e.getCreadoEn() == null) e.setCreadoEn(prev.getCreadoEn());
     }
 
+    /**
+     * Corre en una transaccion que bloquea primero la transferencia y despues el item, en el mismo
+     * orden que el avance (#468). Sin transaccion, el save SERIALIZABLE del servicio corria solo y,
+     * si un avance de la misma transferencia ya habia tocado el item, fallaba con un 40001 crudo.
+     * Ahora espera al avance, relee y {@link #validarEtapasCerradas} rechaza lo que pisaria.
+     */
     public TransferenciaItem saveTransferenciaItem(TransferenciaItemInput input, Double precioCosto) {
         // usuario_id es NOT NULL en la base. Sin este chequeo, un input sin usuarioId reventaba con
         // NullPointerException porque CrudService.findById devuelve null crudo cuando el id es null.
@@ -163,10 +176,31 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
             throw new GraphQLException(
                     "No se puede guardar el item de transferencia sin usuarioId: falta el responsable.");
         }
+        TransferenciaItem e = new TransactionTemplate(transactionManager).execute(status -> guardarItem(input));
+        // Despues del commit: registrarCostoCompraManual es @Transactional y, si lanzara adentro, dejaria
+        // la transaccion rollback-only y se perderia el item aunque el catch se trague el error.
+        registrarCostoSiEsCompra(e, precioCosto);
+        return e;
+    }
+
+    private TransferenciaItem guardarItem(TransferenciaItemInput input) {
         ModelMapper m = new ModelMapper();
         TransferenciaItem e = m.map(input, TransferenciaItem.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        e.setTransferencia(transferenciaService.findById(input.getTransferenciaId()).orElse(null));
+
+        // La transferencia que se bloquea y contra la que se valida es la del item guardado, no la del
+        // input. Es la primera carga de la transferencia en el request: lockCompartidoById no refresca.
+        Long itemTransferenciaId = input.getId() != null ? service.transferenciaIdDe(input.getId()) : null;
+        Long transferenciaId = itemTransferenciaId != null ? itemTransferenciaId : input.getTransferenciaId();
+        Transferencia transferencia = transferenciaId != null
+                ? transferenciaService.lockCompartidoById(transferenciaId).orElse(null)
+                : null;
+        // Sin transferenciaId en el input queda null y preservarCamposAusentes pone la del item.
+        if (input.getTransferenciaId() != null) {
+            e.setTransferencia(input.getTransferenciaId().equals(transferenciaId)
+                    ? transferencia
+                    : transferenciaService.findById(input.getTransferenciaId()).orElse(null));
+        }
         if (input.getVencimientoPreTransferencia() != null)
             e.setVencimientoPreTransferencia(stringToDate(input.getVencimientoPreTransferencia()));
         if (input.getVencimientoPreparacion() != null)
@@ -188,11 +222,13 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         if (input.getCreadoEn() != null)
             e.setCreadoEn(stringToDate(input.getCreadoEn()));
 
-        // El save es un PATCH: lo que el input no trae se conserva de la fila existente.
+        // El save es un PATCH: lo que el input no trae se conserva de la fila existente. Con lock y
+        // despues de la transferencia: si un avance la tenia, esto ya lee lo que el avance dejo.
         TransferenciaItem existente = input.getId() != null
-                ? service.findById(input.getId()).orElse(null)
+                ? service.lockById(input.getId()).orElse(null)
                 : null;
         if (existente != null) {
+            validarEtapasCerradas(transferencia, e, existente);
             preservarCamposAusentes(e, existente);
         } else if (e.getVencimientoVerificado() == null) {
             e.setVencimientoVerificado(false);
@@ -206,10 +242,79 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         // de que lotes sale la mercaderia. Si se guardara despues, la primera vez saldria por FEFO.
         guardarAsignacionDeLotes(input, e);
         movimientoStockService.createMovimientoFromTransferenciaItem(e);
+        return e;
+    }
 
-        // El costo SOLO se actualiza cuando la transferencia proviene de la sucursal COMPRAS:
-        // es una vía alternativa (temporal) para cargar una compra cuando el módulo de compras falla.
-        // Cualquier otra transferencia es un simple movimiento de stock y NO altera el costo del producto.
+    /**
+     * Un item existente no cambia un grupo de una etapa que la transferencia ya cerro (#468).
+     *
+     * Al avanzar, cada etapa copia el grupo anterior al siguiente. Un save con la pantalla vieja que
+     * cambie el grupo anterior despues de esa copia deja las dos etapas desalineadas y el movimiento
+     * de stock calculado con la cantidad pisada. Los clientes reenvian el item entero con lo guardado:
+     * solo cuenta como cambio un campo que viene y difiere. Los items nuevos no pasan por aca: nacen
+     * en creacion y frc-mobile los manda con ceros en las etapas siguientes.
+     */
+    private void validarEtapasCerradas(Transferencia transferencia, TransferenciaItem e, TransferenciaItem prev) {
+        if (transferencia == null || transferencia.getEtapa() == null) return;
+        validarGrupo(transferencia, prev, EtapaTransferencia.PRE_TRANSFERENCIA_ORIGEN, "pre-transferencia",
+                cambia(e.getCantidadPreTransferencia(), prev.getCantidadPreTransferencia())
+                        || cambia(e.getPresentacionPreTransferencia(), prev.getPresentacionPreTransferencia())
+                        || cambia(e.getVencimientoPreTransferencia(), prev.getVencimientoPreTransferencia())
+                        || cambia(e.getMotivoModificacionPreTransferencia(), prev.getMotivoModificacionPreTransferencia())
+                        || cambia(e.getMotivoRechazoPreTransferencia(), prev.getMotivoRechazoPreTransferencia()));
+        validarGrupo(transferencia, prev, EtapaTransferencia.PREPARACION_MERCADERIA, "preparacion",
+                cambia(e.getCantidadPreparacion(), prev.getCantidadPreparacion())
+                        || cambia(e.getPresentacionPreparacion(), prev.getPresentacionPreparacion())
+                        || cambia(e.getVencimientoPreparacion(), prev.getVencimientoPreparacion())
+                        || cambia(e.getMotivoModificacionPreparacion(), prev.getMotivoModificacionPreparacion())
+                        || cambia(e.getMotivoRechazoPreparacion(), prev.getMotivoRechazoPreparacion()));
+        validarGrupo(transferencia, prev, EtapaTransferencia.TRANSPORTE_VERIFICACION, "transporte",
+                cambia(e.getCantidadTransporte(), prev.getCantidadTransporte())
+                        || cambia(e.getPresentacionTransporte(), prev.getPresentacionTransporte())
+                        || cambia(e.getVencimientoTransporte(), prev.getVencimientoTransporte())
+                        || cambia(e.getMotivoModificacionTransporte(), prev.getMotivoModificacionTransporte())
+                        || cambia(e.getMotivoRechazoTransporte(), prev.getMotivoRechazoTransporte()));
+        validarGrupo(transferencia, prev, EtapaTransferencia.RECEPCION_EN_VERIFICACION, "recepcion",
+                cambia(e.getCantidadRecepcion(), prev.getCantidadRecepcion())
+                        || cambia(e.getPresentacionRecepcion(), prev.getPresentacionRecepcion())
+                        || cambia(e.getVencimientoRecepcion(), prev.getVencimientoRecepcion())
+                        || cambia(e.getMotivoModificacionRecepcion(), prev.getMotivoModificacionRecepcion())
+                        || cambia(e.getMotivoRechazoRecepcion(), prev.getMotivoRechazoRecepcion()));
+    }
+
+    private void validarGrupo(Transferencia transferencia, TransferenciaItem prev, EtapaTransferencia hasta,
+            String grupo, boolean cambio) {
+        if (cambio && transferencia.getEtapa().getOrden() > hasta.getOrden()) {
+            throw new GraphQLException("La transferencia " + transferencia.getId() + " ya esta en etapa "
+                    + transferencia.getEtapa() + ": el item " + prev.getId() + " no se puede cambiar en "
+                    + grupo + " porque esa etapa ya se cerro (la avanzo otro usuario mientras guardabas)."
+                    + " Volve a abrirla para ver como quedo.");
+        }
+    }
+
+    private static boolean cambia(Object nuevo, Object guardado) {
+        return nuevo != null && !nuevo.equals(guardado);
+    }
+
+    private static boolean cambia(Presentacion nueva, Presentacion guardada) {
+        return nueva != null && !Objects.equals(nueva.getId(), guardada != null ? guardada.getId() : null);
+    }
+
+    /**
+     * Por dia: el vencimiento es una fecha, y el desktop puede reenviar una fecha pura corrida una hora
+     * (00:00 del dia del cambio de horario no existe en hora local).
+     */
+    private static boolean cambia(LocalDateTime nuevo, LocalDateTime guardado) {
+        LocalDate dia = guardado != null ? guardado.toLocalDate() : null;
+        return nuevo != null && !nuevo.toLocalDate().equals(dia);
+    }
+
+    /**
+     * El costo SOLO se actualiza cuando la transferencia proviene de la sucursal COMPRAS:
+     * es una vía alternativa (temporal) para cargar una compra cuando el módulo de compras falla.
+     * Cualquier otra transferencia es un simple movimiento de stock y NO altera el costo del producto.
+     */
+    private void registrarCostoSiEsCompra(TransferenciaItem e, Double precioCosto) {
         if (e != null && precioCosto != null && esTransferenciaDesdeCompras(e)) {
             try {
                 if (e.getPresentacionPreTransferencia() != null
@@ -230,7 +335,6 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
                 ex.printStackTrace();
             }
         }
-        return e;
     }
 
     /**

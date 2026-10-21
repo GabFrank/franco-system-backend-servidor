@@ -120,6 +120,11 @@ public class TransferenciaService extends CrudService<Transferencia, Transferenc
         return repository.lockById(id);
     }
 
+    /** Lock compartido de la fila: solo dentro de una transaccion. Ver {@link TransferenciaRepository#lockCompartidoById}. */
+    public Optional<Transferencia> lockCompartidoById(Long id) {
+        return repository.lockCompartidoById(id);
+    }
+
     public Page<Transferencia> findByChoferId(Long choferId, Pageable pageable) {
         return ((TransferenciaService) repository).findByChoferId(choferId, pageable);
     }

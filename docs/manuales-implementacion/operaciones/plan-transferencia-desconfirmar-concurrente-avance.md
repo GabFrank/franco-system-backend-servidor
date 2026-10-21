@@ -114,6 +114,38 @@ Batería: `./mvnw clean verify -B -DskipFlyway=true` en copia fuera de `dev-frc`
 | B | Un `findById` antes de los locks anularía el fix en silencio | Test con `never()` |
 | B | El test con PTM mock prueba el cableado, no la atomicidad | La prueba de runtime 3 es bloqueante |
 
-## Sin verificar todavía
+## Auditoría del diff (paso 8)
 
-- Todo lo de runtime.
+3 fijos, sin condicionales. Sin cambios pedidos.
+
+| Eje | Hallazgo | Decisión |
+|---|---|---|
+| Fijo 1 | Sin superficie nueva; la mutation sigue sin rol (#177, preexistente). Nuevo: cualquier logueado toma `FOR SHARE`/`FOR UPDATE` por id mientras dura la transacción (contención, no fuga) | Igual que `saveTransferenciaItem` de #470; sin cambios |
+| Fijo 2 | Sin migración; orden transferencia → ítem sin cargas previas (solo el escalar); `sincronizarEstado` es `REQUIRED`, idempotente y escribe solo las filas del movimiento; sin dependencia circular al inyectar `MovimientoStockLoteService` | Confirmado en runtime |
+| Fijo 3 | Contrato igual; desktop y PWA muestran el rechazo; la PWA sigue con dos requests (desconfirmar + guardar) | Residual de cliente |
+
+## Resultado (2026-10-21)
+
+**Tests.** `./mvnw clean verify -B -DskipFlyway=true`: 2213 tests, 0 fallas. Sin la transacción y sin
+`sincronizarEstado` fallan `bloqueaTransferenciaYDespuesItem`, `siFallaElSaveNoHayCommit` y
+`desactivarSincronizaLotes`.
+
+**Runtime** (central de la rama en 8084, `bodega` local, clones de la 51251 → 58230 a 58232; desktop
+y PWA de `develop` servidos en 4201/4302):
+
+| Prueba | Resultado |
+|---|---|
+| Avance simulado por psql (`FOR UPDATE` 8 s) + `desconfirmar` | Espera en `... for share of transferen0_` ~7 s y des-verifica al soltar. Sin `40001` |
+| Avance simulado que concluye la preparación + `desconfirmar` | Espera y se rechaza con el texto; el ítem y su movimiento quedan como estaban |
+| CHECK temporal que hace fallar el `UPDATE` del ítem | Error, y el movimiento sigue activo (antes quedaba desactivado) |
+| Producto con lote (lotes de prueba, FEFO en preparación): des-verificar / re-verificar | Movimiento **y** fila de `movimiento_stock_lote` inactivos / activos de nuevo (antes la fila quedaba activa) |
+| Desktop «Desconfirmar» en preparación, transporte y recepción | Vacía la etapa y desactiva el movimiento de origen o el de destino según la etapa |
+| PWA: rechazar un producto con lote y «Confirmar como viene» (des-verifica y guarda) | Vuelve a verificado con movimiento y lote activos |
+
+## Residuales
+
+- El desktop reemplaza la fila con la respuesta de `desconfirmar`, que no trae el producto: la fila
+  queda en «-» y un «Confirmar» sobre ella no sale hasta tocar «Actualizar». Preexistente (la
+  respuesta no cambió de forma).
+- La PWA des-verifica y guarda en dos requests: si el guardar falla, el ítem queda des-verificado
+  (consistente; la PWA recarga).

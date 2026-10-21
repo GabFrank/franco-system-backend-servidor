@@ -424,6 +424,15 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         if (ti == null) {
             throw new GraphQLException("No existe el item de transferencia " + id);
         }
+        // La PWA des-verifica y despues guarda. Con la pantalla vieja el save ya se rechaza (#468): sin
+        // esto quedaria vaciada una etapa cerrada, con su movimiento de stock desactivado.
+        Transferencia transferencia = ti.getTransferencia();
+        if (transferencia != null && transferencia.getEtapa() != null && etapa != null
+                && transferencia.getEtapa().getOrden() > etapa.getOrden()) {
+            throw new GraphQLException("La transferencia " + transferencia.getId() + " ya esta en etapa "
+                    + transferencia.getEtapa() + ": el item " + id + " no se puede des-verificar en " + etapa
+                    + " porque esa etapa ya se cerro (la avanzo otro usuario). Volve a abrirla para ver como quedo.");
+        }
 
         Long sucursalDelMovimiento;
         switch (etapa) {

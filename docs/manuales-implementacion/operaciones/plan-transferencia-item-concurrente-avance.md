@@ -95,6 +95,14 @@ Solo con el lock de la propuesta de la issue, la ventana 1 pasa a ser la 2: el s
 |---|---|---|
 | 0 | `docs(transferencias): plan para guardar un item mientras se avanza la transferencia` | — |
 | 1 | `fix(transferencias): guardar un item con la transferencia bloqueada y sin pisar etapas cerradas` | ver abajo |
+| 2 | `fix(transferencias): no des-verificar una etapa que la transferencia ya cerro` | `TransferenciaItemGraphQLDesconfirmarTest` |
+
+**Fase 2 (agregada en el paso 8).** La PWA des-verifica y después guarda (`guardarVerificacion`).
+Con la pantalla vieja, antes el save volvía a llenar el grupo que `desconfirmar` había vaciado; con
+la fase 1 el save se rechaza y el grupo cerrado quedaba vaciado y con su movimiento desactivado. La
+fase 1 empeoraba ese camino, así que `desconfirmarTransferenciaItem` rechaza una etapa que la
+transferencia ya pasó (mismo criterio: `getOrden()` de la etapa actual mayor que el de la pedida).
+No toma lock: la carrera de `desconfirmar` contra un avance sigue como residual.
 
 Tests (`TransferenciaItemGraphQLEtapaCerradaTest` nuevo + ajuste de los tres existentes, que
 necesitan `PlatformTransactionManager` mock y `lockCompartidoById`):
@@ -129,8 +137,8 @@ Batería: `./mvnw clean verify -B -DskipFlyway=true` (en copia fuera de `dev-frc
 ## Riesgos
 
 - **Falso rechazo de un reenvío entero** si lo que vuelve no es idéntico a lo guardado (formato de
-  vencimiento, presentación). Se mitiga comparando a minutos y por id; la prueba de runtime del
-  desktop (que reenvía todo) es **bloqueante**.
+  vencimiento, presentación). Se mitiga comparando el vencimiento por día y la presentación por id;
+  la prueba de runtime del desktop (que reenvía todo) pasó.
 - **Esperas más largas**: un save de ítem espera a un avance o a un `saveTransferencia` de la misma
   transferencia, y el lock de saldo se mantiene hasta el commit del save. Espera, no falla.
 - **Atomicidad nueva**: si falla el movimiento de stock, la asignación de lotes o vence la espera
@@ -173,8 +181,43 @@ Dos auditores en paralelo, sin verse. Qué se hizo con cada hallazgo:
 | B | Sin ciclo de locks: avance, `saveTransferencia` y verificación toman la transferencia antes que ítems; ajustes y FEFO solo saldo; `desconfirmar`/`verificarProducto` no piden saldo | Sin cambios; queda escrito acá |
 | B | Los tests unitarios no prueban lock, savepoint ni conexión compartida | La prueba de runtime 2 y un alta con el control forzado a fallar son bloqueantes |
 
+## Auditoría del diff (paso 8)
+
+3 fijos, sin condicionales (el diff no toca release, migraciones ni replicación).
+
+| Eje | Hallazgo | Decisión |
+|---|---|---|
+| Fijo 1 | Sin resolver nuevo ni dato expuesto; falta de rol en las mutations de transferencia es preexistente (#177). El mensaje dice la etapa de un id ajeno, lo mismo que ya devuelve `transferencia(id)`; los locks duran lo que la transacción | Sin cambios |
+| Fijo 2 | JPQL válido; `PESSIMISTIC_READ` → `for share of <alias>`, solo la tabla raíz (las EAGER van por select aparte); `JdbcTemplate` comparte la conexión del `JpaTransactionManager` de Boot | Confirmado en runtime (SQL capturado abajo) |
+| Fijo 3 | Ningún falso rechazo en desktop, PWA ni frc-mobile. **La PWA des-verifica antes de guardar: con pantalla vieja quedaba un grupo cerrado vaciado** | Fase 2 |
+| Fijo 3 | frc-mobile muestra «algo salió mal» sin el texto; el botón «Editar» del desktop en preparación queda habilitado para quien no es responsable (ahora se rechaza) | Residual de clientes |
+
+## Resultado (2026-10-21)
+
+**Tests.** `./mvnw clean verify -B -DskipFlyway=true`: 2209 tests, 0 fallas. Con
+`validarEtapasCerradas` comentado fallan 4 tests de `TransferenciaItemGraphQLEtapaCerradaTest`; con
+la validación de `desconfirmar` anulada falla `noDesverificaUnaEtapaCerrada`.
+
+**Runtime** (central de la rama en 8084 desde copia, perfil dev, `bodega` local; clones de la 51251
+→ 58227 a 58229; desktop `web-production` de `develop` en 4201; PWA de `develop` en 4302):
+
+| Prueba | Resultado |
+|---|---|
+| Avance simulado por psql (`FOR UPDATE` 8 s) sin cambios + save del ítem | El save queda en `wait_event_type = Lock` sobre `... from operaciones.transferencia transferen0_ where transferen0_.id=$1 for share of transferen0_` y guarda al soltar (~7 s). Sin `40001` |
+| Avance simulado que pasa a `PREPARACION_MERCADERIA_CONCLUIDA` y copia a transporte + save que cambia preparación | Espera y se rechaza con el texto; el ítem queda como lo dejó el avance |
+| Alta con el `INSERT` de control forzado a fallar (CHECK temporal) | El ítem se guarda, el control no, warning en el log. Sin el CHECK el control se registra: el `SAVEPOINT` corrió dentro de la transacción, en la misma conexión |
+| Dos saves del mismo ítem (psql con el ítem `FOR UPDATE` que cambia la observación) | El save espera, relee y conserva la observación del otro |
+| `desconfirmar` de una etapa cerrada / de la etapa en curso (API) | Rechazo sin tocar nada / vacía el grupo como antes |
+| Desktop, pantalla vieja: preparación concluida por otro, «Modificar cantidad» | Snackbar con el motivo; la fila no cambia; «Actualizar» muestra la etapa real |
+| Desktop, flujo completo de la 58229: preparar, modificar cantidad, verificar para transporte sin chofer, rechazar y desconfirmar/confirmar en transporte, transporte, recepción, rechazar en recepción, finalizar | Todo pasa. El ítem con vencimiento `2024-10-06 00:00` volvió del desktop como `01:00` (el corrimiento del cambio de horario): por día pasa; a minutos se habría trabado |
+| Desktop en creación: editar cantidad, alta, «Elegir lotes» (creación y preparación, con lotes de prueba) | Pasa; en preparación el movimiento se re-desglosa al lote elegido (lock de saldo dentro de la transacción) |
+| PWA: rechazar en preparación; pantalla vieja con preparación concluida → «Confirmar como viene» | Pasa / el `desconfirmar` se rechaza con el texto y el grupo cerrado queda intacto |
+
 ## Residuales (fuera de este PR)
 
-- `desconfirmarTransferenciaItem` tiene la misma carrera (save SERIALIZABLE solo, sin lock).
+- `desconfirmarTransferenciaItem` no toma lock: la carrera contra un avance en curso sigue (el
+  rechazo de la fase 2 cubre la pantalla vieja, no los solapados).
+- frc-mobile no muestra el texto del rechazo; el desktop deja abrir «Editar» en preparación a quien
+  no es responsable.
 - El `saveTransferenciaItem` del filial (sin llamadores).
 - Un input con `transferenciaId` distinto al del ítem lo sigue moviendo de transferencia, como hoy.

@@ -70,7 +70,8 @@ public class LoteFefoService {
      *   de ítems tomadas, pero siempre en el orden transferencia → ítem → saldo: bloquearon antes la
      *   fila de la transferencia, así que nadie que tenga el saldo de esa sucursal puede estar
      *   esperando sus ítems. Código nuevo que pida el lock teniendo filas de ítems o de movimientos
-     *   bloqueadas sin haber tomado antes su transferencia abre un ciclo.</li>
+     *   bloqueadas sin haber tomado antes su transferencia abre un ciclo. La finalización de una
+     *   toma (#465) llega solo con la fila de {@code inventario} tomada, que ningún dueño escribe.</li>
      *   <li>El lock es reentrante por <b>conexión</b>: un {@code REQUIRES_NEW} que llegue acá mientras
      *   la transacción de afuera lo tiene se espera a sí mismo hasta {@link #ESPERA_MAXIMA}.</li>
      * </ul>

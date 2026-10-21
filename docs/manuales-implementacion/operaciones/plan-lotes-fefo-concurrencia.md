@@ -238,6 +238,20 @@ productos y movimientos previos: todas las comparaciones dieron igual.
 | R5 — 11 avances con el advisory retenido 40 s | **Pasa.** 10 esperan el lock (todo el pool) y se cortan a los **15 s** con «Hay otra operación con lotes en curso en la sucursal 13. Reintentá en unos segundos.»; el 11.º espera conexión y lock (**30 s**, debajo de los 60 del desktop). Ninguna transferencia cambió de etapa. Otra query durante la cola tardó **10 s** (esperó conexión) y respondió. |
 | R6 — avance de 51163 (118 ítems, todos con lote) | `develop` sin fix: **4,8 s**. Primer commit: **10,3 s**. Con el segundo commit: **4,8 s**. Sin lote: 1,8 s. |
 
+**R7 — por pantalla (2026-10-21)**, desktop `develop` 00f37c4a compilado `web-production` y servido en
+`127.0.0.1:4201` contra el central de la rama (los `/graphql` salían a `localhost:8081`), usuario MR,
+producto 4680 marcado con lote y lote `REPRO463` creado con 30 por API (el diálogo de ajuste solo
+corrige lotes existentes):
+
+| Pantalla | Qué se hizo | Resultado |
+|---|---|---|
+| Productos → Ajustar stock (diálogo «Ajustar Stock por lote») | Sucursal 13, lote `REPRO463`, cantidad real 30 → 28 | «Guardado con éxito»; saldo del lote **28** |
+| Transferencias → 19248 → «Preparar para envío» | Avance a `PREPARACION_MERCADERIA` (20 unidades) | Etapa avanzada; FEFO tomó 20 de `REPRO463`: saldo **8** |
+| Devoluciones → nueva (sin proveedor, origen 13), 4680 × 5 sin lote → «Marcar como separado» | Avance a `SEPARADO` | `DESCARTE` −5 desglosado por FEFO en `REPRO463`: saldo **3** |
+
+Al terminar se borraron la devolución 8, su ítem y su baja, se restauró la base (comparación igual), se
+dejó el `localStorage` de ese origen como estaba y se bajaron el central y el servidor del desktop.
+
 **Lo que cambió por R6.** El primer commit pedía el lock dos veces por ítem, y cada pedido son cuatro
 consultas nativas que vuelcan la sesión entera: unas 950 por avance. El segundo commit
 (`fix(lotes): pedir el lock de saldo una sola vez por transaccion`) recuerda las claves tomadas en una
@@ -286,9 +300,8 @@ antes de aplicarlo.
 
 ## Sin verificar todavía
 
-- R7 por pantalla (transferencia, ajuste por lote y devolución desde el desktop): pendiente de
-  conectar la extensión de Chrome en mauro. Preparado: desktop `develop` 00f37c4a compilado
-  `web-production` y servido en `http://127.0.0.1:4201`, producto 4680 marcado con lote.
+- La duración de un avance de ~170 ítems con lote (unos 7 s) es una estimación por proporción, no
+  una medición.
 - El tamaño del pool en producción (no está en el repo ni en `deploy.sh`; podría venir del `.env`
   del servidor).
 - Si ya hay saldos negativos en bodega o farmacia: la consulta de detección es de solo lectura y se

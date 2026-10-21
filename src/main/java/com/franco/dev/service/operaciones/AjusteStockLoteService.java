@@ -73,6 +73,9 @@ public class AjusteStockLoteService {
     private LoteService loteService;
 
     @Autowired
+    private LoteFefoService loteFefoService;
+
+    @Autowired
     private ProductoService productoService;
 
     @Autowired
@@ -154,6 +157,8 @@ public class AjusteStockLoteService {
     @Transactional
     public AjusteStockLoteResultadoDto ajustar(AjusteStockLoteInput input) {
         validar(input);
+        // Antes de resolverLote, que puede insertar el lote, y de leer el saldo (#463).
+        loteFefoService.bloquearSaldo(input.getSucursalId());
 
         Producto producto = productoService.findById(input.getProductoId())
                 .orElseThrow(() -> new IllegalArgumentException(

@@ -18,6 +18,7 @@ import com.franco.dev.graphql.operaciones.input.TransferenciaItemInput;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.operaciones.ControlStockNegativoService;
 import com.franco.dev.service.operaciones.ConversionPresentacion;
+import com.franco.dev.service.operaciones.MovimientoStockLoteService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.operaciones.TransferenciaItemAlertaService;
 import com.franco.dev.service.operaciones.TransferenciaItemLoteService;
@@ -88,6 +89,9 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private MovimientoStockLoteService movimientoStockLoteService;
 
     public Optional<TransferenciaItem> transferenciaItem(Long id) {
         return service.findById(id);
@@ -417,16 +421,30 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
      *
      * El movimiento de stock de la etapa se desactiva en lugar de borrarse, igual que hace el flujo
      * cuando un item se rechaza.
+     *
+     * Corre en una transaccion con la transferencia y el item bloqueados, en el orden del avance
+     * (#471): espera a un avance en curso en vez de fallar con un 40001, valida contra lo que dejo, y
+     * el movimiento no queda desactivado si falla el save del item.
      */
     public TransferenciaItem desconfirmarTransferenciaItem(Long id, EtapaTransferencia etapa) {
-        Optional<TransferenciaItem> encontrado = id != null ? service.findById(id) : null;
-        TransferenciaItem ti = encontrado != null ? encontrado.orElse(null) : null;
+        if (id == null) {
+            throw new GraphQLException("No existe el item de transferencia " + id);
+        }
+        return new TransactionTemplate(transactionManager).execute(status -> desconfirmar(id, etapa));
+    }
+
+    private TransferenciaItem desconfirmar(Long id, EtapaTransferencia etapa) {
+        // Primeras cargas del request: los lock no refrescan una instancia ya cargada.
+        Long transferenciaId = service.transferenciaIdDe(id);
+        Transferencia transferencia = transferenciaId != null
+                ? transferenciaService.lockCompartidoById(transferenciaId).orElse(null)
+                : null;
+        TransferenciaItem ti = service.lockById(id).orElse(null);
         if (ti == null) {
             throw new GraphQLException("No existe el item de transferencia " + id);
         }
         // La PWA des-verifica y despues guarda. Con la pantalla vieja el save ya se rechaza (#468): sin
         // esto quedaria vaciada una etapa cerrada, con su movimiento de stock desactivado.
-        Transferencia transferencia = ti.getTransferencia();
         if (transferencia != null && transferencia.getEtapa() != null && etapa != null
                 && transferencia.getEtapa().getOrden() > etapa.getOrden()) {
             throw new GraphQLException("La transferencia " + transferencia.getId() + " ya esta en etapa "
@@ -499,6 +517,8 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         if (ms != null && Boolean.TRUE.equals(ms.getEstado())) {
             ms.setEstado(false);
             movimientoStockService.save(ms);
+            // Sin esto las filas por lote quedaban activas y el saldo por lote seguia contando la salida.
+            movimientoStockLoteService.sincronizarEstado(ms);
         }
     }
 

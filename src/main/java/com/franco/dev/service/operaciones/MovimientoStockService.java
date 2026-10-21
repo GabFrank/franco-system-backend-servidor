@@ -18,6 +18,7 @@ import com.franco.dev.repository.operaciones.MovimientoStockRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.configuraciones.ModificacionService;
 import com.franco.dev.service.empresarial.SucursalService;
+import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -354,8 +355,14 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
                 || e.getMotivoRechazoRecepcion() != null || e.getMotivoRechazoTransporte() != null;
         MovimientoStock ms = null;
 
+        // Un ítem rechazado sin cantidad o presentación en la etapa (des-verificado y rechazado después)
+        // no mueve stock: su movimiento queda inactivo y no se crea uno nuevo (#474).
         switch (e.getTransferencia().getEtapa()) {
             case PREPARACION_MERCADERIA:
+                if (e.getCantidadPreparacion() == null || e.getPresentacionPreparacion() == null) {
+                    movimientoStockSalida = sinCantidad(e, esRechazado, movimientoStockSalida, "preparacion");
+                    break;
+                }
                 ms = movimientoStockSalida != null ? movimientoStockSalida : new MovimientoStock();
                 ms.setEstado(!esRechazado);
                 ms.setSucursalId(e.getTransferencia().getSucursalOrigen().getId());
@@ -368,22 +375,33 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
                 movimientoStockSalida = save(ms);
                 break;
             case RECEPCION_EN_VERIFICACION:
-                ms = movimientoStockEntrada != null ? movimientoStockEntrada : new MovimientoStock();
-                ms.setEstado(!esRechazado);
-                ms.setSucursalId(e.getTransferencia().getSucursalDestino().getId());
-                ms.setCantidad(e.getCantidadRecepcion() * e.getPresentacionRecepcion().getCantidad());
-                ms.setProducto(e.getPresentacionRecepcion().getProducto());
-                ms.setReferencia(e.getId());
-                ms.setTipoMovimiento(TipoMovimiento.TRANSFERENCIA);
-                ms.setCreadoEn(LocalDateTime.now());
-                ms.setUsuario(e.getUsuario());
-                movimientoStockEntrada = save(ms);
-                ms = movimientoStockSalida;
-                ms.setEstado(!esRechazado);
-                movimientoStockSalida = save(ms);
+                if (e.getCantidadRecepcion() == null || e.getPresentacionRecepcion() == null) {
+                    movimientoStockEntrada = sinCantidad(e, esRechazado, movimientoStockEntrada, "recepcion");
+                } else {
+                    ms = movimientoStockEntrada != null ? movimientoStockEntrada : new MovimientoStock();
+                    ms.setEstado(!esRechazado);
+                    ms.setSucursalId(e.getTransferencia().getSucursalDestino().getId());
+                    ms.setCantidad(e.getCantidadRecepcion() * e.getPresentacionRecepcion().getCantidad());
+                    ms.setProducto(e.getPresentacionRecepcion().getProducto());
+                    ms.setReferencia(e.getId());
+                    ms.setTipoMovimiento(TipoMovimiento.TRANSFERENCIA);
+                    ms.setCreadoEn(LocalDateTime.now());
+                    ms.setUsuario(e.getUsuario());
+                    movimientoStockEntrada = save(ms);
+                }
+                if (movimientoStockSalida != null) {
+                    movimientoStockSalida.setEstado(!esRechazado);
+                    movimientoStockSalida = save(movimientoStockSalida);
+                }
                 break;
             case TRANSPORTE_VERIFICACION:
-                if (movimientoStockSalida != null) {
+                // Sin salida, transporte nunca generó movimiento: se sigue salteando como antes.
+                if (movimientoStockSalida == null) {
+                    break;
+                }
+                if (e.getCantidadTransporte() == null || e.getPresentacionTransporte() == null) {
+                    movimientoStockSalida = sinCantidad(e, esRechazado, movimientoStockSalida, "transporte");
+                } else {
                     ms = movimientoStockSalida;
                     ms.setCantidad(e.getCantidadTransporte() * e.getPresentacionTransporte().getCantidad() * -1);
                     ms.setProducto(e.getPresentacionTransporte().getProducto());
@@ -412,6 +430,20 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         res.add(movimientoStockSalida);
         res.add(movimientoStockEntrada);
         return res;
+    }
+
+    /**
+     * Sin rechazo, una etapa sin cantidad es un ítem sin verificar: se corta como antes cortaba la
+     * NullPointerException, para que un avance de etapa no lo deje pasar sin mover stock.
+     */
+    private MovimientoStock sinCantidad(TransferenciaItem e, boolean esRechazado, MovimientoStock ms, String etapa) {
+        if (!esRechazado) {
+            throw new GraphQLException("El item " + e.getId() + " no tiene cantidad verificada en " + etapa
+                    + ": verificalo o rechazalo antes de seguir.");
+        }
+        if (ms == null) return null;
+        ms.setEstado(false);
+        return save(ms);
     }
 
     /**

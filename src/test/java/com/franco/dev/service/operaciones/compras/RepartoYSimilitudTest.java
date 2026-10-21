@@ -57,4 +57,15 @@ class RepartoYSimilitudTest {
         assertFalse(ComprasMobileService.mismoRuc("80062508", "80062507"));
         assertFalse(ComprasMobileService.mismoRuc(null, "80062507"));
     }
+
+    @Test
+    void lasUnidadesPorBultoSalenDeLaDescripcion() {
+        assertEquals(6, Similitud.unidadesPorBulto("SALADIX JAMON 6*100GR"));
+        assertEquals(30, Similitud.unidadesPorBulto("BONOBON ORIGINAL 30X15G (12)"));
+        assertEquals(20, Similitud.unidadesPorBulto("CHOC.C/MANI COFLER BLOCK 20*38GR"));
+        assertEquals(24, Similitud.unidadesPorBulto("GOLPE 24UX25G COMEX  (6D)"));
+        assertEquals(18, Similitud.unidadesPorBulto("BONOBON ORIGINAL 18X 15G (16)"));
+        assertNull(Similitud.unidadesPorBulto("SALADIX DUO 80gr"));
+        assertNull(Similitud.unidadesPorBulto(null));
+    }
 }

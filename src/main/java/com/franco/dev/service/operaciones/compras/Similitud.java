@@ -57,4 +57,15 @@ final class Similitud {
         if (palabras.size() > 2) consultas.add(String.join(" ", palabras.subList(0, 2)));
         return consultas.stream().distinct().collect(Collectors.toList());
     }
+
+    /**
+     * Unidades por bulto que dice la descripción del proveedor: «SALADIX JAMON 6*100GR» → 6,
+     * «BONOBON ORIGINAL 30X15G (12)» → 30, «COFLER BLOCK 20*38GR» → 20, «GOLPE 24UX25G» → 24. Null si no lo dice.
+     */
+    static Integer unidadesPorBulto(String descripcion) {
+        if (descripcion == null) return null;
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("(?<![\\d.,])(\\d{1,3})\\s*(?:UND|UN|U)?\\s*[*xX]\\s*\\d").matcher(descripcion);
+        return m.find() ? Integer.valueOf(m.group(1)) : null;
+    }
 }

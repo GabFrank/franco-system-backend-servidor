@@ -26,6 +26,7 @@ import com.franco.dev.domain.productos.ProductoProveedor;
 import com.franco.dev.domain.productos.ProveedorCodigoProducto;
 import com.franco.dev.domain.productos.dto.BuscadorProductoFiltros;
 import com.franco.dev.domain.productos.dto.BuscadorProductoResultado;
+import com.franco.dev.domain.productos.enums.TipoCoincidenciaBuscador;
 import com.franco.dev.graphql.operaciones.compras.AvisoFacturaMobile;
 import com.franco.dev.graphql.operaciones.compras.CompraNotaMobile;
 import com.franco.dev.graphql.operaciones.compras.CompraPedidoItemMobile;
@@ -642,6 +643,7 @@ public class ComprasMobileService {
 
     /** La factura que va a crear la compra: productos reconocidos, avisos de IVA y lo que trae de forma de pago. */
     private FacturaProveedorMobile armarBorrador(DocumentoRecibido doc, boolean recalcular) {
+        if (recalcular) documentoRecibidoService.completarCodigos(doc);
         List<DocumentoRecibidoItem> renglones = documentoRecibidoService.renglones(doc.getId());
         Proveedor proveedor = doc.getProveedor();
         if (recalcular) {
@@ -954,6 +956,7 @@ public class ComprasMobileService {
      * guarda (el pedido pudo cambiar desde la última vez); sin él, se muestra lo guardado (factura ya confirmada).
      */
     private FacturaProveedorMobile armarFactura(DocumentoRecibido doc, Pedido pedido, boolean recalcular) {
+        if (recalcular) documentoRecibidoService.completarCodigos(doc);
         List<DocumentoRecibidoItem> renglones = documentoRecibidoService.renglones(doc.getId());
         Proveedor proveedor = pedido.getProveedor();
         Moneda moneda = monedaDeOrNull(doc.getMoneda());
@@ -1151,6 +1154,7 @@ public class ComprasMobileService {
         rm.setDiferencias(new ArrayList<>(res.diferencias));
         rm.setAvisosIva(new ArrayList<>(res.avisosIva));
         rm.setAvisos(new ArrayList<>(res.avisos));
+        if (r.getNotaReconocimiento() != null) rm.getAvisos().add(r.getNotaReconocimiento());
         rm.setRequiereObservacion(res.requiereObservacion);
         rm.setObservacionFaltante(res.observacionFaltante);
         rm.setObservacion(r.getObservacion());
@@ -1245,7 +1249,7 @@ public class ComprasMobileService {
     // =================================================================================== Reconocer productos
 
     enum TipoMatch {
-        MANUAL, APRENDIDO, CODIGO_BARRAS, CODIGO_PAQUETE, CODIGO_INTERNO;
+        MANUAL, APRENDIDO, CODIGO_BARRAS, CODIGO_PAQUETE, CODIGO_INTERNO, BUSCADOR_PROVEEDOR, BUSCADOR;
 
         static String etiqueta(String tipo) {
             if (tipo == null) return null;
@@ -1255,17 +1259,31 @@ public class ComprasMobileService {
                 case "CODIGO_BARRAS": return "Reconocido por el código de barras";
                 case "CODIGO_PAQUETE": return "Reconocido por el código del paquete";
                 case "CODIGO_INTERNO": return "Reconocido por el código interno";
+                case "BUSCADOR_PROVEEDOR": return "Reconocido por el código, entre los productos del proveedor";
+                case "BUSCADOR": return "Reconocido por el código (coincide en parte o sin ceros)";
                 default: return tipo;
             }
         }
     }
 
     /** Aprendido (proveedor + código) → código de barras → código del paquete → código interno como barras. */
+    /**
+     * Reconoce el producto del renglón como lo haría una persona con el buscador:
+     * <ol>
+     *   <li>lo aprendido para ese proveedor y su código;</li>
+     *   <li>el código de barras exacto, con y sin ceros a la izquierda;</li>
+     *   <li>el código escrito en el buscador de productos (que encuentra un tramo del código o el código sin
+     *   ceros), primero entre los productos de ese proveedor y después en todo el catálogo. Solo se toma si hay
+     *   un único producto: si hay varios, van como sugerencias.</li>
+     * </ol>
+     * Después ajusta el bulto: «SALADIX 6*100GR» facturado por caja se lleva a la presentación de 6.
+     */
     private void resolverProducto(DocumentoRecibidoItem r, Proveedor proveedor, Set<Long> productosDelPedido) {
         r.setProducto(null);
         r.setPresentacion(null);
         r.setFactor(null);
         r.setTipoMatch(null);
+        r.setNotaReconocimiento(null);
         if (proveedor != null && !vacio(r.getCodigoProveedor())) {
             ProveedorCodigoProducto aprendido = aprendizajeRepository
                     .findByProveedorIdAndCodigoProveedor(proveedor.getId(), r.getCodigoProveedor().trim()).orElse(null);
@@ -1274,10 +1292,121 @@ public class ComprasMobileService {
                 return;
             }
         }
-        if (porCodigo(r, r.getGtin(), TipoMatch.CODIGO_BARRAS, productosDelPedido)) return;
-        if (porCodigo(r, r.getGtinPaquete(), TipoMatch.CODIGO_PAQUETE, productosDelPedido)) return;
+        List<String[]> codigos = codigosDelRenglon(r);
+        for (String[] c : codigos) {
+            if (porCodigo(r, c[0], TipoMatch.valueOf(c[1]), productosDelPedido)) {
+                ajustarBulto(r);
+                return;
+            }
+        }
+        for (String[] c : codigos) {
+            Long proveedorId = proveedor != null ? proveedor.getId() : null;
+            Presentacion p = proveedorId != null ? porBuscador(c[0], proveedorId) : null;
+            TipoMatch tipo = TipoMatch.BUSCADOR_PROVEEDOR;
+            if (p == null) {
+                p = porBuscador(c[0], null);
+                tipo = TipoMatch.BUSCADOR;
+            }
+            if (p != null) {
+                asignar(r, p, p.getCantidad(), tipo);
+                ajustarBulto(r);
+                return;
+            }
+        }
+    }
+
+    /** Los códigos con los que se puede buscar el renglón, del más confiable al menos. */
+    private static List<String[]> codigosDelRenglon(DocumentoRecibidoItem r) {
+        List<String[]> codigos = new ArrayList<>();
+        if (!vacio(r.getGtin())) codigos.add(new String[]{r.getGtin().trim(), TipoMatch.CODIGO_BARRAS.name()});
+        if (!vacio(r.getGtinPaquete())) codigos.add(new String[]{r.getGtinPaquete().trim(), TipoMatch.CODIGO_PAQUETE.name()});
+        // El código interno del proveedor solo sirve si parece un código de barras: «1007167» no es nuestro
         if (r.getCodigoProveedor() != null && r.getCodigoProveedor().trim().matches("\\d{8,14}")) {
-            porCodigo(r, r.getCodigoProveedor(), TipoMatch.CODIGO_INTERNO, productosDelPedido);
+            codigos.add(new String[]{r.getCodigoProveedor().trim(), TipoMatch.CODIGO_INTERNO.name()});
+        }
+        return codigos;
+    }
+
+    /**
+     * El código escrito en el buscador de productos, como lo haría el comprador. Solo coincidencias de código (nunca
+     * por id ni por texto), y solo si el resultado es un único producto.
+     */
+    private Presentacion porBuscador(String codigo, Long proveedorId) {
+        List<Producto> productos = productosPorCodigo(codigo, proveedorId);
+        if (productos.size() != 1) return null;
+        return presentacionDelCodigo(productos.get(0), codigo);
+    }
+
+    private List<Producto> productosPorCodigo(String codigo, Long proveedorId) {
+        if (codigo == null || codigo.length() < 8) return Collections.emptyList();
+        try {
+            BuscadorProductoFiltros filtros = new BuscadorProductoFiltros();
+            filtros.setTexto(codigo);
+            filtros.setProveedorId(proveedorId);
+            filtros.setActivo(true);
+            filtros.setPage(0);
+            filtros.setSize(5);
+            List<Producto> productos = new ArrayList<>();
+            for (BuscadorProductoResultado res : buscadorProductoService.buscar(filtros).getContent()) {
+                TipoCoincidenciaBuscador tipo = res.getTipoCoincidencia();
+                if (res.getProducto() == null || tipo == null) continue;
+                if (tipo != TipoCoincidenciaBuscador.CODIGO_EXACTO && tipo != TipoCoincidenciaBuscador.CODIGO_PREFIJO
+                        && tipo != TipoCoincidenciaBuscador.CODIGO_PARCIAL) continue;
+                if (productos.stream().noneMatch(p -> p.getId().equals(res.getProducto().getId()))) productos.add(res.getProducto());
+            }
+            return productos;
+        } catch (RuntimeException e) {
+            log.warn("El buscador de productos falló con el código {}: {}", codigo, e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    /** La presentación del producto que tiene ese código (comparando sin ceros, entero o un tramo). */
+    private Presentacion presentacionDelCodigo(Producto producto, String codigo) {
+        String buscado = sinCeros(codigo);
+        for (Presentacion p : presentacionService.findByProductoIdOrderByCantidadAsc(producto.getId())) {
+            for (Codigo c : codigoRepository.findByPresentacionId(p.getId())) {
+                String propio = sinCeros(c.getCodigo());
+                if (propio == null || propio.length() < 4) continue;
+                if (propio.equals(buscado) || buscado.contains(propio) || propio.contains(buscado)) return p;
+            }
+        }
+        return presentacionParaSugerir(producto);
+    }
+
+    private static String sinCeros(String codigo) {
+        return codigo == null ? null : codigo.trim().replaceFirst("^0+(?=.)", "");
+    }
+
+    /**
+     * El proveedor factura por bulto («SALADIX JAMON 6*100GR» a 141.865) y el código de barras es el de la unidad.
+     * Si la descripción dice cuántas unidades trae el bulto, y el precio de la factura dividido por esas unidades se
+     * parece al de la última compra mucho más que el precio entero, se toma el bulto: la presentación de N si existe,
+     * o la unidad con factor N. Sin compra anterior no se adivina: se avisa.
+     */
+    private void ajustarBulto(DocumentoRecibidoItem r) {
+        Presentacion actual = r.getPresentacion();
+        if (actual == null || r.getProducto() == null || (actual.getCantidad() != null && actual.getCantidad() > 1)) return;
+        Integer n = Similitud.unidadesPorBulto(r.getDescripcion());
+        if (n == null || n < 2) return;
+        double precio = nz(r.getPrecioUnitario()) - nz(r.getDescuentoUnitario());
+        Double ultimo = ultimoPrecioCompra(r.getProducto().getId());
+        Presentacion deN = presentacionService.findByProductoIdOrderByCantidadAsc(r.getProducto().getId()).stream()
+                .filter(p -> !Boolean.FALSE.equals(p.getActivo()) && p.getCantidad() != null && Math.abs(p.getCantidad() - n) < 0.001)
+                .findFirst().orElse(null);
+        if (ultimo == null || ultimo <= 0 || precio <= 0) {
+            r.setNotaReconocimiento("La descripción dice " + n + " unidades por bulto: revisá las unidades por cada "
+                    + texto(r.getUnidadMedida()) + " de la factura (Cambiar producto).");
+            return;
+        }
+        if (Math.abs(precio / n - ultimo) < Math.abs(precio - ultimo)) {
+            if (deN != null) {
+                r.setPresentacion(deN);
+            }
+            r.setFactor((double) n);
+            r.setNotaReconocimiento("Se toma el bulto de " + n + " (" + (deN != null ? deN.getDescripcion() : "unidades")
+                    + "): la descripción lo dice y " + CruceFactura.importe(precio / n) + " por unidad se parece a la última compra ("
+                    + CruceFactura.importe(ultimo) + ").");
         }
     }
 
@@ -1345,6 +1474,19 @@ public class ComprasMobileService {
     private List<SugerenciaProductoMobile> sugerencias(DocumentoRecibidoItem r, Proveedor proveedor) {
         LinkedHashMap<Long, SugerenciaProductoMobile> porProducto = new LinkedHashMap<>();
         try {
+            // El código en el buscador, cuando dio más de un producto y no se pudo elegir solo
+            for (String[] c : codigosDelRenglon(r)) {
+                for (Long proveedorId : proveedor != null ? Arrays.asList(proveedor.getId(), null) : Collections.<Long>singletonList(null)) {
+                    for (Producto prod : productosPorCodigo(c[0], proveedorId)) {
+                        if (porProducto.size() >= 5 || porProducto.containsKey(prod.getId())) continue;
+                        Presentacion p = presentacionDelCodigo(prod, c[0]);
+                        if (p == null) continue;
+                        porProducto.put(prod.getId(), sugerencia(p, c[0], "CODIGO_PARECIDO",
+                                "El código " + c[0] + " coincide en parte o sin ceros"
+                                        + (proveedorId != null ? " · producto del proveedor" : "")));
+                    }
+                }
+            }
             for (String codigo : Arrays.asList(r.getGtin(), r.getGtinPaquete(), r.getCodigoProveedor())) {
                 if (codigo == null || !codigo.trim().matches("\\d{8,14}")) continue;
                 String c = codigo.trim();

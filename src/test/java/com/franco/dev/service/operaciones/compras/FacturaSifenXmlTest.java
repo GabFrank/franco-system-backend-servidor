@@ -113,6 +113,24 @@ class FacturaSifenXmlTest {
     }
 
     @Test
+    void sinDGtinElCodigoDeBarrasSaleDeDInfItemComoEnGenfi() {
+        // GENFI no manda dGtin: el código va en dInfItem («7790580716707 - UME: C»), que es lo que imprime el KuDE
+        String genfi = respuestaMarvi(false)
+                .replace("<dGtin>07841503002169</dGtin>", "")
+                .replaceFirst("<dCantProSer>80</dCantProSer>", "<dCantProSer>80</dCantProSer><dInfItem>7790580716707 - UME: C</dInfItem>");
+        FacturaSifenXml.Renglon r = FacturaSifenXml.leer(genfi).renglones.get(0);
+        assertEquals("7790580716707", r.gtin);
+        assertEquals("7790580716707 - UME: C", r.informacion);
+    }
+
+    @Test
+    void elCodigoDeBarrasEnUnTextoSoloTomaNumerosDe8a14Digitos() {
+        assertEquals("77980915", FacturaSifenXml.codigoDeBarrasEn("77980915 - UME: C"));
+        assertNull(FacturaSifenXml.codigoDeBarrasEn("COD 1007167 UME: C"), "7 dígitos es el código interno, no un EAN");
+        assertNull(FacturaSifenXml.codigoDeBarrasEn(null));
+    }
+
+    @Test
     void elPlazoSeLeeDeCualquierTexto() {
         assertEquals(30, FacturaSifenXml.dias("30 días"));
         assertEquals(45, FacturaSifenXml.dias("45"));

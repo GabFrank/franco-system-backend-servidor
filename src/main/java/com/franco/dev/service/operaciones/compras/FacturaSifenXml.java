@@ -73,6 +73,8 @@ public final class FacturaSifenXml {
         public String codigoProveedor;
         public String gtin;
         public String gtinPaquete;
+        /** dInfItem: texto libre del emisor por renglón. Algunos (GENFI) ponen ahí el código de barras. */
+        public String informacion;
         public String descripcion;
         public String unidadMedida;
         public Double cantidad;
@@ -157,6 +159,13 @@ public final class FacturaSifenXml {
         r.gtin = texto(item, "dGtin");
         r.gtinPaquete = texto(item, "dGtinPq");
         r.descripcion = texto(item, "dDesProSer");
+        r.informacion = texto(item, "dInfItem");
+        if (r.gtin == null) {
+            // Sin dGtin, el código de barras suele venir escrito en dInfItem («7790580716707 - UME: C») o en la
+            // descripción: es lo que el KuDE imprime debajo del producto
+            r.gtin = codigoDeBarrasEn(r.informacion);
+            if (r.gtin == null) r.gtin = codigoDeBarrasEn(r.descripcion);
+        }
         String unidad = texto(item, "dDesUniMed");
         r.unidadMedida = unidad != null ? unidad : texto(item, "cUniMed");
         r.cantidad = numero(texto(item, "dCantProSer"));
@@ -255,6 +264,13 @@ public final class FacturaSifenXml {
     private static Integer entero(String t) {
         Double d = numero(t);
         return d != null ? d.intValue() : null;
+    }
+
+    /** El primer número de 8 a 14 dígitos del texto (EAN-8, UPC, EAN-13, GTIN-14), o null. */
+    static String codigoDeBarrasEn(String texto) {
+        if (texto == null) return null;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?<!\\d)(\\d{8,14})(?!\\d)").matcher(texto);
+        return m.find() ? m.group(1) : null;
     }
 
     /** «30 días», «30», «30 DIAS» → 30. */

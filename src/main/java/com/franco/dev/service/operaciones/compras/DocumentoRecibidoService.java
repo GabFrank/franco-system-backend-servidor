@@ -39,6 +39,7 @@ public class DocumentoRecibidoService {
     public DocumentoRecibido obtener(String cdc) {
         DocumentoRecibido doc = repository.findByCdc(cdc).orElse(null);
         if (doc != null && ENCONTRADO.equals(doc.getCodigoRespuesta()) && doc.getXml() != null) {
+            completarCodigos(doc);
             return doc;
         }
         if (sifenService == null) {
@@ -81,6 +82,30 @@ public class DocumentoRecibidoService {
             itemRepository.save(renglon(doc, r));
         }
         return doc;
+    }
+
+    /**
+     * Una factura guardada con una versión anterior del lector puede no tener el código de barras que el proveedor
+     * escribió fuera de dGtin. Se relee del XML guardado (no se vuelve a consultar SIFEN).
+     */
+    public void completarCodigos(DocumentoRecibido doc) {
+        List<DocumentoRecibidoItem> items = renglones(doc.getId());
+        if (items.stream().noneMatch(i -> i.getGtin() == null)) return;
+        FacturaSifenXml.Cabecera leida;
+        try {
+            leida = FacturaSifenXml.leer(doc.getXml());
+        } catch (IllegalArgumentException e) {
+            return;
+        }
+        for (DocumentoRecibidoItem i : items) {
+            if (i.getGtin() != null || i.getOrden() == null) continue;
+            leida.renglones.stream().filter(r -> r.orden == i.getOrden()).findFirst().ifPresent(r -> {
+                if (r.gtin != null) {
+                    i.setGtin(r.gtin);
+                    itemRepository.save(i);
+                }
+            });
+        }
     }
 
     public List<DocumentoRecibidoItem> renglones(Long documentoId) {

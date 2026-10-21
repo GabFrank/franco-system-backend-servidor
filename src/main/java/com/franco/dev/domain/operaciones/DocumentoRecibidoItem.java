@@ -77,4 +77,8 @@ public class DocumentoRecibidoItem {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "nota_recepcion_item_id")
     private NotaRecepcionItem notaRecepcionItem;
+
+    /** Cómo se ajustó el reconocimiento (bulto, por ejemplo). No se guarda: se recalcula con cada cruce. */
+    @Transient
+    private String notaReconocimiento;
 }

@@ -248,14 +248,13 @@ extend type Query {
 }
 
 extend type Mutation {
-    # La factura crea la compra: pedido, ítems, reparto, nota y (opcional) fin de la recepción documental
+    # La factura crea la compra: pedido, ítems, reparto y nota. Queda en la recepción documental (se puede reabrir)
     leerFacturaNuevaCompraMobile(qr: String!): FacturaProveedorMobile!
     crearCompraDesdeFacturaMobile(
         documentoId: ID!
         formaPagoId: ID
         plazoCredito: Int
         sucursalId: ID!
-        finalizarNotas: Boolean
     ): CompraPedidoMobile!
     leerFacturaProveedorMobile(pedidoId: ID!, qr: String!): FacturaProveedorMobile!
     vincularRenglonFacturaMobile(renglonId: ID!, presentacionId: ID!, factor: Float, recordar: Boolean): FacturaProveedorMobile!

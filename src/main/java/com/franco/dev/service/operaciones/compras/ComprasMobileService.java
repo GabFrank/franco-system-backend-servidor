@@ -669,7 +669,10 @@ public class ComprasMobileService {
     /**
      * Crea el pedido con lo que dice la factura y lo lleva hasta la recepción documental, en una sola transacción:
      * los mismos pasos que el desktop (crear el pedido con sus sucursales, cargar cada ítem con su reparto,
-     * «Finalizar planificación», cargar la nota y, si se pide, «Finalizar conciliación»), con las mismas operaciones.
+     * «Finalizar planificación» y cargar la nota), con las mismas operaciones.
+     *
+     * ⚠️ <b>No finaliza la recepción documental</b>: la compra queda en esa etapa con la factura cargada. Finalizarla
+     * la mandaba a recepción de mercadería y ya no se podía reabrir la planificación para corregir un ítem.
      *
      * Lo que la factura trae se toma de la factura (proveedor, moneda, cotización, ítems, precios con IVA, forma de
      * pago y plazo si vienen). Lo que no trae lo elige el comprador: la forma de pago si la factura no la dice, y la
@@ -677,7 +680,7 @@ public class ComprasMobileService {
      */
     @Transactional
     public CompraPedidoMobile crearCompraDesdeFactura(Long documentoId, Long formaPagoId, Integer plazoCredito,
-                                                       Long sucursalId, Boolean finalizarNotas) {
+                                                       Long sucursalId) {
         seguridad.exigirCompras();
         DocumentoRecibido doc = documentoObligatorio(documentoId);
         exigirSinNota(doc);
@@ -747,17 +750,9 @@ public class ComprasMobileService {
         // 4. La nota, con la misma lógica que cargar la factura a un pedido existente
         cargarNota(doc, pedido);
 
-        // 5. «Finalizar conciliación», si el comprador no espera más facturas para esta compra
-        if (Boolean.TRUE.equals(finalizarNotas)) {
-            try {
-                pedidoService.finalizarRecepcionNotas(pedido.getId());
-            } catch (IllegalStateException | IllegalArgumentException e) {
-                throw new GraphQLException(e.getMessage());
-            }
-            for (NotaRecepcion nota : notaRecepcionService.findByPedidoId(pedido.getId())) {
-                vincularProductosConProveedor(nota, usuario);
-            }
-        }
+        // Termina acá, en la recepción documental con la factura cargada: no se finaliza la conciliación. Así la
+        // planificación se puede reabrir («Reabrir» del desktop exige RECEPCION_NOTA abierta) para corregir lo que la
+        // carga automática haya tomado mal, y se pueden sumar más facturas al mismo pedido.
         notaRecepcionItemService.getRepository().flush();
         return armarPedido(pedidoObligatorio(pedido.getId()));
     }

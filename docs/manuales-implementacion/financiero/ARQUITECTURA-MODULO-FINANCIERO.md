@@ -52,6 +52,26 @@ Modelo portado de **frc-gourmet** (app hermana), adaptado a JPA/Postgres multi-u
 `BancoLedgerService` es el análogo para cuentas bancarias (mismo patrón: lock + descubierto contra
 `saldo − reservado` + `ajustarReservado` para cheques diferidos).
 
+### Caja en vivo: suscripción `tesoreriaCambioSub` (2026-10)
+
+El desktop relee la caja mayor abierta cuando su saldo cambia en otro lado (otro usuario, otra pantalla).
+
+- **Quién avisa:** los dos únicos puntos que mutan saldos publican un `TesoreriaCambio` (evento de Spring):
+  `TesoreriaService.aplicarSaldo` y `recalcularSaldos` con el id de la caja; `BancoLedgerService.registrar`
+  y `ajustarReservado` con el id de la cuenta. Un flujo nuevo que mueva plata por estos métodos avisa solo.
+- **Cuándo:** `TesoreriaCambioListener` (`@TransactionalEventListener(AFTER_COMMIT, fallbackExecution = true)`)
+  lo pasa a la suscripción recién con el commit: un pago rechazado o un lote revertido no avisan. Envuelve
+  todo en `try/catch`: un error ahí le llegaría al que registró un pago ya confirmado.
+- **Cómo viaja:** `TesoreriaCambioPublisher` (emisor serializado, entrega en `Schedulers.io()`, buffer de
+  1000 por suscriptor con `DROP_OLDEST`). Lleva solo el id de caja o de cuenta, sin montos: el cliente
+  relee con las consultas de siempre, que aplican rol y ACL.
+- **Desktop:** `CajaVirtualService.onCambiosTesoreria()` abre una sola suscripción por pantalla (al
+  reconectar el websocket, `subscriptions-transport-ws` la reenvía solo) y emite además un cambio sin ids
+  cuando el central vuelve tras un corte. Un error del servidor (un central sin la suscripción) se
+  descarta sin aviso ni reintento. El tablero y la lista de cajas releen con `auditTime(1000)`, con los
+  filtros ya aplicados y sin avisos si la relectura de fondo falla.
+- **No avisa** lo que no mueve saldos: alta o edición de cajas, accesos, correcciones por SQL.
+
 ## 3. Fuentes que alimentan la caja mayor (el circuito de dinero)
 
 | Fuente | Servicio | Movimiento | Origen |

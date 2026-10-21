@@ -45,7 +45,7 @@ public class FuncionarioBusquedaNicknameIT {
     private EntityManager em;
 
     private Page<Funcionario> buscar(String nombre, List<Long> sucursales) {
-        return service.findAllWithPage(null, nombre, sucursales, null, null, null, null, null,
+        return service.findAllWithPage(null, nombre, sucursales, null, null, null, null, null, null,
                 PageRequest.of(0, 20));
     }
 

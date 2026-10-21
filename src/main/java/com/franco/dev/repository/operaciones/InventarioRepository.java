@@ -5,16 +5,27 @@ import com.franco.dev.domain.operaciones.enums.InventarioEstado;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import javax.persistence.LockModeType;
 import java.util.List;
+import java.util.Optional;
 
 public interface InventarioRepository extends HelperRepository<Inventario, Long> {
 
     default Class<Inventario> getEntityClass() {
         return Inventario.class;
     }
+
+    /**
+     * Toma la toma con lock pesimista: serializa dos finalizaciones simultaneas (#465). Devuelve la
+     * instancia que ya estuviera cargada sin refrescarla, asi que tiene que ser la primera carga.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select i from Inventario i where i.id = :id")
+    Optional<Inventario> lockById(@Param("id") Long id);
 
     @Query(value = "select * from operaciones.inventario ms \n" +
             "where ms.creado_en between cast(?1 as timestamp) and cast(?2 as timestamp) or ms.estado = 'ABIERTO'", nativeQuery = true)

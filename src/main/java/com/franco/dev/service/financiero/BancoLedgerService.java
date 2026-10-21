@@ -7,8 +7,10 @@ import com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.repository.financiero.CuentaBancariaRepository;
 import com.franco.dev.repository.financiero.MovimientoBancarioRepository;
+import com.franco.dev.graphql.financiero.publisher.TesoreriaCambio;
 import graphql.GraphQLException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +28,8 @@ public class BancoLedgerService {
     private final CuentaBancariaRepository cuentaRepository;
     private final MovimientoBancarioRepository movimientoRepository;
     private final LimiteAnulacionService limiteAnulacion;
+    /** Avisa los cambios de saldo a la suscripción, después del commit (TesoreriaCambioListener). */
+    private final ApplicationEventPublisher eventos;
 
     @javax.persistence.PersistenceContext
     private javax.persistence.EntityManager entityManager;
@@ -73,6 +77,7 @@ public class BancoLedgerService {
         }
         cuenta.setSaldo(nuevo);
         cuentaRepository.save(cuenta);
+        eventos.publishEvent(TesoreriaCambio.deCuenta(cuentaId));
 
         MovimientoBancario m = new MovimientoBancario();
         m.setCuentaBancaria(cuenta);
@@ -131,5 +136,6 @@ public class BancoLedgerService {
         BigDecimal actual = cuenta.getSaldoReservado() != null ? cuenta.getSaldoReservado() : BigDecimal.ZERO;
         cuenta.setSaldoReservado(actual.add(delta));
         cuentaRepository.save(cuenta);
+        eventos.publishEvent(TesoreriaCambio.deCuenta(cuentaId));
     }
 }

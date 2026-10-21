@@ -9,6 +9,18 @@ type Cargo {
     subcargoList: [Cargo]
 }
 
+type CargoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Cargo]
+    getPageable: Pageable
+}
+
 input CargoInput {
     id:ID
     nombre: String
@@ -23,6 +35,7 @@ extend type Query {
     cargos(page:Int = 0, size:Int = 10):[Cargo]!
     countCargo: Int
     cargosSearch(texto:String):[Cargo]
+    cargosWithPage(page:Int = 0, size:Int = 25, texto:String):CargoPage
 
 }
 

@@ -99,7 +99,8 @@ class ContraAsientoRrhhTest {
 
         TesoreriaService tesoreria = new TesoreriaService(saldoRepository, mock(TesoreriaSecurityService.class),
                 cajaVirtualRepository, mock(MonedaRepository.class), movimientoRepository,
-                new com.franco.dev.service.financiero.LimiteAnulacionService(configRepository));
+                new com.franco.dev.service.financiero.LimiteAnulacionService(configRepository),
+                mock(org.springframework.context.ApplicationEventPublisher.class));
         movimientoCajaVirtualService = new MovimientoCajaVirtualService(movimientoRepository, tesoreria);
 
         cajaVirtualService = mock(CajaVirtualService.class);

@@ -117,6 +117,7 @@ class TransferenciaGraphQLChoferTransporteTest {
         t.setEtapa(etapa);
         t.setEstado(TransferenciaEstado.EN_ORIGEN);
         when(service.findById(TRANSFERENCIA_ID)).thenReturn(Optional.of(t));
+        when(service.lockById(TRANSFERENCIA_ID)).thenReturn(Optional.of(t));
         return t;
     }
 
@@ -146,6 +147,17 @@ class TransferenciaGraphQLChoferTransporteTest {
         assertEquals(EtapaTransferencia.TRANSPORTE_VERIFICACION, resultado.getEtapa());
         assertSame(chofer, resultado.getUsuarioTransporte());
         assertEquals(900L, resultado.getHojaRuta().getId());
+    }
+
+    @Test
+    @DisplayName("lee la transferencia con lock: dos verificaciones simultaneas no crean dos hojas (#450)")
+    void leeConLock() {
+        persistida(EtapaTransferencia.PREPARACION_MERCADERIA_CONCLUIDA);
+
+        resolver.verificarParaTransporteMobile(input());
+
+        verify(service).lockById(TRANSFERENCIA_ID);
+        verify(service, never()).findById(any());
     }
 
     @Test

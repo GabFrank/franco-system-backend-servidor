@@ -60,6 +60,8 @@ class SolicitudPagoGraphQLTipoTest {
         when(solicitudRepo.findTipoById(INEXISTENTE)).thenReturn(Optional.empty());
         when(solicitudPagoService.findById(anyLong())).thenAnswer(inv -> Optional.of(solicitud(inv.getArgument(0))));
         sinRoles();
+        // Por defecto con rol de compras: estos tests prueban el tipo (#306); los de rol lo apagan.
+        conRolCompras(true);
     }
 
     @AfterEach
@@ -76,6 +78,10 @@ class SolicitudPagoGraphQLTipoTest {
     private void sinRoles() {
         when(tesoreriaSecurityService.hasAnyRole(TesoreriaSecurityService.TODOS)).thenReturn(false);
         when(rrhhSecurityService.hasAnyRole(RrhhSecurityService.TODOS)).thenReturn(false);
+    }
+
+    private void conRolCompras(boolean tiene) {
+        when(tesoreriaSecurityService.hasAnyRole(SolicitudPagoGraphQL.ROLES_COMPRAS)).thenReturn(tiene);
     }
 
     private static void rechaza(Executable llamada, String mensaje) {
@@ -115,13 +121,75 @@ class SolicitudPagoGraphQLTipoTest {
     }
 
     @Test
-    void compras_y_gastos_se_leen_sin_rol() {
+    void una_compra_se_lee_con_rol_de_compras() {
         assertEquals(COMPRA, resolver.solicitudPago(COMPRA).getId());
-        assertEquals(GASTO, resolver.solicitudPago(GASTO).getId());
         resolver.notasAsociadasASolicitud(COMPRA);
 
         verify(solicitudPagoService).getNotasAsociadas(COMPRA);
         verify(tesoreriaSecurityService, never()).hasAnyRole(TesoreriaSecurityService.TODOS);
+    }
+
+    @Test
+    void una_compra_no_se_lee_sin_rol_de_compras() {
+        conRolCompras(false);
+
+        rechaza(() -> resolver.solicitudPago(COMPRA), "No autorizado para ver la solicitud #1");
+        rechaza(() -> resolver.notasAsociadasASolicitud(COMPRA), "No autorizado para ver la solicitud #1");
+        rechaza(() -> resolver.imprimirSolicitudPagoPDF(COMPRA), "No autorizado para ver la solicitud #1");
+        rechaza(() -> resolver.imprimirSolicitudPagoTicket(COMPRA, "X", null), "No autorizado para ver la solicitud #1");
+
+        verify(solicitudPagoService, never()).findById(anyLong());
+        verify(solicitudPagoService, never()).getNotasAsociadas(anyLong());
+        verify(solicitudRepo, never()).findByIdWithUsuarioAndMoneda(anyLong());
+    }
+
+    @Test
+    void un_gasto_se_lee_sin_rol() {
+        // Las solicitudes de gasto las imprime caja chica: no piden los roles de compras.
+        conRolCompras(false);
+
+        assertEquals(GASTO, resolver.solicitudPago(GASTO).getId());
+    }
+
+    @Test
+    void sin_rol_de_compras_ninguna_query_ni_mutation_de_compras_entra() {
+        conRolCompras(false);
+        String msg = "No autorizado: las solicitudes de pago de compras";
+        SolicitudPagoGraphQL.SolicitudPagoInput in = new SolicitudPagoGraphQL.SolicitudPagoInput();
+        in.setId(COMPRA);
+
+        rechaza(() -> resolver.solicitudesPagoPorPedido(5L), msg);
+        rechaza(() -> resolver.solicitudesPagoPaginated(0, 10, null, null, null, null, null), msg);
+        rechaza(() -> resolver.notasDisponiblesParaPago(5L), msg);
+        rechaza(() -> resolver.isNotaIncludedInSolicitud(10L), msg);
+        rechaza(() -> resolver.notaRecepcionDisponibleParaPagoPorNumero(1, 5L), msg);
+        rechaza(() -> resolver.notasDisponiblesParaPagoPorProveedor(5L), msg);
+        rechaza(() -> resolver.notasDisponiblesParaPagoPorProveedorPaginated(5L, 0, 10, null), msg);
+        rechaza(() -> resolver.datosInicialesSolicitudPagoPorRecepcion(7L), msg);
+        rechaza(() -> resolver.saveSolicitudPago(new SolicitudPagoGraphQL.SolicitudPagoInput()), msg);
+        rechaza(() -> resolver.actualizarSolicitudPago(in), msg);
+        rechaza(() -> resolver.deleteSolicitudPago(COMPRA), msg);
+        rechaza(() -> resolver.actualizarEstadoSolicitudPago(COMPRA, SolicitudPagoEstado.SOLICITADO), msg);
+        rechaza(() -> resolver.cancelarSolicitudPago(COMPRA, "motivo"), msg);
+        rechaza(() -> resolver.agregarNotaASolicitudPago(COMPRA, 10L, 1000.0), msg);
+        rechaza(() -> resolver.removerNotaDeSolicitudPago(COMPRA, 10L), msg);
+        rechaza(() -> resolver.agregarSolicitudPagoDetalle(COMPRA, new SolicitudPagoDetalleInput()), msg);
+        rechaza(() -> resolver.eliminarSolicitudPagoDetalle(50L), msg);
+
+        verifyNoInteractions(notaService);
+        verify(solicitudPagoService, never()).getSolicitudesPorPedido(anyLong());
+        verify(solicitudPagoService, never()).cancelar(anyLong(), any(), any());
+        verify(solicitudPagoService, never()).eliminarSolicitud(anyLong());
+        verify(solicitudPagoService, never()).actualizarEstado(anyLong(), any());
+        verify(detalleService, never()).eliminarDetalle(anyLong());
+    }
+
+    @Test
+    void sin_rol_el_rechazo_no_revela_el_tipo_del_id() {
+        // El rol va antes que el chequeo de tipo: si no, «no es de compras» delataría una obligación de RRHH.
+        conRolCompras(false);
+
+        rechaza(() -> resolver.deleteSolicitudPago(RRHH), "No autorizado: las solicitudes de pago de compras");
     }
 
     @Test
@@ -155,7 +223,7 @@ class SolicitudPagoGraphQLTipoTest {
         verify(solicitudPagoService, never()).eliminarSolicitud(anyLong());
         verify(solicitudPagoService, never()).actualizarEstado(anyLong(), any());
         verifyNoInteractions(notaService);
-        verify(detalleService, never()).deleteById(anyLong());
+        verify(detalleService, never()).eliminarDetalle(anyLong());
         verify(detalleService, never()).agregarDetalle(any(), any());
     }
 
@@ -166,7 +234,7 @@ class SolicitudPagoGraphQLTipoTest {
         verify(solicitudPagoService, never()).eliminarSolicitud(anyLong());
         verify(solicitudPagoService, never()).actualizarEstado(anyLong(), any());
         verifyNoInteractions(notaService);
-        verify(detalleService, never()).deleteById(anyLong());
+        verify(detalleService, never()).eliminarDetalle(anyLong());
     }
 
     @Test
@@ -180,7 +248,7 @@ class SolicitudPagoGraphQLTipoTest {
         verify(solicitudPagoService).eliminarSolicitud(COMPRA);
         verify(solicitudPagoService).actualizarEstado(COMPRA, SolicitudPagoEstado.SOLICITADO);
         verify(notaService).removerNotaDeSolicitud(COMPRA, 10L);
-        verify(detalleService).deleteById(50L);
+        verify(detalleService).eliminarDetalle(50L);
     }
 
     @Test
@@ -189,6 +257,6 @@ class SolicitudPagoGraphQLTipoTest {
 
         resolver.eliminarSolicitudPagoDetalle(77L);
 
-        verify(detalleService).deleteById(77L);
+        verify(detalleService).eliminarDetalle(77L);
     }
 }

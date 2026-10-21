@@ -2,11 +2,14 @@ package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.operaciones.dto.StockLoteDto;
 import com.franco.dev.domain.operaciones.enums.EstadoLote;
+import com.franco.dev.service.financiero.BloqueoTransaccionalService;
+import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -34,7 +37,68 @@ public class LoteFefoService {
      */
     public static final String NUMERO_LOTE_SIN_TRAZAR = "SIN LOTE";
 
+    /** Prefijo de la clave del lock de saldo por lote. Ver {@link #bloquearSaldo(Long)}. */
+    static final String CLAVE_SALDO = "lote-saldo:";
+
+    /**
+     * Cuánto espera una operación a que otra de la misma sucursal suelte el lock. Por debajo de los
+     * 60 s con que el desktop corta una mutation, y corto para no dejar el pool de conexiones lleno
+     * de esperas.
+     */
+    static final String ESPERA_MAXIMA = "15s";
+
+    /** SQLSTATE de PostgreSQL cuando vence el {@code lock_timeout}. */
+    private static final String SQLSTATE_ESPERA_VENCIDA = "55P03";
+
     private final MovimientoStockLoteService movimientoStockLoteService;
+
+    private final BloqueoTransaccionalService bloqueo;
+
+    /**
+     * Serializa, por sucursal, todo lo que lee el saldo de un lote y escribe en base a él (#463). Sin
+     * esto, dos transferencias en paralelo leían el mismo saldo y asignaban dos veces las mismas
+     * unidades: el lote quedaba negativo.
+     *
+     * <p>La clave es la sucursal y no (producto, sucursal) a propósito: toda transacción que asigna
+     * lotes lo hace en una sola sucursal, así que toma a lo sumo una clave y no puede cruzarse con
+     * otra por el orden de los ítems.</p>
+     *
+     * <p>⚠️ Invariantes de los que depende que no haya deadlocks:</p>
+     * <ul>
+     *   <li>Quien espera este lock no tiene tomada ninguna fila que el dueño vaya a escribir después.
+     *   El avance de una transferencia y {@code saveTransferenciaItem} (#468) sí llegan acá con filas
+     *   de ítems tomadas, pero siempre en el orden transferencia → ítem → saldo: bloquearon antes la
+     *   fila de la transferencia, así que nadie que tenga el saldo de esa sucursal puede estar
+     *   esperando sus ítems. Código nuevo que pida el lock teniendo filas de ítems o de movimientos
+     *   bloqueadas sin haber tomado antes su transferencia abre un ciclo. La finalización de una
+     *   toma (#465) llega solo con la fila de {@code inventario} tomada, que ningún dueño escribe.</li>
+     *   <li>El lock es reentrante por <b>conexión</b>: un {@code REQUIRES_NEW} que llegue acá mientras
+     *   la transacción de afuera lo tiene se espera a sí mismo hasta {@link #ESPERA_MAXIMA}.</li>
+     * </ul>
+     *
+     * <p>Requiere una transacción abierta. Si la espera vence, la transacción ya está abortada y se
+     * avisa con un mensaje para reintentar.</p>
+     */
+    public void bloquearSaldo(Long sucursalId) {
+        try {
+            bloqueo.tomar(CLAVE_SALDO + sucursalId, ESPERA_MAXIMA);
+        } catch (RuntimeException e) {
+            if (!esEsperaVencida(e)) {
+                throw e;
+            }
+            throw new GraphQLException("Hay otra operación con lotes en curso en la sucursal " + sucursalId
+                    + ". Reintentá en unos segundos.");
+        }
+    }
+
+    static boolean esEsperaVencida(Throwable error) {
+        for (Throwable t = error; t != null; t = t.getCause()) {
+            if (t instanceof SQLException && SQLSTATE_ESPERA_VENCIDA.equals(((SQLException) t).getSQLState())) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     /**
      * Una porción de la cantidad total, asignada a un lote concreto.
@@ -83,6 +147,7 @@ public class LoteFefoService {
             return asignaciones;
         }
 
+        bloquearSaldo(sucursalId);
         List<StockLoteDto> disponibles = movimientoStockLoteService.stockPorLote(productoId, sucursalId);
         double pendiente = cantidad;
 
@@ -132,6 +197,7 @@ public class LoteFefoService {
             return new ArrayList<>();
         }
 
+        bloquearSaldo(sucursalId);
         Map<Long, StockLoteDto> saldoPorLote = new HashMap<>();
         for (StockLoteDto lote : movimientoStockLoteService.stockPorLote(productoId, sucursalId)) {
             if (lote.getLoteId() != null) {

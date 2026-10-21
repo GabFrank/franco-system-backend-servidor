@@ -28,7 +28,8 @@ public class DocumentoRecibidoService {
     private static final Logger log = LoggerFactory.getLogger(DocumentoRecibidoService.class);
     static final String ENCONTRADO = "0422";
 
-    @Autowired
+    /** Solo existe con {@code sifen.enabled=true}: sin él el central arranca igual y Compras avisa al escanear. */
+    @Autowired(required = false)
     private SifenService sifenService;
     @Autowired
     private DocumentoRecibidoRepository repository;
@@ -39,6 +40,10 @@ public class DocumentoRecibidoService {
         DocumentoRecibido doc = repository.findByCdc(cdc).orElse(null);
         if (doc != null && ENCONTRADO.equals(doc.getCodigoRespuesta()) && doc.getXml() != null) {
             return doc;
+        }
+        if (sifenService == null) {
+            throw new GraphQLException("SIFEN está desactivado en este servidor (sifen.enabled=false): no se puede"
+                    + " consultar la factura. Cargala desde el desktop.");
         }
         RespuestaConsultaDE respuesta;
         try {

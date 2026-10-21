@@ -84,12 +84,13 @@ primera, también las de la pseudo-sucursal COMPRAS entre sí. Los productos sin
 En `avanzarEtapaTransferencia` y `saveTransferencia` el orden es: fila de la transferencia
 (`lockById`, `FOR UPDATE`) → `transferenciaItemService.save(ti)` → lock de lotes. Además, la consulta
 nativa del lock vuelca (auto-flush) lo pendiente de la sesión, así que las filas de transferencia e
-ítem ya están tomadas **antes** del lock de lotes. No hay ciclo porque **bajo el lock de lotes no se
-escriben `transferencia` ni `transferencia_item`**: `createMovimientoFromTransferenciaItem`,
-`desglosarTransferenciaPorLote`, `limpiarDesglose` y `reemplazarDesglose` solo escriben
-`movimiento_stock` y `movimiento_stock_lote` (las FK piden `KEY SHARE`, que no choca con un `UPDATE`
-de columnas no clave). Ese es el invariante: código futuro que escriba esas tablas bajo el lock abre
-un ciclo fila → lock / lock → fila. Queda en el javadoc de `bloquearSaldo`.
+ítem ya están tomadas **antes** del lock de lotes. El avance sí guarda los ítems siguientes con el
+lock ya tomado (el bucle guarda el ítem N después de que el ítem N−1 lo pidió). No hay ciclo porque
+**quien espera el lock no tiene tomada ninguna fila que el dueño vaya a escribir**: otro avance o
+`saveTransferencia` de la misma transferencia esperan antes, en la fila de la transferencia
+(`lockById`), y `saveTransferenciaItem` commitea el ítem en su propia transacción antes de pedir el
+lock. Ese es el invariante, y queda en el javadoc de `bloquearSaldo`. (Corregido en la auditoría del
+diff: la primera versión decía que bajo el lock no se escribían ítems, y no es así.)
 
 La reentrancia es por **sesión**: un `REQUIRES_NEW` que llegara a `asignar*` mientras la
 transacción de afuera tiene el lock usaría otra conexión y se trabaría contra sí mismo hasta el
@@ -283,6 +284,19 @@ antes de aplicarlo.
 | B | R1 puede pasar sin probar nada; R3 pasa con el código viejo; R4 depende del timing y no dice dónde espera | **Aplicado**: R1 exige las dos esperas en `pg_locks`; R3/R4 deterministas con el advisory retenido desde psql y esperado por caso |
 | B | No hay forma de detectar saldos ya negativos | **Aplicado**: consulta de detección de solo lectura |
 | B | Interruptor por configuración para apagar el lock en vivo | **Descartado**: deploy manual y rollback por JAR; la espera acotada limita el daño. Se agrega cómo ver quién tiene el lock |
+
+## Auditoría del diff (paso 8)
+
+Sin condicionales: el diff no toca migraciones, workflows, scheduler ni `.graphqls`. Tres fijos en
+paralelo (sonnet); cada hallazgo se verificó contra el código.
+
+| Eje | Hallazgo | Qué se hizo |
+|---|---|---|
+| Fijo 1 | No agrega ni cambia resolvers, permisos ni datos expuestos; el mensaje nuevo no filtra nada | Sin cambios |
+| Fijo 2 | Sin esquema ni espejo. El registro de claves es correcto con `REQUIRED` y `REQUIRES_NEW`; dentro de un savepoint quedaría desfasado | **Verificado** en el Postgres local: `ROLLBACK TO SAVEPOINT` suelta el advisory lock. Hoy ningún camino usa savepoints: advertencia en el javadoc de `tomar` |
+| Fijo 3 | Sin cambio de contrato ni `feat!`; desktop y PWA muestran el mensaje del servidor | Sin cambios |
+| Fijo 3 | El javadoc decía que bajo el lock no se escriben ítems de transferencia, y el avance sí los escribe | **Corregido** el javadoc y la sección «Orden de locks»; la ausencia de ciclo se sostiene por otra razón (ver ahí) |
+| Fijo 3 | Clientes con pasos no atómicos que el lock puede alargar: la PWA desconfirma y guarda un ítem en dos mutations sin recargar si falla la segunda; la app Android guarda ítems en paralelo con un tope de 30 s | Previos al fix; se informan a Franco, sin cambio en este PR |
 
 ## Fuera de alcance (issues aparte)
 

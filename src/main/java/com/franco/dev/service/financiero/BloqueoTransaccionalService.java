@@ -44,6 +44,10 @@ public class BloqueoTransaccionalService {
      * <p>Una clave ya tomada en esta transacción no se vuelve a pedir: el lock dura hasta el commit, y
      * cada consulta nativa vuelca la sesión entera. Pedirlo por cada ítem duplicaba el tiempo de avanzar
      * una transferencia de 118 ítems con lote (4,8 s → 10,3 s, #463).</p>
+     *
+     * <p>⚠️ No usarlo dentro de un savepoint ({@code PROPAGATION_NESTED}): un
+     * {@code ROLLBACK TO SAVEPOINT} suelta el lock pero el registro de claves tomadas sigue diciendo
+     * que está, y el siguiente pedido no lo vuelve a tomar. Hoy ningún camino usa savepoints.</p>
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void tomar(String clave, String esperaMaxima) {

@@ -341,8 +341,12 @@ public final class CruceFactura {
             if (bonif && !i.bonificacion) continue;
             boolean conPendiente = pendiente.getOrDefault(i.id, 0.0) > TOLERANCIA_CANTIDAD;
             if (bonif && !conPendiente) continue;
-            int puntaje = (conPendiente ? 4 : 0)
-                    + (i.bonificacion == bonif ? 2 : 0)
+            double cantidadRenglon = r.cantidad * (r.factor != null && r.factor > 0 ? r.factor : 1.0);
+            boolean mismaCantidad = Math.abs(pendiente.getOrDefault(i.id, 0.0) - cantidadRenglon) <= TOLERANCIA_CANTIDAD;
+            // Con el mismo producto en dos renglones, cada uno va contra el ítem de su misma cantidad
+            int puntaje = (conPendiente ? 16 : 0)
+                    + (i.bonificacion == bonif ? 8 : 0)
+                    + (mismaCantidad ? 4 : 0)
                     + (Objects.equals(i.presentacionId, r.presentacionId) ? 1 : 0);
             if (puntaje > mejorPuntaje) {
                 mejor = i;

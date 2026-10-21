@@ -144,6 +144,19 @@ class CruceFacturaTest {
     }
 
     @Test
+    void elMismoProductoEnDosRenglonesVaContraElItemDeSuMismaCantidad() {
+        // La compra creada desde la factura tiene un ítem por renglón, creados en orden inverso:
+        // el renglón de 50 no tiene que tomar el ítem de 30 por estar primero en la lista
+        List<CruceFactura.Resultado> r = CruceFactura.cruzar(
+                Arrays.asList(renglon(1, 7L, 50, 5218, 0), renglon(2, 7L, 30, 5218, 0)),
+                Arrays.asList(item(100, 7, 30, 5218.0, false), item(101, 7, 50, 5218.0, false)), true);
+        assertEquals(101L, r.get(0).pedidoItemId);
+        assertEquals(100L, r.get(1).pedidoItemId);
+        assertEquals(CruceFactura.Estado.OK, r.get(0).estado);
+        assertEquals(CruceFactura.Estado.OK, r.get(1).estado);
+    }
+
+    @Test
     void productoQueNoEstabaEnElPedidoSeAgregaConObservacion() {
         CruceFactura.Resultado res = CruceFactura.cruzar(
                 Collections.singletonList(renglon(1, 9L, 60, 2688, 0)),

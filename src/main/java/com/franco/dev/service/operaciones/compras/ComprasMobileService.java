@@ -719,7 +719,13 @@ public class ComprasMobileService {
         // 2. Un ítem por renglón, con todo para la sucursal elegida: como «Agregar ítem» con una sola sucursal
         Map<Long, RenglonFacturaMobile> porId = factura.getRenglones().stream()
                 .collect(Collectors.toMap(RenglonFacturaMobile::getId, r -> r));
-        for (DocumentoRecibidoItem renglon : documentoRecibidoService.renglones(doc.getId())) {
+        // ⚠️ Al revés del orden de la factura, a propósito: el desktop lista los ítems del pedido por id descendente
+        // (pedidoItemPorPedidoPage), así que creados del último al primero se ven en el orden de la factura y el
+        // comprador los revisa con el papel en la mano. La nota se crea en el orden de la factura: esa se lista
+        // ascendente.
+        List<DocumentoRecibidoItem> enOrdenInverso = new ArrayList<>(documentoRecibidoService.renglones(doc.getId()));
+        Collections.reverse(enOrdenInverso);
+        for (DocumentoRecibidoItem renglon : enOrdenInverso) {
             RenglonFacturaMobile cruce = porId.get(renglon.getId());
             PedidoItemInput item = new PedidoItemInput();
             item.setPedidoId(pedido.getId());
@@ -1001,9 +1007,9 @@ public class ComprasMobileService {
             }
             if (i.getCantidadPendiente() > CruceFactura.TOLERANCIA_CANTIDAD) pendientes++;
         }
-        // Lo pendiente primero: es lo que el comprador busca
-        p.getItems().sort(Comparator.comparing((CompraPedidoItemMobile i) -> i.getCantidadPendiente() <= CruceFactura.TOLERANCIA_CANTIDAD)
-                .thenComparing(i -> texto(i.getDescripcion())));
+        // El mismo orden que el desktop (id descendente): en una compra creada desde la factura es el orden de la
+        // factura, así el comprador la sigue con el papel en la mano
+        p.getItems().sort(Comparator.comparing(CompraPedidoItemMobile::getPedidoItemId).reversed());
         p.setTotalPedido(total);
         p.setItemsPendientes(pendientes);
         List<NotaRecepcion> notas = notaRecepcionService.findByPedidoId(pedido.getId());

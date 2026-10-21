@@ -872,6 +872,7 @@ public class ComprasMobileService {
             a.add(new AvisoFacturaMobile("TOTAL", "ADVERTENCIA", "La suma de los renglones (" + CruceFactura.importe(totalRenglones)
                     + ") no da el total de la factura (" + CruceFactura.importe(doc.getTotalGeneral()) + "): puede haber un descuento global."));
         }
+        a.addAll(avisosFacturaRepetida(doc, null));
         if (f.getFormaPagoId() == null) {
             a.add(new AvisoFacturaMobile("PAGO", "INFO", "La factura no dice la forma de pago: elegila antes de crear la compra."));
         }
@@ -1352,24 +1353,48 @@ public class ComprasMobileService {
             a.add(new AvisoFacturaMobile("DISTRIBUCION", "ADVERTENCIA", sinDistribucion
                     + " renglón(es) fuera del pedido van a quedar sin distribuir entre sucursales: terminalos en el desktop."));
         }
-        if (doc.getNotaRecepcion() == null) {
-            Integer numero = numeroNotaOrNull(doc);
-            if (numero != null) {
-                List<Map<String, Object>> repetidas = jdbc.queryForList(
-                        "SELECT nr.id, nr.pedido_id FROM operaciones.nota_recepcion nr JOIN operaciones.pedido p ON p.id = nr.pedido_id "
-                                + "WHERE nr.numero = ? AND p.proveedor_id = ? AND (nr.timbrado IS NULL OR nr.timbrado = ?)",
-                        numero, pedido.getProveedor() != null ? pedido.getProveedor().getId() : -1L,
-                        doc.getTimbrado() != null ? doc.getTimbrado() : -1);
-                for (Map<String, Object> rep : repetidas) {
-                    long pedidoRep = ((Number) rep.get("pedido_id")).longValue();
-                    a.add(pedidoRep == pedido.getId()
-                            ? new AvisoFacturaMobile("DUPLICADA", "BLOQUEO", "Este pedido ya tiene una nota con el número "
-                                + numero + ". Si es la misma factura cargada a mano, eliminala primero.")
-                            : new AvisoFacturaMobile("DUPLICADA", "ADVERTENCIA", "El proveedor ya tiene una nota número "
-                                + numero + " en el pedido " + pedidoRep + ". Revisá que no sea la misma factura."));
-                }
+        a.addAll(avisosFacturaRepetida(doc, pedido.getId()));
+    }
+
+    /**
+     * ¿Esta factura ya está cargada? Solo para las cargas del celular (el desktop sigue igual). El CDC ya impide
+     * cargar dos veces la misma factura electrónica; esto cubre la que se cargó a mano en el desktop, comparando
+     * proveedor, número y timbrado (y fecha o monto cuando la nota se cargó sin timbrado). Ver {@link FacturaRepetida}.
+     *
+     * @param pedidoId el pedido al que se carga, o null si la factura crea la compra
+     */
+    private List<AvisoFacturaMobile> avisosFacturaRepetida(DocumentoRecibido doc, Long pedidoId) {
+        List<AvisoFacturaMobile> avisos = new ArrayList<>();
+        Integer numero = numeroNotaOrNull(doc);
+        Long proveedorId = doc.getProveedor() != null ? doc.getProveedor().getId() : null;
+        if (doc.getNotaRecepcion() != null || numero == null || proveedorId == null) return avisos;
+        List<Map<String, Object>> notas = jdbc.queryForList(
+                "SELECT nr.id, nr.pedido_id, nr.timbrado, nr.fecha, nr.valor FROM operaciones.nota_recepcion nr "
+                        + "JOIN operaciones.pedido p ON p.id = nr.pedido_id "
+                        + "WHERE nr.numero = ? AND p.proveedor_id = ? AND COALESCE(nr.es_nota_rechazo, false) = false",
+                numero, proveedorId);
+        LocalDate emision = doc.getFechaEmision() != null ? doc.getFechaEmision().toLocalDate() : null;
+        for (Map<String, Object> n : notas) {
+            Integer timbrado = n.get("timbrado") != null ? ((Number) n.get("timbrado")).intValue() : null;
+            LocalDate fecha = n.get("fecha") != null ? ((java.sql.Timestamp) n.get("fecha")).toLocalDateTime().toLocalDate() : null;
+            Double valor = n.get("valor") != null ? ((Number) n.get("valor")).doubleValue() : null;
+            long pedidoNota = ((Number) n.get("pedido_id")).longValue();
+            FacturaRepetida.Veredicto v = FacturaRepetida.comparar(doc.getTimbrado(), emision, doc.getTotalGeneral(),
+                    timbrado, fecha, valor);
+            String donde = "la nota " + numero + " del pedido " + pedidoNota;
+            if (v == FacturaRepetida.Veredicto.MISMA) {
+                avisos.add(new AvisoFacturaMobile("DUPLICADA", "BLOQUEO", "Esta factura ya está cargada: " + donde
+                        + (timbrado != null ? " (mismo timbrado " + timbrado + ")" : " (cargada sin timbrado, con la misma fecha o monto)")
+                        + ". No se puede cargar dos veces."));
+            } else if (pedidoId != null && pedidoNota == pedidoId) {
+                avisos.add(new AvisoFacturaMobile("DUPLICADA", "BLOQUEO", "Este pedido ya tiene una nota con el número "
+                        + numero + ". Si es esta misma factura cargada a mano, eliminala primero."));
+            } else if (v == FacturaRepetida.Veredicto.POSIBLE) {
+                avisos.add(new AvisoFacturaMobile("DUPLICADA", "ADVERTENCIA", "El proveedor ya tiene " + donde
+                        + ", cargada sin timbrado y con otra fecha y monto. Revisá que no sea esta misma factura."));
             }
         }
+        return avisos;
     }
 
     // =================================================================================== Reconocer productos

@@ -1,0 +1,220 @@
+# Compras desde el celular (PWA): cargar la factura del proveedor al pedido escaneando el KuDE.
+# Etapa RECEPCION_NOTA ("Recepción documental") del pedido, con las reglas del desktop aplicadas en el central.
+# Fechas como texto "yyyy-MM-dd HH:mm". Cantidades y precios de la nota en unidades base; precios con IVA.
+
+type CompraPedidoResumenMobile {
+    pedidoId: ID!
+    proveedorId: ID
+    proveedorNombre: String
+    proveedorRuc: String
+    fecha: String
+    monedaSimbolo: String
+    totalPedido: Float
+    cantidadItems: Int
+    itemsPendientes: Int
+    cantidadNotas: Int
+    estadoEtapa: String
+}
+
+type CompraPedidoResumenMobilePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [CompraPedidoResumenMobile]
+}
+
+type CompraPedidoItemMobile {
+    pedidoItemId: ID!
+    productoId: ID
+    descripcion: String
+    presentacionDescripcion: String
+    presentacionCantidad: Float
+    cantidadSolicitada: Float
+    cantidadFacturada: Float
+    cantidadPendiente: Float
+    precioUnitario: Float
+    esBonificacion: Boolean
+    pendienteTexto: String
+}
+
+type CompraNotaMobile {
+    id: ID!
+    numero: Int
+    numeroCompleto: String
+    timbrado: Int
+    cdc: String
+    electronica: Boolean
+    fecha: String
+    estado: String
+    estadoEtiqueta: String
+    valor: Float
+    monedaSimbolo: String
+    cantidadItems: Int
+    itemsSinDistribuir: Int
+    puedeEliminar: Boolean
+}
+
+type CompraPedidoMobile {
+    pedidoId: ID!
+    proveedorId: ID
+    proveedorNombre: String
+    proveedorRuc: String
+    fecha: String
+    monedaDenominacion: String
+    monedaSimbolo: String
+    cotizacion: Float
+    estadoEtapa: String
+    puedeCargarFacturas: Boolean
+    puedeFinalizar: Boolean
+    motivoNoOpera: String
+    totalPedido: Float
+    totalFacturado: Float
+    itemsPendientes: Int
+    items: [CompraPedidoItemMobile!]!
+    notas: [CompraNotaMobile!]!
+}
+
+type AvisoFacturaMobile {
+    tipo: String!
+    nivel: String!
+    mensaje: String!
+}
+
+type SugerenciaProductoMobile {
+    productoId: ID!
+    presentacionId: ID!
+    descripcion: String
+    presentacionDescripcion: String
+    factor: Float
+    codigo: String
+    tipo: String
+    motivo: String
+}
+
+type RenglonFacturaMobile {
+    id: ID!
+    orden: Int
+    codigoProveedor: String
+    gtin: String
+    gtinPaquete: String
+    descripcion: String
+    unidadMedida: String
+    cantidad: Float
+    precioUnitario: Float
+    descuentoUnitario: Float
+    porcentajeDescuento: Float
+    total: Float
+    tasaIva: Int
+    ivaTexto: String
+    lote: String
+    vencimiento: String
+    esBonificacion: Boolean
+    estado: String!
+    estadoEtiqueta: String
+    tipoMatch: String
+    tipoMatchEtiqueta: String
+    productoId: ID
+    productoDescripcion: String
+    presentacionId: ID
+    presentacionDescripcion: String
+    factor: Float
+    pedidoItemId: ID
+    cantidadBase: Float
+    precioUnitarioBase: Float
+    pedidoCantidadPendiente: Float
+    pedidoPrecioUnitario: Float
+    diferencias: [String!]!
+    avisosIva: [String!]!
+    avisos: [String!]!
+    requiereObservacion: Boolean
+    observacionFaltante: Boolean
+    observacion: String
+    sugerencias: [SugerenciaProductoMobile!]!
+}
+
+type FacturaProveedorMobile {
+    id: ID!
+    pedidoId: ID
+    cdc: String!
+    tipoDocumento: Int
+    tipoDocumentoDescripcion: String
+    emisorRuc: String
+    emisorNombre: String
+    receptorRuc: String
+    receptorNombre: String
+    timbrado: Int
+    establecimiento: String
+    puntoExpedicion: String
+    numero: String
+    numeroCompleto: String
+    fechaEmision: String
+    condicion: String
+    moneda: String
+    monedaSimbolo: String
+    cotizacion: Float
+    subtotalExenta: Float
+    subtotalIva5: Float
+    subtotalIva10: Float
+    totalDescuento: Float
+    totalGeneral: Float
+    totalIva5: Float
+    totalIva10: Float
+    totalIva: Float
+    totalNota: Float
+    consultadaEn: String
+    proveedorId: ID
+    proveedorNombre: String
+    renglonesOk: Int
+    renglonesConDiferencia: Int
+    renglonesFueraDePedido: Int
+    renglonesSinProducto: Int
+    renglonesSinObservacion: Int
+    puedeConfirmar: Boolean
+    motivoNoConfirma: String
+    notaRecepcionId: ID
+    avisos: [AvisoFacturaMobile!]!
+    renglones: [RenglonFacturaMobile!]!
+    itemsNoFacturados: [CompraPedidoItemMobile!]!
+}
+
+type ResumenFinalizarNotasMobile {
+    pedidoId: ID!
+    puedeFinalizar: Boolean
+    motivo: String
+    cantidadNotas: Int
+    totalFacturado: Float
+    notasPendientes: Int
+    itemsSinFacturar: [CompraPedidoItemMobile!]!
+    avisos: [String!]!
+}
+
+type PedidosParaFacturaMobile {
+    cdc: String
+    tipoDocumentoDescripcion: String
+    numeroCompleto: String
+    proveedorRuc: String
+    proveedorId: ID
+    proveedorNombre: String
+    pedidos: [CompraPedidoResumenMobile!]!
+}
+
+extend type Query {
+    pedidosEsperandoFacturaMobile(texto: String, proveedorId: ID, page: Int = 0, size: Int = 20): CompraPedidoResumenMobilePage
+    pedidoComprasMobile(pedidoId: ID!): CompraPedidoMobile
+    pedidosParaFacturaMobile(qr: String!): PedidosParaFacturaMobile
+    facturaProveedorMobile(id: ID!, pedidoId: ID): FacturaProveedorMobile
+    resumenFinalizarNotasMobile(pedidoId: ID!): ResumenFinalizarNotasMobile
+}
+
+extend type Mutation {
+    leerFacturaProveedorMobile(pedidoId: ID!, qr: String!): FacturaProveedorMobile!
+    vincularRenglonFacturaMobile(renglonId: ID!, presentacionId: ID!, factor: Float, recordar: Boolean): FacturaProveedorMobile!
+    observarRenglonFacturaMobile(renglonId: ID!, observacion: String): FacturaProveedorMobile!
+    confirmarFacturaMobile(documentoId: ID!, pedidoId: ID!): CompraNotaMobile!
+    eliminarNotaComprasMobile(notaId: ID!): CompraPedidoMobile!
+    finalizarRecepcionNotasMobile(pedidoId: ID!): CompraPedidoMobile!
+}

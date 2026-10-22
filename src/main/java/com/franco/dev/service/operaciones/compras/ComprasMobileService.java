@@ -175,7 +175,10 @@ public class ComprasMobileService {
                 + "LEFT JOIN financiero.moneda m ON m.id = p.moneda_id "
                 + "WHERE (" + (soloEsperandoFactura
                     ? "EXISTS (SELECT 1 FROM operaciones.proceso_etapa pe WHERE pe.pedido_id = p.id "
-                        + "  AND pe.tipo_etapa::text = 'RECEPCION_NOTA' AND pe.estado_etapa::text IN ('PENDIENTE','EN_PROCESO'))"
+                        + "  AND pe.tipo_etapa::text = 'RECEPCION_NOTA' AND pe.estado_etapa::text IN ('PENDIENTE','EN_PROCESO')) "
+                        // La etapa de notas nace PENDIENTE junto con el pedido: espera facturas recién con la planificación terminada
+                        + "AND NOT EXISTS (SELECT 1 FROM operaciones.proceso_etapa pc WHERE pc.pedido_id = p.id "
+                        + "  AND pc.tipo_etapa::text = 'CREACION' AND pc.estado_etapa::text NOT IN ('COMPLETADA','OMITIDA'))"
                     : "NOT EXISTS (SELECT 1 FROM operaciones.proceso_etapa pe WHERE pe.pedido_id = p.id "
                         + "  AND pe.estado_etapa::text = 'CANCELADA')") + ") "
                 + "AND (? = 0 OR p.proveedor_id = ?) "
@@ -1115,18 +1118,19 @@ public class ComprasMobileService {
         }
         p.setCotizacion(pedido.getCotizacion());
         ProcesoEtapa etapa = procesoEtapaService.getEtapaByPedidoAndTipo(pedido.getId(), ProcesoEtapaTipo.RECEPCION_NOTA).orElse(null);
-        p.setEstadoEtapa(etapa != null ? etapa.getEstadoEtapa().name() : null);
-        boolean abierta = etapaAbierta(etapa);
+        boolean enPlanificacion = !planificacionTerminada(pedido.getId());
+        p.setEstadoEtapa(enPlanificacion ? "EN_PLANIFICACION" : etapa != null ? etapa.getEstadoEtapa().name() : null);
+        boolean abierta = !enPlanificacion && etapaAbierta(etapa);
         p.setPuedeCargarFacturas(abierta);
         if (!abierta) {
-            List<String> esperando = etapa == null ? jdbc.queryForList("SELECT establecimiento || '-' || punto_expedicion "
+            List<String> esperando = enPlanificacion || etapa == null ? jdbc.queryForList("SELECT establecimiento || '-' || punto_expedicion "
                     + "|| '-' || numero FROM operaciones.documento_recibido WHERE pedido_id = ? AND nota_recepcion_id IS NULL "
                     + "AND cargar_al_finalizar = true ORDER BY id", String.class, pedido.getId()) : Collections.emptyList();
             p.setMotivoNoOpera(!esperando.isEmpty()
                     ? "La compra está en «Ítems del pedido». Revisala en el desktop y finalizá la planificación: la factura "
                     + String.join(", ", esperando) + " se carga sola."
-                    : etapa == null
-                    ? "El pedido todavía no llegó a la etapa de notas: termine la planificación en el desktop."
+                    : enPlanificacion || etapa == null
+                    ? "El pedido todavía está en planificación: finalizala en el desktop para cargarle facturas."
                     : "La etapa de notas está " + etapa.getEstadoEtapa().name().toLowerCase().replace('_', ' ') + ".");
         }
         Map<Long, Double> facturado = facturadoPorItem(pedido.getId());
@@ -1435,8 +1439,9 @@ public class ComprasMobileService {
                     "SIFEN informa que esta factura fue cancelada por el proveedor."));
         }
         if (doc.getNotaRecepcion() == null) {
-            ProcesoEtapa etapa = procesoEtapaService.getEtapaByPedidoAndTipo(pedido.getId(), ProcesoEtapaTipo.RECEPCION_NOTA).orElse(null);
-            if (!etapaAbierta(etapa)) {
+            if (!planificacionTerminada(pedido.getId())) {
+                a.add(new AvisoFacturaMobile("ETAPA", "BLOQUEO", "El pedido todavía está en planificación."));
+            } else if (!etapaAbierta(pedido)) {
                 a.add(new AvisoFacturaMobile("ETAPA", "BLOQUEO", "El pedido ya no está esperando facturas."));
             }
         }
@@ -1993,6 +1998,10 @@ public class ComprasMobileService {
     }
 
     private void exigirEtapaAbierta(Pedido pedido) {
+        if (!planificacionTerminada(pedido.getId())) {
+            throw new GraphQLException("El pedido " + pedido.getId() + " todavía está en planificación: finalizala en el "
+                    + "desktop para cargarle facturas.");
+        }
         ProcesoEtapa etapa = procesoEtapaService.getEtapaByPedidoAndTipo(pedido.getId(), ProcesoEtapaTipo.RECEPCION_NOTA).orElse(null);
         if (!etapaAbierta(etapa)) {
             throw new GraphQLException(etapa == null
@@ -2003,7 +2012,18 @@ public class ComprasMobileService {
     }
 
     private boolean etapaAbierta(Pedido pedido) {
-        return etapaAbierta(procesoEtapaService.getEtapaByPedidoAndTipo(pedido.getId(), ProcesoEtapaTipo.RECEPCION_NOTA).orElse(null));
+        return planificacionTerminada(pedido.getId())
+                && etapaAbierta(procesoEtapaService.getEtapaByPedidoAndTipo(pedido.getId(), ProcesoEtapaTipo.RECEPCION_NOTA).orElse(null));
+    }
+
+    /**
+     * ⚠️ La etapa de notas se crea PENDIENTE junto con el pedido, así que «PENDIENTE» no alcanza para decir que espera
+     * facturas: hace falta además la planificación (CREACION) terminada.
+     */
+    private boolean planificacionTerminada(Long pedidoId) {
+        return procesoEtapaService.getEtapaByPedidoAndTipo(pedidoId, ProcesoEtapaTipo.CREACION)
+                .map(e -> e.getEstadoEtapa() == ProcesoEtapaEstado.COMPLETADA || e.getEstadoEtapa() == ProcesoEtapaEstado.OMITIDA)
+                .orElse(true);
     }
 
     private static boolean etapaAbierta(ProcesoEtapa etapa) {

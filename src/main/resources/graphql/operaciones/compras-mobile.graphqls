@@ -199,6 +199,7 @@ type ResumenFinalizarNotasMobile {
     cantidadNotas: Int
     totalFacturado: Float
     notasPendientes: Int
+    itemsSinDistribuir: Int
     itemsSinFacturar: [CompraPedidoItemMobile!]!
     avisos: [String!]!
 }

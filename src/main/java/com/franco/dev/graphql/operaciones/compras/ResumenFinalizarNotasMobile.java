@@ -14,6 +14,7 @@ public class ResumenFinalizarNotasMobile {
     private Integer cantidadNotas;
     private Double totalFacturado;
     private Integer notasPendientes;
+    private Integer itemsSinDistribuir;
     private List<CompraPedidoItemMobile> itemsSinFacturar = new ArrayList<>();
     private List<String> avisos = new ArrayList<>();
 }

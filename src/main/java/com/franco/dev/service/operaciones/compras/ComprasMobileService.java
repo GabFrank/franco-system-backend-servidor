@@ -33,6 +33,7 @@ import com.franco.dev.graphql.operaciones.compras.CompraPedidoItemMobile;
 import com.franco.dev.graphql.operaciones.compras.CompraPedidoMobile;
 import com.franco.dev.graphql.operaciones.compras.CompraPedidoResumenMobile;
 import com.franco.dev.graphql.operaciones.compras.ConversionMonedaMobile;
+import com.franco.dev.graphql.operaciones.compras.KudeProveedorMobile;
 import com.franco.dev.graphql.operaciones.compras.FacturaProveedorMobile;
 import com.franco.dev.graphql.operaciones.compras.OpcionMobile;
 import com.franco.dev.graphql.operaciones.compras.PresentacionCompraMobile;
@@ -149,6 +150,7 @@ public class ComprasMobileService {
     @Autowired private FormaPagoService formaPagoService;
     @Autowired private ProveedorService proveedorService;
     @Autowired private PlatformTransactionManager transactionManager;
+    @Autowired private KudeProveedorService kudeProveedorService;
 
     // =================================================================================== Pedidos
 
@@ -658,6 +660,59 @@ public class ComprasMobileService {
         if (doc.getUsuario() == null) doc.setUsuario(seguridad.usuarioActual());
         documentoRepository.save(doc);
         return armarBorrador(doc, true);
+    }
+
+    /**
+     * «Factura del proveedor (PDF)»: escanear el KuDE, traer la factura de SIFEN (o de la caché) y devolverla armada
+     * en PDF con la plantilla de nuestras facturas electrónicas. No crea nada: solo consulta.
+     */
+    @Transactional
+    public KudeProveedorMobile kudeProveedor(String qr) {
+        seguridad.exigirCompras();
+        KudeQr kude = KudeQr.leer(qr);
+        if (!kude.isOk()) {
+            throw new GraphQLException(kude.getMensaje());
+        }
+        if (kude.getTipoDocumento() != 1 && kude.getTipoDocumento() != 4) {
+            throw new GraphQLException("Ese documento es una " + KudeQr.descripcionTipo(kude.getTipoDocumento()).toLowerCase()
+                    + ", no una factura.");
+        }
+        DocumentoRecibido doc = documentoRecibidoService.obtener(kude.getCdc());
+        Set<String> nuestros = rucsPropios();
+        if (!nuestros.isEmpty() && doc.getRucReceptor() != null
+                && nuestros.stream().noneMatch(r -> mismoRuc(r, doc.getRucReceptor()))) {
+            throw new GraphQLException("La factura está a nombre de " + texto(doc.getRazonSocialReceptor())
+                    + " (RUC " + doc.getRucReceptor() + "), no de la empresa.");
+        }
+        if (doc.getUsuario() == null) {
+            doc.setUsuario(seguridad.usuarioActual());
+            documentoRepository.save(doc);
+        }
+        byte[] pdf;
+        try {
+            pdf = kudeProveedorService.pdf(doc);
+        } catch (RuntimeException e) {
+            log.warn("KuDE del proveedor {}: {}", doc.getCdc(), e.getMessage(), e);
+            throw new GraphQLException("No se pudo armar el PDF de la factura: " + e.getMessage());
+        }
+        KudeProveedorMobile k = new KudeProveedorMobile();
+        k.setDocumentoId(doc.getId());
+        k.setCdc(doc.getCdc());
+        k.setTipoDocumentoDescripcion(KudeQr.descripcionTipo(doc.getTipoDocumento() != null ? doc.getTipoDocumento() : 1));
+        k.setNumeroCompleto(numeroCompleto(doc));
+        k.setEmisorNombre(doc.getRazonSocialEmisor());
+        k.setEmisorRuc(conDv(doc.getRucEmisor(), doc.getDvEmisor()));
+        k.setFechaEmision(doc.getFechaEmision() != null ? doc.getFechaEmision().format(FECHA_HORA) : null);
+        k.setCondicion(doc.getCondicionOperacion() == null ? null : doc.getCondicionOperacion() == 2 ? "Crédito" : "Contado");
+        Moneda moneda = monedaDeOrNull(doc.getMoneda());
+        k.setMonedaSimbolo(moneda != null ? moneda.getSimbolo() : doc.getMoneda());
+        k.setTotalGeneral(doc.getTotalGeneral());
+        k.setCantidadRenglones(documentoRecibidoService.renglones(doc.getId()).size());
+        k.setCancelada(documentoRecibidoService.cancelada(doc));
+        k.setNombreArchivo("Factura " + texto(doc.getRazonSocialEmisor()).replaceAll("[^A-Za-z0-9 .-]", "").trim()
+                + " " + numeroCompleto(doc) + ".pdf");
+        k.setPdf(java.util.Base64.getEncoder().encodeToString(pdf));
+        return k;
     }
 
     @Transactional

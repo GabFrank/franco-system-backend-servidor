@@ -224,6 +224,24 @@ type OpcionesNuevaCompraMobile {
     monedas: [OpcionMobile!]!
 }
 
+# La factura de un proveedor leída de SIFEN, armada en PDF con la plantilla de nuestras facturas (base64)
+type KudeProveedorMobile {
+    documentoId: ID!
+    cdc: String!
+    tipoDocumentoDescripcion: String
+    numeroCompleto: String
+    emisorNombre: String
+    emisorRuc: String
+    fechaEmision: String
+    condicion: String
+    monedaSimbolo: String
+    totalGeneral: Float
+    cantidadRenglones: Int
+    cancelada: Boolean
+    nombreArchivo: String
+    pdf: String!
+}
+
 # Los precios del pedido en otra moneda que la factura. La nota sigue en la moneda de la factura.
 type ConversionMonedaMobile {
     monedaId: ID!
@@ -273,6 +291,8 @@ extend type Mutation {
     # La factura crea la compra: pedido, ítems y reparto. Queda en la planificación («Ítems del pedido») y la factura
     # se carga como nota sola al finalizarla en el desktop.
     leerFacturaNuevaCompraMobile(qr: String!): FacturaProveedorMobile!
+    # Escanear el KuDE y ver la factura del proveedor en PDF. Solo consulta: no crea nada
+    kudeFacturaProveedorMobile(qr: String!): KudeProveedorMobile!
     crearCompraDesdeFacturaMobile(
         documentoId: ID!
         formaPagoId: ID

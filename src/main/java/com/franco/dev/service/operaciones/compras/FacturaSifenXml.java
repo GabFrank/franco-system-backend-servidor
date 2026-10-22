@@ -65,6 +65,20 @@ public final class FacturaSifenXml {
         public Double totalIva;
         /** Hay un evento de cancelación en la respuesta. */
         public boolean cancelada;
+        // Para el KuDE: lo que el emisor imprime en su factura
+        public String tipoDocumentoDescripcion;
+        public LocalDate inicioTimbrado;
+        public String direccionEmisor;
+        public String ciudadEmisor;
+        public String departamentoEmisor;
+        public String telefonoEmisor;
+        public String emailEmisor;
+        public String actividadEconomica;
+        public String direccionReceptor;
+        public String telefonoReceptor;
+        public String emailReceptor;
+        /** dCarQR: la URL del QR que se imprime en el KuDE. */
+        public String urlQr;
         public final List<Renglon> renglones = new ArrayList<>();
     }
 
@@ -110,6 +124,8 @@ public final class FacturaSifenXml {
         c.establecimiento = texto(gTimb, "dEst");
         c.puntoExpedicion = texto(gTimb, "dPunExp");
         c.numero = texto(gTimb, "dNumDoc");
+        c.tipoDocumentoDescripcion = texto(gTimb, "dDesTiDE");
+        c.inicioTimbrado = fecha(texto(gTimb, "dFeIniT"));
 
         Element gral = primero(de, "gDatGralOpe");
         c.fechaEmision = fechaHora(texto(gral, "dFeEmiDE"));
@@ -120,10 +136,22 @@ public final class FacturaSifenXml {
         c.rucEmisor = sinCeros(texto(gEmis, "dRucEm"));
         c.dvEmisor = texto(gEmis, "dDVEmi");
         c.razonSocialEmisor = texto(gEmis, "dNomEmi");
+        String calle = texto(gEmis, "dDirEmi");
+        String casa = texto(gEmis, "dNumCas");
+        c.direccionEmisor = calle == null ? null : calle + (casa != null && !"0".equals(casa.trim()) ? " " + casa : "");
+        c.ciudadEmisor = texto(gEmis, "dDesCiuEmi");
+        c.departamentoEmisor = texto(gEmis, "dDesDepEmi");
+        c.telefonoEmisor = texto(gEmis, "dTelEmi");
+        c.emailEmisor = texto(gEmis, "dEmailE");
+        c.actividadEconomica = texto(primero(gEmis, "gActEco"), "dDesActEco");
         Element gDatRec = primero(gral, "gDatRec");
         c.rucReceptor = sinCeros(texto(gDatRec, "dRucRec"));
         c.dvReceptor = texto(gDatRec, "dDVRec");
         c.razonSocialReceptor = texto(gDatRec, "dNomRec");
+        c.direccionReceptor = texto(gDatRec, "dDirRec");
+        c.telefonoReceptor = texto(gDatRec, "dTelRec");
+        c.emailReceptor = texto(gDatRec, "dEmailRec");
+        c.urlQr = texto(primero(rde, "gCamFuFD"), "dCarQR");
 
         Element gDtipDE = primero(de, "gDtipDE");
         Element gCamCond = primero(gDtipDE, "gCamCond");

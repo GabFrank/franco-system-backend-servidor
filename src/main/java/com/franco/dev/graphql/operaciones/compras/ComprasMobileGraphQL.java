@@ -64,6 +64,10 @@ public class ComprasMobileGraphQL implements GraphQLQueryResolver, GraphQLMutati
         return service.crearCompraDesdeFactura(documentoId, formaPagoId, plazoCredito, sucursalId, sucursalIds, repartos, monedaId);
     }
 
+    public KudeProveedorMobile kudeFacturaProveedorMobile(String qr) {
+        return service.kudeProveedor(qr);
+    }
+
     public ConversionMonedaMobile conversionMonedaCompraMobile(Long documentoId, Long monedaId) {
         return service.conversionMoneda(documentoId, monedaId);
     }

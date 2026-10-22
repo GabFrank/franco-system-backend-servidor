@@ -163,6 +163,8 @@ type FacturaProveedorMobile {
     fechaEmision: String
     condicion: String
     moneda: String
+    # La moneda del sistema que corresponde a la de la factura; null si el sistema no la tiene
+    monedaId: ID
     monedaSimbolo: String
     cotizacion: Float
     subtotalExenta: Float
@@ -219,6 +221,19 @@ type OpcionMobile {
 type OpcionesNuevaCompraMobile {
     formasPago: [OpcionMobile!]!
     sucursales: [OpcionMobile!]!
+    monedas: [OpcionMobile!]!
+}
+
+# Los precios del pedido en otra moneda que la factura. La nota sigue en la moneda de la factura.
+type ConversionMonedaMobile {
+    monedaId: ID!
+    monedaSimbolo: String
+    mismaMoneda: Boolean
+    factor: Float
+    cotizacionFactura: Float
+    cotizacionPedido: Float
+    totalPedido: Float
+    texto: String
 }
 
 type PresentacionCompraMobile {
@@ -246,6 +261,7 @@ extend type Query {
     presentacionesCompraMobile(productoId: ID!, renglonId: ID): [PresentacionCompraMobile!]!
     facturaNuevaCompraMobile(id: ID!): FacturaProveedorMobile
     opcionesNuevaCompraMobile: OpcionesNuevaCompraMobile
+    conversionMonedaCompraMobile(documentoId: ID!, monedaId: ID!): ConversionMonedaMobile
     pedidosEsperandoFacturaMobile(texto: String, proveedorId: ID, page: Int = 0, size: Int = 20): CompraPedidoResumenMobilePage
     pedidoComprasMobile(pedidoId: ID!): CompraPedidoMobile
     pedidosParaFacturaMobile(qr: String!): PedidosParaFacturaMobile
@@ -266,6 +282,8 @@ extend type Mutation {
         sucursalIds: [ID!]
         # Con varias sucursales: cuánto de cada renglón va a cada una, en la unidad de la factura
         repartos: [RepartoRenglonMobileInput!]
+        # La moneda del pedido; sin ella, la de la factura. Con otra, los precios se convierten con la cotización
+        monedaId: ID
     ): CompraPedidoMobile!
     leerFacturaProveedorMobile(pedidoId: ID!, qr: String!): FacturaProveedorMobile!
     vincularRenglonFacturaMobile(renglonId: ID!, presentacionId: ID!, factor: Float, recordar: Boolean): FacturaProveedorMobile!

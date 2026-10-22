@@ -32,6 +32,7 @@ import com.franco.dev.graphql.operaciones.compras.CompraNotaMobile;
 import com.franco.dev.graphql.operaciones.compras.CompraPedidoItemMobile;
 import com.franco.dev.graphql.operaciones.compras.CompraPedidoMobile;
 import com.franco.dev.graphql.operaciones.compras.CompraPedidoResumenMobile;
+import com.franco.dev.graphql.operaciones.compras.ConversionMonedaMobile;
 import com.franco.dev.graphql.operaciones.compras.FacturaProveedorMobile;
 import com.franco.dev.graphql.operaciones.compras.OpcionMobile;
 import com.franco.dev.graphql.operaciones.compras.PresentacionCompraMobile;
@@ -677,7 +678,87 @@ public class ComprasMobileService {
         for (Sucursal s : sucursalService.findAllSucursalesEntrega()) {
             if (s.getId() != null && s.getId() != 0L) o.getSucursales().add(new OpcionMobile(s.getId(), s.getNombre()));
         }
+        for (Moneda m : monedaService.findAll2()) {
+            if (Boolean.FALSE.equals(m.getActivo())) continue;
+            o.getMonedas().add(new OpcionMobile(m.getId(), texto(m.getDenominacion())
+                    + (vacio(m.getSimbolo()) ? "" : " (" + m.getSimbolo().trim() + ")")));
+        }
         return o;
+    }
+
+    /**
+     * Cómo quedarían los precios del pedido en otra moneda que la de la factura, para mostrarlo antes de crear la
+     * compra. Con la misma moneda, el factor es 1.
+     */
+    @Transactional
+    public ConversionMonedaMobile conversionMoneda(Long documentoId, Long monedaId) {
+        seguridad.exigirCompras();
+        DocumentoRecibido doc = documentoObligatorio(documentoId);
+        FacturaProveedorMobile factura = armarBorrador(doc, false);
+        return conversion(doc, monedaId, factura);
+    }
+
+    private ConversionMonedaMobile conversion(DocumentoRecibido doc, Long monedaId, FacturaProveedorMobile factura) {
+        Moneda origen = monedaDe(doc.getMoneda());
+        Moneda destino = monedaId == null ? origen : monedaService.findById(monedaId)
+                .orElseThrow(() -> new GraphQLException("No existe la moneda " + monedaId + "."));
+        ConversionMonedaMobile c = new ConversionMonedaMobile();
+        c.setMonedaId(destino.getId());
+        c.setMonedaSimbolo(destino.getSimbolo());
+        boolean misma = Objects.equals(origen.getId(), destino.getId());
+        c.setMismaMoneda(misma);
+        Double cotOrigen = cotizacionDe(origen, doc);
+        Double cotDestino = misma ? cotOrigen : cotizacionDe(destino, doc);
+        if (cotOrigen == null) {
+            throw new GraphQLException("No hay cotización de " + origen.getDenominacion() + " para convertir los precios.");
+        }
+        if (cotDestino == null) {
+            throw new GraphQLException("No hay cotización de " + destino.getDenominacion() + " para convertir los precios.");
+        }
+        c.setCotizacionFactura(cotOrigen);
+        c.setCotizacionPedido(cotDestino);
+        c.setFactor(misma ? 1.0 : cotOrigen / cotDestino);
+        double total = 0;
+        if (factura != null) {
+            for (RenglonFacturaMobile r : factura.getRenglones()) {
+                if (Boolean.TRUE.equals(r.getEsBonificacion())) continue;
+                total += nz(r.getCantidadBase()) * nz(r.getPrecioUnitarioBase());
+            }
+        }
+        c.setTotalPedido(CruceFactura.redondear(total * c.getFactor(), 2));
+        if (misma) {
+            c.setTexto("La moneda de la factura.");
+        } else {
+            StringBuilder t = new StringBuilder("Los precios del pedido se convierten: ");
+            if (!GUARANI.equals(destino.getDenominacion())) {
+                t.append("1 ").append(texto(destino.getSimbolo())).append(" = ").append(CruceFactura.importe(cotDestino)).append(" Gs.");
+            }
+            if (!GUARANI.equals(origen.getDenominacion())) {
+                if (!GUARANI.equals(destino.getDenominacion())) t.append(" y ");
+                t.append("1 ").append(texto(origen.getSimbolo())).append(" = ").append(CruceFactura.importe(cotOrigen)).append(" Gs.");
+            }
+            t.append(". Total del pedido: ").append(texto(destino.getSimbolo())).append(" ")
+                    .append(CruceFactura.importe(c.getTotalPedido())).append(". La nota queda en ")
+                    .append(origen.getDenominacion().toLowerCase()).append(", como la factura.");
+            c.setTexto(t.toString());
+        }
+        return c;
+    }
+
+    /** Guaraníes por unidad de la moneda: 1 el guaraní; la de la factura si es su moneda; si no, el último cambio. */
+    private Double cotizacionDe(Moneda m, DocumentoRecibido doc) {
+        if (m == null || GUARANI.equals(m.getDenominacion())) return 1.0;
+        Moneda deFactura = monedaDeOrNull(doc.getMoneda());
+        if (deFactura != null && Objects.equals(deFactura.getId(), m.getId())
+                && doc.getCotizacion() != null && doc.getCotizacion() > 1) {
+            return doc.getCotizacion();
+        }
+        Cambio cambio = cambioService.findLastByMonedaId(m.getId());
+        Double tasa = cambio == null ? null
+                : cambio.getValorEnGsCompraMercado() != null ? cambio.getValorEnGsCompraMercado()
+                : cambio.getValorEnGsVentaMercado() != null ? cambio.getValorEnGsVentaMercado()
+                : cambio.getValorEnGs();
+        return tasa != null && tasa > 1 ? tasa : null;
     }
 
     /**
@@ -697,7 +778,7 @@ public class ComprasMobileService {
     @Transactional
     public CompraPedidoMobile crearCompraDesdeFactura(Long documentoId, Long formaPagoId, Integer plazoCredito,
                                                        Long sucursalId, List<Long> sucursalIds,
-                                                       List<RepartoRenglonMobileInput> repartos) {
+                                                       List<RepartoRenglonMobileInput> repartos, Long monedaId) {
         seguridad.exigirCompras();
         DocumentoRecibido doc = documentoObligatorio(documentoId);
         exigirSinNota(doc);
@@ -718,7 +799,10 @@ public class ComprasMobileService {
         Map<Long, RenglonFacturaMobile> porId = factura.getRenglones().stream()
                 .collect(Collectors.toMap(RenglonFacturaMobile::getId, r -> r));
         Map<Long, double[]> repartoPorRenglon = repartoPorRenglon(renglones, porId, sucursales, repartos);
-        Moneda moneda = monedaDe(doc.getMoneda());
+        // La moneda del pedido: la de la factura o la que eligió el comprador, con los precios convertidos
+        ConversionMonedaMobile conversion = conversion(doc, monedaId, factura);
+        Moneda moneda = monedaService.findById(conversion.getMonedaId()).orElseThrow(() -> new GraphQLException("Moneda inexistente."));
+        double factor = conversion.getFactor();
         Usuario usuario = seguridad.usuarioActual();
         Long usuarioId = usuario != null ? usuario.getId() : null;
 
@@ -733,7 +817,7 @@ public class ComprasMobileService {
         Pedido pedido = pedidoGraphQL.savePedidoFull(input, null, sucursalesPedido, sucursalesPedido,
                 usuarioId != null ? usuarioId.intValue() : null);
         pedido.setFormaPago(formaPagoService.findById(formaPago).orElse(null));
-        pedido.setCotizacion(cotizacionOrNull(moneda, doc, pedido));
+        pedido.setCotizacion(conversion.getCotizacionPedido());
         pedido = pedidoService.save(pedido);
 
         // 2. Un ítem por renglón, con su reparto por sucursal: como «Agregar ítem» del desktop
@@ -750,7 +834,8 @@ public class ComprasMobileService {
             item.setProductoId(renglon.getProducto().getId());
             item.setPresentacionCreacionId(renglon.getPresentacion() != null ? renglon.getPresentacion().getId() : null);
             item.setCantidadSolicitada(cruce.getCantidadBase());
-            item.setPrecioUnitarioSolicitado(cruce.getPrecioUnitarioBase());
+            item.setPrecioUnitarioSolicitado(factor == 1.0 || cruce.getPrecioUnitarioBase() == null
+                    ? cruce.getPrecioUnitarioBase() : CruceFactura.redondear(cruce.getPrecioUnitarioBase() * factor, 4));
             item.setEsBonificacion(Boolean.TRUE.equals(cruce.getEsBonificacion()));
             item.setEstado(PedidoItemEstado.ACTIVO);
             item.setVencimientoEsperado(renglon.getVencimiento() != null ? renglon.getVencimiento().atStartOfDay().format(FECHA_HORA_SEG) : null);
@@ -1364,6 +1449,7 @@ public class ComprasMobileService {
         f.setCondicion(doc.getCondicionOperacion() == null ? null : doc.getCondicionOperacion() == 2 ? "Crédito" : "Contado");
         f.setMoneda(doc.getMoneda());
         Moneda moneda = monedaDeOrNull(doc.getMoneda());
+        f.setMonedaId(moneda != null ? moneda.getId() : null);
         f.setMonedaSimbolo(moneda != null ? moneda.getSimbolo() : doc.getMoneda());
         f.setCotizacion(doc.getCotizacion());
         f.setSubtotalExenta(doc.getSubtotalExenta());

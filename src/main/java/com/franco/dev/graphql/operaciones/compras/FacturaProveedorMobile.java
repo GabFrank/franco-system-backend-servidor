@@ -34,6 +34,8 @@ public class FacturaProveedorMobile {
     /** Días de crédito, solo si la factura los trae. */
     private Integer plazoCredito;
     private String moneda;
+    /** La moneda del sistema que corresponde a la de la factura; null si el sistema no la tiene. */
+    private Long monedaId;
     private String monedaSimbolo;
     private Double cotizacion;
     private Double subtotalExenta;

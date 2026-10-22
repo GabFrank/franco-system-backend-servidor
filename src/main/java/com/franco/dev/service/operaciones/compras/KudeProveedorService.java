@@ -1,7 +1,6 @@
 package com.franco.dev.service.operaciones.compras;
 
 import com.franco.dev.domain.operaciones.DocumentoRecibido;
-import com.franco.dev.graphql.financiero.FacturaLegalGraphQL;
 import com.franco.dev.utilitarios.print.QRCodeImageGenerator;
 import net.sf.jasperreports.engine.JasperCompileManager;
 import net.sf.jasperreports.engine.JasperExportManager;
@@ -25,8 +24,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * El KuDE de una factura de proveedor, armado con los datos del XML que devolvió SIFEN y con la misma plantilla de
- * nuestras facturas electrónicas ({@code factura-electronica-kude.jrxml}).
+ * El KuDE de una factura de proveedor, armado con los datos del XML que devolvió SIFEN. La plantilla
+ * ({@code factura-proveedor-kude.jrxml}) es la de nuestras facturas electrónicas más lo que una factura de
+ * proveedor trae y la nuestra no: el descuento de cada renglón, el descuento total, la base gravada, el tipo de
+ * operación y la información del renglón (código de barras, lote, vencimiento). La nuestra no se toca.
  *
  * No es el PDF que imprimió el proveedor —ese no lo guarda la SET, cada emisor diseña el suyo—, sino una
  * representación con todos los datos legales del documento: emisor, timbrado, receptor, renglones, IVA, totales,
@@ -47,7 +48,7 @@ public class KudeProveedorService {
         File qr = null;
         try {
             JasperReport reporte;
-            try (InputStream jrxml = new ClassPathResource("reports/factura-electronica-kude.jrxml").getInputStream()) {
+            try (InputStream jrxml = new ClassPathResource("reports/factura-proveedor-kude.jrxml").getInputStream()) {
                 reporte = JasperCompileManager.compileReport(jrxml);
             }
             Map<String, Object> p = parametros(c);
@@ -88,7 +89,7 @@ public class KudeProveedorService {
         p.put("ordenAsociada", "");
         p.put("rucCliente", c.rucReceptor == null ? "" : c.rucReceptor + (c.dvReceptor != null ? "-" + c.dvReceptor : ""));
         p.put("nombreCliente", nz(c.razonSocialReceptor));
-        p.put("fantasiaCliente", nz(c.razonSocialReceptor));
+        p.put("fantasiaCliente", c.fantasiaReceptor != null ? c.fantasiaReceptor : nz(c.razonSocialReceptor));
         p.put("direccionCliente", nz(c.direccionReceptor));
         p.put("ciudadCliente", "");
         p.put("departamentoCliente", "");
@@ -113,28 +114,64 @@ public class KudeProveedorService {
         p.put("totalIva", c.totalIva != null ? c.totalIva : d(c.totalIva5) + d(c.totalIva10));
         p.put("totalFinal", d(c.totalGeneral));
         p.put("totalEnGuarani", extranjera && c.cotizacion != null ? d(c.totalGeneral) * c.cotizacion : d(c.totalGeneral));
+        p.put("tipoOperacion", nz(c.tipoTransaccion));
+        p.put("totalDescuento", d(c.totalDescuento));
+        p.put("baseGravada5", d(c.baseGravada5));
+        p.put("baseGravada10", d(c.baseGravada10));
         p.put("urlValidacion", "https://ekuatia.set.gov.py/consultas/");
         p.put("qrImagePath", "");
         return p;
     }
 
-    static List<FacturaLegalGraphQL.FacturaItemDto> items(FacturaSifenXml.Cabecera c) {
-        List<FacturaLegalGraphQL.FacturaItemDto> lista = new ArrayList<>();
+    static List<Item> items(FacturaSifenXml.Cabecera c) {
+        List<Item> lista = new ArrayList<>();
         long id = 1;
         for (FacturaSifenXml.Renglon r : c.renglones) {
-            FacturaLegalGraphQL.FacturaItemDto dto = new FacturaLegalGraphQL.FacturaItemDto();
-            dto.setId(id++);
-            dto.setCodigo(nz(r.codigoProveedor));
-            dto.setDescripcion(nz(r.descripcion));
-            dto.setDescripcionPresentacion(nz(r.unidadMedida));
-            dto.setCantidad(r.cantidad != null ? r.cantidad.floatValue() : 0f);
-            dto.setPrecioUnitario(d(r.precioUnitario));
-            // Exenta (iAfecIVA 2 o 3) sin tasa: la columna de exentas
-            dto.setIva(r.tasaIva != null && (r.afectacionIva == null || r.afectacionIva != 2) ? r.tasaIva : 0);
-            dto.setTotal(r.total != null ? r.total : d(r.cantidad) * d(r.precioUnitario));
-            lista.add(dto);
+            Item it = new Item();
+            it.setId(id++);
+            it.setCodigo(nz(r.codigoProveedor));
+            it.setDescripcion(descripcion(r));
+            it.setDescripcionPresentacion(nz(r.unidadMedida));
+            it.setCantidad(r.cantidad != null ? r.cantidad.floatValue() : 0f);
+            it.setPrecioUnitario(d(r.precioUnitario));
+            // Exenta (iAfecIVA 2) sin tasa: la columna de exentas
+            it.setIva(r.tasaIva != null && (r.afectacionIva == null || r.afectacionIva != 2) ? r.tasaIva : 0);
+            double total = r.total != null ? r.total : d(r.cantidad) * d(r.precioUnitario);
+            it.setTotal(total);
+            // El descuento del renglón: bruto − neto (incluye el global prorrateado); si no viene el bruto, el unitario
+            double bruto = r.totalBruto != null ? r.totalBruto : d(r.cantidad) * d(r.precioUnitario);
+            double descuento = Math.max(0, bruto - total);
+            if (descuento < 0.005 && r.descuentoUnitario != null) descuento = r.descuentoUnitario * d(r.cantidad);
+            it.setDescuento(descuento);
+            it.setPorcentajeDescuento(r.porcentajeDescuento);
+            lista.add(it);
         }
         return lista;
+    }
+
+    /** La descripción con lo que el emisor imprime debajo: dInfItem (código de barras), lote y vencimiento. */
+    static String descripcion(FacturaSifenXml.Renglon r) {
+        StringBuilder b = new StringBuilder(nz(r.descripcion));
+        if (r.informacion != null && !r.informacion.trim().isEmpty()) b.append("\n").append(r.informacion.trim());
+        String lote = r.lote != null && !r.lote.trim().isEmpty() ? "Lote " + r.lote.trim() : null;
+        String vence = r.vencimiento != null ? "Vence " + r.vencimiento.format(FECHA) : null;
+        if (lote != null || vence != null) b.append("\n").append(unir(lote, vence).replace(", ", " · "));
+        return b.toString();
+    }
+
+    /** Un renglón para la plantilla. */
+    @lombok.Data
+    public static class Item {
+        private Long id;
+        private String codigo;
+        private String descripcion;
+        private Integer iva;
+        private String descripcionPresentacion;
+        private Float cantidad;
+        private Double precioUnitario;
+        private Double descuento;
+        private Double porcentajeDescuento;
+        private Double total;
     }
 
     private static String unir(String... partes) {

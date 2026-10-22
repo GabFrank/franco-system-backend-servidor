@@ -79,6 +79,11 @@ public final class FacturaSifenXml {
         public String emailReceptor;
         /** dCarQR: la URL del QR que se imprime en el KuDE. */
         public String urlQr;
+        public String fantasiaReceptor;
+        /** dDesTipTra: «Venta de mercadería»… */
+        public String tipoTransaccion;
+        public Double baseGravada5;
+        public Double baseGravada10;
         public final List<Renglon> renglones = new ArrayList<>();
     }
 
@@ -94,6 +99,8 @@ public final class FacturaSifenXml {
         public Double cantidad;
         public Double precioUnitario;
         public Double descuentoUnitario;
+        /** dTotBruOpeItem: cantidad × precio, antes del descuento. */
+        public Double totalBruto;
         public Double porcentajeDescuento;
         public Double total;
         public Integer afectacionIva;
@@ -130,6 +137,7 @@ public final class FacturaSifenXml {
         Element gral = primero(de, "gDatGralOpe");
         c.fechaEmision = fechaHora(texto(gral, "dFeEmiDE"));
         Element gOpeCom = primero(gral, "gOpeCom");
+        c.tipoTransaccion = texto(gOpeCom, "dDesTipTra");
         c.moneda = texto(gOpeCom, "cMoneOpe");
         c.cotizacion = numero(texto(gOpeCom, "dTiCam"));
         Element gEmis = primero(gral, "gEmis");
@@ -148,6 +156,7 @@ public final class FacturaSifenXml {
         c.rucReceptor = sinCeros(texto(gDatRec, "dRucRec"));
         c.dvReceptor = texto(gDatRec, "dDVRec");
         c.razonSocialReceptor = texto(gDatRec, "dNomRec");
+        c.fantasiaReceptor = texto(gDatRec, "dNomFanRec");
         c.direccionReceptor = texto(gDatRec, "dDirRec");
         c.telefonoReceptor = texto(gDatRec, "dTelRec");
         c.emailReceptor = texto(gDatRec, "dEmailRec");
@@ -174,6 +183,8 @@ public final class FacturaSifenXml {
         c.totalIva5 = numero(texto(tot, "dIVA5"));
         c.totalIva10 = numero(texto(tot, "dIVA10"));
         c.totalIva = numero(texto(tot, "dTotIVA"));
+        c.baseGravada5 = numero(texto(tot, "dBaseGrav5"));
+        c.baseGravada10 = numero(texto(tot, "dBaseGrav10"));
 
         // Un evento de cancelación aprobado viaja en la misma respuesta (rGeVeCan dentro de xContEv).
         c.cancelada = respuestaSifen.contains("rGeVeCan");
@@ -201,6 +212,7 @@ public final class FacturaSifenXml {
         r.precioUnitario = numero(texto(valor, "dPUniProSer"));
         Element resta = primero(valor, "gValorRestaItem");
         r.descuentoUnitario = numero(texto(resta, "dDescItem"));
+        r.totalBruto = numero(texto(valor, "dTotBruOpeItem"));
         r.porcentajeDescuento = numero(texto(resta, "dPorcDesIt"));
         r.total = numero(texto(resta, "dTotOpeItem"));
         Element iva = primero(item, "gCamIVA");

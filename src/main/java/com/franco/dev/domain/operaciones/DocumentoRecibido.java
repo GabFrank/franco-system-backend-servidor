@@ -92,4 +92,11 @@ public class DocumentoRecibido {
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
+
+    /**
+     * La factura creó la compra desde el celular y espera que se finalice la planificación para cargarse como nota
+     * (V254.3). Una factura escaneada a un pedido y no confirmada no la tiene.
+     */
+    @Column(name = "cargar_al_finalizar", nullable = false)
+    private Boolean cargarAlFinalizar = false;
 }

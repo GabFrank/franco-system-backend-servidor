@@ -234,6 +234,12 @@ type PresentacionCompraMobile {
     factorSugerido: Float
 }
 
+input RepartoRenglonMobileInput {
+    renglonId: ID!
+    sucursalId: ID!
+    cantidad: Float!
+}
+
 extend type Query {
     # Todas las compras, la última primero; con soloEsperandoFactura, solo las de la etapa de notas abierta
     comprasMobile(texto: String, soloEsperandoFactura: Boolean, page: Int = 0, size: Int = 20): CompraPedidoResumenMobilePage
@@ -248,13 +254,18 @@ extend type Query {
 }
 
 extend type Mutation {
-    # La factura crea la compra: pedido, ítems, reparto y nota. Queda en la recepción documental (se puede reabrir)
+    # La factura crea la compra: pedido, ítems y reparto. Queda en la planificación («Ítems del pedido») y la factura
+    # se carga como nota sola al finalizarla en el desktop.
     leerFacturaNuevaCompraMobile(qr: String!): FacturaProveedorMobile!
     crearCompraDesdeFacturaMobile(
         documentoId: ID!
         formaPagoId: ID
         plazoCredito: Int
-        sucursalId: ID!
+        # Viejo: una sola sucursal. Se usa si no viene sucursalIds
+        sucursalId: ID
+        sucursalIds: [ID!]
+        # Con varias sucursales: cuánto de cada renglón va a cada una, en la unidad de la factura
+        repartos: [RepartoRenglonMobileInput!]
     ): CompraPedidoMobile!
     leerFacturaProveedorMobile(pedidoId: ID!, qr: String!): FacturaProveedorMobile!
     vincularRenglonFacturaMobile(renglonId: ID!, presentacionId: ID!, factor: Float, recordar: Boolean): FacturaProveedorMobile!

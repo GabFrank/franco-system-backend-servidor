@@ -46,6 +46,8 @@ import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.FormaPagoService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.graphql.operaciones.compras.PedidosParaFacturaMobile;
+import com.franco.dev.graphql.operaciones.compras.RepartoRenglonMobileInput;
+import com.franco.dev.service.operaciones.PlanificacionFinalizadaEvent;
 import com.franco.dev.graphql.operaciones.compras.RenglonFacturaMobile;
 import com.franco.dev.graphql.operaciones.compras.ResumenFinalizarNotasMobile;
 import com.franco.dev.graphql.operaciones.compras.SugerenciaProductoMobile;
@@ -75,7 +77,12 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -140,6 +147,7 @@ public class ComprasMobileService {
     @Autowired private SucursalService sucursalService;
     @Autowired private FormaPagoService formaPagoService;
     @Autowired private ProveedorService proveedorService;
+    @Autowired private PlatformTransactionManager transactionManager;
 
     // =================================================================================== Pedidos
 
@@ -281,6 +289,7 @@ public class ComprasMobileService {
             throw new GraphQLException("Esta factura ya está cargada: nota " + nota.getNumero() + " del pedido "
                     + (nota.getPedido() != null ? nota.getPedido().getId() : "?") + ".");
         }
+        exigirQueNoEspereOtroPedido(doc, pedido.getId());
         Set<String> nuestros = rucsPropios();
         if (!nuestros.isEmpty() && doc.getRucReceptor() != null
                 && nuestros.stream().noneMatch(r -> mismoRuc(r, doc.getRucReceptor()))) {
@@ -632,6 +641,7 @@ public class ComprasMobileService {
             throw new GraphQLException("Esta factura ya está cargada: nota " + nota.getNumero() + " del pedido "
                     + (nota.getPedido() != null ? nota.getPedido().getId() : "?") + ".");
         }
+        exigirQueNoEspereOtroPedido(doc, null);
         Set<String> nuestros = rucsPropios();
         if (!nuestros.isEmpty() && doc.getRucReceptor() != null
                 && nuestros.stream().noneMatch(r -> mismoRuc(r, doc.getRucReceptor()))) {
@@ -639,6 +649,7 @@ public class ComprasMobileService {
                     + " (RUC " + doc.getRucReceptor() + "), no de la empresa.");
         }
         doc.setPedido(null);
+        doc.setCargarAlFinalizar(false);
         doc.setProveedor(proveedor);
         if (doc.getUsuario() == null) doc.setUsuario(seguridad.usuarioActual());
         documentoRepository.save(doc);
@@ -667,23 +678,27 @@ public class ComprasMobileService {
     }
 
     /**
-     * Crea el pedido con lo que dice la factura y lo lleva hasta la recepción documental, en una sola transacción:
-     * los mismos pasos que el desktop (crear el pedido con sus sucursales, cargar cada ítem con su reparto,
-     * «Finalizar planificación» y cargar la nota), con las mismas operaciones.
+     * Crea el pedido con lo que dice la factura, en una sola transacción: los mismos pasos que el desktop (crear el
+     * pedido con sus sucursales y cargar cada ítem con su reparto), con las mismas operaciones.
      *
-     * ⚠️ <b>No finaliza la recepción documental</b>: la compra queda en esa etapa con la factura cargada. Finalizarla
-     * la mandaba a recepción de mercadería y ya no se podía reabrir la planificación para corregir un ítem.
+     * ⚠️ <b>La compra queda en la planificación («Ítems del pedido»)</b>, con todos los ítems distribuidos: el
+     * comprador la revisa en el desktop con el papel en la mano y la finaliza. Recién ahí el central carga la factura
+     * como nota ({@link #alFinalizarPlanificacion}); hasta entonces queda vinculada al pedido con
+     * {@code cargarAlFinalizar}.
      *
      * Lo que la factura trae se toma de la factura (proveedor, moneda, cotización, ítems, precios con IVA, forma de
-     * pago y plazo si vienen). Lo que no trae lo elige el comprador: la forma de pago si la factura no la dice, y la
-     * sucursal, que recibe todo.
+     * pago y plazo si vienen). Lo que no trae lo elige el comprador: la forma de pago si la factura no la dice, y las
+     * sucursales. Con una sola sucursal recibe todo; con varias, {@code repartos} dice cuánto de cada renglón va a
+     * cada una, en la unidad de la factura.
      */
     @Transactional
     public CompraPedidoMobile crearCompraDesdeFactura(Long documentoId, Long formaPagoId, Integer plazoCredito,
-                                                       Long sucursalId) {
+                                                       Long sucursalId, List<Long> sucursalIds,
+                                                       List<RepartoRenglonMobileInput> repartos) {
         seguridad.exigirCompras();
         DocumentoRecibido doc = documentoObligatorio(documentoId);
         exigirSinNota(doc);
+        exigirQueNoEspereOtroPedido(doc, null);
         FacturaProveedorMobile factura = armarBorrador(doc, true);
         if (!Boolean.TRUE.equals(factura.getPuedeConfirmar())) {
             throw new GraphQLException(factura.getMotivoNoConfirma());
@@ -695,9 +710,11 @@ public class ComprasMobileService {
         if (plazoCredito != null && plazoCredito < 0) {
             throw new GraphQLException("El plazo de crédito no puede ser negativo.");
         }
-        if (sucursalId == null || sucursalService.findAllSucursalesEntrega().stream().noneMatch(s -> sucursalId.equals(s.getId()))) {
-            throw new GraphQLException("Elegí la sucursal que recibe la mercadería.");
-        }
+        List<Long> sucursales = sucursalesElegidas(sucursalId, sucursalIds);
+        List<DocumentoRecibidoItem> renglones = documentoRecibidoService.renglones(doc.getId());
+        Map<Long, RenglonFacturaMobile> porId = factura.getRenglones().stream()
+                .collect(Collectors.toMap(RenglonFacturaMobile::getId, r -> r));
+        Map<Long, double[]> repartoPorRenglon = repartoPorRenglon(renglones, porId, sucursales, repartos);
         Moneda moneda = monedaDe(doc.getMoneda());
         Usuario usuario = seguridad.usuarioActual();
         Long usuarioId = usuario != null ? usuario.getId() : null;
@@ -709,21 +726,19 @@ public class ComprasMobileService {
         input.setMonedaId(moneda.getId());
         input.setPlazoCredito(plazoCredito != null ? plazoCredito : factura.getPlazoCredito());
         input.setUsuarioId(usuarioId);
-        List<Integer> sucursales = Collections.singletonList(sucursalId.intValue());
-        Pedido pedido = pedidoGraphQL.savePedidoFull(input, null, sucursales, sucursales,
+        List<Integer> sucursalesPedido = sucursales.stream().map(Long::intValue).collect(Collectors.toList());
+        Pedido pedido = pedidoGraphQL.savePedidoFull(input, null, sucursalesPedido, sucursalesPedido,
                 usuarioId != null ? usuarioId.intValue() : null);
         pedido.setFormaPago(formaPagoService.findById(formaPago).orElse(null));
         pedido.setCotizacion(cotizacionOrNull(moneda, doc, pedido));
         pedido = pedidoService.save(pedido);
 
-        // 2. Un ítem por renglón, con todo para la sucursal elegida: como «Agregar ítem» con una sola sucursal
-        Map<Long, RenglonFacturaMobile> porId = factura.getRenglones().stream()
-                .collect(Collectors.toMap(RenglonFacturaMobile::getId, r -> r));
+        // 2. Un ítem por renglón, con su reparto por sucursal: como «Agregar ítem» del desktop
         // ⚠️ Al revés del orden de la factura, a propósito: el desktop lista los ítems del pedido por id descendente
         // (pedidoItemPorPedidoPage), así que creados del último al primero se ven en el orden de la factura y el
         // comprador los revisa con el papel en la mano. La nota se crea en el orden de la factura: esa se lista
         // ascendente.
-        List<DocumentoRecibidoItem> enOrdenInverso = new ArrayList<>(documentoRecibidoService.renglones(doc.getId()));
+        List<DocumentoRecibidoItem> enOrdenInverso = new ArrayList<>(renglones);
         Collections.reverse(enOrdenInverso);
         for (DocumentoRecibidoItem renglon : enOrdenInverso) {
             RenglonFacturaMobile cruce = porId.get(renglon.getId());
@@ -738,29 +753,141 @@ public class ComprasMobileService {
             item.setVencimientoEsperado(renglon.getVencimiento() != null ? renglon.getVencimiento().atStartOfDay().format(FECHA_HORA_SEG) : null);
             item.setCreadoEn(LocalDateTime.now().format(FECHA_HORA_SEG));
             item.setUsuarioCreacionId(usuarioId);
-            PedidoItemDistribucionInput reparto = new PedidoItemDistribucionInput();
-            reparto.setSucursalInfluenciaId(sucursalId);
-            reparto.setSucursalEntregaId(sucursalId);
-            reparto.setCantidadAsignada(cruce.getCantidadBase());
-            guardadoPedidoItemGraphQL.guardarPedidoItemConDistribuciones(item, new ArrayList<>(Collections.singletonList(reparto)));
-        }
-
-        // 3. «Finalizar planificación»: la creación termina y la recepción documental queda esperando la nota
-        try {
-            pedidoService.finalizarCreacion(pedido.getId());
-        } catch (IllegalStateException | IllegalArgumentException e) {
-            throw new GraphQLException(e.getMessage());
+            double[] partes = repartoPorRenglon.get(renglon.getId());
+            ArrayList<PedidoItemDistribucionInput> reparto = new ArrayList<>();
+            for (int i = 0; i < sucursales.size(); i++) {
+                if (partes[i] <= 0) continue;
+                PedidoItemDistribucionInput d = new PedidoItemDistribucionInput();
+                d.setSucursalInfluenciaId(sucursales.get(i));
+                d.setSucursalEntregaId(sucursales.get(i));
+                d.setCantidadAsignada(partes[i]);
+                reparto.add(d);
+            }
+            guardadoPedidoItemGraphQL.guardarPedidoItemConDistribuciones(item, reparto);
         }
         pedidoItemService.getRepository().flush();
 
-        // 4. La nota, con la misma lógica que cargar la factura a un pedido existente
-        cargarNota(doc, pedido);
-
-        // Termina acá, en la recepción documental con la factura cargada: no se finaliza la conciliación. Así la
-        // planificación se puede reabrir («Reabrir» del desktop exige RECEPCION_NOTA abierta) para corregir lo que la
-        // carga automática haya tomado mal, y se pueden sumar más facturas al mismo pedido.
-        notaRecepcionItemService.getRepository().flush();
+        // 3. La factura queda esperando la planificación: se carga como nota al finalizarla
+        doc.setPedido(pedido);
+        doc.setCargarAlFinalizar(true);
+        documentoRepository.save(doc);
         return armarPedido(pedidoObligatorio(pedido.getId()));
+    }
+
+    /** Las sucursales de la compra: las de la lista o, si no viene, la única del parámetro viejo. Sin repetir. */
+    private List<Long> sucursalesElegidas(Long sucursalId, List<Long> sucursalIds) {
+        LinkedHashSet<Long> ids = new LinkedHashSet<>();
+        if (sucursalIds != null) sucursalIds.stream().filter(Objects::nonNull).forEach(ids::add);
+        if (ids.isEmpty() && sucursalId != null) ids.add(sucursalId);
+        if (ids.isEmpty()) {
+            throw new GraphQLException("Elegí la sucursal que recibe la mercadería.");
+        }
+        Set<Long> validas = sucursalService.findAllSucursalesEntrega().stream().map(Sucursal::getId).collect(Collectors.toSet());
+        for (Long id : ids) {
+            if (!validas.contains(id)) {
+                throw new GraphQLException("La sucursal " + id + " no recibe mercadería.");
+            }
+        }
+        return new ArrayList<>(ids);
+    }
+
+    /**
+     * Cuánto de cada renglón va a cada sucursal, en unidades base y en el orden de {@code sucursales}. Con una sola
+     * sucursal va todo a ella. Con varias, el reparto lo carga el comprador en la unidad de la factura y tiene que
+     * sumar el renglón entero; se pasa a unidades base en proporción, así con cantidades enteras queda entero.
+     */
+    static Map<Long, double[]> repartoPorRenglon(List<DocumentoRecibidoItem> renglones,
+                                                         Map<Long, RenglonFacturaMobile> porId, List<Long> sucursales,
+                                                         List<RepartoRenglonMobileInput> repartos) {
+        Map<Long, double[]> resultado = new HashMap<>();
+        Map<Long, double[]> cargado = new HashMap<>();
+        if (sucursales.size() > 1) {
+            for (RepartoRenglonMobileInput r : repartos != null ? repartos : Collections.<RepartoRenglonMobileInput>emptyList()) {
+                if (r == null || r.getRenglonId() == null || r.getSucursalId() == null) continue;
+                int i = sucursales.indexOf(r.getSucursalId());
+                if (i < 0) {
+                    throw new GraphQLException("El reparto usa una sucursal que no está elegida para la compra.");
+                }
+                double cantidad = r.getCantidad() != null ? r.getCantidad() : 0;
+                if (cantidad < 0) {
+                    throw new GraphQLException("El reparto no puede tener cantidades negativas.");
+                }
+                cargado.computeIfAbsent(r.getRenglonId(), k -> new double[sucursales.size()])[i] += cantidad;
+            }
+        }
+        for (DocumentoRecibidoItem renglon : renglones) {
+            double base = nz(porId.get(renglon.getId()).getCantidadBase());
+            double[] partes = new double[sucursales.size()];
+            if (sucursales.size() == 1) {
+                partes[0] = base;
+            } else {
+                double enFactura = nz(renglon.getCantidad());
+                double[] pesos = cargado.get(renglon.getId());
+                double suma = 0;
+                if (pesos != null) for (double p : pesos) suma += p;
+                if (pesos == null || Math.abs(suma - enFactura) > CruceFactura.TOLERANCIA_CANTIDAD) {
+                    throw new GraphQLException("El renglón #" + renglon.getOrden() + " (" + texto(renglon.getDescripcion())
+                            + ") tiene " + CruceFactura.cantidad(enFactura) + " en la factura y el reparto suma "
+                            + CruceFactura.cantidad(suma) + ".");
+                }
+                partes = Reparto.proporcional(base, pesos);
+            }
+            resultado.put(renglon.getId(), partes);
+        }
+        return resultado;
+    }
+
+    /**
+     * Al finalizar la planificación, carga como nota la factura que creó el pedido desde el celular. Corre después de
+     * confirmar la finalización y en su propia transacción: si la factura no se puede cargar sola (por ejemplo, en el
+     * desktop se cambió un ítem y ahora hay una diferencia que pide observación), la planificación queda finalizada
+     * igual y el comprador la carga desde el pedido en el celular, escaneando el KuDE.
+     */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void alFinalizarPlanificacion(PlanificacionFinalizadaEvent evento) {
+        Long pedidoId = evento.getPedidoId();
+        List<Long> pendientes = jdbc.queryForList("SELECT id FROM operaciones.documento_recibido WHERE pedido_id = ? "
+                + "AND nota_recepcion_id IS NULL AND cargar_al_finalizar = true ORDER BY id", Long.class, pedidoId);
+        for (Long documentoId : pendientes) {
+            try {
+                TransactionTemplate tx = new TransactionTemplate(transactionManager);
+                tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                tx.executeWithoutResult(estado -> cargarFacturaPendiente(documentoId, pedidoId));
+            } catch (RuntimeException e) {
+                log.warn("Pedido {}: la factura {} no se pudo cargar sola al finalizar la planificación: {}",
+                        pedidoId, documentoId, e.getMessage());
+            }
+        }
+    }
+
+    private void cargarFacturaPendiente(Long documentoId, Long pedidoId) {
+        DocumentoRecibido doc = documentoObligatorio(documentoId);
+        Pedido pedido = pedidoObligatorio(pedidoId);
+        if (doc.getNotaRecepcion() != null || !etapaAbierta(pedido)) return;
+        FacturaProveedorMobile factura = armarFactura(doc, pedido, true);
+        if (!Boolean.TRUE.equals(factura.getPuedeConfirmar())) {
+            log.info("Pedido {}: la factura {} queda para cargar desde el celular: {}", pedidoId, documentoId,
+                    factura.getMotivoNoConfirma());
+            return;
+        }
+        cargarNota(doc, pedido);
+    }
+
+    /**
+     * Una factura que creó una compra (todavía en planificación) no se usa para otra: se carga sola en esa al
+     * finalizarla. Si esa compra se canceló, la factura queda libre.
+     */
+    private void exigirQueNoEspereOtroPedido(DocumentoRecibido doc, Long pedidoPermitido) {
+        if (!Boolean.TRUE.equals(doc.getCargarAlFinalizar()) || doc.getPedido() == null) return;
+        Long otro = doc.getPedido().getId();
+        if (otro.equals(pedidoPermitido) || pedidoCancelado(otro)) return;
+        throw new GraphQLException("Esta factura ya creó la compra " + otro + ": se carga sola cuando se finalice "
+                + "su planificación en el desktop.");
+    }
+
+    private boolean pedidoCancelado(Long pedidoId) {
+        return procesoEtapaService.getEtapaByPedidoAndTipo(pedidoId, ProcesoEtapaTipo.CREACION)
+                .map(e -> e.getEstadoEtapa() == ProcesoEtapaEstado.CANCELADA).orElse(false);
     }
 
     private FacturaProveedorMobile armarSegunModo(DocumentoRecibido doc) {
@@ -992,7 +1119,13 @@ public class ComprasMobileService {
         boolean abierta = etapaAbierta(etapa);
         p.setPuedeCargarFacturas(abierta);
         if (!abierta) {
-            p.setMotivoNoOpera(etapa == null
+            List<String> esperando = etapa == null ? jdbc.queryForList("SELECT establecimiento || '-' || punto_expedicion "
+                    + "|| '-' || numero FROM operaciones.documento_recibido WHERE pedido_id = ? AND nota_recepcion_id IS NULL "
+                    + "AND cargar_al_finalizar = true ORDER BY id", String.class, pedido.getId()) : Collections.emptyList();
+            p.setMotivoNoOpera(!esperando.isEmpty()
+                    ? "La compra está en «Ítems del pedido». Revisala en el desktop y finalizá la planificación: la factura "
+                    + String.join(", ", esperando) + " se carga sola."
+                    : etapa == null
                     ? "El pedido todavía no llegó a la etapa de notas: termine la planificación en el desktop."
                     : "La etapa de notas está " + etapa.getEstadoEtapa().name().toLowerCase().replace('_', ' ') + ".");
         }

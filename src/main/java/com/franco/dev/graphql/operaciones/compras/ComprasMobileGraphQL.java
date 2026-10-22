@@ -59,8 +59,9 @@ public class ComprasMobileGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public CompraPedidoMobile crearCompraDesdeFacturaMobile(Long documentoId, Long formaPagoId, Integer plazoCredito,
-                                                           Long sucursalId) {
-        return service.crearCompraDesdeFactura(documentoId, formaPagoId, plazoCredito, sucursalId);
+                                                           Long sucursalId, java.util.List<Long> sucursalIds,
+                                                           java.util.List<RepartoRenglonMobileInput> repartos) {
+        return service.crearCompraDesdeFactura(documentoId, formaPagoId, plazoCredito, sucursalId, sucursalIds, repartos);
     }
 
     public FacturaProveedorMobile leerFacturaProveedorMobile(Long pedidoId, String qr) {

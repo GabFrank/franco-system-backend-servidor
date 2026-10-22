@@ -517,6 +517,12 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
         Double cantidadRechazadaTotal = input.getCantidadRechazada() != null ? input.getCantidadRechazada() : 0.0;
 
         if (input.getVariaciones() != null && !input.getVariaciones().isEmpty()) {
+            // El ítem tiene que existir antes que sus variaciones (si no, Hibernate
+            // rechaza la variación por referenciar un ítem sin guardar).
+            item.setCantidadRecibida(cantidadRecibidaTotal);
+            item.setCantidadRechazada(cantidadRechazadaTotal);
+            actualizarEstadoVerificacion(item);
+            item = service.save(item);
             // Si hay variaciones, recalcular totales desde las variaciones
             cantidadRecibidaTotal = 0.0;
             cantidadRechazadaTotal = 0.0;

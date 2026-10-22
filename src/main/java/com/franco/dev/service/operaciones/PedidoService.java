@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 
 import org.hibernate.Session;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -62,6 +63,9 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
 
     @Autowired
     private NotaRecepcionService notaRecepcionService;
+
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
 
     @Override
     public PedidoRepository getRepository() {
@@ -211,6 +215,9 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
         if (!notaRecepcionService.findByPedidoId(pedidoId).isEmpty()) {
             procesoEtapaService.actualizarEtapaAEnProceso(pedidoId, ProcesoEtapaTipo.RECEPCION_NOTA);
         }
+
+        // Compras en el celular carga la factura que creó el pedido, después de confirmar esta transacción
+        eventPublisher.publishEvent(new PlanificacionFinalizadaEvent(pedidoId));
 
         return pedidoFinalizado;
     }

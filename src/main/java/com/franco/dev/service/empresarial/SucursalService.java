@@ -46,9 +46,9 @@ public class SucursalService extends CrudService<Sucursal, SucursalRepository, L
         return repository.findByAllWithActivoFilterPage(texto, activo != null ? activo : true, pageable);
     }
 
-    public List<Sucursal> findByNombreConFiltros(String nombre, Boolean deposito, Boolean activo, Pageable pageable) {
+    public Page<Sucursal> findByNombreConFiltros(String nombre, Boolean deposito, Boolean activo, Pageable pageable) {
         nombre = nombre != null ? nombre.replace(" ", "%").toUpperCase() : "";
-        return repository.findByNombreConFiltros(nombre, deposito, activo, pageable).getContent();
+        return repository.findByNombreConFiltros(nombre, deposito, activo, pageable);
     }
 
     @Override

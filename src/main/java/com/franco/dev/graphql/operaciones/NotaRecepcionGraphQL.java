@@ -175,6 +175,8 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
             // Simply delete the NotaRecepcion - related NotaRecepcionItem entities
             // will handle their own cascade behavior
             return service.deleteById(id);
+        } catch (IllegalStateException e) {
+            throw new GraphQLException(e.getMessage());
         } catch (Exception e) {
             throw new GraphQLException("Error al eliminar nota de recepción: " + e.getMessage());
         }

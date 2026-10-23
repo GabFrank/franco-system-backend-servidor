@@ -47,6 +47,8 @@ public final class CruceFactura {
         public double cantidad;
         public double precioUnitario;
         public double descuentoUnitario;
+        /** El total del renglón en la factura: manda sobre cantidad × (precio − descuento), que redondea. */
+        public Double total;
         public Double porcentajeDescuento;
         public Integer tasaIva;
         /** El IVA que tiene el producto en el sistema. */
@@ -115,6 +117,19 @@ public final class CruceFactura {
         return resultados;
     }
 
+    /**
+     * El precio por unidad base que va a la nota. Sale del total del renglón cuando la factura lo trae: el descuento
+     * por unidad viene redondeado y, multiplicado por la cantidad, la nota no cerraba con la factura (CAMPOS: 80.640
+     * latas, Gs. 3,02 de más).
+     */
+    static double precioBase(Renglon r, double factor) {
+        double cantidadBase = r.cantidad * factor;
+        if (r.total != null && r.total > 0 && cantidadBase > 0) {
+            return redondear(r.total / cantidadBase, 10);
+        }
+        return redondear((r.precioUnitario - r.descuentoUnitario) / factor, 4);
+    }
+
     private static Resultado cruzarRenglon(Renglon r, List<ItemPedido> items, Map<Long, Double> pendiente,
                                            boolean mismaMoneda) {
         Resultado res = new Resultado();
@@ -122,7 +137,7 @@ public final class CruceFactura {
         res.bonificacion = esBonificacion(r);
         double factor = r.factor != null && r.factor > 0 ? r.factor : 1.0;
         res.cantidadBase = redondear(r.cantidad * factor, 4);
-        res.precioBase = res.bonificacion ? 0.0 : redondear((r.precioUnitario - r.descuentoUnitario) / factor, 4);
+        res.precioBase = res.bonificacion ? 0.0 : precioBase(r, factor);
 
         if (r.productoId == null) {
             res.estado = Estado.SIN_PRODUCTO;
@@ -187,7 +202,7 @@ public final class CruceFactura {
             res.bonificacion = esBonificacion(r);
             double factor = r.factor != null && r.factor > 0 ? r.factor : 1.0;
             res.cantidadBase = redondear(r.cantidad * factor, 4);
-            res.precioBase = res.bonificacion ? 0.0 : redondear((r.precioUnitario - r.descuentoUnitario) / factor, 4);
+            res.precioBase = res.bonificacion ? 0.0 : precioBase(r, factor);
             if (r.productoId == null) {
                 res.estado = Estado.SIN_PRODUCTO;
             } else {

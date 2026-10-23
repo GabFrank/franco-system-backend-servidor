@@ -181,7 +181,9 @@ public class ComprasMobileService {
                         + "  AND pe.tipo_etapa::text = 'RECEPCION_NOTA' AND pe.estado_etapa::text IN ('PENDIENTE','EN_PROCESO')) "
                         // La etapa de notas nace PENDIENTE junto con el pedido: espera facturas recién con la planificación terminada
                         + "AND NOT EXISTS (SELECT 1 FROM operaciones.proceso_etapa pc WHERE pc.pedido_id = p.id "
-                        + "  AND pc.tipo_etapa::text = 'CREACION' AND pc.estado_etapa::text NOT IN ('COMPLETADA','OMITIDA'))"
+                        + "  AND pc.tipo_etapa::text = 'CREACION' AND pc.estado_etapa::text NOT IN ('COMPLETADA','OMITIDA')) "
+                        // Un pedido sin ítems no espera ninguna factura: la factura crea su propia compra
+                        + "AND EXISTS (SELECT 1 FROM operaciones.pedido_item pi0 WHERE pi0.pedido_id = p.id)"
                     : "NOT EXISTS (SELECT 1 FROM operaciones.proceso_etapa pe WHERE pe.pedido_id = p.id "
                         + "  AND pe.estado_etapa::text = 'CANCELADA')") + ") "
                 + "AND (? = 0 OR p.proveedor_id = ?) "
@@ -331,6 +333,10 @@ public class ComprasMobileService {
         Presentacion presentacion = presentacionId != null ? presentacionService.findById(presentacionId).orElse(null) : null;
         if (presentacion == null || presentacion.getProducto() == null) {
             throw new GraphQLException("Elegí la presentación del producto.");
+        }
+        if (!presentacionUsable(presentacion)) {
+            throw new GraphQLException("«" + presentacion.getProducto().getDescripcion()
+                    + "» o esa presentación están inactivos: no se le puede cargar una compra.");
         }
         double f = factor != null ? factor : presentacion.getCantidad() != null ? presentacion.getCantidad() : 1.0;
         if (!(f > 0)) {
@@ -1097,7 +1103,7 @@ public class ComprasMobileService {
         Proveedor proveedor = doc.getProveedor();
         if (recalcular) {
             for (DocumentoRecibidoItem r : renglones) {
-                if (!TipoMatch.MANUAL.name().equals(r.getTipoMatch())) {
+                if (hayQueReconocer(r)) {
                     resolverProducto(r, proveedor, Collections.emptySet());
                 }
             }
@@ -1155,6 +1161,7 @@ public class ComprasMobileService {
             if (!res.bonificacion) totalNota += res.cantidadBase * res.precioBase;
             totalRenglones += nz(r.getTotal());
         }
+        alertarProductoRepetido(f.getRenglones());
         f.setTotalNota(CruceFactura.redondear(totalNota, 2));
         f.setRenglonesOk(ok);
         f.setRenglonesConDiferencia(0);
@@ -1226,6 +1233,7 @@ public class ComprasMobileService {
         c.cantidad = nz(r.getCantidad());
         c.precioUnitario = nz(r.getPrecioUnitario());
         c.descuentoUnitario = nz(r.getDescuentoUnitario());
+        c.total = r.getTotal();
         c.porcentajeDescuento = r.getPorcentajeDescuento();
         c.tasaIva = r.getTasaIva();
         c.ivaProducto = r.getProducto() != null ? r.getProducto().getIva() : null;
@@ -1431,7 +1439,7 @@ public class ComprasMobileService {
 
         if (recalcular) {
             for (DocumentoRecibidoItem r : renglones) {
-                if (!TipoMatch.MANUAL.name().equals(r.getTipoMatch())) {
+                if (hayQueReconocer(r)) {
                     resolverProducto(r, proveedor, productosDelPedido);
                 }
             }
@@ -1448,6 +1456,7 @@ public class ComprasMobileService {
             c.cantidad = nz(r.getCantidad());
             c.precioUnitario = nz(r.getPrecioUnitario());
             c.descuentoUnitario = nz(r.getDescuentoUnitario());
+            c.total = r.getTotal();
             c.porcentajeDescuento = r.getPorcentajeDescuento();
             c.tasaIva = r.getTasaIva();
             c.ivaProducto = r.getProducto() != null ? r.getProducto().getIva() : null;
@@ -1508,6 +1517,7 @@ public class ComprasMobileService {
             if (!res.bonificacion) totalNota += res.cantidadBase * res.precioBase;
             totalRenglones += nz(r.getTotal());
         }
+        alertarProductoRepetido(f.getRenglones());
         f.setTotalNota(CruceFactura.redondear(totalNota, 2));
         f.setRenglonesOk(ok);
         f.setRenglonesConDiferencia(dif);
@@ -1619,6 +1629,11 @@ public class ComprasMobileService {
         rm.setAvisosIva(new ArrayList<>(res.avisosIva));
         rm.setAvisos(new ArrayList<>(res.avisos));
         if (r.getNotaReconocimiento() != null) rm.getAvisos().add(r.getNotaReconocimiento());
+        if (r.getProducto() != null && reconocidoPorCodigo(r.getTipoMatch())
+                && !Similitud.compartenNombre(r.getDescripcion(), r.getProducto().getDescripcion())) {
+            rm.getAlertas().add("El código es de «" + r.getProducto().getDescripcion().trim() + "», pero la factura dice «"
+                    + r.getDescripcion() + "»: revisá que sea el mismo producto.");
+        }
         rm.setRequiereObservacion(res.requiereObservacion);
         rm.setObservacionFaltante(res.observacionFaltante);
         rm.setObservacion(r.getObservacion());
@@ -1773,14 +1788,80 @@ public class ComprasMobileService {
         r.setFactor(null);
         r.setTipoMatch(null);
         r.setNotaReconocimiento(null);
+        // Lo aprendido que apunta a un producto o presentación inactivos no se usa: la compra cargaría stock a algo
+        // que no se vende. Se sigue con los códigos, y si nada lo reconoce el renglón queda sin producto, con aviso.
+        Presentacion aprendidaInactiva = null;
         if (proveedor != null && !vacio(r.getCodigoProveedor())) {
             ProveedorCodigoProducto aprendido = aprendizajeRepository
                     .findByProveedorIdAndCodigoProveedor(proveedor.getId(), r.getCodigoProveedor().trim()).orElse(null);
             if (aprendido != null && aprendido.getPresentacion() != null && aprendido.getPresentacion().getProducto() != null) {
-                asignar(r, aprendido.getPresentacion(), aprendido.getFactor(), TipoMatch.APRENDIDO);
-                return;
+                if (presentacionUsable(aprendido.getPresentacion())) {
+                    asignar(r, aprendido.getPresentacion(), aprendido.getFactor(), TipoMatch.APRENDIDO);
+                    return;
+                }
+                aprendidaInactiva = aprendido.getPresentacion();
             }
         }
+        resolverPorCodigos(r, proveedor, productosDelPedido);
+        if (r.getProducto() == null && aprendidaInactiva != null) {
+            r.setNotaReconocimiento("Este código estaba vinculado a «" + aprendidaInactiva.getProducto().getDescripcion()
+                    + "», que está inactivo. Elegí el producto.");
+        }
+    }
+
+    /** Lo reconoció el sistema por un código, sin que nadie lo confirmara (lo aprendido y lo manual sí). */
+    private static boolean reconocidoPorCodigo(String tipoMatch) {
+        return tipoMatch != null && !TipoMatch.APRENDIDO.name().equals(tipoMatch) && !TipoMatch.MANUAL.name().equals(tipoMatch);
+    }
+
+    /**
+     * Dos códigos distintos del proveedor cargados al mismo producto (MARVI: esponja INOX a 2.688 y ECONÓMICA a
+     * 2.000, las dos a «ESPONJA DE ACERO 9 G»). Puede estar bien, pero mezcla stock y costo si son productos
+     * distintos: se alerta en los dos renglones. Las bonificaciones del mismo código no cuentan.
+     */
+    static void alertarProductoRepetido(List<RenglonFacturaMobile> renglones) {
+        Map<Long, List<RenglonFacturaMobile>> porProducto = new LinkedHashMap<>();
+        for (RenglonFacturaMobile r : renglones) {
+            if (r.getProductoId() == null || Boolean.TRUE.equals(r.getEsBonificacion())) continue;
+            porProducto.computeIfAbsent(r.getProductoId(), k -> new ArrayList<>()).add(r);
+        }
+        for (List<RenglonFacturaMobile> grupo : porProducto.values()) {
+            for (RenglonFacturaMobile r : grupo) {
+                for (RenglonFacturaMobile otro : grupo) {
+                    if (otro == r || Objects.equals(claveProveedor(otro), claveProveedor(r))) continue;
+                    r.getAlertas().add("El renglón #" + otro.getOrden() + " («" + otro.getDescripcion()
+                            + "») también se cargó a «" + texto(r.getProductoDescripcion()).trim()
+                            + "»: revisá que sean el mismo producto.");
+                }
+            }
+        }
+    }
+
+    private static String claveProveedor(RenglonFacturaMobile r) {
+        return r.getCodigoProveedor() != null && !r.getCodigoProveedor().trim().isEmpty()
+                ? r.getCodigoProveedor().trim() : texto(r.getDescripcion()).trim();
+    }
+
+    /**
+     * Lo vinculado a mano se respeta, salvo que el producto se haya inactivado después: entonces se vuelve a
+     * reconocer para que no entre a la compra.
+     */
+    private static boolean hayQueReconocer(DocumentoRecibidoItem r) {
+        return !TipoMatch.MANUAL.name().equals(r.getTipoMatch()) || !presentacionUsable(r.getPresentacion());
+    }
+
+    /**
+     * Si la presentación sirve para cargar una compra: el producto y la presentación están activos ({@code null}
+     * cuenta como activo, como en el resto del sistema).
+     */
+    static boolean presentacionUsable(Presentacion p) {
+        return p != null && p.getProducto() != null
+                && !Boolean.FALSE.equals(p.getActivo())
+                && !Boolean.FALSE.equals(p.getProducto().getActivo());
+    }
+
+    /** El código de barras exacto y después el buscador, como en {@link #resolverProducto}. */
+    private void resolverPorCodigos(DocumentoRecibidoItem r, Proveedor proveedor, Set<Long> productosDelPedido) {
         List<String[]> codigos = codigosDelRenglon(r);
         for (String[] c : codigos) {
             if (porCodigo(r, c[0], TipoMatch.valueOf(c[1]), productosDelPedido)) {
@@ -1836,7 +1917,8 @@ public class ComprasMobileService {
     private Presentacion porBuscador(String codigo, Long proveedorId) {
         List<Producto> productos = productosPorCodigo(codigo, proveedorId);
         if (productos.size() != 1) return null;
-        return presentacionDelCodigo(productos.get(0), codigo);
+        Presentacion p = presentacionDelCodigo(productos.get(0), codigo);
+        return presentacionUsable(p) ? p : null;
     }
 
     private List<Producto> productosPorCodigo(String codigo, Long proveedorId) {
@@ -1945,7 +2027,7 @@ public class ComprasMobileService {
             for (Codigo cod : codigoRepository.findByCodigo(v)) {
                 if (Boolean.FALSE.equals(cod.getActivo())) continue;
                 Presentacion p = cod.getPresentacion();
-                if (p != null && p.getProducto() != null && !encontradas.contains(p)) encontradas.add(p);
+                if (presentacionUsable(p) && !encontradas.contains(p)) encontradas.add(p);
             }
             if (!encontradas.isEmpty()) break;
         }

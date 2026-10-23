@@ -78,7 +78,8 @@ public class ValeGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         seg.requireAnyRole(seg.GESTIONAR);
         Vale actual = input.getId() != null ? service.findById(input.getId()).orElse(null) : null;
         if (actual != null) validarEdicion(actual, input);
-        boolean protegido = actual != null && esProtegido(actual);
+        // Con obligacion de pago el estado lo mueve tesoreria: por aca quedaria pagado sin caja.
+        boolean protegido = actual != null && (esProtegido(actual) || actual.getSolicitudPagoId() != null);
         ValeEstado estadoPrevio = actual != null ? actual.getEstado() : null;
         Vale e = mapInput(input, actual != null ? actual : new Vale());
         // En un vale en cuotas o en especie el estado solo lo cambian confirmar, anular, el pago de

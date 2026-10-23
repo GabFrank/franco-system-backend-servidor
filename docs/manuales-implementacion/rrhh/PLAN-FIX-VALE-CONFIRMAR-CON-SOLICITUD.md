@@ -73,3 +73,15 @@ vuelve a SOLICITADO y Confirmar sigue rechazando; tesorería lo puede volver a p
   no deja nada raro (sin migración). Menor: el guard de `confirmar` no mira si la solicitud está
   cancelada; un vale SOLICITADO con solicitud cancelada solo nace por SQL y tesorería lo paga igual
   (`asegurarSolicitud` emite una nueva) → se deja así.
+
+## Auditoría del diff (paso 8)
+
+- Fijo 1 (autorización): roles sin cambios; el diff cierra dos caminos. Hallazgo: anular un vale
+  SOLICITADO con solicitud dejaba la solicitud abierta → incorporado: `anular` la pasa a CANCELADO
+  (con nota) si no tiene pago vivo. En bodega no había casos (0 vales anulados con solicitud).
+- Fijo 2 (esquema/migración/espejo): N/A, el diff no toca migraciones, `.graphqls` ni entidades.
+- Fijo 3 (contrato): desktop master/develop muestra el error y no se cuelga; el diálogo de vales solo
+  crea (nunca manda `id`), así que el guard de `saveVale` no cambia nada visible. Ajustes
+  incorporados: `anular` rechaza cualquier vale con pago vivo (no solo CONFIRMADO) y el test de
+  rechazo comprueba estado y que no guarda. Sin test unitario para el guard de `saveVale` (resolver
+  con muchas dependencias): se cubre en la prueba de runtime por API.

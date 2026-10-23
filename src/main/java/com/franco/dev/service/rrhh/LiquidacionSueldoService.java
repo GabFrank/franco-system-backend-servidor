@@ -188,6 +188,11 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
 
         List<LiquidacionItem> items = new ArrayList<>(manuales);
         items.addAll(construirItemsAutomaticos(liq, f, salarioBase, inicio, fin, mes));
+        // CREDITO_CONVENIO_CUOTA (DESC) — cuotas VENCIDAS de compras a credito del
+        // funcionario, cobradas hasta donde alcanza el neto (tope por disponible; el
+        // remanente cae al mes siguiente). Se arma AL FINAL, con los manuales ya sumados:
+        // el convenio es el descuento elastico y no debe dejar el neto en negativo.
+        items.addAll(itemsConvenio(liq, f, fin, items));
 
         // persistir items automaticos y recomputar totales
         for (LiquidacionItem it : items) {
@@ -370,12 +375,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         for (LiquidacionItemProgramado p : itemProgramadoAplicacionService.paraLiquidacion(fid, liq.getPeriodo(), liq.getId())) {
             items.add(itemProgramado(liq, p));
         }
-
-        // CREDITO_CONVENIO_CUOTA (DESC) — cuotas VENCIDAS de compras a credito del
-        // funcionario, cobradas hasta donde alcanza el neto (tope por disponible; el
-        // remanente cae al mes siguiente). Se arma AL FINAL: el convenio es el
-        // descuento elastico y no debe dejar el neto en negativo.
-        items.addAll(itemsConvenio(liq, f, fin, items));
+        // El convenio no se arma aca: va en generarBorrador, despues de sumar los manuales.
         return items;
     }
 

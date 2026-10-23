@@ -462,7 +462,12 @@ public class ComprasMobileService {
     @Transactional(readOnly = true)
     public ResumenFinalizarNotasMobile resumenFinalizar(Long pedidoId) {
         seguridad.exigirCompras();
-        Pedido pedido = pedidoObligatorio(pedidoId);
+        return armarResumenFinalizar(pedidoObligatorio(pedidoId));
+    }
+
+    /** Lo que falta para finalizar la conciliación. Lo comparten el celular y la carga automática de la factura. */
+    private ResumenFinalizarNotasMobile armarResumenFinalizar(Pedido pedido) {
+        Long pedidoId = pedido.getId();
         CompraPedidoMobile p = armarPedido(pedido);
         ResumenFinalizarNotasMobile r = new ResumenFinalizarNotasMobile();
         r.setPedidoId(pedidoId);
@@ -486,6 +491,7 @@ public class ComprasMobileService {
                     + " ítems del pedido sin facturar: no van a entrar en la recepción de mercadería.");
         }
         int sinDistribuir = p.getNotas().stream().mapToInt(n -> n.getItemsSinDistribuir() != null ? n.getItemsSinDistribuir() : 0).sum();
+        r.setItemsSinDistribuir(sinDistribuir);
         if (sinDistribuir > 0) {
             r.getAvisos().add(sinDistribuir + " ítem(s) de las notas no tienen la distribución por sucursal completa:"
                     + " no van a llegar a ninguna sucursal. Distribuilos en el desktop antes de finalizar.");
@@ -991,29 +997,76 @@ public class ComprasMobileService {
         Long pedidoId = evento.getPedidoId();
         List<Long> pendientes = jdbc.queryForList("SELECT id FROM operaciones.documento_recibido WHERE pedido_id = ? "
                 + "AND nota_recepcion_id IS NULL AND cargar_al_finalizar = true ORDER BY id", Long.class, pedidoId);
+        boolean cargoAlguna = false;
         for (Long documentoId : pendientes) {
             try {
                 TransactionTemplate tx = new TransactionTemplate(transactionManager);
                 tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-                tx.executeWithoutResult(estado -> cargarFacturaPendiente(documentoId, pedidoId));
+                Boolean cargo = tx.execute(estado -> cargarFacturaPendiente(documentoId, pedidoId));
+                cargoAlguna |= Boolean.TRUE.equals(cargo);
             } catch (RuntimeException e) {
                 log.warn("Pedido {}: la factura {} no se pudo cargar sola al finalizar la planificación: {}",
                         pedidoId, documentoId, e.getMessage());
             }
         }
+        if (!cargoAlguna) return;
+        try {
+            TransactionTemplate tx = new TransactionTemplate(transactionManager);
+            tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            tx.executeWithoutResult(estado -> finalizarSiNoQuedaNadaAMano(pedidoId));
+        } catch (RuntimeException e) {
+            log.warn("Pedido {}: la conciliación no se pudo finalizar sola: {}", pedidoId, e.getMessage());
+        }
     }
 
-    private void cargarFacturaPendiente(Long documentoId, Long pedidoId) {
+    /**
+     * Si la factura cargada sola dejó todo conciliado, la recepción documental se finaliza en el acto: no hay nada
+     * que revisar y pedir «Finalizar conciliación» era un paso de más. Si falta algo, queda en proceso como siempre.
+     * Hace lo mismo que el botón del celular ({@link #finalizar}), sin pedir el rol: ya lo pidió quien finalizó la
+     * planificación.
+     */
+    private void finalizarSiNoQuedaNadaAMano(Long pedidoId) {
+        Pedido pedido = pedidoObligatorio(pedidoId);
+        ResumenFinalizarNotasMobile r = armarResumenFinalizar(pedido);
+        if (!conciliacionSinPendientes(r)) {
+            log.info("Pedido {}: la conciliación queda para finalizar a mano ({} nota(s) pendientes, {} ítem(s) sin "
+                    + "facturar, {} sin distribuir)", pedidoId, r.getNotasPendientes(), r.getItemsSinFacturar().size(),
+                    r.getItemsSinDistribuir());
+            return;
+        }
+        pedidoService.finalizarRecepcionNotas(pedidoId);
+        Usuario usuario = seguridad.usuarioActual();
+        for (NotaRecepcion nota : notaRecepcionService.findByPedidoId(pedidoId)) {
+            vincularProductosConProveedor(nota, usuario);
+        }
+        log.info("Pedido {}: la factura dejó todo conciliado, la recepción documental se finalizó sola", pedidoId);
+    }
+
+    /**
+     * Nada para hacer a mano: se puede finalizar, todas las notas quedaron conciliadas, ningún ítem del pedido quedó
+     * sin facturar y todo tiene su distribución por sucursal.
+     */
+    static boolean conciliacionSinPendientes(ResumenFinalizarNotasMobile r) {
+        return Boolean.TRUE.equals(r.getPuedeFinalizar())
+                && r.getCantidadNotas() != null && r.getCantidadNotas() > 0
+                && (r.getNotasPendientes() == null || r.getNotasPendientes() == 0)
+                && (r.getItemsSinFacturar() == null || r.getItemsSinFacturar().isEmpty())
+                && (r.getItemsSinDistribuir() == null || r.getItemsSinDistribuir() == 0);
+    }
+
+    /** Devuelve {@code true} si cargó la nota. */
+    private boolean cargarFacturaPendiente(Long documentoId, Long pedidoId) {
         DocumentoRecibido doc = documentoObligatorio(documentoId);
         Pedido pedido = pedidoObligatorio(pedidoId);
-        if (doc.getNotaRecepcion() != null || !etapaAbierta(pedido)) return;
+        if (doc.getNotaRecepcion() != null || !etapaAbierta(pedido)) return false;
         FacturaProveedorMobile factura = armarFactura(doc, pedido, true);
         if (!Boolean.TRUE.equals(factura.getPuedeConfirmar())) {
             log.info("Pedido {}: la factura {} queda para cargar desde el celular: {}", pedidoId, documentoId,
                     factura.getMotivoNoConfirma());
-            return;
+            return false;
         }
         cargarNota(doc, pedido);
+        return true;
     }
 
     /**

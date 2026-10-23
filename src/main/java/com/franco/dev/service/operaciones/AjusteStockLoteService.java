@@ -115,7 +115,14 @@ public class AjusteStockLoteService {
         if (Math.abs(diferencia) <= EPSILON) {
             return new PlanAjuste(0.0, 0.0, 0.0);
         }
-        if (modo == ModoAjusteLote.ATRIBUIR) {
+        if (modo == ModoAjusteLote.LIBERAR && diferencia > 0) {
+            throw new IllegalArgumentException(
+                    "Liberar solo baja el saldo del lote: para sumarle unidades usá Atribuir o Corregir.");
+        }
+        if (modo == ModoAjusteLote.LIBERAR && cantidadFinal < -EPSILON) {
+            throw new IllegalArgumentException("La cantidad final del lote no puede ser negativa.");
+        }
+        if (modo == ModoAjusteLote.ATRIBUIR || modo == ModoAjusteLote.LIBERAR) {
             // El total no se mueve: lo que gana el lote lo pierde el bucket sin trazar. El
             // movimiento agregado va en cero y las dos hijas se compensan, así que
             // SUM(hijas) = padre se sigue cumpliendo.
@@ -180,6 +187,11 @@ public class AjusteStockLoteService {
         }
 
         double saldoLote = saldoDeLote(input.getProductoId(), input.getSucursalId(), lote.getId());
+        if (input.getSaldoEsperado() != null
+                && Math.abs(input.getSaldoEsperado() - saldoLote) > EPSILON) {
+            throw new IllegalArgumentException("El saldo del lote " + lote.getNumeroLote()
+                    + " cambio mientras contabas (ahora " + saldoLote + "): recargá la lista.");
+        }
         PlanAjuste plan = calcular(input.getModo(), saldoLote, input.getCantidadFinal());
         if (plan.isVacio()) {
             throw new IllegalArgumentException(
@@ -226,6 +238,14 @@ public class AjusteStockLoteService {
         // El motivo es opcional, igual que en el ajuste de stock comun: este ajuste tiene que
         // costarle al operador lo mismo que el de un producto sin lote. Si viene, se guarda en la
         // auditoria; si no, el ajuste igual queda registrado con usuario, cantidad y lote.
+        // Liberar deja de trazar unidades: sin motivo no hay forma de saber despues por que.
+        if (input.getModo() == ModoAjusteLote.LIBERAR
+                && (input.getMotivo() == null || input.getMotivo().trim().isEmpty())) {
+            throw new IllegalArgumentException("Para liberar saldo de un lote el motivo es obligatorio.");
+        }
+        if (input.getModo() == ModoAjusteLote.LIBERAR && input.getLoteId() == null) {
+            throw new IllegalArgumentException("Para liberar hay que elegir un lote existente.");
+        }
         if (input.getLoteId() == null
                 && (input.getNumeroLote() == null || input.getNumeroLote().trim().isEmpty())) {
             throw new IllegalArgumentException("Hay que elegir un lote o informar su número.");
@@ -344,5 +364,32 @@ public class AjusteStockLoteService {
         } catch (Exception e) {
             log.warning("Error registrando auditoría del ajuste por lote: " + e.getMessage());
         }
+    }
+
+    /** Tope de renglones por conteo rapido: una lista mas larga se parte en varias confirmaciones. */
+    public static final int MAX_AJUSTES_POR_LISTA = 50;
+
+    /**
+     * Conteo rapido: varios ajustes por lote en UNA transaccion. Si uno falla, no queda ninguno.
+     * Los renglones sin diferencia se saltean (en un conteo es lo normal), no se rechazan.
+     */
+    @Transactional
+    public List<AjusteStockLoteResultadoDto> ajustarLista(List<AjusteStockLoteInput> inputs) {
+        if (inputs == null || inputs.isEmpty()) {
+            throw new IllegalArgumentException("No hay ajustes para confirmar.");
+        }
+        if (inputs.size() > MAX_AJUSTES_POR_LISTA) {
+            throw new IllegalArgumentException("Son " + inputs.size() + " renglones: el maximo por confirmacion es "
+                    + MAX_AJUSTES_POR_LISTA + ".");
+        }
+        List<AjusteStockLoteResultadoDto> resultados = new ArrayList<>();
+        for (AjusteStockLoteInput input : inputs) {
+            if (input != null && input.getSaldoEsperado() != null && input.getCantidadFinal() != null
+                    && Math.abs(input.getSaldoEsperado() - input.getCantidadFinal()) <= EPSILON) {
+                continue;
+            }
+            resultados.add(ajustar(input));
+        }
+        return resultados;
     }
 }

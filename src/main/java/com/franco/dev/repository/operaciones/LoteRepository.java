@@ -5,6 +5,7 @@ import com.franco.dev.domain.operaciones.dto.LoteDeProductoProjection;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -51,6 +52,7 @@ public interface LoteRepository extends HelperRepository<Lote, Long> {
             "SELECT l.id AS \"loteId\", l.numero_lote AS \"numeroLote\", " +
             "       l.fecha_vencimiento AS \"fechaVencimiento\", l.fecha_retiro AS \"fechaRetiro\", " +
             "       l.estado AS \"estado\", " +
+            "       EXISTS (SELECT 1 FROM operaciones.lote_archivado a2 WHERE a2.lote_id = l.id) AS \"archivado\", " +
             "       CAST(COALESCE(s.saldo, 0) AS double precision) AS \"saldo\", " +
             "       CAST(COALESCE(t.saldo, 0) AS double precision) AS \"saldoTotal\" " +
             "FROM operaciones.lote l " +
@@ -68,6 +70,8 @@ public interface LoteRepository extends HelperRepository<Lote, Long> {
             ") t ON t.lote_id = l.id " +
             "WHERE l.producto_id = :productoId " +
             "  AND (:texto IS NULL OR l.numero_lote LIKE UPPER(CONCAT('%', :texto, '%'))) " +
+            "  AND (:incluirArchivados = true OR COALESCE(t.saldo, 0) <> 0 " +
+            "       OR NOT EXISTS (SELECT 1 FROM operaciones.lote_archivado a WHERE a.lote_id = l.id)) " +
             "ORDER BY CASE WHEN COALESCE(s.saldo, 0) <> 0 THEN 0 ELSE 1 END, " +
             "         CASE WHEN COALESCE(t.saldo, 0) <> 0 THEN 0 ELSE 1 END, " +
             "         CASE WHEN COALESCE(l.fecha_retiro, l.fecha_vencimiento) IS NULL THEN 1 ELSE 0 END, " +
@@ -75,10 +79,35 @@ public interface LoteRepository extends HelperRepository<Lote, Long> {
             countQuery =
             "SELECT COUNT(*) FROM operaciones.lote l " +
             "WHERE l.producto_id = :productoId " +
-            "  AND (:texto IS NULL OR l.numero_lote LIKE UPPER(CONCAT('%', :texto, '%')))",
+            "  AND (:texto IS NULL OR l.numero_lote LIKE UPPER(CONCAT('%', :texto, '%'))) " +
+            "  AND (:incluirArchivados = true " +
+            "       OR COALESCE((SELECT SUM(m.cantidad) FROM operaciones.movimiento_stock_lote m WHERE m.estado = true AND m.lote_id = l.id), 0) <> 0 " +
+            "       OR NOT EXISTS (SELECT 1 FROM operaciones.lote_archivado a WHERE a.lote_id = l.id))",
             nativeQuery = true)
     Page<LoteDeProductoProjection> buscarLotesDeProducto(@Param("productoId") Long productoId,
                                                          @Param("sucursalId") Long sucursalId,
                                                          @Param("texto") String texto,
+                                                         @Param("incluirArchivados") boolean incluirArchivados,
                                                          Pageable pageable);
+
+    /** Saldo del lote sumado en TODAS las sucursales. Archivar exige que sea 0. */
+    @Query(value = "SELECT CAST(COALESCE(SUM(cantidad), 0) AS double precision) " +
+            "FROM operaciones.movimiento_stock_lote WHERE estado = true AND lote_id = :loteId",
+            nativeQuery = true)
+    Double saldoTotalLote(@Param("loteId") Long loteId);
+
+    @Query(value = "SELECT COUNT(*) > 0 FROM operaciones.lote_archivado WHERE lote_id = :loteId",
+            nativeQuery = true)
+    boolean estaArchivado(@Param("loteId") Long loteId);
+
+    @Modifying
+    @Query(value = "INSERT INTO operaciones.lote_archivado (lote_id, usuario_id, motivo, archivado_en) " +
+            "VALUES (:loteId, :usuarioId, :motivo, now()) ON CONFLICT (lote_id) DO NOTHING",
+            nativeQuery = true)
+    int archivar(@Param("loteId") Long loteId, @Param("usuarioId") Long usuarioId,
+                 @Param("motivo") String motivo);
+
+    @Modifying
+    @Query(value = "DELETE FROM operaciones.lote_archivado WHERE lote_id = :loteId", nativeQuery = true)
+    int desarchivar(@Param("loteId") Long loteId);
 }

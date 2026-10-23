@@ -48,6 +48,8 @@ public class RenglonFacturaMobile {
     private List<String> diferencias = new ArrayList<>();
     private List<String> avisosIva = new ArrayList<>();
     private List<String> avisos = new ArrayList<>();
+    /** No bloquean, pero el comprador las tiene que mirar: el renglón va a «Para revisar». */
+    private List<String> alertas = new ArrayList<>();
     private Boolean requiereObservacion;
     private Boolean observacionFaltante;
     private String observacion;

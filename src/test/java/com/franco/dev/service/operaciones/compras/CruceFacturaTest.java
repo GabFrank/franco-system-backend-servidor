@@ -299,4 +299,21 @@ class CruceFacturaTest {
         assertEquals(Arrays.asList(10), Similitud.numerosDeBulto("CAR.MAST.FTA ARC.800G  FILI(10)"));
         assertTrue(Similitud.numerosDeBulto("RELLENOS FRUTALES 810gr").isEmpty());
     }
+    @Test
+    void elPrecioDeLaNotaSaleDelTotalDelRenglonYCierraConLaFactura() {
+        // CAMPOS 001-001-0346850: 80.640 latas a 2.542,375 con 9,85 % de descuento. El descuento por unidad viene
+        // con 4 decimales (250,4239) y por cantidad × (precio − descuento) la nota daba 184.822.936,70 en vez de
+        // 184.822.933,68.
+        CruceFactura.Renglon r = renglon(1, 7L, 80640, 2542.375, 250.4239);
+        r.total = 184822933.68;
+        CruceFactura.Resultado res = CruceFactura.sinPedido(Collections.singletonList(r)).get(0);
+        assertEquals(184822933.68, res.cantidadBase * res.precioBase, 0.01);
+    }
+
+    @Test
+    void sinTotalDelRenglonSigueConPrecioMenosDescuento() {
+        CruceFactura.Renglon r = renglon(1, 7L, 10, 100, 10);
+        CruceFactura.Resultado res = CruceFactura.sinPedido(Collections.singletonList(r)).get(0);
+        assertEquals(90.0, res.precioBase, 0.0001);
+    }
 }

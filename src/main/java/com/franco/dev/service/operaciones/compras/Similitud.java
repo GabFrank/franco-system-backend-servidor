@@ -90,4 +90,32 @@ final class Similitud {
         while (m.find()) numeros.add(Integer.valueOf(m.group(1)));
         return numeros;
     }
+    /**
+     * Si la descripción del proveedor y la del producto comparten alguna palabra (mismo comienzo de 4 letras, o la
+     * palabra entera si es más corta), sin contar unidades ni números. Las abreviaturas de los proveedores pasan
+     * («ALF.» ↔ «ALFAJOR», «BUBBLEFUN» ↔ «BUBBLE»); un código de barras de otro producto no («GOMAS MOGUL COLA» ↔
+     * «HOGAREÑAS 7 SEMILLAS»). Sin palabras para comparar, no se alerta.
+     */
+    static boolean compartenNombre(String proveedor, String producto) {
+        List<String> a = palabras(proveedor);
+        List<String> b = palabras(producto);
+        if (a.isEmpty() || b.isEmpty()) return true;
+        for (String x : a) {
+            for (String y : b) {
+                int n = Math.min(4, Math.min(x.length(), y.length()));
+                if (x.regionMatches(0, y, 0, n)) return true;
+            }
+        }
+        return false;
+    }
+
+    private static List<String> palabras(String texto) {
+        if (texto == null) return new ArrayList<>();
+        String t = java.text.Normalizer.normalize(texto.toUpperCase(Locale.ROOT), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .replace("BON O BON", "BONOBON");
+        return Arrays.stream(t.split("[^A-Z]+"))
+                .filter(p -> p.length() >= 3 && !RUIDO.contains(p))
+                .collect(Collectors.toList());
+    }
 }

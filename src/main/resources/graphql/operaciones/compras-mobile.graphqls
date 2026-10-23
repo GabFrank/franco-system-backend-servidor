@@ -132,6 +132,7 @@ type RenglonFacturaMobile {
     diferencias: [String!]!
     avisosIva: [String!]!
     avisos: [String!]!
+    alertas: [String!]!
     requiereObservacion: Boolean
     observacionFaltante: Boolean
     observacion: String

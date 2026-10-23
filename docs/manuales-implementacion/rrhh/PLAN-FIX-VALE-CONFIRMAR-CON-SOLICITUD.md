@@ -85,3 +85,17 @@ vuelve a SOLICITADO y Confirmar sigue rechazando; tesorería lo puede volver a p
   incorporados: `anular` rechaza cualquier vale con pago vivo (no solo CONFIRMADO) y el test de
   rechazo comprueba estado y que no guarda. Sin test unitario para el guard de `saveVale` (resolver
   con muchas dependencias): se cubre en la prueba de runtime por API.
+
+## Prueba de runtime (23/10, central local 8084 + desktop web, usuario MR)
+
+1. Vale #28 creado desde Caja › Egreso › Pagar vale › Nuevo vale: SOLICITADO con SP-000064. ✔
+2. RRHH › Vales › Confirmar el #28 → «El vale #28 tiene su pago pendiente en tesoreria»; sin
+   movimiento de caja ni cambio de estado. ✔
+3. Pagado desde tesorería → CONFIRMADO, SP CONCLUIDO. RRHH › Anular → «se pagó desde tesorería». ✔
+4. Anular el pago desde el movimiento de caja → vale y SP en SOLICITADO. Confirmar sigue rechazando;
+   Anular → vale ANULADO y SP-000064 CANCELADA con nota. ✔
+5. Vale #29 creado desde RRHH (sin solicitud) → Confirmar por caja RRHH: egreso de 66.000. ✔
+6. Caso #140: al #29 se le asignó por SQL una solicitud cancelada sin pagos → Anular revierte el
+   egreso (AJUSTE, original tachado) y la caja vuelve al saldo previo. ✔
+7. Por API: `saveVale` con `estado: CONFIRMADO` sobre el vale de tesorería #30 → guarda la
+   observación y deja SOLICITADO. `anularVale` → ANULADO y su solicitud CANCELADA. ✔

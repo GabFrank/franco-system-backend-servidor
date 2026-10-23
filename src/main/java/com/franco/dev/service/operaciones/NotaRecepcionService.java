@@ -6,6 +6,7 @@ import com.franco.dev.domain.operaciones.NotaRecepcionItemDistribucion;
 import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.domain.operaciones.enums.NotaRecepcionItemEstado;
 import com.franco.dev.domain.operaciones.enums.NotaRecepcionEstado;
+import com.franco.dev.domain.operaciones.enums.ProcesoEtapaEstado;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
@@ -111,12 +112,28 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
                 .map(pedido -> pedido.getId())
                 .orElse(null);
 
+        if (pedidoId != null) {
+            ProcesoEtapaEstado estado = procesoEtapaService.getEtapaByPedidoAndTipo(pedidoId, ProcesoEtapaTipo.RECEPCION_NOTA)
+                    .map(e -> e.getEstadoEtapa()).orElse(null);
+            String motivo = motivoNoEliminable(pedidoId, estado);
+            if (motivo != null) throw new IllegalStateException(motivo);
+        }
+
         Boolean eliminado = super.deleteById(id);
 
         if (Boolean.TRUE.equals(eliminado) && pedidoId != null && findByPedidoId(pedidoId).isEmpty()) {
             procesoEtapaService.volverEtapaAPendiente(pedidoId, ProcesoEtapaTipo.RECEPCION_NOTA);
         }
         return eliminado;
+    }
+
+    /**
+     * Por qué no se puede borrar una nota del pedido, o null si se puede. Con la recepción documental finalizada
+     * el pedido quedaba sin notas y con la etapa cerrada: no se le podía cargar otra factura.
+     */
+    static String motivoNoEliminable(Long pedidoId, ProcesoEtapaEstado estadoRecepcionNota) {
+        if (pedidoId == null || estadoRecepcionNota != ProcesoEtapaEstado.COMPLETADA) return null;
+        return "La recepción documental del pedido " + pedidoId + " ya está finalizada: no se puede eliminar la nota.";
     }
 
     public List<NotaRecepcion> findByPedidoId(Long id){

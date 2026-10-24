@@ -40,7 +40,8 @@ class ControlRolMatrizTest {
     static final List<String> TODOS = Arrays.asList(AC, VT, VTC, GEST, CANC, VU, "VER TRANSFERENCIA",
             "CREAR TRANSFERENCIA", "FACTURACION EMITIR", "RRHH GESTIONAR", "RRHH CONFIG", "RRHH VER", "SOPORTE",
             "VER FUNCIONARIOS", "VER PERSONAS", "EDITAR USUARIOS", "TESORERIA CAJA", "RECIBIR PEDIDOS",
-            "TESORERIA VER", "ANALISIS FINANCIERO", "ANALISIS CONTABLE", "VER PRECIO COSTO");
+            "TESORERIA VER", "ANALISIS FINANCIERO", "ANALISIS CONTABLE", "VER PRECIO COSTO",
+            "EDITAR PRODUCTOS", "CREAR PRECIOS", "EDITAR PRECIOS", "CREAR FUNCIONARIOS", "EDITAR FUNCIONARIOS");
 
     static class Fila {
         final Class<?> clase; final String campo; final String metodo; final List<String> roles;
@@ -113,14 +114,28 @@ class ControlRolMatrizTest {
                 // input null = alta; la edicion (EDITAR FUNCIONARIOS / RRHH GESTIONAR) la cubre FuncionarioPagaRolTest
                 f(com.franco.dev.graphql.personas.FuncionarioGraphQL.class, "saveFuncionario", "CREAR FUNCIONARIOS",
                         "VER FUNCIONARIOS", "RRHH GESTIONAR"),
-                f(com.franco.dev.graphql.personas.FuncionarioGraphQL.class, "deleteFuncionario")
+                f(com.franco.dev.graphql.personas.FuncionarioGraphQL.class, "deleteFuncionario"),
+                // precios y costos
+                f(com.franco.dev.graphql.productos.PrecioPorSucursalGraphQL.class, "savePrecioPorSucursal", "CREAR PRECIOS", "EDITAR PRECIOS"),
+                f(com.franco.dev.graphql.productos.PrecioPorSucursalGraphQL.class, "deletePrecioPorSucursal", "CREAR PRECIOS", "EDITAR PRECIOS"),
+                f(com.franco.dev.graphql.productos.CostoPorProductoGraphQL.class, "saveCostoPorProducto", "EDITAR PRODUCTOS"),
+                f(com.franco.dev.graphql.productos.CostoPorProductoGraphQL.class, "deleteCostoPorProducto"),
+                f(com.franco.dev.graphql.productos.TipoPrecioGraphQL.class, "saveTipoPrecio"),
+                f(com.franco.dev.graphql.productos.TipoPrecioGraphQL.class, "deleteTipoPrecio"),
+                f(ProgramarPrecioGraphQL.class, "saveProgramarPrecio"), f(ProgramarPrecioGraphQL.class, "deleteProgramarPrecio"),
+                f(PrecioDeliveryGraphQL.class, "savePrecioDelivery"), f(PrecioDeliveryGraphQL.class, "deletePrecioDelivery")
         );
     }
 
     static Object resolver(Fila fila, String... roles) {
         Object r = new ObjenesisStd().newInstance(fila.clase);
-        Object seg = "facturacionSeg".equals(fila.campo)
-                ? new FacturacionSecurityFalso(roles) : new TesoreriaSecurityFalso(1L, roles);
+        // el falso se elige por el tipo del campo de seguridad del resolver
+        Class<?> tipo = org.springframework.util.ReflectionUtils.findField(fila.clase, fila.campo).getType();
+        Object seg = tipo == com.franco.dev.service.financiero.FacturacionSecurityService.class
+                ? new FacturacionSecurityFalso(roles)
+                : tipo == com.franco.dev.service.productos.PrecioSecurityService.class
+                ? new com.franco.dev.service.productos.PrecioSecurityFalso(roles)
+                : new TesoreriaSecurityFalso(1L, roles);
         ReflectionTestUtils.setField(r, fila.campo, seg);
         return r;
     }

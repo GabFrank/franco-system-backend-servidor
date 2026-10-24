@@ -30,7 +30,8 @@ import static org.mockito.Mockito.when;
 
 /**
  * saveFuncionario: sueldo, diarista y cargo tienen su flujo con historico en RRHH. Una edicion sin
- * RRHH GESTIONAR/CONFIG no los cambia; con el rol, si. El alta respeta lo que manda el wizard.
+ * RRHH GESTIONAR/CONFIG que los cambia se rechaza; si los reenvia iguales, pasa. Con el rol, se
+ * cambian. El alta respeta lo que manda el wizard.
  */
 class FuncionarioPagaRolTest {
 
@@ -80,13 +81,42 @@ class FuncionarioPagaRolTest {
         return in;
     }
 
+    private static FuncionarioInput reenvioSinCambios() {
+        FuncionarioInput in = new FuncionarioInput();
+        in.setId(1L);
+        in.setActivo(true);
+        in.setSueldo(3000000f);
+        in.setDiarista(false);
+        in.setCargoId(10L);
+        return in;
+    }
+
     @Test
-    void sinRolDeRrhhUnaEdicionNoCambiaSueldoDiaristaNiCargo() {
+    void sinRolDeRrhhReenviarLosMismosValoresPasaSinCambiarlos() {
         sesion("VER FUNCIONARIOS");
-        Funcionario f = resolver.saveFuncionario(edicion());
+        Funcionario f = resolver.saveFuncionario(reenvioSinCambios());
         assertEquals(0, new BigDecimal("3000000").compareTo(f.getSueldo()));
         assertEquals(Boolean.FALSE, f.getDiarista());
         assertSame(cargoActual, f.getCargo());
+    }
+
+    @Test
+    void sinRolDeRrhhCambiarDiaristaSeRechaza() {
+        sesion("RRHH VER");
+        FuncionarioInput in = reenvioSinCambios();
+        in.setDiarista(true);
+        assertThrows(GraphQLException.class, () -> resolver.saveFuncionario(in));
+    }
+
+    @Test
+    void sinRolDeRrhhCambiarSueldoOCargoSeRechaza() {
+        sesion("VER FUNCIONARIOS");
+        FuncionarioInput sueldo = reenvioSinCambios();
+        sueldo.setSueldo(9000000f);
+        assertThrows(GraphQLException.class, () -> resolver.saveFuncionario(sueldo));
+        FuncionarioInput cargo = reenvioSinCambios();
+        cargo.setCargoId(20L);
+        assertThrows(GraphQLException.class, () -> resolver.saveFuncionario(cargo));
     }
 
     @Test
@@ -101,9 +131,12 @@ class FuncionarioPagaRolTest {
     @Test
     void conRrhhConfigCambiaElSueldoPeroNoElCargo() {
         sesion("RRHH CONFIG", "VER FUNCIONARIOS");
-        Funcionario f = resolver.saveFuncionario(edicion());
+        FuncionarioInput in = edicion();
+        in.setCargoId(10L);
+        Funcionario f = resolver.saveFuncionario(in);
         assertEquals(0, new BigDecimal("9000000").compareTo(f.getSueldo()));
         assertSame(cargoActual, f.getCargo());
+        assertThrows(GraphQLException.class, () -> resolver.saveFuncionario(edicion()));
     }
 
     @Test

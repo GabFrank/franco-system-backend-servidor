@@ -268,17 +268,25 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
      * Sueldo, diarista y cargo tienen su propio flujo con historico en RRHH (cambiarSalarioFuncionario,
      * cambiarCargoFuncionario). En una edicion, sin esos roles se descartan del input y quedan los de la base.
      */
+    /**
+     * Sueldo, diarista y cargo tienen su flujo con historico en RRHH. Sin el rol, un valor igual al
+     * guardado se ignora (el legajo y la asignacion de horario los reenvian) y uno distinto se rechaza,
+     * para que la pantalla no muestre "Guardado" sin haber cambiado nada.
+     */
     private void descartarCambiosDePaga(FuncionarioInput input) {
+        Funcionario actual = service.findById(input.getId()).orElse(null);
         if (!seg.hasAnyRole("RRHH GESTIONAR", "RRHH CONFIG")) {
-            if (input.getSueldo() != null || input.getDiarista() != null) {
-                // Sin los valores: el sueldo no va al log.
-                log.warn("saveFuncionario {}: sin RRHH GESTIONAR/CONFIG se ignoran sueldo y diarista del input", input.getId());
-            }
+            boolean cambiaSueldo = input.getSueldo() != null && (actual == null || actual.getSueldo() == null
+                    || new java.math.BigDecimal(input.getSueldo().toString()).compareTo(actual.getSueldo()) != 0);
+            boolean cambiaDiarista = input.getDiarista() != null
+                    && (actual == null || !input.getDiarista().equals(Boolean.TRUE.equals(actual.getDiarista())));
+            if (cambiaSueldo || cambiaDiarista) seg.requireAnyRole("RRHH GESTIONAR", "RRHH CONFIG");
             input.setSueldo(null);
             input.setDiarista(null);
         }
         if (!seg.hasAnyRole("RRHH GESTIONAR") && input.getCargoId() != null) {
-            log.warn("saveFuncionario {}: sin RRHH GESTIONAR se ignora cargoId={}", input.getId(), input.getCargoId());
+            Long cargoActual = actual == null || actual.getCargo() == null ? null : actual.getCargo().getId();
+            if (!input.getCargoId().equals(cargoActual)) seg.requireAnyRole("RRHH GESTIONAR");
             input.setCargoId(null);
         }
     }

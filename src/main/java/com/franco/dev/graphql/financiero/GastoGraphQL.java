@@ -75,6 +75,7 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Gasto saveGasto(GastoInput input, String printerName, String local) throws GraphQLException {
+        seg.requireAnyRole("VENTA TOUCH");
         ModelMapper m = new ModelMapper();
         Gasto e = m.map(input, Gasto.class);
         Gasto existente = null;
@@ -124,6 +125,7 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     // }
 
     public Boolean deleteGasto(Long id, Long sucId) {
+        seg.requireSuperusuario();
         Gasto gasto = service.findByIdAndSucursalId(id, sucId);
         if (gasto != null) {
             validarNoEsDeCajaMayor(gasto, "eliminar");

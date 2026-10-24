@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.operaciones.Devolucion;
 import com.franco.dev.domain.operaciones.RetiroDevolucion;
 import com.franco.dev.domain.operaciones.ColectaDevolucion;
@@ -35,6 +36,17 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    /**
+     * Acreditar o revertir la nota de credito de una devolucion: los roles con los que el desktop abre
+     * Devoluciones (VER TRANSFERENCIA) y Gestion de compras, que tambien lleva a esa pantalla.
+     */
+    static final String[] ROLES_NOTA_CREDITO = java.util.stream.Stream.concat(
+            java.util.stream.Stream.of("VER TRANSFERENCIA"),
+            java.util.Arrays.stream(SolicitudPagoGraphQL.ROLES_COMPRAS)).toArray(String[]::new);
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private DevolucionService service;
@@ -354,6 +366,7 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Transactional
     public Devolucion acreditarDevolucion(Long devolucionId, String nroNotaCredito,
                                           Double montoAcreditado, Long usuarioId) {
+        seg.requireAnyRole(ROLES_NOTA_CREDITO);
         if (devolucionId == null) {
             throw new GraphQLException("devolucionId es requerido");
         }

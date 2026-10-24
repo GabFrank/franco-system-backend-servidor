@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.VentaCreditoCuota;
 import com.franco.dev.graphql.financiero.input.VentaCreditoCuotaInput;
@@ -24,6 +25,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 public class VentaCreditoCuotasGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private TesoreriaSecurityService seg;
+
+    @Autowired
     private VentaCreditoCuotaService service;
 
     @Autowired
@@ -46,6 +50,7 @@ public class VentaCreditoCuotasGraphQL implements GraphQLQueryResolver, GraphQLM
     }
 
     public VentaCreditoCuota saveVentaCreditoCuota(VentaCreditoCuotaInput input) {
+        seg.requireSuperusuario();
         ModelMapper m = new ModelMapper();
         VentaCreditoCuota e = m.map(input, VentaCreditoCuota.class);
         if(input.getVencimiento()!=null) e.setVencimiento(stringToDate(input.getVencimiento()));
@@ -63,6 +68,7 @@ public class VentaCreditoCuotasGraphQL implements GraphQLQueryResolver, GraphQLM
     }
 
     public Boolean deleteVentaCreditoCuota(Long id, Long sucId) {
+        seg.requireSuperusuario();
         Boolean ok = service.deleteById(new EmbebedPrimaryKey(id, sucId));
 //        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.BANCO);
         return ok;

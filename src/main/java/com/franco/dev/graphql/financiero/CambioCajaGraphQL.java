@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.CambioCaja;
@@ -26,6 +27,9 @@ import java.util.Optional;
 public class CambioCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private TesoreriaSecurityService seg;
+
+    @Autowired
     private CambioCajaService service;
 
     @Autowired
@@ -46,6 +50,7 @@ public class CambioCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public CambioCaja saveCambioCaja(CambioCajaInput input){
+        seg.requireSuperusuario();
         ModelMapper m = new ModelMapper();
         CambioCaja e = m.map(input, CambioCaja.class);
         if(input.getUsuarioId()!=null){
@@ -63,6 +68,7 @@ public class CambioCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 //    }
 
     public Boolean deleteCambioCaja(Long id, Long sucId){
+        seg.requireSuperusuario();
         Boolean ok = service.deleteById(new EmbebedPrimaryKey(id, sucId));
 //        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.CAMBIO);
         return ok;

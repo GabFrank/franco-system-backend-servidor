@@ -39,7 +39,8 @@ class ControlRolMatrizTest {
     /** Roles de negocio que existen; ninguno es ADMIN. */
     static final List<String> TODOS = Arrays.asList(AC, VT, VTC, GEST, CANC, VU, "VER TRANSFERENCIA",
             "CREAR TRANSFERENCIA", "FACTURACION EMITIR", "RRHH GESTIONAR", "RRHH CONFIG", "RRHH VER", "SOPORTE",
-            "VER FUNCIONARIOS", "VER PERSONAS", "EDITAR USUARIOS", "TESORERIA CAJA", "RECIBIR PEDIDOS");
+            "VER FUNCIONARIOS", "VER PERSONAS", "EDITAR USUARIOS", "TESORERIA CAJA", "RECIBIR PEDIDOS",
+            "TESORERIA VER", "ANALISIS FINANCIERO", "ANALISIS CONTABLE", "VER PRECIO COSTO");
 
     static class Fila {
         final Class<?> clase; final String campo; final String metodo; final List<String> roles;
@@ -106,19 +107,14 @@ class ControlRolMatrizTest {
                 f(CobroDetalleGraphQL.class, "deleteCobroDetalle"),
                 f(VentaGraphQL.class, "deleteVenta", CANC), f(VentaGraphQL.class, "saveVenta"),
                 // devoluciones y funcionarios
-                f(DevolucionGraphQL.class, "acreditarDevolucion", rolesNotaCredito()),
-                f(NotaCreditoDevolucionGraphQL.class, "acreditarRetiro", rolesNotaCredito()),
-                f(NotaCreditoDevolucionGraphQL.class, "revertirNotaCreditoDevolucion", rolesNotaCredito()),
+                f(DevolucionGraphQL.class, "acreditarDevolucion", "VER TRANSFERENCIA"),
+                f(NotaCreditoDevolucionGraphQL.class, "acreditarRetiro", "VER TRANSFERENCIA"),
+                f(NotaCreditoDevolucionGraphQL.class, "revertirNotaCreditoDevolucion", "VER TRANSFERENCIA"),
                 // input null = alta; la edicion (EDITAR FUNCIONARIOS / RRHH GESTIONAR) la cubre FuncionarioPagaRolTest
                 f(com.franco.dev.graphql.personas.FuncionarioGraphQL.class, "saveFuncionario", "CREAR FUNCIONARIOS",
                         "VER FUNCIONARIOS", "RRHH GESTIONAR"),
                 f(com.franco.dev.graphql.personas.FuncionarioGraphQL.class, "deleteFuncionario")
         );
-    }
-
-    /** VER TRANSFERENCIA + los roles de compras (package-private en graphql.operaciones). */
-    static String[] rolesNotaCredito() {
-        return (String[]) ReflectionTestUtils.getField(DevolucionGraphQL.class, "ROLES_NOTA_CREDITO");
     }
 
     static Object resolver(Fila fila, String... roles) {

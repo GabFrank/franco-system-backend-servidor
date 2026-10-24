@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.empresarial;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.graphql.empresarial.input.SucursalInput;
 import com.franco.dev.security.Unsecured;
@@ -23,6 +24,9 @@ import java.util.Optional;
 
 @Component
 public class SucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private Environment env;
@@ -55,6 +59,7 @@ public class SucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Sucursal saveSucursal(SucursalInput input) {
+        seg.requireAnyRole("CONFIGURACION");
         ModelMapper m = new ModelMapper();
         Sucursal e = m.map(input, Sucursal.class);
         if (input.getCreadoEn() != null) {
@@ -73,6 +78,7 @@ public class SucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Boolean deleteSucursal(Long id) {
+        seg.requireSuperusuario();
         Boolean ok = service.deleteById(id);
         // if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.SUCURSAL);
         return ok;

@@ -81,6 +81,9 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     @Autowired
     private FilialCajaProxyService filialCajaProxyService;
 
+    @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
     private static final Logger log = LoggerFactory.getLogger(PdvCajaGraphQL.class);
 
     public PdvCaja pdvCaja(Long id, Long sucId) {
@@ -402,13 +405,15 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         log.info("====== [{}] INICIO -> cajaId={}, sucursalId={}, conteoAnteriorId={}, apertura={} ======",
                 logPrefix, cajaId, sucursalId, conteoAnteriorId, apertura);
 
-        if (conteoInput == null || conteoInput.getUsuarioId() == null) {
-            throw new GraphQLException("No se recibio el usuario que realiza la edicion");
+        if (conteoInput == null) {
+            throw new GraphQLException("No se recibio el conteo a editar");
         }
         if (sucursalId == null) {
             throw new GraphQLException("No se recibio la sucursal de la caja");
         }
-        Long usuarioId = conteoInput.getUsuarioId();
+        // El autor es el de la sesion, no el usuarioId que arma el cliente; el filial recibe el mismo.
+        Long usuarioId = seg.requireUsuarioDeSesion().getId();
+        conteoInput.setUsuarioId(usuarioId);
         if (!usuarioService.tieneRol(usuarioId, "ADMIN")) {
             log.warn("[{}] Usuario id={} sin rol ADMIN intento editar el conteo de la caja id={}", logPrefix, usuarioId, cajaId);
             throw new GraphQLException("Solo un usuario ADMIN puede editar los montos de una caja");

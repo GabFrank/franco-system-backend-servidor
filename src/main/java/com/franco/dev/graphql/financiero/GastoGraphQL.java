@@ -75,7 +75,7 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Gasto saveGasto(GastoInput input, String printerName, String local) throws GraphQLException {
-        seg.requireAnyRole("VENTA TOUCH");
+        seg.requireSuperusuario(); // el PDV guarda en el filial; ningún cliente la llama al central
         ModelMapper m = new ModelMapper();
         Gasto e = m.map(input, Gasto.class);
         Gasto existente = null;

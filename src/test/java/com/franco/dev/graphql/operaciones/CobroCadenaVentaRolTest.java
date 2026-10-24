@@ -16,13 +16,14 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
  * saveVenta -> saveCobro -> detalle y movimiento de caja: ningun paso es transaccional, asi que un rechazo
  * a mitad de camino dejaria un cobro sin movimiento. saveCobro tiene que usar los metodos internos sin
- * control, no las entradas GraphQL (saveCobroDetalle exige VENTA TOUCH; saveMovimientoCaja, ADMIN).
+ * control, no las entradas GraphQL (saveCobroDetalle y saveMovimientoCaja exigen ADMIN).
  */
 class CobroCadenaVentaRolTest {
 
@@ -63,5 +64,18 @@ class CobroCadenaVentaRolTest {
         verify(movimientos).guardarMovimientoCaja(any());
         verify(movimientos, never()).saveMovimientoCaja(any());
         verify(detalles, never()).saveCobroDetalle(any());
+    }
+
+    @Test
+    void saveVentaSinAdminSeRechazaAntesDeCrearElCobro() {
+        VentaGraphQL ventas = new ObjenesisStd().newInstance(VentaGraphQL.class);
+        CobroGraphQL cobros = mock(CobroGraphQL.class);
+        ReflectionTestUtils.setField(ventas, "seg", new TesoreriaSecurityFalso(7L, "VENTA TOUCH"));
+        ReflectionTestUtils.setField(ventas, "cobroGraphQL", cobros);
+
+        assertThrows(graphql.GraphQLException.class, () -> ventas.saveVenta(
+                new com.franco.dev.graphql.operaciones.input.VentaInput(), Collections.emptyList(), new CobroInput(),
+                Collections.emptyList(), false, null, null));
+        verify(cobros, never()).saveCobro(any(), any(), any());
     }
 }

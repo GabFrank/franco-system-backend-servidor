@@ -87,6 +87,7 @@ class ControlRolMatrizTest {
                 f(FacturaLegalGraphQL.class, "saveFacturaLegalToFilial", AC),
                 f(LoteDEGraphQL.class, "saveLoteDe"), f(LoteDEGraphQL.class, "crearLote"),
                 f(LoteDEGraphQL.class, "vincularDocumentosALote"), f(LoteDEGraphQL.class, "enviarLote"),
+                f(LoteDEGraphQL.class, "consultarLote"), f(DocumentoElectronicoGraphQL.class, "consultarDocumentoElectronico"),
                 f(TimbradoGraphQL.class, "saveTimbrado"), f(TimbradoGraphQL.class, "deleteTimbrado"),
                 f(TimbradoDetalleGraphQL.class, "saveTimbradoDetalle"), f(TimbradoDetalleGraphQL.class, "deleteTimbradoDetalle"),
                 // configuracion financiera, credito, tarjeta y cobros

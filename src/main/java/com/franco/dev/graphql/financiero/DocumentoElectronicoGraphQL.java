@@ -100,6 +100,7 @@ public class DocumentoElectronicoGraphQL implements GraphQLQueryResolver, GraphQ
   }
 
   public ConsultaDEResponse consultarDocumentoElectronico(String cdc) {
+    seg.requireSuperusuario(); // consulta a SIFEN: ningún cliente la llama
     if (sifenService == null) {
       ConsultaDEResponse errorResponse = new ConsultaDEResponse();
       errorResponse.setEstadoSifen("ERROR");

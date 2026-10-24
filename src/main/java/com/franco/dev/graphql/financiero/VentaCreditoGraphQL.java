@@ -154,7 +154,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Transactional
     public VentaCredito saveVentaCredito(VentaCreditoInput input,
             List<VentaCreditoCuotaInput> ventaCreditoCuotaInputList) {
-
+        seg.requireSuperusuario();
         ModelMapper m = new ModelMapper();
         VentaCredito e = m.map(input, VentaCredito.class);
         if (input.getUsuarioId() != null)
@@ -213,6 +213,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean deleteVentaCredito(Long id, Long sucId) {
+        seg.requireSuperusuario();
         Boolean ok = service.deleteById(new EmbebedPrimaryKey(id, sucId));
         return ok;
     }
@@ -247,6 +248,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean finalizarVentaCredito(Long id, Long sucId) {
+        seg.requireSuperusuario();
         VentaCredito ventaCredito = service.findByIdAndSucursalId(id, sucId);
         try {
             if (ventaCredito != null) {
@@ -265,6 +267,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Transactional
     public Boolean finalizarVentaCreditos(List<VentaCreditoInput> ventaCreditoInputList) {
+        seg.requireAnyRole("VER USUARIOS");
         try {
             for (VentaCreditoInput input : ventaCreditoInputList) {
                 VentaCredito ventaCredito = service.findByIdAndSucursalId(input.getId(),

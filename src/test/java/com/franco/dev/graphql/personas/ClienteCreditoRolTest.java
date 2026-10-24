@@ -154,4 +154,42 @@ class ClienteCreditoRolTest {
         assertNotNull(resolver.saveCliente(alta));
         verify(funcionarioService, never()).save(any());
     }
+
+    @Test
+    void pasarElClienteAOtraPersonaSinAdminSeRechaza() {
+        sesion("VER PERSONAS", "RRHH GESTIONAR");
+        guardado(100000f);
+        Persona otra = new Persona();
+        otra.setId(8L);
+        when(personaService.findById(8L)).thenReturn(Optional.of(otra));
+        Funcionario ajeno = new Funcionario();
+        ajeno.setCredito(0f);
+        when(funcionarioService.findByPersonaId(8L)).thenReturn(ajeno);
+        ClienteInput in = edicion(null);
+        in.setPersonaId(8L);
+        rechazado(in);
+        sesion("ADMIN");
+        resolver.saveCliente(in);
+        assertEquals(100000f, ajeno.getCredito());
+    }
+
+    @Test
+    void editarUnClienteQueNoExisteSeRechaza() {
+        sesion("VER PERSONAS");
+        when(service.findById(2L)).thenReturn(Optional.empty());
+        ClienteInput in = edicion(0f);
+        in.setId(2L);
+        rechazado(in);
+    }
+
+    @Test
+    void editarConservaElSaldoDeLaCuentaCorriente() {
+        sesion("VER PERSONAS");
+        Cliente c = new Cliente();
+        c.setId(1L);
+        c.setPersona(persona);
+        c.setSaldoActual(new java.math.BigDecimal("250000"));
+        when(service.findById(1L)).thenReturn(Optional.of(c));
+        assertEquals(0, new java.math.BigDecimal("250000").compareTo(resolver.saveCliente(edicion(null)).getSaldoActual()));
+    }
 }

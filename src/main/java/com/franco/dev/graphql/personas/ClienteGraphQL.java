@@ -100,10 +100,12 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     public Cliente saveCliente(ClienteInput input) {
         seg.requireAnyRole(ROLES_CLIENTES);
-        protegerCredito(input);
+        Cliente previo = protegerCredito(input);
         Boolean modifPersona = false;
         ModelMapper m = new ModelMapper();
         Cliente e = m.map(input, Cliente.class);
+        // el input no trae el saldo de la cuenta corriente: sin esto cada edicion lo dejaba en null
+        if (previo != null) e.setSaldoActual(previo.getSaldoActual());
         if (input.getActivo() == null) {
             // caller no envió 'activo': preservar el valor actual (o true si es nuevo)
             e.setActivo(input.getId() != null
@@ -151,22 +153,30 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     /**
      * El credito de un cliente es plata: cambiarlo exige ADMIN, o RRHH GESTIONAR / CONFIG si la persona es
      * funcionario (el save se lo copia al legajo). Va antes de cualquier save. En una edicion, un credito que
-     * no viene conserva el guardado; en un alta se compara contra 0, o contra el credito del funcionario.
+     * no viene conserva el guardado, y pasar el cliente a otra persona exige ADMIN (la copia caeria sobre el
+     * legajo de esa persona). En un alta se compara contra 0, o contra el credito del funcionario.
      */
-    private void protegerCredito(ClienteInput in) {
-        Cliente previo = in.getId() != null ? service.findById(in.getId()).orElse(null) : null;
-        Long personaId = previo != null && previo.getPersona() != null ? previo.getPersona().getId() : in.getPersonaId();
-        Funcionario funcionario = personaId != null ? funcionarioService.findByPersonaId(personaId) : null;
-        boolean cambia;
-        if (previo != null) {
+    private Cliente protegerCredito(ClienteInput in) {
+        Cliente previo = null;
+        if (in.getId() != null) {
+            previo = service.findById(in.getId())
+                    .orElseThrow(() -> new graphql.GraphQLException("No existe el cliente " + in.getId()));
+            Long personaGuardada = previo.getPersona() != null ? previo.getPersona().getId() : null;
+            if (in.getPersonaId() != null && !in.getPersonaId().equals(personaGuardada)) seg.requireSuperusuario();
             if (in.getCredito() == null) in.setCredito(previo.getCredito());
-            cambia = credito(in.getCredito()) != credito(previo.getCredito());
-        } else {
-            cambia = credito(in.getCredito()) != (funcionario != null ? credito(funcionario.getCredito()) : 0f);
         }
-        if (!cambia) return;
-        if (funcionario != null) seg.requireAnyRole("RRHH GESTIONAR", "RRHH CONFIG");
-        else seg.requireSuperusuario();
+        Long personaId = in.getPersonaId() != null ? in.getPersonaId()
+                : previo != null && previo.getPersona() != null ? previo.getPersona().getId() : null;
+        Funcionario funcionario = personaId != null ? funcionarioService.findByPersonaId(personaId) : null;
+        float pedido = credito(in.getCredito());
+        boolean cambia = previo != null && pedido != credito(previo.getCredito())
+                || funcionario != null && pedido != credito(funcionario.getCredito())
+                || previo == null && funcionario == null && pedido != 0f;
+        if (cambia) {
+            if (funcionario != null) seg.requireAnyRole("RRHH GESTIONAR", "RRHH CONFIG");
+            else seg.requireSuperusuario();
+        }
+        return previo;
     }
 
     private static float credito(Float c) { return c == null ? 0f : c; }

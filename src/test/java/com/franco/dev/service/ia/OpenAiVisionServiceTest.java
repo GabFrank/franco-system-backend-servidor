@@ -155,4 +155,28 @@ class OpenAiVisionServiceTest {
         IOException e = assertThrows(IOException.class, () -> service.leer(Collections.singletonList(new byte[]{1})));
         assertTrue(e.getMessage().contains("no está configurada"));
     }
+
+    @Test
+    void pygConDecimalRealSeRespeta() throws Exception {
+        assertEquals(0, new BigDecimal("11017.5").compareTo(OpenAiVisionService.normMonto(M.readTree("11017.5"), "PYG")));
+    }
+
+    @Test
+    void pygConTresDecimalesEsMiles() throws Exception {
+        assertEquals(new BigDecimal("264408"), OpenAiVisionService.normMonto(M.readTree("264.408"), "PYG"));
+    }
+
+    @Test
+    void numeroGrandeNoUsaNotacionCientifica() throws Exception {
+        assertEquals(0, new BigDecimal("10000000.5").compareTo(OpenAiVisionService.normMonto(M.readTree("1.00000005E7"), "PYG")));
+    }
+
+    @Test
+    void usdEnHojaSinMonedaRespetaDecimales() throws Exception {
+        respuestas.add(respuesta("{\"moneda\":\"USD\",\"totalGeneral\":10.5,\"items\":[{\"descripcion\":\"A\",\"totalItem\":10.5}]}", "stop", 1, 1));
+        respuestas.add(respuesta("{\"totalGeneral\":1234.5,\"items\":[{\"descripcion\":\"B\",\"totalItem\":1234.5}]}", "stop", 1, 1));
+        FacturaIaLeida f = service.leer(Arrays.asList(new byte[]{1}, new byte[]{2}));
+        assertEquals(0, new BigDecimal("1234.5").compareTo(f.getTotalGeneral()));
+        assertEquals(0, new BigDecimal("1234.5").compareTo(f.getItems().get(1).getTotalItem()));
+    }
 }

@@ -65,6 +65,9 @@ public class OpenAiVisionService {
             "lo que ves en ella.";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    /** Lee los decimales como BigDecimal para no perder ceros finales (264.400). */
+    private static final com.fasterxml.jackson.databind.ObjectReader LECTOR_EXACTO =
+            MAPPER.reader().with(com.fasterxml.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
     private static final Pattern NUMERO_COMPLETO = Pattern.compile("^\\s*(\\d{3})\\s*-\\s*(\\d{3})\\s*-\\s*(\\d+)\\s*$");
 
     /** Tope de tokens de salida: evita loops de repetición; si se alcanza llega finish_reason=length. */
@@ -114,6 +117,14 @@ public class OpenAiVisionService {
             String dataUrl = "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(jpeg);
             String respuesta = post(apiKey.trim(), buildRequestBody(modelo, prompt, dataUrl));
             partes.add(parsearRespuesta(respuesta, modelo));
+        }
+        // Moneda del documento fusionado (primer valor no nulo; null = PYG), igual para todas las hojas.
+        String moneda = null;
+        for (FacturaIaLeida d : partes) {
+            if (moneda == null && d.getMoneda() != null && !d.getMoneda().isEmpty()) moneda = d.getMoneda();
+        }
+        for (FacturaIaLeida d : partes) {
+            if (d.getRespuestaCruda() != null) normalizarMontos(d, LECTOR_EXACTO.readTree(d.getRespuestaCruda()), moneda);
         }
         return mergeResultados(partes);
     }
@@ -232,7 +243,7 @@ public class OpenAiVisionService {
         for (FacturaIaLeida.Item it : data.getItems()) {
             if (it.getDudosos() == null) it.setDudosos(new ArrayList<>());
         }
-        normalizarMontos(data, node);
+        // Los montos se normalizan en leer(), una sola vez, con la moneda del documento fusionado.
         partirNumero(data);
 
         JsonNode usage = root.path("usage");
@@ -258,9 +269,8 @@ public class OpenAiVisionService {
      * Reescribe los montos a partir del texto crudo para que el punto de miles paraguayo
      * no se lea como decimal (264.408 -> 264408). No toca cantidad ni descuento.
      */
-    static void normalizarMontos(FacturaIaLeida data, JsonNode contentNode) {
+    static void normalizarMontos(FacturaIaLeida data, JsonNode contentNode, String moneda) {
         if (data == null || contentNode == null) return;
-        String moneda = data.getMoneda();
         JsonNode total = contentNode.get("totalGeneral");
         if (total != null && !total.isNull()) data.setTotalGeneral(normMonto(total, moneda));
 
@@ -280,20 +290,28 @@ public class OpenAiVisionService {
         }
     }
 
-    /** PYG: se quitan TODOS los . y , (miles). Otra moneda: la coma es miles y el punto decimal. */
+    /**
+     * Número JSON: PYG con exactamente 3 decimales = punto de miles (264.408 -> 264408); con 1 o 2
+     * se respeta el decimal. Texto PYG: se quitan . y ,. USD: número tal cual; texto sin comas de miles.
+     */
     static BigDecimal normMonto(JsonNode node, String moneda) {
         if (node == null || node.isNull()) return null;
-        String s = node.asText().trim();
-        if (s.isEmpty()) return null;
         boolean pyg = moneda == null || moneda.isEmpty()
                 || moneda.equalsIgnoreCase("PYG") || moneda.equalsIgnoreCase("GS")
                 || moneda.equalsIgnoreCase("Guarani") || moneda.equalsIgnoreCase("Guaranies");
+        if (node.isNumber()) {
+            BigDecimal v = node.decimalValue();
+            if (pyg && v.scale() == 3) return v.movePointRight(3).setScale(0);
+            return v;
+        }
+        String s = node.asText().trim();
+        if (s.isEmpty()) return null;
         String limpio = pyg ? s.replace(".", "").replace(",", "") : s.replace(",", "");
         try {
             return new BigDecimal(limpio);
         } catch (NumberFormatException e) {
             log.warn("Monto no parseable '{}' (moneda={}), se deja como vino", s, moneda);
-            return node.isNumber() ? node.decimalValue() : null;
+            return null;
         }
     }
 

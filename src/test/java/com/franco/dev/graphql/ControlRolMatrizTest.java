@@ -2,6 +2,7 @@ package com.franco.dev.graphql;
 
 import com.franco.dev.graphql.financiero.*;
 import com.franco.dev.graphql.operaciones.*;
+import com.franco.dev.service.financiero.FacturacionSecurityFalso;
 import com.franco.dev.service.financiero.TesoreriaSecurityFalso;
 import graphql.GraphQLException;
 import graphql.GraphqlErrorException;
@@ -33,6 +34,7 @@ class ControlRolMatrizTest {
     static final String GEST = "TESORERIA GESTIONAR";
     static final String CANC = "CANCELACION DE VENTA";
     static final String VU = "VER USUARIOS";
+    static final String EMITIR = "FACTURACION EMITIR";
 
     /** Roles de negocio que existen; ninguno es ADMIN. */
     static final List<String> TODOS = Arrays.asList(AC, VT, VTC, GEST, CANC, VU, "VER TRANSFERENCIA",
@@ -74,13 +76,27 @@ class ControlRolMatrizTest {
                 f(PreGastoGraphQL.class, "tramitarPreGasto"), f(PreGastoGraphQL.class, "deletePreGasto"),
                 f(PreGastoGraphQL.class, "ejecutarRetiroPreGasto", VT),
                 f(CobroDetalleGraphQL.class, "saveCobroDetalle", VT),
-                f(CobroGraphQL.class, "deleteCobro", CANC)
+                f(CobroGraphQL.class, "deleteCobro", CANC),
+                // fiscal
+                f(DocumentoElectronicoGraphQL.class, "saveDocumentoElectronico"),
+                f(DocumentoElectronicoGraphQL.class, "crearDocumentoElectronicoDesdeFactura"),
+                new Fila(EventosSifenGraphQL.class, "facturacionSeg", "nominarReceptorDocumento", EMITIR),
+                f(EventosSifenGraphQL.class, "inutilizarNumeros", AC),
+                f(FacturaLegalGraphQL.class, "deleteFacturaLegal"),
+                f(FacturaLegalGraphQL.class, "updateFacturaLegal", AC),
+                f(FacturaLegalGraphQL.class, "saveFacturaLegalToFilial", AC),
+                f(LoteDEGraphQL.class, "saveLoteDe"), f(LoteDEGraphQL.class, "crearLote"),
+                f(LoteDEGraphQL.class, "vincularDocumentosALote"), f(LoteDEGraphQL.class, "enviarLote"),
+                f(TimbradoGraphQL.class, "saveTimbrado"), f(TimbradoGraphQL.class, "deleteTimbrado"),
+                f(TimbradoDetalleGraphQL.class, "saveTimbradoDetalle"), f(TimbradoDetalleGraphQL.class, "deleteTimbradoDetalle")
         );
     }
 
     static Object resolver(Fila fila, String... roles) {
         Object r = new ObjenesisStd().newInstance(fila.clase);
-        ReflectionTestUtils.setField(r, fila.campo, new TesoreriaSecurityFalso(1L, roles));
+        Object seg = "facturacionSeg".equals(fila.campo)
+                ? new FacturacionSecurityFalso(roles) : new TesoreriaSecurityFalso(1L, roles);
+        ReflectionTestUtils.setField(r, fila.campo, seg);
         return r;
     }
 

@@ -225,7 +225,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
     public void deshacerVenta(Venta venta, Cobro cobro, Long sucId) {
         if (cobro != null) {
-            cobroGraphQL.deleteCobro(cobro.getId(), sucId);
+            cobroGraphQL.borrarCobro(cobro.getId(), sucId);
         }
     }
 

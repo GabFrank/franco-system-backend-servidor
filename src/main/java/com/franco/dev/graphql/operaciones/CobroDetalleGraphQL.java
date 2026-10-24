@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.CobroDetalle;
 import com.franco.dev.graphql.operaciones.input.CobroDetalleInput;
@@ -24,6 +25,9 @@ import java.util.Optional;
 public class CobroDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private TesoreriaSecurityService seg;
+
+    @Autowired
     private CobroDetalleService service;
 
     @Autowired
@@ -45,7 +49,13 @@ public class CobroDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.findAll(pageable);
     }
 
-    public CobroDetalle saveCobroDetalle(CobroDetalleInput input){
+    public CobroDetalle saveCobroDetalle(CobroDetalleInput input) {
+        seg.requireAnyRole("VENTA TOUCH");
+        return guardarCobroDetalle(input);
+    }
+
+    /** Sin control de rol: lo usa CobroGraphQL.saveCobro dentro de saveVenta. */
+    public CobroDetalle guardarCobroDetalle(CobroDetalleInput input){
         ModelMapper m = new ModelMapper();
         CobroDetalle e = m.map(input, CobroDetalle.class);
         if(input.getUsuarioId()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));

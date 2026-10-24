@@ -143,7 +143,8 @@ public class FacturaLegalFilialService {
         } catch (RestClientException e) {
             // Error de conexión u otro error de RestTemplate
             log.error("Error al conectar con el servidor filial: {}", e.getMessage(), e);
-            throw new EnvioAFilialException("Error al conectar con el servidor filial: " + e.getMessage(),
+            // El mensaje de RestTemplate trae la URL con la IP del filial: queda solo en el log.
+            throw new EnvioAFilialException("Error al conectar con el servidor filial. Verifique la conexión con la sucursal.",
                     !noLlegoAlFilial(e), e);
         }
     }

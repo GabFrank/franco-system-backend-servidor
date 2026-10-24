@@ -49,6 +49,9 @@ import static org.mockito.Mockito.when;
  */
 class FacturaLegalFilialServiceErroresTest {
 
+    private static final String MENSAJE_SIN_CONEXION =
+            "Error al conectar con el servidor filial. Verifique la conexión con la sucursal.";
+
     @Mock private RestTemplate restTemplate;
     @Mock private SucursalService sucursalService;
     @Mock private ClienteService clienteService;
@@ -141,8 +144,7 @@ class FacturaLegalFilialServiceErroresTest {
         alEnviar(new ResourceAccessException("I/O error on POST request: Connection refused",
                 new java.io.IOException("envoltorio", new ConnectException("Connection refused"))));
         EnvioAFilialException e = enviar();
-        assertEquals("Error al conectar con el servidor filial: I/O error on POST request: Connection refused;"
-                + " nested exception is java.io.IOException: envoltorio", e.getMessage());
+        assertEquals(MENSAJE_SIN_CONEXION, e.getMessage());
         assertFalse(e.isSinConfirmar());
     }
 
@@ -151,8 +153,7 @@ class FacturaLegalFilialServiceErroresTest {
         alEnviar(new ResourceAccessException("I/O error on POST request: Read timed out",
                 new SocketTimeoutException("Read timed out")));
         EnvioAFilialException e = enviar();
-        assertEquals("Error al conectar con el servidor filial: I/O error on POST request: Read timed out;"
-                + " nested exception is java.net.SocketTimeoutException: Read timed out", e.getMessage());
+        assertEquals(MENSAJE_SIN_CONEXION, e.getMessage());
         assertTrue(e.isSinConfirmar());
     }
 
@@ -160,7 +161,7 @@ class FacturaLegalFilialServiceErroresTest {
     void respuestaIlegibleEsSinConfirmar() {
         alEnviar(new RestClientException("Error while extracting response"));
         EnvioAFilialException e = enviar();
-        assertEquals("Error al conectar con el servidor filial: Error while extracting response", e.getMessage());
+        assertEquals(MENSAJE_SIN_CONEXION, e.getMessage());
         assertTrue(e.isSinConfirmar());
     }
 
@@ -234,5 +235,17 @@ class FacturaLegalFilialServiceErroresTest {
         for (int i = 0; i < largo; i++) {
             in.read();
         }
+    }
+
+    @Test
+    void elErrorDeConexionNoMuestraLaDireccionDelFilial() {
+        alEnviar(new ResourceAccessException(
+                "I/O error on POST request for \"http://172.25.1.5:8080/api/facturas-legales\": Connection refused",
+                new ConnectException("Connection refused")));
+        EnvioAFilialException e = enviar();
+        assertTrue(e.getMessage().startsWith("Error al conectar con el servidor filial"));
+        assertFalse(e.getMessage().contains("http://"));
+        assertFalse(e.getMessage().contains("172.25."));
+        assertFalse(e.isSinConfirmar());
     }
 }

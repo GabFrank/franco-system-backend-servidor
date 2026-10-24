@@ -4,6 +4,7 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.personas.UsuarioGraphQL;
 import com.franco.dev.graphql.personas.input.UsuarioInput;
 import com.franco.dev.repository.personas.PersonaRepository;
+import com.franco.dev.service.financiero.TesoreriaSecurityFalso;
 import com.franco.dev.repository.personas.RoleRepository;
 import com.franco.dev.repository.personas.UsuarioRepository;
 import com.franco.dev.service.utils.ImageService;
@@ -139,6 +140,7 @@ class UsuarioServiceClaveTest {
         guardado();
         UsuarioGraphQL graphQL = new UsuarioGraphQL();
         ReflectionTestUtils.setField(graphQL, "service", service);
+        ReflectionTestUtils.setField(graphQL, "seg", new TesoreriaSecurityFalso(1L, "ADMIN"));
 
         UsuarioInput input = new UsuarioInput();
         input.setId(7L);
@@ -153,6 +155,7 @@ class UsuarioServiceClaveTest {
     void saveUsuarioAltaConRespetarClave() {
         UsuarioGraphQL graphQL = new UsuarioGraphQL();
         ReflectionTestUtils.setField(graphQL, "service", service);
+        ReflectionTestUtils.setField(graphQL, "seg", new TesoreriaSecurityFalso(1L, "ADMIN"));
 
         UsuarioInput input = new UsuarioInput();
         input.setNickname("nuevo");

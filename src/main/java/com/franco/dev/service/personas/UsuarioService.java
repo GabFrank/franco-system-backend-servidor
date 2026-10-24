@@ -265,19 +265,20 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
     }
 
     public Integer isUserFaceAuth(Long id) {
-        Usuario usuario = repository.findById(id).orElse(null);
-        if (usuario != null && usuario.getPersona() != null) {
-            String embeddingJson = usuario.getPersona().getEmbedding();
-            if (embeddingJson != null && !embeddingJson.isEmpty()) {
-                com.franco.dev.graphql.personas.dto.EmbeddingGaleriaDto galeria = embeddingGaleriaService
-                        .parsearDesdeJson(embeddingJson);
-                if (galeria != null && galeria.getGallery() != null && !galeria.getGallery().isEmpty()) {
-                    return 3;
-                }
-            }
-        }
+        if (tieneGaleriaFacial(id)) return 3;
         List<String> images = getUserImages(id, "auth");
         return images.size();
+    }
+
+    /** Galería facial en persona.embedding. Las fotos "auth" sueltas de antes no cuentan. */
+    public boolean tieneGaleriaFacial(Long id) {
+        Usuario usuario = repository.findById(id).orElse(null);
+        if (usuario == null || usuario.getPersona() == null) return false;
+        String embeddingJson = usuario.getPersona().getEmbedding();
+        if (embeddingJson == null || embeddingJson.isEmpty()) return false;
+        com.franco.dev.graphql.personas.dto.EmbeddingGaleriaDto galeria = embeddingGaleriaService
+                .parsearDesdeJson(embeddingJson);
+        return galeria != null && galeria.getGallery() != null && !galeria.getGallery().isEmpty();
     }
 
     public com.franco.dev.graphql.personas.UsuarioSimilitudResult findUsuarioByEmbedding(List<Double> embeddingInfo,

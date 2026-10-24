@@ -110,6 +110,10 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     /** Devuelve true si el que guarda edita su propio usuario sin EDITAR USUARIOS. */
     private boolean exigirPermisoParaGuardar(UsuarioInput input, Usuario guardado) {
+        // El nickname ADMIN es superusuario por si solo: crearlo o tomarlo es solo de un administrador.
+        boolean pasaASerAdmin = input.getNickname() != null && "ADMIN".equalsIgnoreCase(input.getNickname().trim())
+                && (guardado == null || !"ADMIN".equalsIgnoreCase(guardado.getNickname()));
+        if (pasaASerAdmin) seg.requireSuperusuario();
         if (input.getId() == null) {
             seg.requireAnyRole(EDITAR_USUARIOS, VER_FUNCIONARIOS);
             return false;
@@ -160,8 +164,10 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             throw new GraphQLException("Tipo de imagen no válido.");
         }
         // Marcar horario registra la cara de otro solo si todavía no tiene; reemplazarla es de RRHH.
-        Usuario yo = seg.requireUsuarioDeSesion();
-        if (!yo.getId().equals(id) && service.tieneGaleriaFacial(id)) seg.requireAnyRole(RRHH_GESTIONAR);
+        if (service.tieneGaleriaFacial(id)) {
+            Usuario yo = seg.currentUsuario();
+            if (yo == null || !yo.getId().equals(id)) seg.requireAnyRole(RRHH_GESTIONAR);
+        }
         return service.saveUserImage(id, type, image, embedding, embeddingGaleriaJson);
     }
 

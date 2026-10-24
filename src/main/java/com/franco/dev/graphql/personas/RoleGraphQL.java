@@ -57,6 +57,9 @@ public class RoleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
 
     public Role saveRole(RoleInput input){
         seg.requireAnyRole("SOPORTE");
+        // Un rol llamado ADMIN es superusuario: crearlo, renombrarlo o tocarlo es solo de un administrador.
+        Role previo = input.getId() != null ? service.findById(input.getId()).orElse(null) : null;
+        if (esAdmin(input.getNombre()) || (previo != null && esAdmin(previo.getNombre()))) seg.requireSuperusuario();
         ModelMapper m = new ModelMapper();
         Role e = m.map(input, Role.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -66,11 +69,16 @@ public class RoleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
 
     public Boolean deleteRole(Long id){
         seg.requireAnyRole("SOPORTE");
+        service.findById(id).ifPresent(r -> { if (esAdmin(r.getNombre())) seg.requireSuperusuario(); });
         Boolean ok = service.deleteById(id);
         return ok;
     }
 
     public Long countRole(){
         return service.count();
+    }
+
+    private static boolean esAdmin(String nombre) {
+        return nombre != null && "ADMIN".equalsIgnoreCase(nombre.trim());
     }
 }

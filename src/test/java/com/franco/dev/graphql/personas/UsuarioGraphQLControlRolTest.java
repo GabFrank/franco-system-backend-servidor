@@ -245,4 +245,36 @@ class UsuarioGraphQLControlRolTest {
         roles.deleteRole(1L);
         verify(roleService).deleteById(1L);
     }
+
+    @Test
+    void crear_o_tomar_el_nickname_admin_es_solo_de_admin() {
+        sesion(YO, "VER FUNCIONARIOS", "EDITAR USUARIOS");
+        assertThrows(GraphQLException.class, () -> graphQL.saveUsuario(edicion(null, " admin")));
+        assertThrows(GraphQLException.class, () -> graphQL.saveUsuario(edicion(OTRO, "ADMIN")));
+        verify(service, never()).save(any(Usuario.class), anyBoolean());
+    }
+
+    @Test
+    void soporte_no_crea_ni_toca_el_rol_admin() {
+        RoleGraphQL roles = new RoleGraphQL();
+        RoleService roleService = mock(RoleService.class);
+        Role admin = new Role();
+        admin.setId(25L);
+        admin.setNombre("ADMIN");
+        when(roleService.findById(25L)).thenReturn(Optional.of(admin));
+        ReflectionTestUtils.setField(roles, "service", roleService);
+        ReflectionTestUtils.setField(roles, "usuarioService", service);
+        ReflectionTestUtils.setField(roles, "seg", new TesoreriaSecurityFalso(YO, "SOPORTE"));
+
+        RoleInput nuevo = new RoleInput();
+        nuevo.setNombre("admin ");
+        assertThrows(GraphQLException.class, () -> roles.saveRole(nuevo));
+        RoleInput renombrar = new RoleInput();
+        renombrar.setId(25L);
+        renombrar.setNombre("OTRO NOMBRE");
+        assertThrows(GraphQLException.class, () -> roles.saveRole(renombrar));
+        assertThrows(GraphQLException.class, () -> roles.deleteRole(25L));
+        verify(roleService, never()).save(any());
+        verify(roleService, never()).deleteById(any());
+    }
 }

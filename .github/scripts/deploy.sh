@@ -14,6 +14,8 @@ FIREBASE_JSON_SOURCE="${3:-}"
 FIREBASE_TARGET_OVERRIDE="${4:-}"
 MAIL_ENV_SOURCE="${5:-}"
 TOKEN_ENV_SOURCE="${6:-}"
+# El archivo trae la clave del token: se borra al salir aunque el deploy se corte antes de usarlo.
+trap '[[ -n "${TOKEN_ENV_SOURCE}" ]] && rm -f "${TOKEN_ENV_SOURCE}"' EXIT
 
 BASE_DIR="/opt/frc-backend-central"
 INSTANCE_DIR="${BASE_DIR}/${INSTANCE}"

@@ -214,6 +214,24 @@ jobs:
             deploy@${{ secrets.DEPLOY_HOST }}:${MAIL_REMOTE_PATH}
           rm -f mail-settings.env
 
+      - name: Upload JAR to server
+        env:
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          echo "Creating release directory and uploading JAR..."
+          ssh -i ~/.ssh/deploy_key deploy@${{ secrets.DEPLOY_HOST }} \
+            "mkdir -p /opt/frc-backend-central/releases/${VERSION}"
+
+          scp -i ~/.ssh/deploy_key \
+            frc-central-server.jar \
+            deploy@${{ secrets.DEPLOY_HOST }}:/opt/frc-backend-central/releases/${VERSION}/frc-central-server.jar
+
+      - name: Upload deploy script
+        run: |
+          scp -i ~/.ssh/deploy_key \
+            .github/scripts/deploy.sh \
+            deploy@${{ secrets.DEPLOY_HOST }}:/tmp/deploy.sh
+
       # Clave del token de sesion de la instancia (APP_JWT_SECRET firma, APP_JWT_ACEPTAR solo valida).
       # Sale de los secrets del environment de la instancia. Una clave no definida no se toca en el .env.
       - name: Upload token keys
@@ -232,30 +250,14 @@ jobs:
               echo "${KEY}: no definido"
             fi
           done
+          TOKEN_REMOTE_PATH="/tmp/token-${{ inputs.instance }}-${VERSION}.env"
           if [[ -s token-keys.env ]]; then
-            scp -i ~/.ssh/deploy_key \
-              token-keys.env \
-              deploy@${{ secrets.DEPLOY_HOST }}:/tmp/token-${{ inputs.instance }}-${VERSION}.env
+            scp -i ~/.ssh/deploy_key token-keys.env deploy@${{ secrets.DEPLOY_HOST }}:${TOKEN_REMOTE_PATH}
+          else
+            # sin claves en esta corrida: que no se aplique un archivo viejo de un deploy cortado
+            ssh -i ~/.ssh/deploy_key deploy@${{ secrets.DEPLOY_HOST }} "rm -f ${TOKEN_REMOTE_PATH}"
           fi
           rm -f token-keys.env
-
-      - name: Upload JAR to server
-        env:
-          VERSION: ${{ steps.resolve.outputs.version }}
-        run: |
-          echo "Creating release directory and uploading JAR..."
-          ssh -i ~/.ssh/deploy_key deploy@${{ secrets.DEPLOY_HOST }} \
-            "mkdir -p /opt/frc-backend-central/releases/${VERSION}"
-
-          scp -i ~/.ssh/deploy_key \
-            frc-central-server.jar \
-            deploy@${{ secrets.DEPLOY_HOST }}:/opt/frc-backend-central/releases/${VERSION}/frc-central-server.jar
-
-      - name: Upload deploy script
-        run: |
-          scp -i ~/.ssh/deploy_key \
-            .github/scripts/deploy.sh \
-            deploy@${{ secrets.DEPLOY_HOST }}:/tmp/deploy.sh
 
       - name: Execute deploy
         env:

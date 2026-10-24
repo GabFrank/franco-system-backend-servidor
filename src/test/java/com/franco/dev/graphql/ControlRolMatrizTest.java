@@ -123,7 +123,14 @@ class ControlRolMatrizTest {
                 f(com.franco.dev.graphql.productos.TipoPrecioGraphQL.class, "saveTipoPrecio"),
                 f(com.franco.dev.graphql.productos.TipoPrecioGraphQL.class, "deleteTipoPrecio"),
                 f(ProgramarPrecioGraphQL.class, "saveProgramarPrecio"), f(ProgramarPrecioGraphQL.class, "deleteProgramarPrecio"),
-                f(PrecioDeliveryGraphQL.class, "savePrecioDelivery"), f(PrecioDeliveryGraphQL.class, "deletePrecioDelivery")
+                f(PrecioDeliveryGraphQL.class, "savePrecioDelivery"), f(PrecioDeliveryGraphQL.class, "deletePrecioDelivery"),
+                // clientes y personas
+                f(com.franco.dev.graphql.personas.ClienteGraphQL.class, "saveCliente", VU, "VER PERSONAS"),
+                f(com.franco.dev.graphql.personas.ClienteGraphQL.class, "deleteCliente"),
+                f(com.franco.dev.graphql.personas.ClienteAdicionalGraphQL.class, "saveClienteAdicional"),
+                f(com.franco.dev.graphql.personas.ClienteAdicionalGraphQL.class, "deleteClienteAdicional"),
+                f(com.franco.dev.graphql.personas.PersonaGraphQL.class, "deletePersona", "CREAR FUNCIONARIOS",
+                        "VER FUNCIONARIOS", "RRHH GESTIONAR")
         );
     }
 

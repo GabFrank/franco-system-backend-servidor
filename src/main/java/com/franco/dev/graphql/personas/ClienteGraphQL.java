@@ -35,6 +35,9 @@ import java.util.Optional;
 public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private ClienteService service;
 
     @Autowired
@@ -92,7 +95,12 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         }
     }
 
+    /** Los roles con los que el desktop abre Clientes (VER USUARIOS) y Personas (VER PERSONAS). */
+    static final String[] ROLES_CLIENTES = {"VER USUARIOS", "VER PERSONAS"};
+
     public Cliente saveCliente(ClienteInput input) {
+        seg.requireAnyRole(ROLES_CLIENTES);
+        protegerCredito(input);
         Boolean modifPersona = false;
         ModelMapper m = new ModelMapper();
         Cliente e = m.map(input, Cliente.class);
@@ -133,14 +141,38 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         }
         e = service.save(e);
         Funcionario funcionario = funcionarioService.findByPersonaId(e.getPersona().getId());
-        if (funcionario != null && e.getCredito() != funcionario.getCredito()) {
+        if (funcionario != null && credito(e.getCredito()) != credito(funcionario.getCredito())) {
             funcionario.setCredito(e.getCredito());
             funcionario = funcionarioService.save(funcionario);
         }
         return e;
     }
 
+    /**
+     * El credito de un cliente es plata: cambiarlo exige ADMIN, o RRHH GESTIONAR / CONFIG si la persona es
+     * funcionario (el save se lo copia al legajo). Va antes de cualquier save. En una edicion, un credito que
+     * no viene conserva el guardado; en un alta se compara contra 0, o contra el credito del funcionario.
+     */
+    private void protegerCredito(ClienteInput in) {
+        Cliente previo = in.getId() != null ? service.findById(in.getId()).orElse(null) : null;
+        Long personaId = previo != null && previo.getPersona() != null ? previo.getPersona().getId() : in.getPersonaId();
+        Funcionario funcionario = personaId != null ? funcionarioService.findByPersonaId(personaId) : null;
+        boolean cambia;
+        if (previo != null) {
+            if (in.getCredito() == null) in.setCredito(previo.getCredito());
+            cambia = credito(in.getCredito()) != credito(previo.getCredito());
+        } else {
+            cambia = credito(in.getCredito()) != (funcionario != null ? credito(funcionario.getCredito()) : 0f);
+        }
+        if (!cambia) return;
+        if (funcionario != null) seg.requireAnyRole("RRHH GESTIONAR", "RRHH CONFIG");
+        else seg.requireSuperusuario();
+    }
+
+    private static float credito(Float c) { return c == null ? 0f : c; }
+
     public Boolean deleteCliente(Long id) {
+        seg.requireSuperusuario(); // sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

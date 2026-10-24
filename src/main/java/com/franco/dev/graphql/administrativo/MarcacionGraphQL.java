@@ -26,6 +26,9 @@ import java.util.concurrent.ThreadLocalRandom;
 @Component
 public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
+    @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
     private static final Logger log = LoggerFactory.getLogger(MarcacionGraphQL.class);
 
     /** Cuantas veces se intenta guardar una marcacion que choca con otra transaccion. */
@@ -248,6 +251,7 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public Marcacion reprocesarJornadaDeMarcacion(Long id, Long sucursalId) {
+        seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR);
         return service.reprocesarJornadaDeMarcacion(id, sucursalId);
     }
 

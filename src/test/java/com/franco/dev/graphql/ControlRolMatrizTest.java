@@ -130,7 +130,13 @@ class ControlRolMatrizTest {
                 f(com.franco.dev.graphql.personas.ClienteAdicionalGraphQL.class, "saveClienteAdicional"),
                 f(com.franco.dev.graphql.personas.ClienteAdicionalGraphQL.class, "deleteClienteAdicional"),
                 f(com.franco.dev.graphql.personas.PersonaGraphQL.class, "deletePersona", "CREAR FUNCIONARIOS",
-                        "VER FUNCIONARIOS", "RRHH GESTIONAR")
+                        "VER FUNCIONARIOS", "RRHH GESTIONAR"),
+                // jornadas y horarios
+                f(com.franco.dev.graphql.administrativo.JornadaGraphQL.class, "ajustarJornadaA8Horas", "RRHH GESTIONAR"),
+                f(com.franco.dev.graphql.administrativo.JornadaGraphQL.class, "guardarObservacionJornada", "RRHH GESTIONAR"),
+                f(com.franco.dev.graphql.administrativo.MarcacionGraphQL.class, "reprocesarJornadaDeMarcacion", "RRHH GESTIONAR"),
+                f(com.franco.dev.graphql.administrativo.HorarioGraphQL.class, "saveHorario", "RRHH GESTIONAR", "EDITAR FUNCIONARIOS"),
+                f(com.franco.dev.graphql.administrativo.HorarioGraphQL.class, "deleteHorario", "RRHH GESTIONAR", "EDITAR FUNCIONARIOS")
         );
     }
 
@@ -142,6 +148,8 @@ class ControlRolMatrizTest {
                 ? new FacturacionSecurityFalso(roles)
                 : tipo == com.franco.dev.service.productos.PrecioSecurityService.class
                 ? new com.franco.dev.service.productos.PrecioSecurityFalso(roles)
+                : tipo == com.franco.dev.service.rrhh.RrhhSecurityService.class
+                ? new com.franco.dev.service.rrhh.RrhhSecurityFalso(roles)
                 : new TesoreriaSecurityFalso(1L, roles);
         ReflectionTestUtils.setField(r, fila.campo, seg);
         return r;

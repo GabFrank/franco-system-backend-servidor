@@ -264,6 +264,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean deleteFacturaLegal(Long id, Long sucId) {
+        seg.requireSuperusuario();
         return service.deleteByIdAndSucursalId(id, sucId);
     }
 
@@ -1304,6 +1305,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     // Mutation to update factura legal
     @Transactional
     public FacturaLegal updateFacturaLegal(FacturaLegalInput input) {
+        seg.requireAnyRole("ANALISIS DE CAJA");
         if (input.getId() == null || input.getSucursalId() == null) {
             throw new IllegalArgumentException("ID y SucursalId son requeridos");
         }
@@ -1550,6 +1552,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             Long timbradoDetalleId,
             Long monedaId,
             Double tipoCambio) {
+        seg.requireAnyRole("ANALISIS DE CAJA");
         try {
             // Si se proporciona monedaId y tipoCambio, actualizar el input
             if (monedaId != null && tipoCambio != null) {

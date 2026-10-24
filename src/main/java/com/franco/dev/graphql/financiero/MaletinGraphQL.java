@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Maletin;
 import com.franco.dev.graphql.financiero.input.MaletinInput;
@@ -35,6 +36,9 @@ import com.franco.dev.service.empresarial.SucursalService;
 
 @Component
 public class MaletinGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private MaletinService service;
@@ -86,6 +90,7 @@ public class MaletinGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Maletin saveMaletin(MaletinInput input) {
+        seg.requireSuperusuario();
         ModelMapper m = new ModelMapper();
         Maletin e = m.map(input, Maletin.class);
         if (input.getUsuarioId() != null) {
@@ -162,6 +167,7 @@ public class MaletinGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Boolean deleteMaletin(Long id, Long sucId) {
+        seg.requireSuperusuario();
         return service.deleteById(id);
     }
 

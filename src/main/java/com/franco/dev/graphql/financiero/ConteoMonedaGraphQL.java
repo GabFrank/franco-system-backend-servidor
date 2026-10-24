@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
@@ -25,6 +26,9 @@ import java.util.Optional;
 public class ConteoMonedaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private TesoreriaSecurityService seg;
+
+    @Autowired
     private ConteoMonedaService service;
 
     @Autowired
@@ -47,6 +51,7 @@ public class ConteoMonedaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
 
     public ConteoMoneda saveConteoMoneda(ConteoMonedaInput input){
+        seg.requireSuperusuario();
         ModelMapper m = new ModelMapper();
         ConteoMoneda e = m.map(input, ConteoMoneda.class);
         if(input.getUsuarioId()!=null){
@@ -60,6 +65,7 @@ public class ConteoMonedaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean deleteConteoMoneda(Long id, Long sucId){
+        seg.requireSuperusuario();
         return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 

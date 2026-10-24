@@ -83,6 +83,7 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     public Retiro saveRetiro(RetiroInput input, List<RetiroDetalleInput> retiroDetalleInputList, String printerName,
             String local) throws GraphQLException {
+        seg.requireAnyRole("VENTA TOUCH");
         ModelMapper m = new ModelMapper();
         Retiro e = m.map(input, Retiro.class);
 
@@ -128,6 +129,7 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     // }
 
     public Boolean deleteRetiro(Long id, Long sucId) {
+        seg.requireSuperusuario();
         Retiro retiro = retiro(id, sucId);
         if (retiro != null) {
             return service.delete(retiro);

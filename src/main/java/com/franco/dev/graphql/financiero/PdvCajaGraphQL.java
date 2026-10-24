@@ -137,6 +137,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public PdvCaja savePdvCaja(PdvCajaInput input) {
+        seg.requireAnyRole("ANALISIS DE CAJA", "VENTA TOUCH");
         ModelMapper m = new ModelMapper();
         PdvCaja e = m.map(input, PdvCaja.class);
         if (input.getUsuarioId() != null) {
@@ -155,6 +156,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public PdvCaja savePdvCajaPorSucursal(PdvCajaInput input) {
+        seg.requireAnyRole("VENTA TOUCH");
         ModelMapper m = new ModelMapper();
         PdvCaja e = m.map(input, PdvCaja.class);
         if (input.getUsuarioId() != null) {
@@ -232,6 +234,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public CajaFilialOperacionResult abrirCajaDesdeServidor(PdvCajaInput input, ConteoInput conteoInput, List<ConteoMonedaInput> conteoMonedaInputList, Long cajaId) {
+        seg.requireAnyRole("VENTA TOUCH");
         boolean esCierre = cajaId != null;
         String logPrefix = esCierre ? "CERRAR CAJA" : "ABRIR CAJA";
         long inicioMs = System.currentTimeMillis();

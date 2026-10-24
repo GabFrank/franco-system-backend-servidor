@@ -1,0 +1,60 @@
+# Buscar lote por numero, para responder un reclamo (#429, fase 2, entrega 1).
+
+type LoteEncontrado {
+    loteId: ID
+    productoId: ID
+    productoDescripcion: String
+    numeroLote: String
+    fechaVencimiento: Date
+    estado: String
+    proveedorNombre: String
+    archivado: Boolean
+    # Primer movimiento que sumo al lote (normalmente la compra que lo trajo).
+    primeraEntradaFecha: Date
+    primeraEntradaTipo: String
+    # La recepcion o la transferencia de esa entrada.
+    primeraEntradaDocumentoId: ID
+    saldoTotal: Float
+    # Unidades vendidas (movimientos VENTA activos), en positivo.
+    totalVendido: Float
+    cantidadVentas: Int
+}
+
+type EntradaSinLote {
+    tipoMovimiento: String
+    movimientos: Int
+    cantidad: Float
+}
+
+# Cuanto vale un "no hay registro de este lote" para el producto.
+type TrazabilidadProducto {
+    productoId: ID
+    productoDescripcion: String
+    # Primer movimiento con lote real. Nulo: el producto nunca se controlo por lote.
+    trazadoDesde: Date
+    # Entradas desde trazadoDesde que no quedaron enteras en un lote.
+    entradasSinLote: [EntradaSinLote]
+    # Compras anteriores a trazadoDesde.
+    comprasAnteriores: Int
+    # Solo true si hay trazado, ninguna entrada sin lote y ninguna compra anterior.
+    todasLasEntradasConLote: Boolean
+}
+
+type ResultadoBusquedaLote {
+    numeroBuscado: String
+    claveBusqueda: String
+    # false = no hay registro (NO "nunca entro").
+    encontrado: Boolean
+    coincidenciaExacta: Boolean
+    lotes: [LoteEncontrado]
+    # Solo si no se encontro y se busco con producto.
+    trazabilidad: TrazabilidadProducto
+}
+
+extend type Query {
+    # Busca en el MAESTRO de lotes (incluye saldo 0 y archivados), tolerante a mayusculas,
+    # separadores y ceros a la izquierda: "3497" encuentra "03497". Primero coincidencia exacta;
+    # si no hay y la clave tiene 3 o mas caracteres, parcial. Hasta 20 resultados.
+    # Requiere VER PRODUCTOS y ANALISIS DE CAJA o ANALISIS DE VENTA.
+    buscarLotePorNumero(numeroLote: String!, productoId: ID): ResultadoBusquedaLote
+}

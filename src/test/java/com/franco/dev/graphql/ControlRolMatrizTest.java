@@ -103,8 +103,20 @@ class ControlRolMatrizTest {
                 f(VentaTarjetaGraphQL.class, "deleteVentaTarjeta"),
                 f(VentaTarjetaGraphQL.class, "cancelarVentaTarjetaPorVentaId", CANC),
                 f(CobroDetalleGraphQL.class, "deleteCobroDetalle", VT),
-                f(VentaGraphQL.class, "deleteVenta", CANC)
+                f(VentaGraphQL.class, "deleteVenta", CANC),
+                // devoluciones y funcionarios
+                f(DevolucionGraphQL.class, "acreditarDevolucion", rolesNotaCredito()),
+                f(NotaCreditoDevolucionGraphQL.class, "acreditarRetiro", rolesNotaCredito()),
+                f(NotaCreditoDevolucionGraphQL.class, "revertirNotaCreditoDevolucion", rolesNotaCredito()),
+                f(com.franco.dev.graphql.personas.FuncionarioGraphQL.class, "saveFuncionario", "VER FUNCIONARIOS",
+                        "CREAR FUNCIONARIOS", "EDITAR FUNCIONARIOS", "VER PERSONAS", "RRHH VER", "RRHH GESTIONAR"),
+                f(com.franco.dev.graphql.personas.FuncionarioGraphQL.class, "deleteFuncionario")
         );
+    }
+
+    /** VER TRANSFERENCIA + los roles de compras (package-private en graphql.operaciones). */
+    static String[] rolesNotaCredito() {
+        return (String[]) ReflectionTestUtils.getField(DevolucionGraphQL.class, "ROLES_NOTA_CREDITO");
     }
 
     static Object resolver(Fila fila, String... roles) {

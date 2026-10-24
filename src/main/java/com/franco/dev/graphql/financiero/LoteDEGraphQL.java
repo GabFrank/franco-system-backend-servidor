@@ -141,6 +141,7 @@ public class LoteDEGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public ConsultaLoteResponse consultarLote(Long loteId, Long sucursalId) {
+        seg.requireSuperusuario(); // consulta a SIFEN: ningún cliente la llama
         if (sifenService == null) {
             ConsultaLoteResponse response = new ConsultaLoteResponse();
             response.setExitoso(false);

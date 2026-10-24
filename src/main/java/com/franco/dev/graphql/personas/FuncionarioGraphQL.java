@@ -98,15 +98,18 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
         return service.searchPage(texto, soloActivos, pageable);
     }
 
-    /** Los roles con los que el desktop abre el wizard, la lista de funcionarios y el legajo. */
-    static final String[] ROLES_FUNCIONARIOS = {"VER FUNCIONARIOS", "CREAR FUNCIONARIOS", "EDITAR FUNCIONARIOS",
-            "VER PERSONAS", "RRHH VER", "RRHH GESTIONAR"};
+    /** Alta (sin id): el wizard se abre con VER FUNCIONARIOS, igual que el alta del usuario. */
+    static final String[] ROLES_ALTA = {"CREAR FUNCIONARIOS", "VER FUNCIONARIOS", "RRHH GESTIONAR"};
+    /** Edicion (con id): legajo y asignacion de horario. */
+    static final String[] ROLES_EDICION = {"EDITAR FUNCIONARIOS", "RRHH GESTIONAR"};
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FuncionarioGraphQL.class);
 
     public Funcionario saveFuncionario(FuncionarioInput input) {
-        seg.requireAnyRole(ROLES_FUNCIONARIOS);
-        if (input.getId() != null) descartarCambiosDePaga(input);
+        boolean alta = input == null || input.getId() == null;
+        seg.requireAnyRole(alta ? ROLES_ALTA : ROLES_EDICION);
+        if (alta) protegerCreditoDeClienteExistente(input);
+        else protegerCamposDeRrhh(input);
         ModelMapper m = new ModelMapper();
         Funcionario e;
         // Se guardan las relaciones actuales para restaurarlas si el input no las trae:
@@ -273,22 +276,79 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
      * guardado se ignora (el legajo y la asignacion de horario los reenvian) y uno distinto se rechaza,
      * para que la pantalla no muestre "Guardado" sin haber cambiado nada.
      */
-    private void descartarCambiosDePaga(FuncionarioInput input) {
-        Funcionario actual = service.findById(input.getId()).orElse(null);
+    /**
+     * Sueldo, diarista, credito, banco e IPS los gestiona RRHH (GESTIONAR o CONFIG); cargo y activo, solo
+     * GESTIONAR. Sin el rol, un valor igual al guardado se ignora (el legajo y la asignacion de horario
+     * reenvian todo) y uno distinto se rechaza, para que la pantalla no muestre "Guardado" sin haber
+     * cambiado nada. Ignorar = anular el campo del input: el save conserva lo guardado.
+     */
+    private void protegerCamposDeRrhh(FuncionarioInput in) {
+        // un id que no existe no es una edicion: el save lo crearia como alta
+        Funcionario a = service.findById(in.getId())
+                .orElseThrow(() -> new graphql.GraphQLException("No existe el funcionario " + in.getId()));
         if (!seg.hasAnyRole("RRHH GESTIONAR", "RRHH CONFIG")) {
-            boolean cambiaSueldo = input.getSueldo() != null && (actual == null || actual.getSueldo() == null
-                    || new java.math.BigDecimal(input.getSueldo().toString()).compareTo(actual.getSueldo()) != 0);
-            boolean cambiaDiarista = input.getDiarista() != null
-                    && (actual == null || !input.getDiarista().equals(Boolean.TRUE.equals(actual.getDiarista())));
-            if (cambiaSueldo || cambiaDiarista) seg.requireAnyRole("RRHH GESTIONAR", "RRHH CONFIG");
-            input.setSueldo(null);
-            input.setDiarista(null);
+            boolean cambia = in.getSueldo() != null && (a.getSueldo() == null
+                    || new java.math.BigDecimal(in.getSueldo().toString()).compareTo(a.getSueldo()) != 0);
+            cambia |= in.getDiarista() != null && in.getDiarista() != flag(a.getDiarista());
+            // el legajo manda 0 si el credito esta vacio
+            cambia |= in.getCredito() != null
+                    && in.getCredito().floatValue() != (a.getCredito() == null ? 0f : a.getCredito());
+            // banco e IPS: el flag decide el bloque; con el flag apagado el resto no cuenta (lo manda en null)
+            if (in.getCobraBanco() != null) {
+                cambia |= in.getCobraBanco() != flag(a.getCobraBanco())
+                        || in.getCobraBanco() && !texto(in.getCuentaBancaria()).equals(texto(a.getCuentaBancaria()));
+            }
+            if (in.getIpsActivo() != null) {
+                cambia |= in.getIpsActivo() != flag(a.getIpsActivo())
+                        || in.getIpsActivo() && (!texto(in.getNumeroIps()).equals(texto(a.getNumeroIps()))
+                        || !java.util.Objects.equals(fecha(in.getFechaIngresoIps()), a.getFechaIngresoIps()));
+            }
+            if (cambia) seg.requireAnyRole("RRHH GESTIONAR", "RRHH CONFIG");
+            in.setSueldo(null);
+            in.setDiarista(null);
+            in.setCredito(null);
+            in.setCobraBanco(null);
+            in.setCuentaBancaria(null);
+            in.setIpsActivo(null);
+            in.setNumeroIps(null);
+            in.setFechaIngresoIps(null);
         }
-        if (!seg.hasAnyRole("RRHH GESTIONAR") && input.getCargoId() != null) {
-            Long cargoActual = actual == null || actual.getCargo() == null ? null : actual.getCargo().getId();
-            if (!input.getCargoId().equals(cargoActual)) seg.requireAnyRole("RRHH GESTIONAR");
-            input.setCargoId(null);
+        if (!seg.hasAnyRole("RRHH GESTIONAR")) {
+            Long cargo = a.getCargo() == null ? null : a.getCargo().getId();
+            boolean cambia = in.getCargoId() != null && !in.getCargoId().equals(cargo);
+            // pasar el legajo a otra persona le pisaria el credito a su cliente
+            cambia |= in.getPersonaId() != null
+                    && (a.getPersona() == null || !in.getPersonaId().equals(a.getPersona().getId()));
+            // el save trata un activo nulo como true
+            cambia |= in.getActivo() != null && in.getActivo() != (a.getActivo() == null || a.getActivo());
+            if (cambia) seg.requireAnyRole("RRHH GESTIONAR");
+            in.setCargoId(null);
+            in.setActivo(null);
+            in.setPersonaId(null);
         }
+    }
+
+    /**
+     * El save copia el credito del funcionario al cliente de la persona. En un alta sin RRHH, si la persona
+     * ya es cliente, su credito no cambia (el wizard siempre crea una persona nueva, sin cliente).
+     */
+    private void protegerCreditoDeClienteExistente(FuncionarioInput in) {
+        if (in == null || in.getPersonaId() == null || seg.hasAnyRole("RRHH GESTIONAR", "RRHH CONFIG")) return;
+        Cliente c = clienteService.findByPersonaId(in.getPersonaId());
+        if (c == null) return;
+        float pedido = in.getCredito() == null ? 0f : in.getCredito();
+        if (pedido != (c.getCredito() == null ? 0f : c.getCredito())) seg.requireAnyRole("RRHH GESTIONAR", "RRHH CONFIG");
+    }
+
+    private static boolean flag(Boolean b) { return Boolean.TRUE.equals(b); }
+
+    /** El legajo manda trim + mayusculas; vacio y null son lo mismo. */
+    private static String texto(String s) { return s == null ? "" : s.trim().toUpperCase(); }
+
+    private static java.time.LocalDate fecha(String s) {
+        if (s == null || s.trim().isEmpty()) return null;
+        java.time.LocalDateTime d = stringToDate(s);
+        return d != null ? d.toLocalDate() : null;
     }
 
     public Boolean deleteFuncionario(Long id) {

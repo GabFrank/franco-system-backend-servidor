@@ -199,14 +199,15 @@ class ReasignacionLoteServiceTest {
     }
 
     @Test
-    void sucursalAtrasadaSeRechazaSalvoForzar() {
+    void sucursalAtrasadaSeRechazaAunForzando() {
         when(sync.atrasoSegundos(4L)).thenReturn(900.0);
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> service.reasignar(input(1.0)));
         assertTrue(e.getMessage().contains("no está sincronizada"));
         ReasignarLoteInput in = input(1.0);
         in.setForzar(true);
-        service.reasignar(in);
-        verify(movimientoStockService).save(any());
+        IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class, () -> service.reasignar(in));
+        assertTrue(e2.getMessage().contains("no está sincronizada"));
+        verify(movimientoStockService, never()).save(any());
     }
 
     @Test

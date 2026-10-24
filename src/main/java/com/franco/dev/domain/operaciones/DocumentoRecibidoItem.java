@@ -78,6 +78,10 @@ public class DocumentoRecibidoItem {
     @JoinColumn(name = "nota_recepcion_item_id")
     private NotaRecepcionItem notaRecepcionItem;
 
+    /** Campos que la IA marcó como dudosos (JSON). */
+    @Column(name = "ia_dudosos", columnDefinition = "TEXT")
+    private String iaDudosos;
+
     /** Cómo se ajustó el reconocimiento (bulto, por ejemplo). No se guarda: se recalcula con cada cruce. */
     @Transient
     private String notaReconocimiento;

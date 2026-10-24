@@ -10,6 +10,9 @@ public interface DocumentoRecibidoRepository extends JpaRepository<DocumentoReci
 
     Optional<DocumentoRecibido> findByCdc(String cdc);
 
+    Optional<DocumentoRecibido> findFirstByRucEmisorAndTimbradoAndEstablecimientoAndPuntoExpedicionAndNumero(
+            String rucEmisor, Integer timbrado, String establecimiento, String puntoExpedicion, String numero);
+
     Optional<DocumentoRecibido> findByNotaRecepcionId(Long notaRecepcionId);
 
     List<DocumentoRecibido> findByNotaRecepcionIdIn(List<Long> notaRecepcionIds);

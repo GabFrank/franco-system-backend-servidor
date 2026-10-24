@@ -271,8 +271,8 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
     private void descartarCambiosDePaga(FuncionarioInput input) {
         if (!seg.hasAnyRole("RRHH GESTIONAR", "RRHH CONFIG")) {
             if (input.getSueldo() != null || input.getDiarista() != null) {
-                log.warn("saveFuncionario {}: sin RRHH GESTIONAR/CONFIG se ignora sueldo={} diarista={}",
-                        input.getId(), input.getSueldo(), input.getDiarista());
+                // Sin los valores: el sueldo no va al log.
+                log.warn("saveFuncionario {}: sin RRHH GESTIONAR/CONFIG se ignoran sueldo y diarista del input", input.getId());
             }
             input.setSueldo(null);
             input.setDiarista(null);

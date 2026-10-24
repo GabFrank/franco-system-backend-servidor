@@ -17,6 +17,7 @@ import com.franco.dev.repository.operaciones.DocumentoRecibidoRepository;
 import com.franco.dev.service.ia.FacturaIaLeida;
 import com.franco.dev.service.ia.OpenAiVisionService;
 import com.franco.dev.service.operaciones.PedidoService;
+import com.franco.dev.service.operaciones.ProcesoEtapaService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.utilitarios.CalcularVerificadorRuc;
 import graphql.GraphQLException;
@@ -24,9 +25,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import java.io.IOException;
@@ -55,7 +58,10 @@ class FacturaFotoServiceTest {
     @Mock private PedidoService pedidoService;
     @Mock private ProveedorService proveedorService;
     @Mock private PlatformTransactionManager transactionManager;
+    @Mock private ProcesoEtapaService procesoEtapaService;
     @InjectMocks private FacturaFotoService service;
+    /** El de verdad (espiado), con el repositorio simulado: la regla de repetidos se prueba entera. */
+    private DocumentoRecibidoService documentoRecibidoService;
     private AutoCloseable mocks;
 
     private static final String RUC = "80012345";
@@ -65,6 +71,12 @@ class FacturaFotoServiceTest {
     @BeforeEach
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
+        DocumentoRecibidoService real = new DocumentoRecibidoService();
+        ReflectionTestUtils.setField(real, "repository", documentos);
+        ReflectionTestUtils.setField(real, "itemRepository", renglones);
+        ReflectionTestUtils.setField(real, "procesoEtapaService", procesoEtapaService);
+        documentoRecibidoService = spy(real);
+        ReflectionTestUtils.setField(service, "documentoRecibidoService", documentoRecibidoService);
         when(documentos.save(any(DocumentoRecibido.class))).thenAnswer(inv -> {
             DocumentoRecibido d = inv.getArgument(0);
             if (d.getId() == null) d.setId(10L);
@@ -97,6 +109,33 @@ class FacturaFotoServiceTest {
 
         verify(documentos, never()).save(any());
         verify(fotos, never()).save(any());
+    }
+
+    @Test
+    void rucConCerosSeGuardaComoSifen() throws IOException {
+        when(lector.leer(anyList())).thenReturn(factura("00" + RUC_OK));
+        CabeceraFacturaFotoMobile c = service.leer(Collections.singletonList(jpeg()), null);
+        ArgumentCaptor<DocumentoRecibido> doc = ArgumentCaptor.forClass(DocumentoRecibido.class);
+        verify(documentos).save(doc.capture());
+        assertEquals(RUC, doc.getValue().getRucEmisor());
+        assertTrue(c.getRucValido());
+        verify(documentos).buscarMismaFactura(RUC, 1, 12345678, "001", "002", "0001234");
+    }
+
+    @Test
+    void leerUnaFacturaYaCargadaNoCreaNada() throws IOException {
+        when(lector.leer(anyList())).thenReturn(factura(RUC_OK));
+        DocumentoRecibido otro = new DocumentoRecibido();
+        otro.setId(3L);
+        NotaRecepcion nota = new NotaRecepcion();
+        nota.setNumero(1234);
+        nota.setPedido(pedido(99L, null));
+        otro.setNotaRecepcion(nota);
+        when(documentos.buscarMismaFactura(RUC, 1, 12345678, "001", "002", "0001234"))
+                .thenReturn(Collections.singletonList(otro));
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.leer(Collections.singletonList(jpeg()), null));
+        assertEquals("Esta factura ya está cargada: nota 1234 del pedido 99.", e.getMessage());
+        verify(documentos, never()).save(any());
     }
 
     @Test
@@ -218,8 +257,8 @@ class FacturaFotoServiceTest {
         nota.setNumero(1234);
         nota.setPedido(pedido(99L, null));
         otro.setNotaRecepcion(nota);
-        when(documentos.findFirstByRucEmisorAndTimbradoAndEstablecimientoAndPuntoExpedicionAndNumero(
-                RUC, 12345678, "001", "002", "0001234")).thenReturn(Optional.of(otro));
+        when(documentos.buscarMismaFactura(RUC, 1, 12345678, "001", "002", "0001234"))
+                .thenReturn(Collections.singletonList(otro));
 
         GraphQLException e = assertThrows(GraphQLException.class, () -> service.confirmarCabecera(input()));
         assertEquals("Esta factura ya está cargada: nota 1234 del pedido 99.", e.getMessage());
@@ -246,10 +285,13 @@ class FacturaFotoServiceTest {
         DocumentoRecibido borrador = sinConfirmar(RUC, digito(RUC));
         borrador.setId(4L);
         borrador.setTimbrado(12345678);
-        when(documentos.findFirstByRucEmisorAndTimbradoAndEstablecimientoAndPuntoExpedicionAndNumero(
-                RUC, 12345678, "001", "002", "0001234")).thenReturn(Optional.of(borrador));
+        borrador.setCabeceraConfirmada(true);
+        when(documentos.buscarMismaFactura(RUC, 1, 12345678, "001", "002", "0001234"))
+                .thenReturn(Arrays.asList(doc, borrador));
         service.confirmarCabecera(input());
         assertNull(borrador.getTimbrado());
+        // Liberado: ya no puede crear la compra ni cargar la nota
+        assertFalse(borrador.getCabeceraConfirmada());
         verify(documentos).saveAndFlush(borrador);
         verify(compras).abrirNuevaCompra(eq(doc), any());
     }
@@ -328,6 +370,60 @@ class FacturaFotoServiceTest {
         assertEquals(43000.0, doc.getTotalGeneral());
         assertSame(proveedor, doc.getProveedor());
         verify(compras, never()).abrirEnPedido(any(), any());
+    }
+
+    @Test
+    void confirmarValidaRepetidosAntesDeTocarElDocumento() {
+        DocumentoRecibido doc = sinConfirmar(RUC, digito(RUC));
+        when(documentos.findById(10L)).thenReturn(Optional.of(doc));
+        Proveedor proveedor = proveedor(5L, RUC_OK);
+        when(proveedorService.findById(5L)).thenReturn(Optional.of(proveedor));
+        Object[] alBuscar = new Object[4];
+        doAnswer(inv -> {
+            alBuscar[0] = doc.getTimbrado();
+            alBuscar[1] = doc.getNumero();
+            alBuscar[2] = doc.getEstablecimiento();
+            alBuscar[3] = doc.getProveedor();
+            return inv.callRealMethod();
+        }).when(documentoRecibidoService).exigirFacturaLibre(any(), any(), any(), any(), any(), any(), any(), anyBoolean());
+
+        service.confirmarCabecera(input());
+
+        // Al buscar repetidos el documento seguía como lo dejó la lectura: sin la clave nueva
+        assertArrayEquals(new Object[]{null, null, null, null}, alBuscar);
+        InOrder orden = inOrder(documentoRecibidoService, documentos, compras);
+        orden.verify(documentoRecibidoService).exigirFacturaLibre(RUC, 1, 12345678, "001", "002", "0001234", 10L, true);
+        orden.verify(documentos).buscarMismaFactura(RUC, 1, 12345678, "001", "002", "0001234");
+        orden.verify(compras).avisosFacturaRepetida(doc, null);
+        orden.verify(documentos).save(doc);
+        orden.verify(compras).abrirNuevaCompra(doc, proveedor);
+    }
+
+    @Test
+    void nuevaCompraConOtroProveedorQueElDelRucSeRechaza() {
+        DocumentoRecibido doc = sinConfirmar(RUC, digito(RUC));
+        when(documentos.findById(10L)).thenReturn(Optional.of(doc));
+        when(proveedorService.findById(6L)).thenReturn(Optional.of(proveedor(6L, "4444444-4")));
+        when(compras.proveedorPorRuc(RUC)).thenReturn(proveedor(5L, RUC_OK));
+        CabeceraFacturaFotoInput in = input();
+        in.setProveedorId(6L);
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.confirmarCabecera(in));
+        assertEquals("Esta factura es del RUC " + RUC_OK + " y el proveedor elegido es PROVEEDOR 6 (4444444-4).", e.getMessage());
+        verify(documentos, never()).save(any());
+        verify(compras, never()).abrirNuevaCompra(any(), any());
+    }
+
+    @Test
+    void nuevaCompraConOtroProveedorDelMismoDocumentoSigue() {
+        DocumentoRecibido doc = sinConfirmar(RUC, digito(RUC));
+        when(documentos.findById(10L)).thenReturn(Optional.of(doc));
+        Proveedor mismoDocumento = proveedor(6L, "0" + RUC_OK);
+        when(proveedorService.findById(6L)).thenReturn(Optional.of(mismoDocumento));
+        when(compras.proveedorPorRuc(RUC)).thenReturn(proveedor(5L, RUC_OK));
+        CabeceraFacturaFotoInput in = input();
+        in.setProveedorId(6L);
+        service.confirmarCabecera(in);
+        verify(compras).abrirNuevaCompra(doc, mismoDocumento);
     }
 
     @Test

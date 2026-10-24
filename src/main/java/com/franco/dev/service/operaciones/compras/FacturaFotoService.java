@@ -3,7 +3,6 @@ package com.franco.dev.service.operaciones.compras;
 import com.franco.dev.domain.operaciones.DocumentoRecibido;
 import com.franco.dev.domain.operaciones.DocumentoRecibidoFoto;
 import com.franco.dev.domain.operaciones.DocumentoRecibidoItem;
-import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.Pedido;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.graphql.operaciones.compras.AvisoFacturaMobile;
@@ -61,6 +60,7 @@ public class FacturaFotoService {
 
     @Autowired private ComprasSecurityService seguridad;
     @Autowired private ComprasMobileService compras;
+    @Autowired private DocumentoRecibidoService documentoRecibidoService;
     @Autowired private OpenAiVisionService lector;
     @Autowired private DocumentoRecibidoRepository documentos;
     @Autowired private DocumentoRecibidoItemRepository renglones;
@@ -110,11 +110,11 @@ public class FacturaFotoService {
         doc.setCreadoEn(LocalDateTime.now());
         doc.setUsuario(seguridad.usuarioActual());
         String emisor = normalizarRuc(leida.getEmisorRuc());
-        doc.setRucEmisor(cortar(FacturaPapelReglas.sinDv(emisor), 20));
+        doc.setRucEmisor(rucSinDv(emisor));
         doc.setDvEmisor(dv(emisor));
         doc.setRazonSocialEmisor(cortar(leida.getEmisorNombre(), 255));
         String receptor = normalizarRuc(leida.getReceptorRuc());
-        doc.setRucReceptor(cortar(FacturaPapelReglas.sinDv(receptor), 20));
+        doc.setRucReceptor(rucSinDv(receptor));
         doc.setDvReceptor(dv(receptor));
         doc.setRazonSocialReceptor(cortar(leida.getReceptorNombre(), 255));
         doc.setTimbrado(entero(leida.getTimbrado()));
@@ -136,7 +136,8 @@ public class FacturaFotoService {
                 : rucValido ? compras.proveedorPorRuc(doc.getRucEmisor()) : null;
         doc.setProveedor(proveedor);
         doc.setPedido(pedido);
-        exigirNoRepetida(doc);
+        documentoRecibidoService.exigirFacturaLibre(doc.getRucEmisor(), doc.getTipoDocumento(), doc.getTimbrado(),
+                doc.getEstablecimiento(), doc.getPuntoExpedicion(), doc.getNumero(), null, true);
         doc = documentos.save(doc);
 
         List<DocumentoRecibidoItem> items = new ArrayList<>();
@@ -302,33 +303,40 @@ public class FacturaFotoService {
         if (proveedor == null) throw new GraphQLException("Elegí el proveedor de la factura.");
 
         Pedido pedido = doc.getPedido();
-        String rucLeido = ComprasMobileService.conDv(doc.getRucEmisor(), doc.getDvEmisor());
-        boolean rucValido = FacturaPapelReglas.rucValido(rucLeido);
+        Proveedor delPedido = pedido != null ? pedido.getProveedor() : null;
         if (pedido != null) {
             compras.exigirEtapaAbierta(pedido);
-            Proveedor delPedido = pedido.getProveedor();
             if (delPedido != null && !delPedido.getId().equals(proveedor.getId())) {
                 throw new GraphQLException("La factura se carga al pedido " + pedido.getId() + ", que es de "
                         + ComprasMobileService.nombreDe(delPedido) + ": el proveedor no se puede cambiar.");
             }
-            // Igual que la electrónica, pero solo si el RUC leído es confiable (DV ok) y es de otro proveedor cargado
-            String rucPedido = ComprasMobileService.rucDe(delPedido);
-            if (rucValido && rucPedido != null && !ComprasMobileService.mismoRuc(rucPedido, doc.getRucEmisor())) {
-                Proveedor otro = compras.proveedorPorRuc(doc.getRucEmisor());
-                if (otro != null && !otro.getId().equals(delPedido.getId())) {
-                    throw new GraphQLException("Esta factura es del RUC " + rucLeido + " y el pedido es de "
-                            + ComprasMobileService.nombreDe(delPedido) + " (" + rucPedido + ").");
-                }
-            }
+        }
+        Proveedor elegido = delPedido != null ? delPedido : proveedor;
+        String rucLeido = ComprasMobileService.conDv(doc.getRucEmisor(), doc.getDvEmisor());
+        boolean rucValido = FacturaPapelReglas.rucValido(rucLeido);
+        // Un RUC confiable (DV ok) de un proveedor cargado manda: el elegido tiene que tener ese documento, como en la
+        // electrónica (varios proveedores pueden compartir el documento)
+        String rucElegido = ComprasMobileService.rucDe(elegido);
+        if (rucValido && !ComprasMobileService.mismoRuc(rucElegido, doc.getRucEmisor())
+                && compras.proveedorPorRuc(doc.getRucEmisor()) != null) {
+            throw new GraphQLException("Esta factura es del RUC " + rucLeido
+                    + (pedido != null ? " y el pedido es de " : " y el proveedor elegido es ")
+                    + ComprasMobileService.nombreDe(elegido) + (rucElegido != null ? " (" + rucElegido + ")" : "") + ".");
         }
         // Un RUC mal leído no sirve para reconocer la factura repetida: queda el del proveedor elegido
-        if (!rucValido) {
-            String elegido = normalizarRuc(ComprasMobileService.rucDe(proveedor));
-            if (elegido != null) {
-                doc.setRucEmisor(cortar(FacturaPapelReglas.sinDv(elegido), 20));
-                doc.setDvEmisor(dv(elegido));
-            }
+        String ruc = doc.getRucEmisor();
+        String dvRuc = doc.getDvEmisor();
+        String deElegido = normalizarRuc(rucElegido);
+        if (!rucValido && deElegido != null) {
+            ruc = rucSinDv(deElegido);
+            dvRuc = dv(deElegido);
         }
+        // La clave nueva se valida ANTES de tocar el documento: la consulta hace flush y el UPDATE chocaría con el índice
+        documentoRecibidoService.exigirFacturaLibre(ruc, doc.getTipoDocumento(), in.getTimbrado(), est, pto, num,
+                doc.getId(), true);
+
+        doc.setRucEmisor(ruc);
+        doc.setDvEmisor(dvRuc);
         doc.setTimbrado(in.getTimbrado());
         doc.setEstablecimiento(est);
         doc.setPuntoExpedicion(pto);
@@ -337,39 +345,14 @@ public class FacturaFotoService {
         Integer condicion = condicion(in.getCondicion());
         doc.setCondicionOperacion(condicion != null ? condicion : 1);
         doc.setTotalGeneral(in.getTotalGeneral());
-        doc.setProveedor(pedido != null && pedido.getProveedor() != null ? pedido.getProveedor() : proveedor);
-
-        exigirNoRepetida(doc);
+        doc.setProveedor(elegido);
+        // Contra las notas ya cargadas del proveedor (FacturaRepetida), como la electrónica. Va por JDBC: no hace flush
         for (AvisoFacturaMobile a : compras.avisosFacturaRepetida(doc, pedido != null ? pedido.getId() : null)) {
             if ("BLOQUEO".equals(a.getNivel())) throw new GraphQLException(a.getMensaje());
         }
         doc.setCabeceraConfirmada(true);
         documentos.save(doc);
         return pedido != null ? compras.abrirEnPedido(doc, pedido) : compras.abrirNuevaCompra(doc, proveedor);
-    }
-
-    /**
-     * La misma factura (emisor, timbrado y número) en otro documento: el índice único no deja guardar dos. Si ya
-     * tiene nota o espera otra compra, se rechaza; si se leyó por el QR, se carga por el QR; si es otra lectura en
-     * papel que quedó a medias, esta la reemplaza (se le libera el número).
-     */
-    private void exigirNoRepetida(DocumentoRecibido doc) {
-        if (doc.getRucEmisor() == null || doc.getTimbrado() == null || doc.getNumero() == null) return;
-        DocumentoRecibido otro = documentos.findFirstByRucEmisorAndTimbradoAndEstablecimientoAndPuntoExpedicionAndNumero(
-                doc.getRucEmisor(), doc.getTimbrado(), doc.getEstablecimiento(), doc.getPuntoExpedicion(), doc.getNumero())
-                .orElse(null);
-        if (otro == null || (doc.getId() != null && doc.getId().equals(otro.getId()))) return;
-        if (otro.getNotaRecepcion() != null) {
-            NotaRecepcion nota = otro.getNotaRecepcion();
-            throw new GraphQLException("Esta factura ya está cargada: nota " + nota.getNumero() + " del pedido "
-                    + (nota.getPedido() != null ? nota.getPedido().getId() : "?") + ".");
-        }
-        compras.exigirQueNoEspereOtroPedido(otro, null);
-        if (!ComprasMobileService.esFoto(otro)) {
-            throw new GraphQLException("Esta factura ya se escaneó con el QR del KuDE: cargala escaneando el QR.");
-        }
-        otro.setTimbrado(null);
-        documentos.saveAndFlush(otro);
     }
 
     // =================================================================================== Foto
@@ -432,6 +415,11 @@ public class FacturaFotoService {
         if (ruc == null) return null;
         String s = ruc.trim().toUpperCase().replace(".", "").replace(" ", "");
         return s.isEmpty() ? null : s;
+    }
+
+    /** Sin DV ni ceros a la izquierda, como guarda SIFEN el dRucEm. */
+    private static String rucSinDv(String ruc) {
+        return cortar(FacturaSifenXml.sinCeros(FacturaPapelReglas.sinDv(ruc)), 20);
     }
 
     private static String dv(String ruc) {

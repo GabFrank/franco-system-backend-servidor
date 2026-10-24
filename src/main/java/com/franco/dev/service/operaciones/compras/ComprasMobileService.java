@@ -1096,21 +1096,9 @@ public class ComprasMobileService {
         return true;
     }
 
-    /**
-     * Una factura que creó una compra (todavía en planificación) no se usa para otra: se carga sola en esa al
-     * finalizarla. Si esa compra se canceló, la factura queda libre.
-     */
-    void exigirQueNoEspereOtroPedido(DocumentoRecibido doc, Long pedidoPermitido) {
-        if (!Boolean.TRUE.equals(doc.getCargarAlFinalizar()) || doc.getPedido() == null) return;
-        Long otro = doc.getPedido().getId();
-        if (otro.equals(pedidoPermitido) || pedidoCancelado(otro)) return;
-        throw new GraphQLException("Esta factura ya creó la compra " + otro + ": se carga sola cuando se finalice "
-                + "su planificación en el desktop.");
-    }
-
-    private boolean pedidoCancelado(Long pedidoId) {
-        return procesoEtapaService.getEtapaByPedidoAndTipo(pedidoId, ProcesoEtapaTipo.CREACION)
-                .map(e -> e.getEstadoEtapa() == ProcesoEtapaEstado.CANCELADA).orElse(false);
+    /** Ver {@link DocumentoRecibidoService#exigirQueNoEspereOtroPedido}. */
+    private void exigirQueNoEspereOtroPedido(DocumentoRecibido doc, Long pedidoPermitido) {
+        documentoRecibidoService.exigirQueNoEspereOtroPedido(doc, pedidoPermitido);
     }
 
     private FacturaProveedorMobile armarSegunModo(DocumentoRecibido doc) {

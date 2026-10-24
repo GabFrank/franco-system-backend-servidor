@@ -108,7 +108,8 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
     public Funcionario saveFuncionario(FuncionarioInput input) {
         boolean alta = input == null || input.getId() == null;
         seg.requireAnyRole(alta ? ROLES_ALTA : ROLES_EDICION);
-        if (!alta) protegerCamposDeRrhh(input);
+        if (alta) protegerCreditoDeClienteExistente(input);
+        else protegerCamposDeRrhh(input);
         ModelMapper m = new ModelMapper();
         Funcionario e;
         // Se guardan las relaciones actuales para restaurarlas si el input no las trae:
@@ -282,23 +283,25 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
      * cambiado nada. Ignorar = anular el campo del input: el save conserva lo guardado.
      */
     private void protegerCamposDeRrhh(FuncionarioInput in) {
-        Funcionario a = service.findById(in.getId()).orElse(null);
+        // un id que no existe no es una edicion: el save lo crearia como alta
+        Funcionario a = service.findById(in.getId())
+                .orElseThrow(() -> new graphql.GraphQLException("No existe el funcionario " + in.getId()));
         if (!seg.hasAnyRole("RRHH GESTIONAR", "RRHH CONFIG")) {
-            boolean cambia = in.getSueldo() != null && (a == null || a.getSueldo() == null
+            boolean cambia = in.getSueldo() != null && (a.getSueldo() == null
                     || new java.math.BigDecimal(in.getSueldo().toString()).compareTo(a.getSueldo()) != 0);
-            cambia |= in.getDiarista() != null && in.getDiarista() != flag(a == null ? null : a.getDiarista());
+            cambia |= in.getDiarista() != null && in.getDiarista() != flag(a.getDiarista());
             // el legajo manda 0 si el credito esta vacio
             cambia |= in.getCredito() != null
-                    && in.getCredito().floatValue() != (a == null || a.getCredito() == null ? 0f : a.getCredito());
+                    && in.getCredito().floatValue() != (a.getCredito() == null ? 0f : a.getCredito());
             // banco e IPS: el flag decide el bloque; con el flag apagado el resto no cuenta (lo manda en null)
             if (in.getCobraBanco() != null) {
-                cambia |= in.getCobraBanco() != flag(a == null ? null : a.getCobraBanco())
-                        || in.getCobraBanco() && !texto(in.getCuentaBancaria()).equals(texto(a == null ? null : a.getCuentaBancaria()));
+                cambia |= in.getCobraBanco() != flag(a.getCobraBanco())
+                        || in.getCobraBanco() && !texto(in.getCuentaBancaria()).equals(texto(a.getCuentaBancaria()));
             }
             if (in.getIpsActivo() != null) {
-                cambia |= in.getIpsActivo() != flag(a == null ? null : a.getIpsActivo())
-                        || in.getIpsActivo() && (!texto(in.getNumeroIps()).equals(texto(a == null ? null : a.getNumeroIps()))
-                        || !java.util.Objects.equals(fecha(in.getFechaIngresoIps()), a == null ? null : a.getFechaIngresoIps()));
+                cambia |= in.getIpsActivo() != flag(a.getIpsActivo())
+                        || in.getIpsActivo() && (!texto(in.getNumeroIps()).equals(texto(a.getNumeroIps()))
+                        || !java.util.Objects.equals(fecha(in.getFechaIngresoIps()), a.getFechaIngresoIps()));
             }
             if (cambia) seg.requireAnyRole("RRHH GESTIONAR", "RRHH CONFIG");
             in.setSueldo(null);
@@ -311,14 +314,30 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
             in.setFechaIngresoIps(null);
         }
         if (!seg.hasAnyRole("RRHH GESTIONAR")) {
-            Long cargo = a == null || a.getCargo() == null ? null : a.getCargo().getId();
+            Long cargo = a.getCargo() == null ? null : a.getCargo().getId();
             boolean cambia = in.getCargoId() != null && !in.getCargoId().equals(cargo);
+            // pasar el legajo a otra persona le pisaria el credito a su cliente
+            cambia |= in.getPersonaId() != null
+                    && (a.getPersona() == null || !in.getPersonaId().equals(a.getPersona().getId()));
             // el save trata un activo nulo como true
-            cambia |= in.getActivo() != null && in.getActivo() != (a == null || a.getActivo() == null || a.getActivo());
+            cambia |= in.getActivo() != null && in.getActivo() != (a.getActivo() == null || a.getActivo());
             if (cambia) seg.requireAnyRole("RRHH GESTIONAR");
             in.setCargoId(null);
             in.setActivo(null);
+            in.setPersonaId(null);
         }
+    }
+
+    /**
+     * El save copia el credito del funcionario al cliente de la persona. En un alta sin RRHH, si la persona
+     * ya es cliente, su credito no cambia (el wizard siempre crea una persona nueva, sin cliente).
+     */
+    private void protegerCreditoDeClienteExistente(FuncionarioInput in) {
+        if (in == null || in.getPersonaId() == null || seg.hasAnyRole("RRHH GESTIONAR", "RRHH CONFIG")) return;
+        Cliente c = clienteService.findByPersonaId(in.getPersonaId());
+        if (c == null) return;
+        float pedido = in.getCredito() == null ? 0f : in.getCredito();
+        if (pedido != (c.getCredito() == null ? 0f : c.getCredito())) seg.requireAnyRole("RRHH GESTIONAR", "RRHH CONFIG");
     }
 
     private static boolean flag(Boolean b) { return Boolean.TRUE.equals(b); }

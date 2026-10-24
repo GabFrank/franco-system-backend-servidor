@@ -216,20 +216,40 @@ class FuncionarioPagaRolTest {
     }
 
     @Test
-    void unIdInexistenteSeComparaContraLosValoresPorDefecto() {
+    void unIdInexistenteSeRechazaEnVezDeCrearUnFuncionario() {
         sesion("EDITAR FUNCIONARIOS");
         when(service.findById(2L)).thenReturn(Optional.empty());
         FuncionarioInput in = new FuncionarioInput();
         in.setId(2L);
         in.setPersonaId(7L);
-        in.setActivo(true);
-        in.setCredito(0f);
-        in.setCobraBanco(false);
-        in.setIpsActivo(false);
-        assertNotNull(resolver.saveFuncionario(in));
-        FuncionarioInput conCredito = new FuncionarioInput();
-        conCredito.setId(2L);
-        conCredito.setCredito(1f);
-        assertThrows(GraphQLException.class, () -> resolver.saveFuncionario(conCredito));
+        rechazado(in);
+    }
+
+    @Test
+    void sinRrhhGestionarPasarElLegajoAOtraPersonaSeRechaza() {
+        sesion("EDITAR FUNCIONARIOS", "RRHH CONFIG");
+        rechazado(legajoCon(in -> in.setPersonaId(8L)));
+        assertNotNull(resolver.saveFuncionario(legajoCon(in -> in.setPersonaId(7L))));
+    }
+
+    @Test
+    void elAltaSinRrhhNoCambiaElCreditoDeUnClienteExistente() {
+        sesion("VER FUNCIONARIOS");
+        Cliente cliente = new Cliente();
+        cliente.setCredito(100f);
+        when(clienteService.findByPersonaId(7L)).thenReturn(cliente);
+        FuncionarioInput alta = new FuncionarioInput();
+        alta.setPersonaId(7L);
+        alta.setCredito(999999f);
+        rechazado(alta);
+        FuncionarioInput sinCredito = new FuncionarioInput();
+        sinCredito.setPersonaId(7L);
+        rechazado(sinCredito); // pisaria el credito con null
+        FuncionarioInput mismo = new FuncionarioInput();
+        mismo.setPersonaId(7L);
+        mismo.setCredito(100f);
+        assertNotNull(resolver.saveFuncionario(mismo));
+        sesion("VER FUNCIONARIOS", "RRHH CONFIG");
+        assertNotNull(resolver.saveFuncionario(alta));
     }
 }

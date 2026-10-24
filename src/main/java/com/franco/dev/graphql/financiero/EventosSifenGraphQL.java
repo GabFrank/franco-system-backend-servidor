@@ -43,6 +43,9 @@ public class EventosSifenGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private TesoreriaSecurityService seg;
 
     @Autowired
+    private com.franco.dev.service.financiero.FacturacionSecurityService facturacionSeg;
+
+    @Autowired
     private EventoCancelacionDEService eventoCancelacionDEService;
 
     @Autowired
@@ -160,6 +163,8 @@ public class EventosSifenGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Transactional
     public EventoNominacionDE nominarReceptorDocumento(String cdc, Long clienteId) {
+        // Fuera del try: el catch lo envolveria en "Error al nominar receptor".
+        facturacionSeg.requireEmitir();
         try {
             log.info("Iniciando nominación de receptor para DE con CDC: {}", cdc);
             
@@ -198,6 +203,7 @@ public class EventosSifenGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             String motivo,
             Long sucursalId,
             Long timbradoDetalleId) {
+        seg.requireAnyRole("ANALISIS DE CAJA");
         
         try {
             log.info("Iniciando inutilización de números del {} al {} para timbrado ID: {}", 

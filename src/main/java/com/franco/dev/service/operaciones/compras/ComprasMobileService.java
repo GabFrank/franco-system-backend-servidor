@@ -347,7 +347,7 @@ public class ComprasMobileService {
         renglon.setFactor(f);
         renglon.setTipoMatch(TipoMatch.MANUAL.name());
         renglonRepository.save(renglon);
-        if (Boolean.TRUE.equals(recordar) && doc.getProveedor() != null && !vacio(renglon.getCodigoProveedor())) {
+        if (Boolean.TRUE.equals(recordar) && doc.getProveedor() != null && sePuedeAprender(renglon)) {
             aprender(doc.getProveedor(), renglon, presentacion, f);
         }
         return armarSegunModo(doc);
@@ -422,7 +422,7 @@ public class ComprasMobileService {
             distribuir(item, fuenteDeDistribucion(renglon, itemsPedido), pedido, usuario);
             renglon.setNotaRecepcionItem(item);
             renglonRepository.save(renglon);
-            if (renglon.getProducto() != null && !vacio(renglon.getCodigoProveedor()) && doc.getProveedor() != null
+            if (renglon.getProducto() != null && sePuedeAprender(renglon) && doc.getProveedor() != null
                     && renglon.getPresentacion() != null) {
                 aprender(doc.getProveedor(), renglon, renglon.getPresentacion(),
                         renglon.getFactor() != null ? renglon.getFactor() : 1.0);
@@ -1745,13 +1745,14 @@ public class ComprasMobileService {
     // =================================================================================== Reconocer productos
 
     enum TipoMatch {
-        MANUAL, APRENDIDO, CODIGO_BARRAS, CODIGO_PAQUETE, CODIGO_INTERNO, BUSCADOR_PROVEEDOR, BUSCADOR;
+        MANUAL, APRENDIDO, APRENDIDO_DESCRIPCION, CODIGO_BARRAS, CODIGO_PAQUETE, CODIGO_INTERNO, BUSCADOR_PROVEEDOR, BUSCADOR;
 
         static String etiqueta(String tipo) {
             if (tipo == null) return null;
             switch (tipo) {
                 case "MANUAL": return "Vinculado a mano";
                 case "APRENDIDO": return "Reconocido por el código del proveedor";
+                case "APRENDIDO_DESCRIPCION": return "Aprendido por descripción";
                 case "CODIGO_BARRAS": return "Reconocido por el código de barras";
                 case "CODIGO_PAQUETE": return "Reconocido por el código del paquete";
                 case "CODIGO_INTERNO": return "Reconocido por el código interno";
@@ -1767,6 +1768,8 @@ public class ComprasMobileService {
      * Reconoce el producto del renglón como lo haría una persona con el buscador:
      * <ol>
      *   <li>lo aprendido para ese proveedor y su código;</li>
+     *   <li>si no hay código o no se aprendió, lo aprendido para esa descripción normalizada (igual a igual,
+     *   nunca por parecido);</li>
      *   <li>el código de barras exacto, con y sin ceros a la izquierda;</li>
      *   <li>el código escrito en el buscador de productos (que encuentra un tramo del código o el código sin
      *   ceros), primero entre los productos de ese proveedor y después en todo el catálogo. Solo se toma si hay
@@ -1794,16 +1797,33 @@ public class ComprasMobileService {
                 aprendidaInactiva = aprendido.getPresentacion();
             }
         }
+        // Sin código aprendido (la factura de papel suele no traerlo): lo aprendido por la descripción exacta
+        boolean inactivaPorDescripcion = false;
+        String descripcion = DescripcionProveedor.normalizar(r.getDescripcion());
+        if (proveedor != null && aprendidaInactiva == null && descripcion != null) {
+            ProveedorCodigoProducto aprendido = aprendizajeRepository
+                    .findByProveedorIdAndCodigoProveedorIsNullAndDescripcionNormalizada(proveedor.getId(), descripcion)
+                    .orElse(null);
+            if (aprendido != null && aprendido.getPresentacion() != null && aprendido.getPresentacion().getProducto() != null) {
+                if (presentacionUsable(aprendido.getPresentacion())) {
+                    asignar(r, aprendido.getPresentacion(), aprendido.getFactor(), TipoMatch.APRENDIDO_DESCRIPCION);
+                    return;
+                }
+                aprendidaInactiva = aprendido.getPresentacion();
+                inactivaPorDescripcion = true;
+            }
+        }
         resolverPorCodigos(r, proveedor, productosDelPedido);
         if (r.getProducto() == null && aprendidaInactiva != null) {
-            r.setNotaReconocimiento("Este código estaba vinculado a «" + aprendidaInactiva.getProducto().getDescripcion()
-                    + "», que está inactivo. Elegí el producto.");
+            r.setNotaReconocimiento((inactivaPorDescripcion ? "Esta descripción estaba vinculada a «" : "Este código estaba vinculado a «")
+                    + aprendidaInactiva.getProducto().getDescripcion() + "», que está inactivo. Elegí el producto.");
         }
     }
 
     /** Lo reconoció el sistema por un código, sin que nadie lo confirmara (lo aprendido y lo manual sí). */
-    private static boolean reconocidoPorCodigo(String tipoMatch) {
-        return tipoMatch != null && !TipoMatch.APRENDIDO.name().equals(tipoMatch) && !TipoMatch.MANUAL.name().equals(tipoMatch);
+    static boolean reconocidoPorCodigo(String tipoMatch) {
+        return tipoMatch != null && !TipoMatch.APRENDIDO.name().equals(tipoMatch)
+                && !TipoMatch.APRENDIDO_DESCRIPCION.name().equals(tipoMatch) && !TipoMatch.MANUAL.name().equals(tipoMatch);
     }
 
     /**
@@ -2036,14 +2056,26 @@ public class ComprasMobileService {
         r.setTipoMatch(tipo.name());
     }
 
+    /** Hay con qué aprender: el código del proveedor o, si no trae, la descripción. */
+    private static boolean sePuedeAprender(DocumentoRecibidoItem r) {
+        return !vacio(r.getCodigoProveedor()) || DescripcionProveedor.normalizar(r.getDescripcion()) != null;
+    }
+
+    /** Con código se aprende por código (como siempre); sin código, por la descripción normalizada. */
     private void aprender(Proveedor proveedor, DocumentoRecibidoItem r, Presentacion presentacion, double factor) {
-        String codigo = r.getCodigoProveedor().trim();
-        ProveedorCodigoProducto a = aprendizajeRepository.findByProveedorIdAndCodigoProveedor(proveedor.getId(), codigo)
+        String codigo = vacio(r.getCodigoProveedor()) ? null : r.getCodigoProveedor().trim();
+        String descripcion = codigo == null ? DescripcionProveedor.normalizar(r.getDescripcion()) : null;
+        if (codigo == null && descripcion == null) return;
+        ProveedorCodigoProducto a = (codigo != null
+                ? aprendizajeRepository.findByProveedorIdAndCodigoProveedor(proveedor.getId(), codigo)
+                : aprendizajeRepository.findByProveedorIdAndCodigoProveedorIsNullAndDescripcionNormalizada(
+                        proveedor.getId(), descripcion))
                 .orElse(null);
         if (a == null) {
             a = new ProveedorCodigoProducto();
             a.setProveedor(proveedor);
             a.setCodigoProveedor(codigo);
+            a.setDescripcionNormalizada(descripcion);
             a.setUsos(0);
             a.setCreadoEn(LocalDateTime.now());
             a.setUsuario(seguridad.usuarioActual());

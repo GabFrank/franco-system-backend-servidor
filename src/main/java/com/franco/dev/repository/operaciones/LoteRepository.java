@@ -72,6 +72,8 @@ public interface LoteRepository extends HelperRepository<Lote, Long> {
             "  AND (:texto IS NULL OR l.numero_lote LIKE UPPER(CONCAT('%', :texto, '%'))) " +
             "  AND (:incluirArchivados = true OR COALESCE(t.saldo, 0) <> 0 " +
             "       OR NOT EXISTS (SELECT 1 FROM operaciones.lote_archivado a WHERE a.lote_id = l.id)) " +
+            "  AND (:incluirArchivados = true " +
+            "       OR NOT EXISTS (SELECT 1 FROM operaciones.lote_eliminado e WHERE e.lote_id = l.id)) " +
             "ORDER BY CASE WHEN COALESCE(s.saldo, 0) <> 0 THEN 0 ELSE 1 END, " +
             "         CASE WHEN COALESCE(t.saldo, 0) <> 0 THEN 0 ELSE 1 END, " +
             "         CASE WHEN COALESCE(l.fecha_retiro, l.fecha_vencimiento) IS NULL THEN 1 ELSE 0 END, " +
@@ -82,7 +84,9 @@ public interface LoteRepository extends HelperRepository<Lote, Long> {
             "  AND (:texto IS NULL OR l.numero_lote LIKE UPPER(CONCAT('%', :texto, '%'))) " +
             "  AND (:incluirArchivados = true " +
             "       OR COALESCE((SELECT SUM(m.cantidad) FROM operaciones.movimiento_stock_lote m WHERE m.estado = true AND m.lote_id = l.id), 0) <> 0 " +
-            "       OR NOT EXISTS (SELECT 1 FROM operaciones.lote_archivado a WHERE a.lote_id = l.id))",
+            "       OR NOT EXISTS (SELECT 1 FROM operaciones.lote_archivado a WHERE a.lote_id = l.id)) " +
+            "  AND (:incluirArchivados = true " +
+            "       OR NOT EXISTS (SELECT 1 FROM operaciones.lote_eliminado e WHERE e.lote_id = l.id))",
             nativeQuery = true)
     Page<LoteDeProductoProjection> buscarLotesDeProducto(@Param("productoId") Long productoId,
                                                          @Param("sucursalId") Long sucursalId,
@@ -110,4 +114,38 @@ public interface LoteRepository extends HelperRepository<Lote, Long> {
     @Modifying
     @Query(value = "DELETE FROM operaciones.lote_archivado WHERE lote_id = :loteId", nativeQuery = true)
     int desarchivar(@Param("loteId") Long loteId);
+
+    // --- Lotes eliminados (baja logica, V255.8) ---
+
+    @Query(value = "SELECT COUNT(*) > 0 FROM operaciones.lote_eliminado WHERE lote_id = :loteId",
+            nativeQuery = true)
+    boolean estaEliminado(@Param("loteId") Long loteId);
+
+    /**
+     * Cuantas filas del central usan este lote (ledger, transferencias, devoluciones, inventario,
+     * pendientes resueltos). Eliminar exige 0: un lote con historia se archiva o se bloquea.
+     */
+    @Query(value = "SELECT (SELECT COUNT(*) FROM operaciones.movimiento_stock_lote WHERE lote_id = :loteId)" +
+            " + (SELECT COUNT(*) FROM operaciones.transferencia_item_lote WHERE lote_id = :loteId)" +
+            " + (SELECT COUNT(*) FROM operaciones.devolucion_item WHERE lote_id = :loteId)" +
+            " + (SELECT COUNT(*) FROM operaciones.inventario_producto_item WHERE lote_id = :loteId)" +
+            " + (SELECT COUNT(*) FROM operaciones.lote_pendiente_resuelto WHERE lote_id = :loteId)",
+            nativeQuery = true)
+    Long contarReferencias(@Param("loteId") Long loteId);
+
+    @Modifying
+    @Query(value = "INSERT INTO operaciones.lote_eliminado (lote_id, copia, estado_anterior, motivo, usuario_id, eliminado_en) " +
+            "SELECT l.id, to_jsonb(l), l.estado, :motivo, :usuarioId, now() FROM operaciones.lote l WHERE l.id = :loteId " +
+            "ON CONFLICT (lote_id) DO NOTHING",
+            nativeQuery = true)
+    int registrarEliminado(@Param("loteId") Long loteId, @Param("usuarioId") Long usuarioId,
+                           @Param("motivo") String motivo);
+
+    @Query(value = "SELECT estado_anterior FROM operaciones.lote_eliminado WHERE lote_id = :loteId",
+            nativeQuery = true)
+    String estadoAnteriorEliminado(@Param("loteId") Long loteId);
+
+    @Modifying
+    @Query(value = "DELETE FROM operaciones.lote_eliminado WHERE lote_id = :loteId", nativeQuery = true)
+    int borrarEliminado(@Param("loteId") Long loteId);
 }

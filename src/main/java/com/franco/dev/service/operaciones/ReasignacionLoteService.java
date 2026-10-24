@@ -70,6 +70,8 @@ public class ReasignacionLoteService {
         }
         Lote origen = lote(input.getLoteOrigenId(), producto);
         Lote destino = lote(input.getLoteDestinoId(), producto);
+        loteService.verificarNoEliminado(origen);
+        loteService.verificarNoEliminado(destino);
 
         double saldoOrigen = saldo(input.getProductoId(), input.getSucursalId(), origen.getId());
         if (input.getSaldoEsperado() != null && Math.abs(input.getSaldoEsperado() - saldoOrigen) > EPSILON) {

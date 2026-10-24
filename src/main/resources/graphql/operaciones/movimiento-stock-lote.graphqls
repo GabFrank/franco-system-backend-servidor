@@ -355,6 +355,9 @@ extend type Mutation {
 
     # Vuelve a mostrar un lote archivado.
     desarchivarLote(loteId: ID!): Boolean
+    # Lotes fase 3: eliminar lote creado por error (baja logica, queda BLOQUEADO) y restaurarlo.
+    eliminarLote(loteId: ID!, motivo: String!, usuarioId: ID): Boolean
+    restaurarLote(loteId: ID!): Boolean
 
     # Conteo rapido: varios ajustes por lote en UNA transaccion (todo o nada), hasta 50 renglones.
     # Con saldoEsperado en cada renglon, se rechaza si el saldo cambio desde que se cargo la lista.

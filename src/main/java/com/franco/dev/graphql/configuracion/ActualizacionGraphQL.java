@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.configuracion;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.configuracion.Actualizacion;
 import com.franco.dev.domain.configuracion.enums.TipoActualizacion;
 import com.franco.dev.graphql.configuracion.input.ActualizacionInput;
@@ -18,6 +19,9 @@ import java.util.Optional;
 
 @Component
 public class ActualizacionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private ActualizacionService service;
@@ -41,6 +45,7 @@ public class ActualizacionGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
 
     public Actualizacion saveActualizacionForSucursales(ActualizacionInput input, List<Long> sucId) {
+        seg.requireSuperusuario();
         ModelMapper m = new ModelMapper();
         Actualizacion e = m.map(input, Actualizacion.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -51,6 +56,7 @@ public class ActualizacionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public Actualizacion saveActualizacion(ActualizacionInput input) {
+        seg.requireSuperusuario();
         ModelMapper m = new ModelMapper();
         Actualizacion e = m.map(input, Actualizacion.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -59,6 +65,7 @@ public class ActualizacionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public Boolean deleteActualizacion(Long id) {
+        seg.requireSuperusuario();
         Boolean ok = service.deleteById(id);
         return ok;
     }

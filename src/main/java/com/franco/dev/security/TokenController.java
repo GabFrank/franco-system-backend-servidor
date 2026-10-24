@@ -38,29 +38,6 @@ public class TokenController {
         this.jwtGenerator = jwtGenerator;
     }
 
-    @PostMapping(path = "/new")
-    @ResponseBody
-    public ResponseEntity<LoginResponse> newUser(@RequestBody final Usuario usuario){
-        if(!service.existsByNickname(usuario.getNickname())){
-            if(!service.existsByEmail(usuario.getEmail())){
-                if(usuario.getNickname()!=null && usuario.getPassword()!=null) {
-                    Usuario newUser = service.save(usuario);
-                    JwtUser jwtUser = new JwtUser();
-                    jwtUser.setId(newUser.getId());
-                    jwtUser.setNickname(newUser.getNickname().toUpperCase());
-                    jwtUser.setPassword(usuario.getPassword().toUpperCase());
-                    return generate(jwtUser);
-                } else {
-                    throw new GraphQLException("Datos incompletos");
-                }
-            } else {
-                throw new GraphQLException("Ya existe un usuario con utilizando este email.");
-            }
-        } else {
-            throw new GraphQLException("Nombre de usuario ya existe, intente con otro");
-        }
-    }
-
     @PostMapping
     @ResponseBody
     public ResponseEntity<LoginResponse> generate(@RequestBody final JwtUser jwtUser) {

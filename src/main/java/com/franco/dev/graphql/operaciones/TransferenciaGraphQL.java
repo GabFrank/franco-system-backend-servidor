@@ -90,12 +90,10 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
     /**
      * Avisa que se escaneó el QR de una transferencia.
      *
-     * Va sin seguridad igual que {@code ventaCreditoQrAuth}: lo único que
-     * viaja son dos ids que el que escanea ya tenía delante en el QR, y lo
-     * único que provoca es que se cierre un diálogo. No lee ni modifica
-     * nada de la transferencia.
+     * Pide sesión: el único que la llama es el escáner de la PWA, que siempre
+     * está logueado. Lo único que provoca es que se cierre un diálogo; no lee
+     * ni modifica nada de la transferencia.
      */
-    @Unsecured
     public Boolean transferenciaQrEscaneado(Long id, Long sucursalId) {
         try {
             TransferenciaQrEscaneadoUpdate entity = new TransferenciaQrEscaneadoUpdate();

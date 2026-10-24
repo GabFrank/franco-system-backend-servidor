@@ -431,7 +431,7 @@ public class ComprasMobileService {
         // Concilia los ítems con la distribución completa, la nota si quedaron todos, y recalcula el valor
         notaRecepcionService.actualizarEstadosDespuesDeDistribucion(nota.getId());
         notaRecepcionService.actualizarValorNota(nota.getId());
-        vincularProductosConProveedor(nota, usuario);
+        notaRecepcionService.vincularProductosConProveedor(nota, usuario);
 
         doc.setNotaRecepcion(nota);
         doc.setPedido(pedido);
@@ -506,8 +506,8 @@ public class ComprasMobileService {
     }
 
     /**
-     * Finaliza la conciliación (como el desktop) y además crea los vínculos producto-proveedor de todas las notas,
-     * que el finalizar del desktop se saltea cuando fuerza las notas a CONCILIADA.
+     * Finaliza la conciliación (como el desktop); {@code finalizarRecepcionNotas} ya crea los vínculos
+     * producto-proveedor de todas las notas.
      */
     @Transactional
     public CompraPedidoMobile finalizar(Long pedidoId) {
@@ -517,10 +517,6 @@ public class ComprasMobileService {
             pedidoService.finalizarRecepcionNotas(pedidoId);
         } catch (IllegalStateException | IllegalArgumentException e) {
             throw new GraphQLException(e.getMessage());
-        }
-        Usuario usuario = seguridad.usuarioActual();
-        for (NotaRecepcion nota : notaRecepcionService.findByPedidoId(pedidoId)) {
-            vincularProductosConProveedor(nota, usuario);
         }
         return armarPedido(pedidoObligatorio(pedido.getId()));
     }
@@ -1041,10 +1037,6 @@ public class ComprasMobileService {
             return;
         }
         pedidoService.finalizarRecepcionNotas(pedidoId);
-        Usuario usuario = seguridad.usuarioActual();
-        for (NotaRecepcion nota : notaRecepcionService.findByPedidoId(pedidoId)) {
-            vincularProductosConProveedor(nota, usuario);
-        }
         log.info("Pedido {}: la factura dejó todo conciliado, la recepción documental se finalizó sola", pedidoId);
     }
 
@@ -2212,33 +2204,6 @@ public class ComprasMobileService {
         d.setCreadoEn(LocalDateTime.now());
         d.setUsuario(usuario);
         return d;
-    }
-
-    /** Los vínculos producto-proveedor que crea la nota al conciliarse, también para las que quedan pendientes. */
-    private void vincularProductosConProveedor(NotaRecepcion nota, Usuario usuario) {
-        Pedido pedido = nota.getPedido();
-        if (pedido == null || pedido.getProveedor() == null) return;
-        Set<Long> vistos = new HashSet<>();
-        for (NotaRecepcionItem item : notaRecepcionItemService.findByNotaRecepcionId(nota.getId())) {
-            Producto producto = item.getProducto();
-            if (producto == null || !vistos.add(producto.getId())) continue;
-            ProductoProveedor existente = productoProveedorService.getRepository()
-                    .findByProductoIdAndProveedorId(producto.getId(), pedido.getProveedor().getId());
-            if (existente == null) {
-                ProductoProveedor nuevo = new ProductoProveedor();
-                nuevo.setProducto(producto);
-                nuevo.setProveedor(pedido.getProveedor());
-                nuevo.setPedido(pedido);
-                nuevo.setCreadoEn(LocalDateTime.now());
-                nuevo.setUsuario(usuario != null ? usuario : pedido.getUsuario());
-                nuevo.setActivo(true);
-                productoProveedorService.save(nuevo);
-            } else if (!Boolean.TRUE.equals(existente.getActivo())) {
-                existente.setActivo(true);
-                existente.setMotivoDesvinculacion(null);
-                productoProveedorService.save(existente);
-            }
-        }
     }
 
     // =================================================================================== Ayudas

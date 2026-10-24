@@ -88,7 +88,22 @@ class ControlRolMatrizTest {
                 f(LoteDEGraphQL.class, "saveLoteDe"), f(LoteDEGraphQL.class, "crearLote"),
                 f(LoteDEGraphQL.class, "vincularDocumentosALote"), f(LoteDEGraphQL.class, "enviarLote"),
                 f(TimbradoGraphQL.class, "saveTimbrado"), f(TimbradoGraphQL.class, "deleteTimbrado"),
-                f(TimbradoDetalleGraphQL.class, "saveTimbradoDetalle"), f(TimbradoDetalleGraphQL.class, "deleteTimbradoDetalle")
+                f(TimbradoDetalleGraphQL.class, "saveTimbradoDetalle"), f(TimbradoDetalleGraphQL.class, "deleteTimbradoDetalle"),
+                // configuracion financiera, credito, tarjeta y cobros
+                f(BancoGraphQL.class, "saveBanco", GEST), f(BancoGraphQL.class, "deleteBanco", GEST),
+                f(FormaPagoGraphQL.class, "saveFormaPago"), f(FormaPagoGraphQL.class, "deleteFormaPago"),
+                f(MonedaGraphQL.class, "saveMoneda", GEST), f(MonedaGraphQL.class, "deleteMoneda", GEST),
+                f(MonedaBilletesGraphQL.class, "saveMonedaBillete"), f(MonedaBilletesGraphQL.class, "deleteMonedaBillete"),
+                f(EnteCuotaGraphQL.class, "saveEnteCuota"), f(EnteCuotaGraphQL.class, "deleteEnteCuota"),
+                f(EnteFinancieroGraphQL.class, "saveEnteFinanciero"), f(EnteFinancieroGraphQL.class, "deleteEnteFinanciero"),
+                f(VentaCreditoGraphQL.class, "saveVentaCredito"), f(VentaCreditoGraphQL.class, "deleteVentaCredito"),
+                f(VentaCreditoGraphQL.class, "finalizarVentaCredito"), f(VentaCreditoGraphQL.class, "finalizarVentaCreditos", VU),
+                f(VentaCreditoCuotasGraphQL.class, "saveVentaCreditoCuota"), f(VentaCreditoCuotasGraphQL.class, "deleteVentaCreditoCuota"),
+                f(VentaTarjetaGraphQL.class, "saveVentaTarjeta", VT, VTC), f(VentaTarjetaGraphQL.class, "updateVentaTarjeta", VT, VTC),
+                f(VentaTarjetaGraphQL.class, "deleteVentaTarjeta"),
+                f(VentaTarjetaGraphQL.class, "cancelarVentaTarjetaPorVentaId", CANC),
+                f(CobroDetalleGraphQL.class, "deleteCobroDetalle", VT),
+                f(VentaGraphQL.class, "deleteVenta", CANC)
         );
     }
 

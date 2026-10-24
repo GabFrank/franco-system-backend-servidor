@@ -215,6 +215,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Boolean deleteVenta(Long id, Long sucId) {
+        seg.requireCancelarVenta();
         Boolean ok = service.deleteById(new EmbebedPrimaryKey(id, sucId));
         return ok;
     }

@@ -68,6 +68,7 @@ public class CobroDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
 
     public Boolean deleteCobroDetalle(Long id, Long sucId){
+        seg.requireAnyRole("VENTA TOUCH");
         return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 

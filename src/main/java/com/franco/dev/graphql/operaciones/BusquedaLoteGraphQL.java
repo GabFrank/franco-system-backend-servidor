@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.domain.operaciones.dto.LoteVentaItemDto;
 import com.franco.dev.domain.operaciones.dto.ResultadoBusquedaLoteDto;
 import com.franco.dev.service.operaciones.BusquedaLoteService;
 import com.franco.dev.service.operaciones.InventarioSecurityService;
@@ -7,6 +8,8 @@ import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 /**
  * Buscar lote por numero (#429, fase 2, entrega 1).
@@ -30,6 +33,12 @@ public class BusquedaLoteGraphQL implements GraphQLQueryResolver {
     public ResultadoBusquedaLoteDto buscarLotePorNumero(String numeroLote, Long productoId) {
         exigirPermisoConsultaLote();
         return service.buscarLotePorNumero(numeroLote, productoId);
+    }
+
+    /** De qué lote salió cada ítem de una venta (entrega 2). Mismo permiso que buscar lote. */
+    public List<LoteVentaItemDto> lotesDeVenta(Long ventaId, Long sucursalId) {
+        exigirPermisoConsultaLote();
+        return service.lotesDeVenta(ventaId, sucursalId);
     }
 
     void exigirPermisoConsultaLote() {

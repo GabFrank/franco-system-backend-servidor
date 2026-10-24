@@ -55,4 +55,19 @@ class BusquedaLoteGraphQLPermisoTest {
         when(service.buscarLotePorNumero(eq("3497"), eq(1L))).thenReturn(r);
         assertSame(r, graphQL.buscarLotePorNumero("3497", 1L));
     }
+
+    @Test
+    void lotesDeVentaSinAnalisisSeRechaza() {
+        roles(true, false);
+        assertThrows(GraphQLException.class, () -> graphQL.lotesDeVenta(10L, 2L));
+        verify(service, never()).lotesDeVenta(anyLong(), anyLong());
+    }
+
+    @Test
+    void lotesDeVentaConAmbosConsulta() {
+        roles(true, true);
+        java.util.List<com.franco.dev.domain.operaciones.dto.LoteVentaItemDto> r = new java.util.ArrayList<>();
+        when(service.lotesDeVenta(eq(10L), eq(2L))).thenReturn(r);
+        assertSame(r, graphQL.lotesDeVenta(10L, 2L));
+    }
 }

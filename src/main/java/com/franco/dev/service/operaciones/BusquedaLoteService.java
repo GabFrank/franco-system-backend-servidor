@@ -2,6 +2,7 @@ package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.operaciones.dto.EntradaSinLoteDto;
 import com.franco.dev.domain.operaciones.dto.LoteEncontradoDto;
+import com.franco.dev.domain.operaciones.dto.LoteVentaItemDto;
 import com.franco.dev.domain.operaciones.dto.ResultadoBusquedaLoteDto;
 import com.franco.dev.domain.operaciones.dto.TrazabilidadProductoDto;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -200,5 +201,44 @@ public class BusquedaLoteService {
         d.setTotalVendido(rs.getDouble("total_vendido"));
         d.setCantidadVentas(rs.getLong("cantidad_ventas"));
         return d;
+    }
+
+    // ---------------------------------------------------------------- Lotes de una venta (E2)
+
+    /**
+     * De qué lote salió cada ítem de una venta (#429, fase 2, entrega 2): venta_item -> su
+     * movimiento_stock VENTA (referencia = venta_item.id) -> movimiento_stock_lote. Solo lectura.
+     * Incluye las filas SIN LOTE y marca como anulado lo inactivo o de una venta cancelada.
+     */
+    public List<LoteVentaItemDto> lotesDeVenta(Long ventaId, Long sucursalId) {
+        if (ventaId == null || sucursalId == null) return java.util.Collections.emptyList();
+        String sql =
+            "SELECT vi.id AS venta_item_id, vi.producto_id, msl.lote_id, " +
+            "       COALESCE(l.numero_lote, msl.numero_lote) AS numero_lote, " +
+            "       COALESCE(l.fecha_vencimiento, msl.fecha_vencimiento) AS fecha_vencimiento, " +
+            "       CAST(-msl.cantidad AS double precision) AS cantidad, " +
+            "       (msl.estado IS NOT TRUE OR CAST(v.estado AS text) = 'CANCELADA') AS anulado " +
+            "FROM operaciones.venta_item vi " +
+            "JOIN operaciones.venta v ON v.id = vi.venta_id AND v.sucursal_id = vi.sucursal_id " +
+            "JOIN operaciones.movimiento_stock ms " +
+            "     ON CAST(ms.tipo_movimiento AS text) = 'VENTA' " +
+            "    AND ms.referencia = vi.id AND ms.sucursal_id = vi.sucursal_id " +
+            "JOIN operaciones.movimiento_stock_lote msl " +
+            "     ON msl.movimiento_stock_id = ms.id AND msl.sucursal_id = ms.sucursal_id " +
+            "LEFT JOIN operaciones.lote l ON l.id = msl.lote_id " +
+            "WHERE vi.venta_id = :ventaId AND vi.sucursal_id = :sucursalId " +
+            "ORDER BY vi.id, COALESCE(l.fecha_vencimiento, msl.fecha_vencimiento) NULLS LAST, msl.id";
+        MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("ventaId", ventaId).addValue("sucursalId", sucursalId);
+        return jdbc.query(sql, p, (rs, n) -> {
+            Long loteId = (Long) rs.getObject("lote_id");
+            String numero = rs.getString("numero_lote");
+            java.sql.Date vto = rs.getDate("fecha_vencimiento");
+            return new LoteVentaItemDto(
+                    rs.getLong("venta_item_id"), rs.getLong("producto_id"), loteId,
+                    loteId == null ? LoteFefoService.NUMERO_LOTE_SIN_TRAZAR : numero,
+                    vto == null ? null : vto.toLocalDate(),
+                    rs.getDouble("cantidad"), rs.getBoolean("anulado"));
+        });
     }
 }

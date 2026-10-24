@@ -125,6 +125,7 @@ public class ConteoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Boolean deleteConteo(Long id, Long sucId){
+        tesoreriaSecurityService.requireSuperusuario();
         return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 

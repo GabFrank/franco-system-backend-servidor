@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.operaciones.NotaCreditoDevolucion;
 import com.franco.dev.domain.operaciones.dto.AcreditacionPreviewDto;
 import com.franco.dev.domain.personas.Usuario;
@@ -20,6 +21,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class NotaCreditoDevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private NotaCreditoDevolucionService service;
@@ -50,6 +54,7 @@ public class NotaCreditoDevolucionGraphQL implements GraphQLQueryResolver, Graph
     @Transactional
     public NotaCreditoDevolucion acreditarRetiro(Long retiroId, String nroNotaCredito, String fecha,
                                                  List<NotaCreditoDevolucionItemInput> items, Long usuarioId) {
+        seg.requireAnyRole(DevolucionGraphQL.ROLES_NOTA_CREDITO);
         if (retiroId == null) throw new GraphQLException("retiroId es requerido");
         // nroNotaCredito es OPCIONAL: muchas veces la nota se solicita con este
         // documento y el numero llega despues.
@@ -66,6 +71,7 @@ public class NotaCreditoDevolucionGraphQL implements GraphQLQueryResolver, Graph
 
     @Transactional
     public Boolean revertirNotaCreditoDevolucion(Long id, Long usuarioId) {
+        seg.requireAnyRole(DevolucionGraphQL.ROLES_NOTA_CREDITO);
         if (id == null) throw new GraphQLException("id es requerido");
         Usuario usuario = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
         try {

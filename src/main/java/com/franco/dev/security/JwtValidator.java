@@ -1,35 +1,40 @@
 package com.franco.dev.security;
 
-import com.franco.dev.domain.personas.Usuario;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
 public class JwtValidator {
 
+    private static final Logger log = LoggerFactory.getLogger(JwtValidator.class);
 
-    private String secret = "Graphql";
+    private final JwtClaves claves;
 
+    public JwtValidator(JwtClaves claves) {
+        this.claves = claves;
+    }
+
+    /** El usuario del token, o null si ninguna clave aceptada valida la firma. Nunca lanza. */
     public JwtUser validate(String token) {
-
-        JwtUser jwtUser = null;
-        try {
-            Claims body = Jwts.parser()
-                    .setSigningKey(secret)
-                    .parseClaimsJws(token)
-                    .getBody();
-
-            jwtUser = new JwtUser();
-
-            jwtUser.setNickname(resolveNickname(body));
-            jwtUser.setPassword((String) body.get("password"));
+        if (token == null) return null;
+        for (byte[] clave : claves.aceptadas()) {
+            Claims body;
+            try {
+                body = Jwts.parser().setSigningKey(clave).parseClaimsJws(token).getBody();
+            } catch (RuntimeException e) {
+                continue;
+            }
+            String nickname = resolveNickname(body);
+            if (nickname == null || nickname.trim().isEmpty()) return null; // firma valida pero sin usuario
+            JwtUser jwtUser = new JwtUser();
+            jwtUser.setNickname(nickname);
+            return jwtUser;
         }
-        catch (Exception e) {
-            System.out.println(e);
-        }
-
-        return jwtUser;
+        log.warn("Token de sesion rechazado: ninguna clave aceptada valida la firma.");
+        return null;
     }
 
     /**

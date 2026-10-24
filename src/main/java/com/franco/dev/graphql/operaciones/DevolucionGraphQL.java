@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.operaciones.Devolucion;
 import com.franco.dev.domain.operaciones.RetiroDevolucion;
 import com.franco.dev.domain.operaciones.ColectaDevolucion;
@@ -35,6 +36,15 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    /**
+     * Acreditar o revertir la nota de credito de una devolucion. Solo se llega desde el modulo Devoluciones
+     * (menu VER TRANSFERENCIA, Historico de retiros); Gestion de compras abre la devolucion pero no acredita.
+     */
+    static final String[] ROLES_NOTA_CREDITO = {"VER TRANSFERENCIA"};
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private DevolucionService service;
@@ -354,6 +364,7 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Transactional
     public Devolucion acreditarDevolucion(Long devolucionId, String nroNotaCredito,
                                           Double montoAcreditado, Long usuarioId) {
+        seg.requireAnyRole(ROLES_NOTA_CREDITO);
         if (devolucionId == null) {
             throw new GraphQLException("devolucionId es requerido");
         }

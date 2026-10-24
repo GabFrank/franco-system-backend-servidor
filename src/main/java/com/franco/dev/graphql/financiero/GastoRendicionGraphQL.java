@@ -1,5 +1,7 @@
 package com.franco.dev.graphql.financiero;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.financiero.GastoRendicion;
 import com.franco.dev.domain.financiero.PreGasto;
 import com.franco.dev.graphql.financiero.input.GastoRendicionInput;
@@ -20,6 +22,9 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class GastoRendicionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     private final GastoRendicionService service;
     private final PreGastoService preGastoService;
@@ -78,6 +83,7 @@ public class GastoRendicionGraphQL implements GraphQLQueryResolver, GraphQLMutat
     }
 
     public Boolean deleteGastoRendicion(Long id) {
+        seg.requireSuperusuario();
         return service.deleteById(id);
     }
 }

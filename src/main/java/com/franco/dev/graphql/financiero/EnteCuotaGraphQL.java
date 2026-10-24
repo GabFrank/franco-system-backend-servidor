@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.config.multitenant.CustomPage;
 import com.franco.dev.config.multitenant.CustomPageImpl;
 import com.franco.dev.domain.financiero.EnteCuota;
@@ -29,6 +30,9 @@ import java.util.Optional;
 
 @Component
 public class EnteCuotaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private EnteCuotaService service;
@@ -93,6 +97,7 @@ public class EnteCuotaGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public EnteCuota saveEnteCuota(EnteCuotaInput input) {
+        seg.requireSuperusuario();
         EnteCuota e = new EnteCuota();
         if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new EnteCuota());
@@ -120,6 +125,7 @@ public class EnteCuotaGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public Boolean deleteEnteCuota(Long id) {
+        seg.requireSuperusuario();
         try {
             return service.deleteById(id);
         } catch (Exception err) {

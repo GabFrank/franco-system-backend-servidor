@@ -5,6 +5,8 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.service.personas.RoleService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,6 +30,8 @@ import java.util.Set;
  */
 @Service
 public class TesoreriaSecurityService {
+
+    private static final Logger log = LoggerFactory.getLogger(TesoreriaSecurityService.class);
 
     @Autowired private UsuarioService usuarioService;
     @Autowired private RoleService roleService;
@@ -80,6 +84,7 @@ public class TesoreriaSecurityService {
     /** Solo superusuario: ningún rol de negocio alcanza. */
     public void requireSuperusuario() {
         if (!esSuperusuario()) {
+            log.warn("No autorizado: {} sin ADMIN", currentNickname());
             throw new GraphQLException("No autorizado: esta acción es solo para un administrador.");
         }
     }
@@ -94,6 +99,16 @@ public class TesoreriaSecurityService {
         String nick = currentNickname();
         if (nick == null) return null;
         return usuarioService.findByNickname(nick).orElse(null);
+    }
+
+    /** El usuario autenticado; si el nickname del token ya no existe, pide volver a entrar. */
+    public Usuario requireUsuarioDeSesion() {
+        Usuario u = currentUsuario();
+        if (u == null) {
+            log.warn("No autorizado: el nickname {} del token no existe", currentNickname());
+            throw new GraphQLException("No autorizado: volvé a iniciar sesión.");
+        }
+        return u;
     }
 
     /** Nombres de rol del usuario autenticado (upper/trim), o vacío. */
@@ -124,6 +139,7 @@ public class TesoreriaSecurityService {
     /** Lanza excepción si el usuario no tiene ninguno de los roles (ni es superusuario). */
     public void requireAnyRole(String... roles) {
         if (!hasAnyRole(roles)) {
+            log.warn("No autorizado: {} sin {}", currentNickname(), String.join(" o ", roles));
             throw new GraphQLException("No autorizado: se requiere el rol "
                     + String.join(" o ", roles) + " para esta acción.");
         }

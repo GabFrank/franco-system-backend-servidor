@@ -109,8 +109,9 @@ class ControlRolMatrizTest {
                 f(DevolucionGraphQL.class, "acreditarDevolucion", rolesNotaCredito()),
                 f(NotaCreditoDevolucionGraphQL.class, "acreditarRetiro", rolesNotaCredito()),
                 f(NotaCreditoDevolucionGraphQL.class, "revertirNotaCreditoDevolucion", rolesNotaCredito()),
-                f(com.franco.dev.graphql.personas.FuncionarioGraphQL.class, "saveFuncionario", "VER FUNCIONARIOS",
-                        "CREAR FUNCIONARIOS", "EDITAR FUNCIONARIOS", "VER PERSONAS", "RRHH VER", "RRHH GESTIONAR"),
+                // input null = alta; la edicion (EDITAR FUNCIONARIOS / RRHH GESTIONAR) la cubre FuncionarioPagaRolTest
+                f(com.franco.dev.graphql.personas.FuncionarioGraphQL.class, "saveFuncionario", "CREAR FUNCIONARIOS",
+                        "VER FUNCIONARIOS", "RRHH GESTIONAR"),
                 f(com.franco.dev.graphql.personas.FuncionarioGraphQL.class, "deleteFuncionario")
         );
     }

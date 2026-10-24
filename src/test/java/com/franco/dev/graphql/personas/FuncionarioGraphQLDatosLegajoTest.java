@@ -38,7 +38,6 @@ class FuncionarioGraphQLDatosLegajoTest {
     @Mock private UsuarioService usuarioService;
     @Mock private PersonaService personaService;
     @Mock private ClienteService clienteService;
-    @Mock private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
     @InjectMocks private FuncionarioGraphQL resolver;
 
     private Funcionario existente;
@@ -46,6 +45,9 @@ class FuncionarioGraphQLDatosLegajoTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        // Estos casos son de RRHH gestionando el legajo; las reglas por rol estan en FuncionarioPagaRolTest.
+        org.springframework.test.util.ReflectionTestUtils.setField(resolver, "seg",
+                new com.franco.dev.service.financiero.TesoreriaSecurityFalso(9L, "RRHH GESTIONAR"));
         Persona persona = new Persona();
         persona.setId(7L);
         persona.setNombre("JUAN PEREZ");

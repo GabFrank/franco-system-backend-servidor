@@ -6,10 +6,12 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.personas.UsuarioRole;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.UsuarioInput;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.RoleService;
 import com.franco.dev.service.personas.UsuarioRoleService;
 import com.franco.dev.service.personas.UsuarioService;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -19,11 +21,22 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 @Component
 public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    // Los mismos roles con los que el desktop habilita cada pantalla.
+    static final String EDITAR_USUARIOS = "EDITAR USUARIOS";
+    static final String VER_FUNCIONARIOS = "VER FUNCIONARIOS";
+    static final String RRHH_GESTIONAR = "RRHH GESTIONAR";
+    /** El wizard de funcionario borra el usuario que acaba de crear si falla un paso posterior. */
+    static final int MINUTOS_ROLLBACK_WIZARD = 15;
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private UsuarioService service;
@@ -69,6 +82,8 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Usuario saveUsuario(UsuarioInput input) {
+        Usuario guardado = input.getId() != null ? service.findById(input.getId()).orElse(null) : null;
+        boolean soloPropio = exigirPermisoParaGuardar(input, guardado);
         ModelMapper m = new ModelMapper();
         Usuario e = m.map(input, Usuario.class);
         if (input.getUsuarioId() != null)
@@ -81,11 +96,45 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
                     ? service.findById(input.getId()).map(Usuario::getActivo).orElse(true)
                     : true);
         }
+        if (soloPropio) {
+            // Sin EDITAR USUARIOS, cada uno solo cambia su clave: el resto queda como estaba.
+            e.setNickname(guardado.getNickname());
+            e.setActivo(guardado.getActivo());
+            e.setPersona(guardado.getPersona());
+            e.setUsuario(guardado.getUsuario());
+            e.setCreadoEn(guardado.getCreadoEn());
+        }
         e = service.save(e, Boolean.TRUE.equals(input.getRespetarClave()));
         return e;
     }
 
+    /** Devuelve true si el que guarda edita su propio usuario sin EDITAR USUARIOS. */
+    private boolean exigirPermisoParaGuardar(UsuarioInput input, Usuario guardado) {
+        if (input.getId() == null) {
+            seg.requireAnyRole(EDITAR_USUARIOS, VER_FUNCIONARIOS);
+            return false;
+        }
+        if (guardado == null) {
+            seg.requireAnyRole(EDITAR_USUARIOS);
+            return false;
+        }
+        Usuario yo = seg.requireUsuarioDeSesion();
+        if (esSuperusuario(guardado)) seg.requireSuperusuario();
+        if (seg.hasAnyRole(EDITAR_USUARIOS)) return false;
+        if (yo.getId().equals(guardado.getId())) return true;
+        seg.requireAnyRole(EDITAR_USUARIOS);
+        return false;
+    }
+
+    private boolean esSuperusuario(Usuario u) {
+        return "ADMIN".equalsIgnoreCase(u.getNickname()) || service.tieneRol(u.getId(), "ADMIN");
+    }
+
     public Boolean deleteUsuario(Long id) {
+        Usuario u = service.findById(id).orElse(null);
+        if (u != null && esSuperusuario(u)) seg.requireSuperusuario();
+        if (u != null && esRecienCreadoSinRoles(u)) seg.requireAnyRole(EDITAR_USUARIOS, VER_FUNCIONARIOS);
+        else seg.requireAnyRole(EDITAR_USUARIOS);
         Boolean ok = service.deleteById(id);
         return ok;
     }
@@ -99,8 +148,20 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return res;
     }
 
+    private boolean esRecienCreadoSinRoles(Usuario u) {
+        return u.getCreadoEn() != null
+                && u.getCreadoEn().isAfter(LocalDateTime.now().minusMinutes(MINUTOS_ROLLBACK_WIZARD))
+                && service.getRoles(u.getId()).isEmpty();
+    }
+
     public Boolean saveUsuarioImage(Long id, String type, String image, List<Double> embedding, String embeddingGaleriaJson)
             throws IOException {
+        if (!"perfil".equals(type) && !"auth".equals(type)) {
+            throw new GraphQLException("Tipo de imagen no válido.");
+        }
+        // Marcar horario registra la cara de otro solo si todavía no tiene; reemplazarla es de RRHH.
+        Usuario yo = seg.requireUsuarioDeSesion();
+        if (!yo.getId().equals(id) && service.tieneGaleriaFacial(id)) seg.requireAnyRole(RRHH_GESTIONAR);
         return service.saveUserImage(id, type, image, embedding, embeddingGaleriaJson);
     }
 

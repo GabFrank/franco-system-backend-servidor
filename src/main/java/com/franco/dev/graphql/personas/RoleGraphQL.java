@@ -8,6 +8,7 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.RoleInput;
 import com.franco.dev.graphql.personas.input.UsuarioInput;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.personas.RoleService;
 import com.franco.dev.service.personas.UsuarioRoleService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -33,6 +34,9 @@ public class RoleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     private RoleService service;
 
     @Autowired
+    private TesoreriaSecurityService seg;
+
+    @Autowired
     private UsuarioRoleService usuarioRoleService;
 
 
@@ -52,6 +56,7 @@ public class RoleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     }
 
     public Role saveRole(RoleInput input){
+        seg.requireAnyRole("SOPORTE");
         ModelMapper m = new ModelMapper();
         Role e = m.map(input, Role.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -60,6 +65,7 @@ public class RoleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     }
 
     public Boolean deleteRole(Long id){
+        seg.requireAnyRole("SOPORTE");
         Boolean ok = service.deleteById(id);
         return ok;
     }

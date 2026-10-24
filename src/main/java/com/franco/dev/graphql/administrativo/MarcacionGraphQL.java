@@ -1,5 +1,7 @@
 package com.franco.dev.graphql.administrativo;
 
+import com.franco.dev.domain.administrativo.enums.TipoMarcacion;
+
 import com.franco.dev.domain.administrativo.Marcacion;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.graphql.administrativo.input.MarcacionInput;
@@ -105,6 +107,7 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
      * {@link #guardar}.
      */
     public Marcacion saveMarcacion(MarcacionInput marcacion) {
+        protegerMarcacion(marcacion);
         for (int intento = 1; ; intento++) {
             try {
                 return guardar(marcacion);
@@ -124,6 +127,20 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
                 }
             }
         }
+    }
+
+    /**
+     * Sin RRHH GESTIONAR no se sobrescribe una marcacion (un id, exista o no) y la hora la pone el
+     * servidor: los clientes ya mandan la hora del servidor, asi que solo se pierde la latencia. Una
+     * tolerancia dejaria borrar justo la tardanza. Va una vez, antes de los reintentos.
+     */
+    private void protegerMarcacion(MarcacionInput m) {
+        if (m == null || seg.hasAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR)) return;
+        if (m.getId() != null) seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR);
+        // sin tipo, el servicio lo infiere de fechaSalida: inferirlo antes de anularla
+        if (m.getTipo() == null && m.getFechaSalida() != null) m.setTipo(TipoMarcacion.SALIDA);
+        m.setFechaEntrada(null);
+        m.setFechaSalida(null);
     }
 
     /**

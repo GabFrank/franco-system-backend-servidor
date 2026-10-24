@@ -50,7 +50,7 @@ public class CobroDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public CobroDetalle saveCobroDetalle(CobroDetalleInput input) {
-        seg.requireAnyRole("VENTA TOUCH");
+        seg.requireSuperusuario(); // el PDV guarda en el filial; ningún cliente la llama al central
         return guardarCobroDetalle(input);
     }
 
@@ -68,7 +68,7 @@ public class CobroDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
 
     public Boolean deleteCobroDetalle(Long id, Long sucId){
-        seg.requireAnyRole("VENTA TOUCH");
+        seg.requireSuperusuario(); // el PDV guarda en el filial; ningún cliente la llama al central
         return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 

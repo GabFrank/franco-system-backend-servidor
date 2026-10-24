@@ -39,7 +39,8 @@ class ControlRolMatrizTest {
     /** Roles de negocio que existen; ninguno es ADMIN. */
     static final List<String> TODOS = Arrays.asList(AC, VT, VTC, GEST, CANC, VU, "VER TRANSFERENCIA",
             "CREAR TRANSFERENCIA", "FACTURACION EMITIR", "RRHH GESTIONAR", "RRHH CONFIG", "RRHH VER", "SOPORTE",
-            "VER FUNCIONARIOS", "VER PERSONAS", "EDITAR USUARIOS", "TESORERIA CAJA", "RECIBIR PEDIDOS");
+            "VER FUNCIONARIOS", "VER PERSONAS", "EDITAR USUARIOS", "TESORERIA CAJA", "RECIBIR PEDIDOS",
+            "TESORERIA VER", "ANALISIS FINANCIERO", "ANALISIS CONTABLE", "VER PRECIO COSTO");
 
     static class Fila {
         final Class<?> clase; final String campo; final String metodo; final List<String> roles;
@@ -61,13 +62,13 @@ class ControlRolMatrizTest {
                 f(MovimientoCajaGraphQL.class, "saveMovimientoCaja"), f(MovimientoCajaGraphQL.class, "deleteMovimientoCaja"),
                 f(PdvCajaGraphQL.class, "savePdvCaja", AC, VT), f(PdvCajaGraphQL.class, "savePdvCajaPorSucursal", VT),
                 f(PdvCajaGraphQL.class, "abrirCajaDesdeServidor", VT),
-                f(RetiroGraphQL.class, "saveRetiro", VT), f(RetiroGraphQL.class, "deleteRetiro"),
+                f(RetiroGraphQL.class, "saveRetiro"), f(RetiroGraphQL.class, "deleteRetiro"),
                 f(RetiroDetalleGraphQL.class, "saveRetiroDetalle"), f(RetiroDetalleGraphQL.class, "deleteRetiroDetalle"),
                 f(SencilloGraphQL.class, "saveSencillo"), f(SencilloGraphQL.class, "deleteSencillo"),
                 f(SencilloDetalleGraphQL.class, "saveSencilloDetalle"), f(SencilloDetalleGraphQL.class, "deleteSencilloDetalle"),
                 f(VueltoGraphQL.class, "saveVuelto"), f(VueltoGraphQL.class, "deleteVuelto"),
                 f(VueltoItemGraphQL.class, "saveVueltoItem"), f(VueltoItemGraphQL.class, "deleteVueltoItem"),
-                f(GastoGraphQL.class, "saveGasto", VT), f(GastoGraphQL.class, "deleteGasto"),
+                f(GastoGraphQL.class, "saveGasto"), f(GastoGraphQL.class, "deleteGasto"),
                 f(GastoDetalleGraphQL.class, "saveGastoDetalle"), f(GastoDetalleGraphQL.class, "deleteGastoDetalle"),
                 f(GastoRendicionGraphQL.class, "deleteGastoRendicion"),
                 f(PreGastoGraphQL.class, "autorizarPreGasto", AC), f(PreGastoGraphQL.class, "rechazarPreGasto", AC),
@@ -75,7 +76,7 @@ class ControlRolMatrizTest {
                 f(PreGastoGraphQL.class, "registrarDevolucionSaldoPreGasto", AC),
                 f(PreGastoGraphQL.class, "tramitarPreGasto"), f(PreGastoGraphQL.class, "deletePreGasto"),
                 f(PreGastoGraphQL.class, "ejecutarRetiroPreGasto", VT),
-                f(CobroDetalleGraphQL.class, "saveCobroDetalle", VT),
+                f(CobroDetalleGraphQL.class, "saveCobroDetalle"),
                 f(CobroGraphQL.class, "deleteCobro", CANC),
                 // fiscal
                 f(DocumentoElectronicoGraphQL.class, "saveDocumentoElectronico"),
@@ -87,6 +88,7 @@ class ControlRolMatrizTest {
                 f(FacturaLegalGraphQL.class, "saveFacturaLegalToFilial", AC),
                 f(LoteDEGraphQL.class, "saveLoteDe"), f(LoteDEGraphQL.class, "crearLote"),
                 f(LoteDEGraphQL.class, "vincularDocumentosALote"), f(LoteDEGraphQL.class, "enviarLote"),
+                f(LoteDEGraphQL.class, "consultarLote"), f(DocumentoElectronicoGraphQL.class, "consultarDocumentoElectronico"),
                 f(TimbradoGraphQL.class, "saveTimbrado"), f(TimbradoGraphQL.class, "deleteTimbrado"),
                 f(TimbradoDetalleGraphQL.class, "saveTimbradoDetalle"), f(TimbradoDetalleGraphQL.class, "deleteTimbradoDetalle"),
                 // configuracion financiera, credito, tarjeta y cobros
@@ -102,21 +104,17 @@ class ControlRolMatrizTest {
                 f(VentaTarjetaGraphQL.class, "saveVentaTarjeta", VT, VTC), f(VentaTarjetaGraphQL.class, "updateVentaTarjeta", VT, VTC),
                 f(VentaTarjetaGraphQL.class, "deleteVentaTarjeta"),
                 f(VentaTarjetaGraphQL.class, "cancelarVentaTarjetaPorVentaId", CANC),
-                f(CobroDetalleGraphQL.class, "deleteCobroDetalle", VT),
-                f(VentaGraphQL.class, "deleteVenta", CANC),
+                f(CobroDetalleGraphQL.class, "deleteCobroDetalle"),
+                f(VentaGraphQL.class, "deleteVenta", CANC), f(VentaGraphQL.class, "saveVenta"),
                 // devoluciones y funcionarios
-                f(DevolucionGraphQL.class, "acreditarDevolucion", rolesNotaCredito()),
-                f(NotaCreditoDevolucionGraphQL.class, "acreditarRetiro", rolesNotaCredito()),
-                f(NotaCreditoDevolucionGraphQL.class, "revertirNotaCreditoDevolucion", rolesNotaCredito()),
-                f(com.franco.dev.graphql.personas.FuncionarioGraphQL.class, "saveFuncionario", "VER FUNCIONARIOS",
-                        "CREAR FUNCIONARIOS", "EDITAR FUNCIONARIOS", "VER PERSONAS", "RRHH VER", "RRHH GESTIONAR"),
+                f(DevolucionGraphQL.class, "acreditarDevolucion", "VER TRANSFERENCIA"),
+                f(NotaCreditoDevolucionGraphQL.class, "acreditarRetiro", "VER TRANSFERENCIA"),
+                f(NotaCreditoDevolucionGraphQL.class, "revertirNotaCreditoDevolucion", "VER TRANSFERENCIA"),
+                // input null = alta; la edicion (EDITAR FUNCIONARIOS / RRHH GESTIONAR) la cubre FuncionarioPagaRolTest
+                f(com.franco.dev.graphql.personas.FuncionarioGraphQL.class, "saveFuncionario", "CREAR FUNCIONARIOS",
+                        "VER FUNCIONARIOS", "RRHH GESTIONAR"),
                 f(com.franco.dev.graphql.personas.FuncionarioGraphQL.class, "deleteFuncionario")
         );
-    }
-
-    /** VER TRANSFERENCIA + los roles de compras (package-private en graphql.operaciones). */
-    static String[] rolesNotaCredito() {
-        return (String[]) ReflectionTestUtils.getField(DevolucionGraphQL.class, "ROLES_NOTA_CREDITO");
     }
 
     static Object resolver(Fila fila, String... roles) {

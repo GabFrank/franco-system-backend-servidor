@@ -38,12 +38,10 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     /**
-     * Acreditar o revertir la nota de credito de una devolucion: los roles con los que el desktop abre
-     * Devoluciones (VER TRANSFERENCIA) y Gestion de compras, que tambien lleva a esa pantalla.
+     * Acreditar o revertir la nota de credito de una devolucion. Solo se llega desde el modulo Devoluciones
+     * (menu VER TRANSFERENCIA, Historico de retiros); Gestion de compras abre la devolucion pero no acredita.
      */
-    static final String[] ROLES_NOTA_CREDITO = java.util.stream.Stream.concat(
-            java.util.stream.Stream.of("VER TRANSFERENCIA"),
-            java.util.Arrays.stream(SolicitudPagoGraphQL.ROLES_COMPRAS)).toArray(String[]::new);
+    static final String[] ROLES_NOTA_CREDITO = {"VER TRANSFERENCIA"};
 
     @Autowired
     private TesoreriaSecurityService seg;

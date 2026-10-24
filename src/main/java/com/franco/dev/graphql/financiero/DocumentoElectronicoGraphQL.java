@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import java.util.List;
 
 import javax.transaction.Transactional;
@@ -27,6 +28,9 @@ import graphql.kickstart.tools.GraphQLQueryResolver;
 @Component
 public class DocumentoElectronicoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
+    @Autowired
+    private TesoreriaSecurityService seg;
+
   @Autowired
   private DocumentoElectronicoService service;
 
@@ -46,6 +50,7 @@ public class DocumentoElectronicoGraphQL implements GraphQLQueryResolver, GraphQ
   
   @Transactional
   public DocumentoElectronico saveDocumentoElectronico(DocumentoElectronicoInput input) {
+      seg.requireSuperusuario();
     ModelMapper m = new ModelMapper();
     DocumentoElectronico e = m.map(input, DocumentoElectronico.class);
     if (input.getUsuarioId() != null) {
@@ -77,6 +82,7 @@ public class DocumentoElectronicoGraphQL implements GraphQLQueryResolver, GraphQ
 
   @Transactional
   public DocumentoElectronico crearDocumentoElectronicoDesdeFactura(Long facturaId, Long sucursalId) {
+      seg.requireSuperusuario();
     if (sifenService == null) {
       throw new RuntimeException("La funcionalidad SIFEN está deshabilitada. Configure sifen.enabled=true en application.properties");
     }

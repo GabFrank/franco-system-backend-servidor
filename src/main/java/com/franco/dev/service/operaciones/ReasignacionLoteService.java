@@ -138,16 +138,14 @@ public class ReasignacionLoteService {
             throw new IllegalArgumentException("La filial de esta sucursal todavía no tiene alguno de los dos "
                     + "lotes. Esperá a que bajen (o corré la bajada de lotes viejos) y reintentá.");
         }
-        if (forzar) {
-            return;
-        }
+        // El atraso no se puede forzar: con la subida atrasada el central no ve las ventas de la filial.
         Double atraso = sincronizacionFilialService.atrasoSegundos(input.getSucursalId());
         if (atraso == null || atraso > ATRASO_MAXIMO_SEGUNDOS) {
             throw new IllegalArgumentException("La sucursal no está sincronizada con el central"
                     + (atraso != null && atraso < 1e8 ? " (atraso " + Math.round(atraso / 60) + " min)" : "")
                     + ": reintentá en unos minutos.");
         }
-        if (Math.abs(input.getCantidad() - saldoOrigen) <= EPSILON && ventasRecientes(input, origen) > 0) {
+        if (!forzar && Math.abs(input.getCantidad() - saldoOrigen) <= EPSILON && ventasRecientes(input, origen) > 0) {
             throw new IllegalArgumentException("El lote " + origen.getNumeroLote() + " tuvo ventas en los últimos "
                     + MINUTOS_VENTAS_RECIENTES + " minutos en esta sucursal: vaciarlo ahora puede dejarlo "
                     + "negativo. Reintentá más tarde o forzalo.");

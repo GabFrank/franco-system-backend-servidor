@@ -152,9 +152,9 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     /**
      * El credito de un cliente es plata: cambiarlo exige ADMIN, o RRHH GESTIONAR / CONFIG si la persona es
-     * funcionario (el save se lo copia al legajo). Va antes de cualquier save. En una edicion, un credito que
-     * no viene conserva el guardado, y pasar el cliente a otra persona exige ADMIN (la copia caeria sobre el
-     * legajo de esa persona). En un alta se compara contra 0, o contra el credito del funcionario.
+     * funcionario (el save se lo copia al legajo). Va antes de cualquier save. Null es "sin credito" (la X del
+     * desktop lo borra asi), y pasar el cliente a otra persona exige ADMIN (la copia caeria sobre el legajo de
+     * esa persona). En un alta se compara contra 0, o contra el credito del funcionario.
      */
     private Cliente protegerCredito(ClienteInput in) {
         Cliente previo = null;
@@ -163,7 +163,6 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
                     .orElseThrow(() -> new graphql.GraphQLException("No existe el cliente " + in.getId()));
             Long personaGuardada = previo.getPersona() != null ? previo.getPersona().getId() : null;
             if (in.getPersonaId() != null && !in.getPersonaId().equals(personaGuardada)) seg.requireSuperusuario();
-            if (in.getCredito() == null) in.setCredito(previo.getCredito());
         }
         Long personaId = in.getPersonaId() != null ? in.getPersonaId()
                 : previo != null && previo.getPersona() != null ? previo.getPersona().getId() : null;

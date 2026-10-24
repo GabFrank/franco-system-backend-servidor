@@ -22,8 +22,8 @@ import static org.mockito.Mockito.*;
 
 /**
  * saveCliente: cambiar el credito exige ADMIN, o RRHH GESTIONAR / CONFIG si la persona es funcionario (el save
- * se lo copia al legajo). Un credito igual al guardado (null = 0) o que no viene pasa sin rol, y el control va
- * antes de guardar la persona o el cliente.
+ * se lo copia al legajo). Un credito igual al guardado (null = 0) pasa sin rol, y el control va antes de
+ * guardar la persona o el cliente.
  */
 class ClienteCreditoRolTest {
 
@@ -90,10 +90,12 @@ class ClienteCreditoRolTest {
     }
 
     @Test
-    void unCreditoQueNoVieneConservaElGuardado() {
+    void borrarElCreditoConLaXEsUnCambio() {
         sesion("VER USUARIOS");
         guardado(500000f);
-        assertEquals(500000f, resolver.saveCliente(edicion(null)).getCredito());
+        rechazado(edicion(null));
+        sesion("ADMIN");
+        assertNull(resolver.saveCliente(edicion(null)).getCredito());
     }
 
     @Test
@@ -165,7 +167,7 @@ class ClienteCreditoRolTest {
         Funcionario ajeno = new Funcionario();
         ajeno.setCredito(0f);
         when(funcionarioService.findByPersonaId(8L)).thenReturn(ajeno);
-        ClienteInput in = edicion(null);
+        ClienteInput in = edicion(100000f);
         in.setPersonaId(8L);
         rechazado(in);
         sesion("ADMIN");

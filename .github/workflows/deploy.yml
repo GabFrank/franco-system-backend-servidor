@@ -232,6 +232,33 @@ jobs:
             .github/scripts/deploy.sh \
             deploy@${{ secrets.DEPLOY_HOST }}:/tmp/deploy.sh
 
+      # Clave del token de sesion de la instancia (APP_JWT_SECRET firma, APP_JWT_ACEPTAR solo valida).
+      # Sale de los secrets del environment de la instancia. Una clave no definida no se toca en el .env.
+      - name: Upload token keys
+        env:
+          APP_JWT_SECRET: ${{ secrets.APP_JWT_SECRET }}
+          APP_JWT_ACEPTAR: ${{ secrets.APP_JWT_ACEPTAR }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          umask 077
+          : > token-keys.env
+          for KEY in APP_JWT_SECRET APP_JWT_ACEPTAR; do
+            if [[ -n "${!KEY}" ]]; then
+              printf '%s=%s\n' "${KEY}" "${!KEY}" >> token-keys.env
+              echo "${KEY}: definido"
+            else
+              echo "${KEY}: no definido"
+            fi
+          done
+          TOKEN_REMOTE_PATH="/tmp/token-${{ inputs.instance }}-${VERSION}.env"
+          if [[ -s token-keys.env ]]; then
+            scp -i ~/.ssh/deploy_key token-keys.env deploy@${{ secrets.DEPLOY_HOST }}:${TOKEN_REMOTE_PATH}
+          else
+            # sin claves en esta corrida: que no se aplique un archivo viejo de un deploy cortado
+            ssh -i ~/.ssh/deploy_key deploy@${{ secrets.DEPLOY_HOST }} "rm -f ${TOKEN_REMOTE_PATH}"
+          fi
+          rm -f token-keys.env
+
       - name: Execute deploy
         env:
           VERSION: ${{ steps.resolve.outputs.version }}
@@ -239,8 +266,9 @@ jobs:
         run: |
           FIREBASE_REMOTE_PATH="/tmp/firebase-${{ inputs.instance }}-${VERSION}.json"
           MAIL_REMOTE_PATH="/tmp/mail-${{ inputs.instance }}-${VERSION}.env"
+          TOKEN_REMOTE_PATH="/tmp/token-${{ inputs.instance }}-${VERSION}.env"
           ssh -i ~/.ssh/deploy_key deploy@${{ secrets.DEPLOY_HOST }} \
-            "chmod +x /tmp/deploy.sh && /tmp/deploy.sh '${VERSION}' '${{ inputs.instance }}' '${FIREBASE_REMOTE_PATH}' '${FIREBASE_TARGET_PATH}' '${MAIL_REMOTE_PATH}'"
+            "chmod +x /tmp/deploy.sh && /tmp/deploy.sh '${VERSION}' '${{ inputs.instance }}' '${FIREBASE_REMOTE_PATH}' '${FIREBASE_TARGET_PATH}' '${MAIL_REMOTE_PATH}' '${TOKEN_REMOTE_PATH}'"
 
       - name: Summary
         if: always()

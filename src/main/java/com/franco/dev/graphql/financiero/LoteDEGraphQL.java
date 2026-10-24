@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.DocumentoElectronico;
 import com.franco.dev.domain.financiero.LoteDE;
@@ -22,6 +23,9 @@ import javax.transaction.Transactional;
 
 @Component
 public class LoteDEGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
   @Autowired
   private LoteDEService service;
@@ -49,6 +53,7 @@ public class LoteDEGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Transactional
     public LoteDE saveLoteDe(LoteDEInput input) {
+        seg.requireSuperusuario();
         ModelMapper m = new ModelMapper();
         LoteDE entity = m.map(input, LoteDE.class);
         if (input.getUsuarioId() != null) {
@@ -71,6 +76,7 @@ public class LoteDEGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Transactional
     public LoteDE crearLote() {
+        seg.requireSuperusuario();
         if (sifenService == null) {
             throw new RuntimeException("La funcionalidad SIFEN está deshabilitada. Configure sifen.enabled=true en application.properties");
         }
@@ -83,6 +89,7 @@ public class LoteDEGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Transactional
     public Boolean vincularDocumentosALote(Long loteId, Long sucursalId, List<Long> documentoIds) {
+        seg.requireSuperusuario();
         if (sifenService == null) {
             throw new RuntimeException("La funcionalidad SIFEN está deshabilitada. Configure sifen.enabled=true en application.properties");
         }
@@ -102,6 +109,7 @@ public class LoteDEGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public EnvioLoteResponse enviarLote(Long loteId, Long sucursalId) {
+        seg.requireSuperusuario();
         if (sifenService == null) {
             EnvioLoteResponse response = new EnvioLoteResponse();
             response.setExitoso(false);

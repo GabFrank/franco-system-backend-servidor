@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.Gasto;
@@ -27,6 +28,9 @@ import java.util.Optional;
 public class GastoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private TesoreriaSecurityService seg;
+
+    @Autowired
     private GastoDetalleService service;
 
     @Autowired
@@ -52,6 +56,7 @@ public class GastoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public GastoDetalle saveGastoDetalle(GastoDetalleInput input) throws GraphQLException  {
+        seg.requireSuperusuario();
         ModelMapper m = new ModelMapper();
         GastoDetalle e = m.map(input, GastoDetalle.class);
         if(input.getUsuarioId()!=null){
@@ -71,6 +76,7 @@ public class GastoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean deleteGastoDetalle(Long id, Long sucId){
+        seg.requireSuperusuario();
         return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 

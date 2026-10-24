@@ -51,6 +51,7 @@ class SaveFacturaLegalToFilialErrorTest {
 
     @Mock private RestTemplate restTemplate;
     @Mock private SucursalService sucursalService;
+    @Mock private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
 
     @InjectMocks private FacturaLegalGraphQL resolver;
 

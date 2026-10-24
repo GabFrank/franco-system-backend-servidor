@@ -89,6 +89,7 @@ public class DocumentoRecibidoService {
      * escribió fuera de dGtin. Se relee del XML guardado (no se vuelve a consultar SIFEN).
      */
     public void completarCodigos(DocumentoRecibido doc) {
+        if (doc.getXml() == null) return; // la factura en papel no tiene XML
         List<DocumentoRecibidoItem> items = renglones(doc.getId());
         if (items.stream().noneMatch(i -> i.getGtin() == null)) return;
         FacturaSifenXml.Cabecera leida;

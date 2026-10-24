@@ -27,8 +27,10 @@ public class JwtValidator {
             } catch (RuntimeException e) {
                 continue;
             }
+            String nickname = resolveNickname(body);
+            if (nickname == null || nickname.trim().isEmpty()) return null; // firma valida pero sin usuario
             JwtUser jwtUser = new JwtUser();
-            jwtUser.setNickname(resolveNickname(body));
+            jwtUser.setNickname(nickname);
             return jwtUser;
         }
         log.warn("Token de sesion rechazado: ninguna clave aceptada valida la firma.");

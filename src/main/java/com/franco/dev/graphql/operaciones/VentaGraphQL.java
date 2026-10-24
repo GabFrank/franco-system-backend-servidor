@@ -215,6 +215,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Boolean deleteVenta(Long id, Long sucId) {
+        seg.requireCancelarVenta();
         Boolean ok = service.deleteById(new EmbebedPrimaryKey(id, sucId));
         return ok;
     }
@@ -225,7 +226,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
     public void deshacerVenta(Venta venta, Cobro cobro, Long sucId) {
         if (cobro != null) {
-            cobroGraphQL.deleteCobro(cobro.getId(), sucId);
+            cobroGraphQL.borrarCobro(cobro.getId(), sucId);
         }
     }
 

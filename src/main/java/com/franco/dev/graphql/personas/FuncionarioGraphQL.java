@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.personas;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Funcionario;
@@ -26,6 +27,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private FuncionarioService service;
@@ -94,7 +98,15 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
         return service.searchPage(texto, soloActivos, pageable);
     }
 
+    /** Los roles con los que el desktop abre el wizard, la lista de funcionarios y el legajo. */
+    static final String[] ROLES_FUNCIONARIOS = {"VER FUNCIONARIOS", "CREAR FUNCIONARIOS", "EDITAR FUNCIONARIOS",
+            "VER PERSONAS", "RRHH VER", "RRHH GESTIONAR"};
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FuncionarioGraphQL.class);
+
     public Funcionario saveFuncionario(FuncionarioInput input) {
+        seg.requireAnyRole(ROLES_FUNCIONARIOS);
+        if (input.getId() != null) descartarCambiosDePaga(input);
         ModelMapper m = new ModelMapper();
         Funcionario e;
         // Se guardan las relaciones actuales para restaurarlas si el input no las trae:
@@ -106,6 +118,7 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
         com.franco.dev.domain.administrativo.Horario horarioActual = null;
         java.math.BigDecimal sueldoActual = null;
         Float creditoActual = null;
+        Boolean diaristaActual = null;
         if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new Funcionario());
             personaActual = e.getPersona();
@@ -114,6 +127,7 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
             horarioActual = e.getHorario();
             sueldoActual = e.getSueldo();
             creditoActual = e.getCredito();
+            diaristaActual = e.getDiarista();
             // Evitamos que ModelMapper intente mapear relaciones automáticamente y cause
             // errores de Hibernate
             e.setHorario(null);
@@ -168,6 +182,7 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
             // con historico). Sin esto, un input que no los trae los borraba, o forzaba al
             // cliente a reenviar una copia posiblemente vieja y pisar el valor real.
             if (input.getSueldo() == null) e.setSueldo(sueldoActual);
+            if (input.getDiarista() == null) e.setDiarista(diaristaActual);
             if (input.getCredito() == null) e.setCredito(creditoActual);
             if (input.getHorarioId() == null) e.setHorario(horarioActual);
         } else {
@@ -249,7 +264,35 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
         return e;
     }
 
+    /**
+     * Sueldo, diarista y cargo tienen su propio flujo con historico en RRHH (cambiarSalarioFuncionario,
+     * cambiarCargoFuncionario). En una edicion, sin esos roles se descartan del input y quedan los de la base.
+     */
+    /**
+     * Sueldo, diarista y cargo tienen su flujo con historico en RRHH. Sin el rol, un valor igual al
+     * guardado se ignora (el legajo y la asignacion de horario los reenvian) y uno distinto se rechaza,
+     * para que la pantalla no muestre "Guardado" sin haber cambiado nada.
+     */
+    private void descartarCambiosDePaga(FuncionarioInput input) {
+        Funcionario actual = service.findById(input.getId()).orElse(null);
+        if (!seg.hasAnyRole("RRHH GESTIONAR", "RRHH CONFIG")) {
+            boolean cambiaSueldo = input.getSueldo() != null && (actual == null || actual.getSueldo() == null
+                    || new java.math.BigDecimal(input.getSueldo().toString()).compareTo(actual.getSueldo()) != 0);
+            boolean cambiaDiarista = input.getDiarista() != null
+                    && (actual == null || !input.getDiarista().equals(Boolean.TRUE.equals(actual.getDiarista())));
+            if (cambiaSueldo || cambiaDiarista) seg.requireAnyRole("RRHH GESTIONAR", "RRHH CONFIG");
+            input.setSueldo(null);
+            input.setDiarista(null);
+        }
+        if (!seg.hasAnyRole("RRHH GESTIONAR") && input.getCargoId() != null) {
+            Long cargoActual = actual == null || actual.getCargo() == null ? null : actual.getCargo().getId();
+            if (!input.getCargoId().equals(cargoActual)) seg.requireAnyRole("RRHH GESTIONAR");
+            input.setCargoId(null);
+        }
+    }
+
     public Boolean deleteFuncionario(Long id) {
+        seg.requireSuperusuario();
         Boolean ok = service.deleteById(id);
         return ok;
     }

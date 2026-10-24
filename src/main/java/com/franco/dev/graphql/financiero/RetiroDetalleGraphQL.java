@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.RetiroDetalle;
 import com.franco.dev.graphql.financiero.input.RetiroDetalleInput;
@@ -19,6 +20,9 @@ import java.util.Optional;
 
 @Component
 public class RetiroDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private RetiroDetalleService service;
@@ -48,6 +52,7 @@ public class RetiroDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public RetiroDetalle saveRetiroDetalle(RetiroDetalleInput input) {
+        seg.requireSuperusuario();
         ModelMapper m = new ModelMapper();
         RetiroDetalle e = m.map(input, RetiroDetalle.class);
         if (input.getUsuarioId() != null) {
@@ -66,6 +71,7 @@ public class RetiroDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public Boolean deleteRetiroDetalle(Long id, Long sucId) {
+        seg.requireSuperusuario();
         return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 

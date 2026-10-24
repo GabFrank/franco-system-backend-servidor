@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
@@ -30,6 +31,9 @@ import java.util.Optional;
 public class MovimientoCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private TesoreriaSecurityService seg;
+
+    @Autowired
     private MovimientoCajaService service;
 
     @Autowired
@@ -52,7 +56,14 @@ public class MovimientoCajaGraphQL implements GraphQLQueryResolver, GraphQLMutat
     }
 
 
-    public MovimientoCaja saveMovimientoCaja(MovimientoCajaInput input){
+    public MovimientoCaja saveMovimientoCaja(MovimientoCajaInput input) {
+        seg.requireSuperusuario();
+        return guardarMovimientoCaja(input);
+    }
+
+    /** Sin control de rol: lo usa CobroGraphQL.saveCobro dentro de saveVenta; un rechazo a mitad de
+     * camino dejaria un cobro sin movimiento de caja (nada de la venta es transaccional). */
+    public MovimientoCaja guardarMovimientoCaja(MovimientoCajaInput input){
         ModelMapper m = new ModelMapper();
         MovimientoCaja e = m.map(input, MovimientoCaja.class);
         if(input.getId()==null) input.setActivo(true);
@@ -82,6 +93,7 @@ public class MovimientoCajaGraphQL implements GraphQLQueryResolver, GraphQLMutat
     }
 
     public Boolean deleteMovimientoCaja(Long id, Long sucId){
+        seg.requireSuperusuario();
         return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 

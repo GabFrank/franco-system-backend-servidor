@@ -38,6 +38,7 @@ class FuncionarioGraphQLDatosLegajoTest {
     @Mock private UsuarioService usuarioService;
     @Mock private PersonaService personaService;
     @Mock private ClienteService clienteService;
+    @Mock private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
     @InjectMocks private FuncionarioGraphQL resolver;
 
     private Funcionario existente;

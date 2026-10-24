@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.FormaPago;
 import com.franco.dev.domain.productos.Producto;
@@ -25,6 +26,9 @@ import java.util.Optional;
 
 @Component
 public class FormaPagoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private FormaPagoService service;
@@ -93,6 +97,7 @@ public class FormaPagoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public FormaPago saveFormaPago(FormaPagoInput input) {
+        seg.requireSuperusuario();
         ModelMapper m = new ModelMapper();
         FormaPago e = m.map(input, FormaPago.class);
         if (input.getUsuarioId() != null) {
@@ -106,6 +111,7 @@ public class FormaPagoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public Boolean deleteFormaPago(Long id) {
+        seg.requireSuperusuario();
         Boolean ok = service.deleteById(id);
         return ok;
     }

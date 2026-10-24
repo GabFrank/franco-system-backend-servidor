@@ -16,4 +16,6 @@ public interface LoteDeProductoProjection {
     Double getSaldoTotal();
 
     Boolean getArchivado();
+
+    Boolean getEliminado();
 }

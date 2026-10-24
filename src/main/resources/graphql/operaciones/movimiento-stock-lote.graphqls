@@ -427,6 +427,7 @@ type LoteDeProducto {
     saldoTotal: Float
     # Archivado: oculto de buscadores y selectores. Si vuelve a tener saldo, se muestra marcado.
     archivado: Boolean
+    eliminado: Boolean
 }
 
 type LoteDeProductoPage {

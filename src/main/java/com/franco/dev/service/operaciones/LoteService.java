@@ -438,7 +438,8 @@ public class LoteService extends CrudService<Lote, LoteRepository, Long> {
                         p.getEstado() != null ? EstadoLote.valueOf(p.getEstado()) : null,
                         p.getSaldo() != null ? p.getSaldo() : 0d,
                         p.getSaldoTotal() != null ? p.getSaldoTotal() : 0d,
-                        Boolean.TRUE.equals(p.getArchivado())));
+                        Boolean.TRUE.equals(p.getArchivado()),
+                        Boolean.TRUE.equals(p.getEliminado())));
     }
 
     /**

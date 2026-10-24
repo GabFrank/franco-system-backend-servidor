@@ -53,6 +53,7 @@ public interface LoteRepository extends HelperRepository<Lote, Long> {
             "       l.fecha_vencimiento AS \"fechaVencimiento\", l.fecha_retiro AS \"fechaRetiro\", " +
             "       l.estado AS \"estado\", " +
             "       EXISTS (SELECT 1 FROM operaciones.lote_archivado a2 WHERE a2.lote_id = l.id) AS \"archivado\", " +
+            "       EXISTS (SELECT 1 FROM operaciones.lote_eliminado e2 WHERE e2.lote_id = l.id) AS \"eliminado\", " +
             "       CAST(COALESCE(s.saldo, 0) AS double precision) AS \"saldo\", " +
             "       CAST(COALESCE(t.saldo, 0) AS double precision) AS \"saldoTotal\" " +
             "FROM operaciones.lote l " +

@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.domain.operaciones.NotaRecepcionItem;
 import com.franco.dev.graphql.operaciones.dto.RechazoNotaRecepcionItemResultadoDTO;
 import com.franco.dev.graphql.operaciones.input.DividirPedidoItemInput;
@@ -16,13 +17,18 @@ import java.util.List;
 public class RecepcionDocumentalGraphQL implements GraphQLMutationResolver {
 
     @Autowired
+    private ComprasSecurityService seg;
+
+    @Autowired
     private RecepcionDocumentalService service;
 
     public RechazoNotaRecepcionItemResultadoDTO rechazarNotaRecepcionItem(RechazarNotaRecepcionItemInput input) {
+        seg.exigirCompras();
         return service.rechazar(input);
     }
 
     public List<NotaRecepcionItem> dividirPedidoItemEnNotas(DividirPedidoItemInput input) {
+        seg.exigirCompras();
         return service.dividir(input);
     }
 }

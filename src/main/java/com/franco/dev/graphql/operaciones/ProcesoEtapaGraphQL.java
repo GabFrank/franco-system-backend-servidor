@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.domain.operaciones.Pedido;
 import com.franco.dev.domain.operaciones.ProcesoEtapa;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
@@ -22,6 +23,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class ProcesoEtapaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private ComprasSecurityService seg;
 
     @Autowired
     private ProcesoEtapaService service;
@@ -77,6 +81,7 @@ public class ProcesoEtapaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
      * Guarda o actualiza una etapa del proceso
      */
     public ProcesoEtapa saveProcesoEtapa(ProcesoEtapaInput input) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         ModelMapper mapper = new ModelMapper();
         ProcesoEtapa entity = mapper.map(input, ProcesoEtapa.class);
         
@@ -104,6 +109,7 @@ public class ProcesoEtapaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
      */
     @Transactional
     public ProcesoEtapa iniciarEtapa(Long pedidoId, ProcesoEtapaTipo tipo, Long usuarioId) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         if (pedidoId == null || tipo == null || usuarioId == null) {
             throw new GraphQLException("ID del pedido, tipo de etapa y usuario son requeridos");
         }
@@ -126,6 +132,7 @@ public class ProcesoEtapaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
      */
     @Transactional
     public ProcesoEtapa finalizarEtapa(Long pedidoId, ProcesoEtapaTipo tipo) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         if (pedidoId == null || tipo == null) {
             throw new GraphQLException("ID del pedido y tipo de etapa son requeridos");
         }
@@ -142,6 +149,7 @@ public class ProcesoEtapaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
      */
     @Transactional
     public ProcesoEtapa omitirEtapa(Long pedidoId, ProcesoEtapaTipo tipo) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         if (pedidoId == null || tipo == null) {
             throw new GraphQLException("ID del pedido y tipo de etapa son requeridos");
         }
@@ -160,6 +168,7 @@ public class ProcesoEtapaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
      */
     @Transactional
     public Pedido revertirEtapaCreacion(Long pedidoId) {
+        seg.exigirCompras();
         if (pedidoId == null) {
             throw new GraphQLException("ID del pedido es requerido");
         }

@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.service.productos.PrecioSecurityService;
 import com.franco.dev.domain.operaciones.dto.StockPorSucursalDto;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.empresarial.Sucursal;
@@ -45,6 +46,9 @@ import java.util.logging.Logger;
 
 @Component
 public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private PrecioSecurityService seg;
 
     private static final Logger log = Logger.getLogger(String.valueOf(ProductoService.class));
 
@@ -131,6 +135,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     private org.springframework.context.ApplicationEventPublisher publisher;
 
     public Producto saveProducto(ProductoInput input) {
+        seg.requireAnyRole(PrecioSecurityService.EDITAR_PRODUCTOS);
         boolean isNewProduct = (input.getId() == null);
 
         Producto e = service.save(input);
@@ -170,6 +175,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Boolean deleteProducto(Long id) {
+        seg.requireAnyRole(); // sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }
@@ -187,6 +193,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Boolean saveImagenProducto(String image, String filename) throws IOException {
+        seg.requireAnyRole(); // sin pantalla que la llame
         return false;
     }
 

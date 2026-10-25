@@ -41,18 +41,34 @@ public class ComprasSecurityService {
         return nick != null ? usuarioService.findByNickname(nick).orElse(null) : null;
     }
 
-    public boolean puedeOperar() {
+    /** Roles del usuario de la sesion, recortados y en mayusculas; el nickname ADMIN cuenta como rol ADMIN. */
+    protected Set<String> rolesActuales() {
+        Set<String> mios = new HashSet<>();
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String nick = auth != null ? auth.getName() : null;
-        if (nick != null && ADMIN.equalsIgnoreCase(nick)) return true;
-        Usuario u = usuarioActual();
-        if (u == null) return false;
-        Set<String> mios = new HashSet<>();
-        for (Role r : roleService.findByUsuarioId(u.getId())) {
-            if (r.getNombre() != null) mios.add(r.getNombre().trim().toUpperCase());
+        if (nick != null && ADMIN.equalsIgnoreCase(nick)) {
+            mios.add(ADMIN);
+            return mios;
         }
-        if (mios.contains(ADMIN)) return true;
-        return ROLES_COMPRAS.stream().anyMatch(mios::contains);
+        Usuario u = usuarioActual();
+        if (u != null) {
+            for (Role r : roleService.findByUsuarioId(u.getId())) {
+                if (r.getNombre() != null) mios.add(r.getNombre().trim().toUpperCase());
+            }
+        }
+        return mios;
+    }
+
+    public boolean puedeOperar() {
+        Set<String> mios = rolesActuales();
+        return mios.contains(ADMIN) || ROLES_COMPRAS.stream().anyMatch(mios::contains);
+    }
+
+    /** Escrituras de compras que ninguna pantalla usa. */
+    public void exigirAdmin() {
+        if (!rolesActuales().contains(ADMIN)) {
+            throw new GraphQLException("No autorizado: esta acción es solo para un administrador.");
+        }
     }
 
     public void exigirCompras() {

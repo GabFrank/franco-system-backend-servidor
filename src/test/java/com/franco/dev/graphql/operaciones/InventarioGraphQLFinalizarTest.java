@@ -135,6 +135,8 @@ class InventarioGraphQLFinalizarTest {
 
         resolver = new InventarioGraphQL();
         ReflectionTestUtils.setField(resolver, "service", service);
+        ReflectionTestUtils.setField(resolver, "seg",
+                new com.franco.dev.service.operaciones.InventarioSecurityFalso("VER INVENTARIO"));
         ReflectionTestUtils.setField(resolver, "inventarioProductoService", inventarioProductoService);
         ReflectionTestUtils.setField(resolver, "inventarioProductoItemService", itemService);
         ReflectionTestUtils.setField(resolver, "productoService", productoService);
@@ -485,5 +487,15 @@ class InventarioGraphQLFinalizarTest {
         verify(service).lockById(INVENTARIO);
         verify(service).save(inventario);
         verify(transactionManager).commit(any());
+    }
+
+    @Test
+    void finalizarSinRolDeGestionSeRechazaAntesDeTocarNada() {
+        ReflectionTestUtils.setField(resolver, "seg",
+                new com.franco.dev.service.operaciones.InventarioSecurityFalso("PARTICIPAR DEL INVENTARIO"));
+        GraphQLException e = org.junit.jupiter.api.Assertions.assertThrows(GraphQLException.class,
+                () -> resolver.finalizarInventario(7L));
+        org.junit.jupiter.api.Assertions.assertTrue(e.getMessage().startsWith("No autorizado"));
+        org.mockito.Mockito.verifyNoInteractions(service);
     }
 }

@@ -235,4 +235,99 @@ class PersonaSyncControllerTest {
         assertEquals(HttpStatus.FORBIDDEN, r.getStatusCode());
         assertTrue(r.getBody().get("message").contains("administrador"));
     }
+
+    // --- fase B: altas idempotentes y respuesta sin relaciones ---
+
+    private Persona guardada(Long id, String documento) {
+        Persona p = new Persona();
+        p.setId(id);
+        p.setDocumento(documento);
+        p.setNombre("EXISTENTE");
+        return p;
+    }
+
+    @Test
+    void altaDePersonaConDvDevuelveLaExistenteSinTocarla() {
+        sesion();
+        when(personaService.findByDocumento("80018977")).thenReturn(guardada(50L, "80018977"));
+        PersonaSyncRequest p = new PersonaSyncRequest();
+        p.setDocumento(" 80018977-1 ");
+        p.setNombre("OTRO NOMBRE");
+        org.springframework.http.ResponseEntity<Persona> r = c.savePersona(p);
+        assertEquals(HttpStatus.OK, r.getStatusCode());
+        assertEquals(50L, r.getBody().getId());
+        assertEquals("EXISTENTE", r.getBody().getNombre());
+        verify(personaService, never()).save(any());
+    }
+
+    @Test
+    void altaDePersonaConXoSinDocumentoNoBuscaYCrea() {
+        sesion();
+        PersonaSyncRequest x = new PersonaSyncRequest();
+        x.setDocumento("x");
+        x.setNombre("SIN NOMBRE");
+        assertEquals(HttpStatus.CREATED, c.savePersona(x).getStatusCode());
+        PersonaSyncRequest sin = new PersonaSyncRequest();
+        sin.setDocumento("   ");
+        assertEquals(HttpStatus.CREATED, c.savePersona(sin).getStatusCode());
+        verify(personaService, never()).findByDocumento(any());
+    }
+
+    @Test
+    void altaDePersonaNuevaGuardaElDocumentoNormalizado() {
+        sesion();
+        PersonaSyncRequest p = new PersonaSyncRequest();
+        p.setDocumento(" 7168390 ");
+        c.savePersona(p);
+        org.mockito.ArgumentCaptor<Persona> cap = org.mockito.ArgumentCaptor.forClass(Persona.class);
+        verify(personaService).save(cap.capture());
+        assertEquals("7168390", cap.getValue().getDocumento());
+    }
+
+    @Test
+    void siOtraAltaGanaLaCarreraSeDevuelveLaExistente() {
+        sesion();
+        when(personaService.findByDocumento("4444441")).thenReturn(null, guardada(60L, "4444441"));
+        when(personaService.save(any())).thenThrow(new org.springframework.dao.DataIntegrityViolationException("persona_un_documento"));
+        PersonaSyncRequest p = new PersonaSyncRequest();
+        p.setDocumento("4444441");
+        org.springframework.http.ResponseEntity<Persona> r = c.savePersona(p);
+        assertEquals(HttpStatus.OK, r.getStatusCode());
+        assertEquals(60L, r.getBody().getId());
+    }
+
+    @Test
+    void altaDeClienteDeUnaPersonaQueYaEsClienteDevuelveEseSinTocarlo() {
+        sesion();
+        Cliente existente = new Cliente();
+        existente.setId(9L);
+        existente.setPersona(persona);
+        existente.setCredito(0f);
+        when(clienteService.findByPersonaId(7L)).thenReturn(existente);
+        org.springframework.http.ResponseEntity<Cliente> r = c.saveCliente(cliente(null, 900000f));
+        assertEquals(HttpStatus.OK, r.getStatusCode());
+        assertEquals(9L, r.getBody().getId());
+        assertEquals(0f, r.getBody().getCredito());
+        verify(clienteService, never()).save(any());
+    }
+
+    @Test
+    void laRespuestaNoLlevaRelaciones() throws Exception {
+        sesion("ADMIN");
+        Usuario u = new Usuario();
+        u.setId(5L);
+        u.setPassword("hash-secreto");
+        Cliente g = new Cliente();
+        g.setId(1L);
+        g.setPersona(persona);
+        g.setUsuario(u);
+        when(clienteService.findById(1L)).thenReturn(Optional.of(g));
+        Cliente body = c.saveCliente(cliente(1L, null)).getBody();
+        assertNull(body.getUsuario());
+        assertNull(body.getPersona());
+        persona.setUsuario(u);
+        PersonaSyncRequest p = new PersonaSyncRequest();
+        p.setId(7L);
+        assertNull(c.savePersona(p).getBody().getUsuario());
+    }
 }

@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.InventarioSecurityService;
 import com.franco.dev.domain.operaciones.Entrada;
 import com.franco.dev.domain.operaciones.Salida;
 import com.franco.dev.graphql.operaciones.input.EntradaInput;
@@ -23,6 +24,9 @@ import java.util.Optional;
 
 @Component
 public class SalidaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private InventarioSecurityService seg;
 
     @Autowired
     private SalidaService service;
@@ -51,6 +55,7 @@ public class SalidaGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 //    }
 
     public Salida saveSalida(SalidaInput input){
+        seg.requireAnyRole();
         ModelMapper m = new ModelMapper();
         Salida e = m.map(input, Salida.class);
         if(input.getUsuarioId()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -61,6 +66,7 @@ public class SalidaGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Boolean deleteSalida(Long id){
+        seg.requireAnyRole();
         return service.deleteById(id);
     }
 
@@ -73,6 +79,7 @@ public class SalidaGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Boolean finalizarSalida(Long id){
+        seg.requireAnyRole();
         return service.finalizarSalida(id);
     }
 }

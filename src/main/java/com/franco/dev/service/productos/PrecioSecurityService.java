@@ -25,6 +25,7 @@ public class PrecioSecurityService {
     public static final String ADMIN = "ADMIN";
     public static final String CREAR = "CREAR PRECIOS";
     public static final String EDITAR = "EDITAR PRECIOS";
+    public static final String EDITAR_PRODUCTOS = "EDITAR PRODUCTOS";
 
     @Autowired private UsuarioService usuarioService;
     @Autowired private RoleService roleService;

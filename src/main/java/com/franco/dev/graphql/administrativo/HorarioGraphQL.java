@@ -19,6 +19,9 @@ import java.util.Optional;
 public class HorarioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
+    @Autowired
     private HorarioService service;
 
     @Autowired
@@ -38,6 +41,7 @@ public class HorarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Horario saveHorario(HorarioInput input) {
+        seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR, "EDITAR FUNCIONARIOS");
         ModelMapper m = new ModelMapper();
         Horario e = m.map(input, Horario.class);
 
@@ -67,6 +71,7 @@ public class HorarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Boolean deleteHorario(Long id) {
+        seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR, "EDITAR FUNCIONARIOS");
         return service.deleteById(id);
     }
 }

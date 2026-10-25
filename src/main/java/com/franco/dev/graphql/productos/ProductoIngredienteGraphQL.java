@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.service.productos.PrecioSecurityService;
 import com.franco.dev.domain.productos.ComboItem;
 import com.franco.dev.domain.productos.Ingrediente;
 import com.franco.dev.domain.productos.ProductoIngrediente;
@@ -20,6 +21,9 @@ import java.util.Optional;
 
 @Component
 public class ProductoIngredienteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private PrecioSecurityService seg;
 
     @Autowired
     private ProductoIngredienteService service;
@@ -48,6 +52,7 @@ public class ProductoIngredienteGraphQL implements GraphQLQueryResolver, GraphQL
     }
 
     public ProductoIngrediente saveProductoIngrediente(ProductoIngredienteInput input){
+        seg.requireAnyRole(); // sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         ProductoIngrediente e = m.map(input, ProductoIngrediente.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -57,6 +62,7 @@ public class ProductoIngredienteGraphQL implements GraphQLQueryResolver, GraphQL
     }
 
     public Boolean deleteProductoIngrediente(Long id){
+        seg.requireAnyRole(); // sin pantalla que la llame
         return service.deleteById(id);
     }
 

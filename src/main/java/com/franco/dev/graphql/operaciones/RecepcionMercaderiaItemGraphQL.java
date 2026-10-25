@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItem;
 import com.franco.dev.domain.operaciones.NotaRecepcionItemDistribucion;
 import com.franco.dev.graphql.operaciones.input.RecepcionMercaderiaItemInput;
@@ -61,6 +62,9 @@ import com.franco.dev.graphql.operaciones.input.RecepcionMercaderiaItemVariacion
 
 @Component
 public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private ComprasSecurityService seg;
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RecepcionMercaderiaItemGraphQL.class);
 
@@ -188,6 +192,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      */
     @Transactional
     public RecepcionMercaderiaItem saveRecepcionMercaderiaItem(RecepcionMercaderiaItemInput input) {
+        seg.exigirCompras();
         if (input == null) {
             throw new GraphQLException("Input es requerido");
         }
@@ -672,6 +677,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      * Cancela la verificación de un ítem de recepción
      */
     public Boolean cancelarVerificacion(Long notaRecepcionItemId, Long sucursalId) {
+        seg.exigirCompras();
         System.out.println("=== CANCELAR VERIFICACIÓN ===");
         System.out.println("NotaRecepcionItemId: " + notaRecepcionItemId);
         System.out.println("SucursalId: " + sucursalId);
@@ -696,6 +702,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      * resetea estado)
      */
     public Boolean resetearVerificacion(Long recepcionMercaderiaItemId) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         System.out.println("=== RESETEAR VERIFICACIÓN ===");
         System.out.println("RecepcionMercaderiaItemId: " + recepcionMercaderiaItemId);
 
@@ -726,6 +733,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      * - Mobile: Sí (deshacer verificación de productos con múltiples notas)
      */
     public Boolean deshacerVerificacionPorProducto(Long recepcionMercaderiaId, Long productoId) {
+        seg.exigirCompras();
         System.out.println("=== DESHACER VERIFICACIÓN POR PRODUCTO ===");
         System.out.println("RecepcionMercaderiaId: " + recepcionMercaderiaId);
         System.out.println("ProductoId: " + productoId);
@@ -773,6 +781,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
             String fechaRetiro,
             Long usuarioId
     ) {
+        seg.exigirCompras();
         if (recepcionMercaderiaId == null || productoId == null || usuarioId == null) {
             throw new GraphQLException("recepcionMercaderiaId, productoId y usuarioId son requeridos");
         }
@@ -797,6 +806,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      * Cancela el rechazo de un ítem de recepción
      */
     public Boolean cancelarRechazo(Long notaRecepcionItemId, Long sucursalId) {
+        seg.exigirCompras();
         System.out.println("=== CANCELAR RECHAZO ===");
         System.out.println("NotaRecepcionItemId: " + notaRecepcionItemId);
         System.out.println("SucursalId: " + sucursalId);
@@ -822,6 +832,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
     @Transactional
     public Boolean rechazarItem(Long notaRecepcionItemId, Long presentacionId, List<RechazoInput> rechazos,
             Long usuarioId) {
+        seg.exigirCompras();
         System.out.println("=== RECHAZAR ÍTEM ===");
         System.out.println("NotaRecepcionItemId: " + notaRecepcionItemId);
         System.out.println("PresentacionId: " + presentacionId);
@@ -1046,6 +1057,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      */
     @Transactional
     public Boolean recepcionarTodoPorNota(Long notaId, List<Long> sucursalesIds, Long usuarioId, List<Long> itemIds) {
+        seg.exigirCompras();
         System.out.println("=== RECEPCIONAR TODO POR NOTA ===");
         System.out.println("NotaId: " + notaId);
         System.out.println("SucursalesIds: " + sucursalesIds);
@@ -1159,6 +1171,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      */
     @Transactional
     public Boolean deshacerVerificacionTodoPorNota(Long notaId, List<Long> sucursalesIds, Long usuarioId, List<Long> itemIds) {
+        seg.exigirCompras();
         System.out.println("=== DESHACER VERIFICACIÓN TODO POR NOTA ===");
         System.out.println("NotaId: " + notaId);
         System.out.println("SucursalesIds: " + sucursalesIds);
@@ -1241,6 +1254,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
 
     public ValidacionFinalizacionRecepcion validarFinalizacionRecepcionPorPedido(Long pedidoId,
             List<Long> sucursalesIds) {
+        seg.exigirCompras();
         log.debug("=== VALIDACIÓN FINALIZACIÓN RECEPCIÓN POR PEDIDO === pedidoId={} sucursalesIds={}",
                 pedidoId, sucursalesIds);
 
@@ -1367,6 +1381,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      */
     @Transactional
     public Boolean finalizarRecepcionFisicaPorPedido(Long pedidoId, List<Long> sucursalesIds) {
+        seg.exigirCompras();
         System.out.println("=== FINALIZAR RECEPCIÓN FÍSICA POR PEDIDO ===");
         System.out.println("PedidoId: " + pedidoId);
         System.out.println("SucursalesIds: " + sucursalesIds);

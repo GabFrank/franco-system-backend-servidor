@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.graphql.operaciones.input.PedidoItemDistribucionInput;
 import com.franco.dev.graphql.operaciones.input.PedidoItemInput;
@@ -22,6 +23,9 @@ import java.util.List;
 public class GuardadoPedidoItemGraphQL implements GraphQLMutationResolver {
 
     @Autowired
+    private ComprasSecurityService seg;
+
+    @Autowired
     private PedidoItemGraphQL pedidoItemGraphQL;
     @Autowired
     private PedidoItemDistribucionGraphQL pedidoItemDistribucionGraphQL;
@@ -29,6 +33,7 @@ public class GuardadoPedidoItemGraphQL implements GraphQLMutationResolver {
     @Transactional
     public PedidoItem guardarPedidoItemConDistribuciones(PedidoItemInput pedidoItem,
                                                          List<PedidoItemDistribucionInput> distribuciones) {
+        seg.exigirCompras();
         PedidoItem guardado = pedidoItemGraphQL.savePedidoItem(pedidoItem);
         List<PedidoItemDistribucionInput> conItem = new ArrayList<>();
         if (distribuciones != null) {

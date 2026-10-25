@@ -41,7 +41,8 @@ class ControlRolMatrizTest {
             "CREAR TRANSFERENCIA", "FACTURACION EMITIR", "RRHH GESTIONAR", "RRHH CONFIG", "RRHH VER", "SOPORTE",
             "VER FUNCIONARIOS", "VER PERSONAS", "EDITAR USUARIOS", "TESORERIA CAJA", "RECIBIR PEDIDOS",
             "TESORERIA VER", "ANALISIS FINANCIERO", "ANALISIS CONTABLE", "VER PRECIO COSTO",
-            "EDITAR PRODUCTOS", "CREAR PRECIOS", "EDITAR PRECIOS", "CREAR FUNCIONARIOS", "EDITAR FUNCIONARIOS");
+            "EDITAR PRODUCTOS", "CREAR PRECIOS", "EDITAR PRECIOS", "CREAR FUNCIONARIOS", "EDITAR FUNCIONARIOS",
+            "VER INVENTARIO", "CREAR INVENTARIO", "PARTICIPAR DEL INVENTARIO");
 
     static class Fila {
         final Class<?> clase; final String campo; final String metodo; final List<String> roles;
@@ -131,6 +132,34 @@ class ControlRolMatrizTest {
                 f(com.franco.dev.graphql.personas.ClienteAdicionalGraphQL.class, "deleteClienteAdicional"),
                 f(com.franco.dev.graphql.personas.PersonaGraphQL.class, "deletePersona", "CREAR FUNCIONARIOS",
                         "VER FUNCIONARIOS", "RRHH GESTIONAR"),
+                // stock e inventario (tanda 2)
+                f(com.franco.dev.graphql.operaciones.MovimientoStockLoteGraphQL.class, "ajustarStockLote", "EDITAR PRODUCTOS"),
+                f(com.franco.dev.graphql.operaciones.MovimientoStockLoteGraphQL.class, "cambiarEstadoLote", "EDITAR PRODUCTOS"),
+                f(com.franco.dev.graphql.operaciones.MovimientoStockLoteGraphQL.class, "crearLoteProducto", "EDITAR PRODUCTOS", "VER INVENTARIO", "CREAR INVENTARIO", "PARTICIPAR DEL INVENTARIO"),
+                f(com.franco.dev.graphql.operaciones.MovimientoStockLoteGraphQL.class, "actualizarFechasLote", "EDITAR PRODUCTOS", "VER INVENTARIO", "CREAR INVENTARIO", "PARTICIPAR DEL INVENTARIO"),
+                f(com.franco.dev.graphql.operaciones.MovimientoGraphQL.class, "saveMovimientoStock", "EDITAR PRODUCTOS"),
+                f(com.franco.dev.graphql.operaciones.MovimientoGraphQL.class, "deleteMovimientoStock"),
+                f(com.franco.dev.graphql.operaciones.InventarioGraphQL.class, "saveInventario", "VER INVENTARIO", "CREAR INVENTARIO", "PARTICIPAR DEL INVENTARIO"),
+                f(com.franco.dev.graphql.operaciones.InventarioGraphQL.class, "deleteInventario"),
+                f(com.franco.dev.graphql.operaciones.InventarioGraphQL.class, "finalizarInventario", "VER INVENTARIO", "CREAR INVENTARIO"),
+                f(com.franco.dev.graphql.operaciones.InventarioGraphQL.class, "cancelarInventario", "VER INVENTARIO", "CREAR INVENTARIO"),
+                f(com.franco.dev.graphql.operaciones.InventarioGraphQL.class, "reabrirInventario", "VER INVENTARIO", "CREAR INVENTARIO"),
+                f(com.franco.dev.graphql.operaciones.InventarioProductoGraphQL.class, "saveInventarioProducto", "VER INVENTARIO", "CREAR INVENTARIO", "PARTICIPAR DEL INVENTARIO"),
+                f(com.franco.dev.graphql.operaciones.InventarioProductoGraphQL.class, "deleteInventarioProducto"),
+                f(com.franco.dev.graphql.operaciones.InventarioProductoItemGraphQL.class, "saveInventarioProductoItem", "VER INVENTARIO", "CREAR INVENTARIO", "PARTICIPAR DEL INVENTARIO"),
+                f(com.franco.dev.graphql.operaciones.InventarioProductoItemGraphQL.class, "deleteInventarioProductoItem", "VER INVENTARIO", "CREAR INVENTARIO", "PARTICIPAR DEL INVENTARIO"),
+                f(com.franco.dev.graphql.operaciones.SesionInventarioGraphQL.class, "saveSesionInventario"),
+                f(com.franco.dev.graphql.operaciones.SesionInventarioGraphQL.class, "deleteSesionInventario"),
+                f(com.franco.dev.graphql.operaciones.EntradaGraphQL.class, "saveEntrada"),
+                f(com.franco.dev.graphql.operaciones.EntradaGraphQL.class, "deleteEntrada"),
+                f(com.franco.dev.graphql.operaciones.EntradaGraphQL.class, "finalizarEntrada"),
+                f(com.franco.dev.graphql.operaciones.EntradaItemGraphQL.class, "saveEntradaItem"),
+                f(com.franco.dev.graphql.operaciones.EntradaItemGraphQL.class, "deleteEntradaItem"),
+                f(com.franco.dev.graphql.operaciones.SalidaGraphQL.class, "saveSalida"),
+                f(com.franco.dev.graphql.operaciones.SalidaGraphQL.class, "deleteSalida"),
+                f(com.franco.dev.graphql.operaciones.SalidaGraphQL.class, "finalizarSalida"),
+                f(com.franco.dev.graphql.operaciones.SalidaItemGraphQL.class, "saveSalidaItem"),
+                f(com.franco.dev.graphql.operaciones.SalidaItemGraphQL.class, "deleteSalidaItem"),
                 // jornadas y horarios
                 f(com.franco.dev.graphql.administrativo.JornadaGraphQL.class, "ajustarJornadaA8Horas", "RRHH GESTIONAR"),
                 f(com.franco.dev.graphql.administrativo.JornadaGraphQL.class, "guardarObservacionJornada", "RRHH GESTIONAR"),
@@ -150,6 +179,8 @@ class ControlRolMatrizTest {
                 ? new com.franco.dev.service.productos.PrecioSecurityFalso(roles)
                 : tipo == com.franco.dev.service.rrhh.RrhhSecurityService.class
                 ? new com.franco.dev.service.rrhh.RrhhSecurityFalso(roles)
+                : tipo == com.franco.dev.service.operaciones.InventarioSecurityService.class
+                ? new com.franco.dev.service.operaciones.InventarioSecurityFalso(roles)
                 : new TesoreriaSecurityFalso(1L, roles);
         ReflectionTestUtils.setField(r, fila.campo, seg);
         return r;

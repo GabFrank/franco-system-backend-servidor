@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.InventarioSecurityService;
 import com.franco.dev.domain.operaciones.Lote;
 import com.franco.dev.domain.operaciones.MovimientoStockLote;
 import com.franco.dev.domain.operaciones.dto.AjusteStockLoteResultadoDto;
@@ -41,6 +42,9 @@ import java.util.List;
  */
 @Component
 public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private InventarioSecurityService seg;
 
     @Autowired
     private MovimientoStockLoteService service;
@@ -174,6 +178,7 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
      * {@link AjusteStockLoteService} para las dos operaciones que soporta.
      */
     public AjusteStockLoteResultadoDto ajustarStockLote(AjusteStockLoteInput input) {
+        seg.requireAnyRole(InventarioSecurityService.EDITAR_PRODUCTOS);
         try {
             return ajusteStockLoteService.ajustar(input);
         } catch (IllegalArgumentException e) {
@@ -196,6 +201,7 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
      */
     public Lote crearLoteProducto(Long productoId, String numeroLote, String fechaVencimiento,
                                   String fechaRetiro, String observacion, Long usuarioId) {
+        seg.requireAnyRole(InventarioSecurityService.ROLES_LOTE_CONTEO);
         if (productoId == null) {
             throw new GraphQLException("productoId es requerido");
         }
@@ -227,6 +233,7 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
      */
     public Lote actualizarFechasLote(Long loteId, String fechaVencimiento, String fechaRetiro,
                                      String motivo, Long usuarioId) {
+        seg.requireAnyRole(InventarioSecurityService.ROLES_LOTE_CONTEO);
         if (loteId == null) {
             throw new GraphQLException("loteId es requerido");
         }
@@ -273,6 +280,7 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
      * en el inventario.
      */
     public Lote cambiarEstadoLote(Long loteId, EstadoLote estado, String observacion, Long usuarioId) {
+        seg.requireAnyRole(InventarioSecurityService.EDITAR_PRODUCTOS);
         if (loteId == null || estado == null) {
             throw new GraphQLException("loteId y estado son requeridos");
         }

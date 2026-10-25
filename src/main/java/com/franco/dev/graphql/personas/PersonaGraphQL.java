@@ -26,6 +26,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private PersonaService service;
 
     @Autowired
@@ -106,6 +109,8 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Boolean deletePersona(Long id) {
+        // solo la llama el rollback del wizard de alta de funcionario
+        seg.requireAnyRole(FuncionarioGraphQL.ROLES_ALTA);
         Boolean ok = service.deleteById(id);
         return ok;
     }

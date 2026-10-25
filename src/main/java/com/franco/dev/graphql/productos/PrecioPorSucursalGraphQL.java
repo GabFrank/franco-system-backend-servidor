@@ -22,6 +22,9 @@ import java.util.Optional;
 public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.productos.PrecioSecurityService seg;
+
+    @Autowired
     private PrecioPorSucursalService service;
 
     @Autowired
@@ -77,6 +80,7 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
     private org.springframework.context.ApplicationEventPublisher publisher;
 
     public PrecioPorSucursal savePrecioPorSucursal(PrecioPorSucursalInput input) {
+        seg.requireGestionar();
         Double precioAnterior = null;
         if (input.getId() != null) {
             PrecioPorSucursal p = service.findById(input.getId()).orElse(null);
@@ -120,6 +124,7 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
     }
 
     public Boolean deletePrecioPorSucursal(Long id) {
+        seg.requireGestionar();
         Boolean ok = service.deleteById(id);
         return ok;
     }

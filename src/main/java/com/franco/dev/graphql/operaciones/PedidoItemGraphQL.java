@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.graphql.operaciones.input.PedidoItemInput;
 import com.franco.dev.service.operaciones.PedidoItemService;
@@ -25,6 +26,9 @@ import java.util.Optional;
 
 @Component
 public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private ComprasSecurityService seg;
 
     private static final Logger logger = LoggerFactory.getLogger(PedidoItemGraphQL.class);
 
@@ -54,6 +58,7 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public Boolean deletePedidoItem(Long id) {
+        seg.exigirCompras();
         return service.deleteById(id);
     }
 
@@ -93,6 +98,7 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     // ===== SAVE OPERATIONS =====
 
     public PedidoItem savePedidoItem(PedidoItemInput input) {
+        seg.exigirCompras();
         logger.info("=== Starting PedidoItem save operation ===");
         
         try {
@@ -142,12 +148,14 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     // These methods are simplified stubs - full functionality moved to new entities
 
     public PedidoItem updateNotaRecepcion(Long pedidoItemId, Long notaRecepcionId) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         // TODO: Implement using NotaRecepcionItem entity
         PedidoItem pedidoItem = service.findById(pedidoItemId).orElse(null);
         return pedidoItem;
     }
 
     public PedidoItem addPedidoItemToNotaRecepcion(Long notaRecepcionId, Long pedidoItemId) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         // TODO: Implement using NotaRecepcionItem entity
         PedidoItem pi = service.getRepository().findById(pedidoItemId).orElse(null);
         if (pi == null) {
@@ -157,6 +165,7 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public PedidoItem verificarRecepcionProducto(Long pedidoItemId, Boolean verificar) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         // TODO: Implement using RecepcionMercaderiaItem entity
         PedidoItem pi = service.findById(pedidoItemId).orElse(null);
         if (pi == null) throw new GraphQLException("PedidoItem no encontrado con ID: " + pedidoItemId);

@@ -177,6 +177,8 @@ class ControlRolMatrizTest {
                 ? new FacturacionSecurityFalso(roles)
                 : tipo == com.franco.dev.service.productos.PrecioSecurityService.class
                 ? new com.franco.dev.service.productos.PrecioSecurityFalso(roles)
+                : tipo == com.franco.dev.service.operaciones.compras.ComprasSecurityService.class
+                ? new com.franco.dev.service.operaciones.compras.ComprasSecurityFalso(roles)
                 : tipo == com.franco.dev.service.rrhh.RrhhSecurityService.class
                 ? new com.franco.dev.service.rrhh.RrhhSecurityFalso(roles)
                 : tipo == com.franco.dev.service.operaciones.InventarioSecurityService.class

@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaNota;
 import com.franco.dev.service.operaciones.NotaRecepcionService;
 import com.franco.dev.service.operaciones.RecepcionMercaderiaNotaService;
@@ -17,6 +18,9 @@ import java.util.Optional;
 
 @Component
 public class RecepcionMercaderiaNotaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private ComprasSecurityService seg;
 
     private static final Logger logger = LoggerFactory.getLogger(RecepcionMercaderiaNotaGraphQL.class);
 
@@ -62,6 +66,7 @@ public class RecepcionMercaderiaNotaGraphQL implements GraphQLQueryResolver, Gra
     // ===== MUTATION OPERATIONS =====
 
     public RecepcionMercaderiaNota asociarNotaARecepcion(Long recepcionId, Long notaRecepcionId) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         logger.info("=== Asociando NotaRecepcion {} a RecepcionMercaderia {} ===", notaRecepcionId, recepcionId);
         
         try {
@@ -83,6 +88,7 @@ public class RecepcionMercaderiaNotaGraphQL implements GraphQLQueryResolver, Gra
     }
 
     public Boolean desasociarNotaDeRecepcion(Long recepcionId, Long notaRecepcionId) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         logger.info("=== Desasociando NotaRecepcion {} de RecepcionMercaderia {} ===", notaRecepcionId, recepcionId);
         
         try {
@@ -100,6 +106,7 @@ public class RecepcionMercaderiaNotaGraphQL implements GraphQLQueryResolver, Gra
     }
 
     public Boolean deleteRecepcionMercaderiaNota(Long id) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         logger.info("Eliminando RecepcionMercaderiaNota con ID: {}", id);
         try {
             return service.deleteById(id);

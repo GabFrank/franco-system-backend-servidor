@@ -22,6 +22,9 @@ import java.util.Optional;
 public class JornadaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
+    @Autowired
     private JornadaService service;
 
     @Autowired
@@ -64,10 +67,12 @@ public class JornadaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Jornada ajustarJornadaA8Horas(Long id, Long sucursalId, String observacion) {
+        seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR);
         return service.ajustarA8Horas(id, sucursalId, observacion);
     }
 
     public Jornada guardarObservacionJornada(Long id, Long sucursalId, String observacion) {
+        seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR);
         return service.guardarObservacion(id, sucursalId, observacion);
     }
 }

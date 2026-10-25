@@ -41,8 +41,19 @@ class RecepcionFinalizacionPerfIT {
     @Autowired private RecepcionMercaderiaItemGraphQL resolver;
 
     /** SecurityGraphQLAspect exige un Authentication no anonimo para llamar cualquier resolver. */
+    private Object segReal;
+
+    @org.junit.jupiter.api.AfterEach
+    void restaurarSeguridad() {
+        org.springframework.test.util.ReflectionTestUtils.setField(resolver, "seg", segReal);
+    }
+
     @BeforeEach
     void autenticar() {
+        // el control de rol del resolver lee roles de la base; el usuario de este IT no existe
+        segReal = org.springframework.test.util.ReflectionTestUtils.getField(resolver, "seg");
+        org.springframework.test.util.ReflectionTestUtils.setField(resolver, "seg",
+                new com.franco.dev.service.operaciones.compras.ComprasSecurityFalso("ADMIN"));
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("perf-it", null,
                         java.util.Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN"))));

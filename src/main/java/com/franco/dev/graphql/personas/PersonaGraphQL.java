@@ -8,6 +8,7 @@ import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.PersonaInput;
 import com.franco.dev.service.general.CiudadService;
 import com.franco.dev.service.personas.PersonaService;
+import graphql.GraphQLException;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -63,6 +64,8 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Persona savePersona(PersonaInput input) {
+        if (!PersonaService.imagenesValidas(input.getImagenes()))
+            throw new GraphQLException("La imagen tiene que ser un nombre de archivo, no una ruta.");
         Persona e;
 
         if (input.getId() != null) {

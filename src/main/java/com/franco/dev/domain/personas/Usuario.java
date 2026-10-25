@@ -1,6 +1,7 @@
 package com.franco.dev.domain.personas;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.franco.dev.config.Identifiable;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -32,6 +33,8 @@ public class Usuario implements Identifiable<Long> {
         @GeneratedValue(generator = "assigned-identity", strategy = GenerationType.IDENTITY)
         private Long id;
 
+        // Nunca en una respuesta JSON (REST): es el hash de la clave.
+        @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
         private String password;
 
         private String nickname;

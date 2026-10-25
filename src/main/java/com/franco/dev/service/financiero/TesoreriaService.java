@@ -12,8 +12,10 @@ import com.franco.dev.repository.financiero.CajaVirtualSaldoRepository;
 import com.franco.dev.repository.financiero.MonedaRepository;
 import com.franco.dev.repository.financiero.MovimientoCajaVirtualRepository;
 import com.franco.dev.repository.financiero.MovimientoCajaVirtualVinculo;
+import com.franco.dev.graphql.financiero.publisher.TesoreriaCambio;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +46,8 @@ public class TesoreriaService {
     private final MonedaRepository monedaRepository;
     private final MovimientoCajaVirtualRepository movimientoRepository;
     private final LimiteAnulacionService limiteAnulacion;
+    /** Avisa los cambios de saldo a la suscripción, después del commit (TesoreriaCambioListener). */
+    private final ApplicationEventPublisher eventos;
 
     /** Los tipos que restan del saldo (además de AJUSTE, que ya llega firmado). */
     static boolean esEgreso(CajaVirtualTipoMovimiento tipo) {
@@ -131,6 +135,7 @@ public class TesoreriaService {
         saldo.setSaldo(nuevo);
         saldoRepository.save(saldo);
         sincronizarShim(caja, moneda, nuevo);
+        eventos.publishEvent(TesoreriaCambio.deCaja(caja.getId()));
         return anterior;
     }
 
@@ -449,5 +454,6 @@ public class TesoreriaService {
             saldoRepository.save(saldo);
             sincronizarShim(caja, moneda, e.getValue());
         }
+        eventos.publishEvent(TesoreriaCambio.deCaja(cajaId));
     }
 }

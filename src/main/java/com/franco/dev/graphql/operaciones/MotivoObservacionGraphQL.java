@@ -5,6 +5,7 @@ import com.franco.dev.graphql.operaciones.input.MotivoObservacionInput;
 import com.franco.dev.service.operaciones.MotivoObservacionService;
 import com.franco.dev.service.operaciones.SubcategoriaObservacionService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.graphql.exceptions.ConstraintViolada;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -42,16 +43,11 @@ public class MotivoObservacionGraphQL implements GraphQLQueryResolver, GraphQLMu
             e.setSubcategoriaObservacion(subcategoriaObservacionService.findById(input.getSubcategoriaObservacionId()).orElse(null));
         }
         try {
-            e = service.save(e);
-        } catch (Exception err) {
-            err.printStackTrace();
-            if (err.getMessage().contains("motivo_observacion_unique")) {
-                throw new GraphQLException("Ya existe un motivo con esa descripción");
-            } else {
-                throw new GraphQLException("No se pudo guardar");
-            }
+            return service.save(e);
+        } catch (RuntimeException ex) {
+            if (ConstraintViolada.en(ex, "motivo_observacion_unique")) throw new GraphQLException("Ya existe un motivo con esa descripción");
+            throw ex;
         }
-        return e;
     }
 
     public MotivoObservacion updateMotivoObservacion(Long id, MotivoObservacionInput input) {

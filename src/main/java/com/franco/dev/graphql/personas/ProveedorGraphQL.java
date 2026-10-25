@@ -11,6 +11,7 @@ import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.graphql.exceptions.ConstraintViolada;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -58,13 +59,11 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
         try {
-            e = service.save(e);
-        } catch (Exception ex){
-            if(ex.getMessage().contains("proveedor_un")) {
-                throw new GraphQLException("Esta persona ya es un proveedor");
-            }
+            return service.save(e);
+        } catch (RuntimeException ex) {
+            if (ConstraintViolada.en(ex, "proveedor_un")) throw new GraphQLException("Esta persona ya es un proveedor");
+            throw ex;
         }
-        return e;
     }
 
     public Boolean deleteProveedor(Long id){

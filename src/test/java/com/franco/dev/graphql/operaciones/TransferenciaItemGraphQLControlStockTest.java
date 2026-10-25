@@ -15,6 +15,7 @@ import com.franco.dev.service.productos.PresentacionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.util.Optional;
 
@@ -45,6 +46,7 @@ class TransferenciaItemGraphQLControlStockTest {
 
         resolver = new TransferenciaItemGraphQL();
         ReflectionTestUtils.setField(resolver, "service", service);
+        ReflectionTestUtils.setField(resolver, "transactionManager", mock(PlatformTransactionManager.class));
         ReflectionTestUtils.setField(resolver, "usuarioService", usuarioService);
         ReflectionTestUtils.setField(resolver, "transferenciaService", transferenciaService);
         ReflectionTestUtils.setField(resolver, "transferenciaItemLoteService", mock(TransferenciaItemLoteService.class));
@@ -53,12 +55,12 @@ class TransferenciaItemGraphQLControlStockTest {
         ReflectionTestUtils.setField(resolver, "controlStockNegativoService", controlStockNegativoService);
 
         when(usuarioService.findById(55L)).thenReturn(Optional.of(new Usuario()));
-        when(transferenciaService.findById(any())).thenReturn(Optional.of(new Transferencia()));
+        when(transferenciaService.lockCompartidoById(any())).thenReturn(Optional.of(new Transferencia()));
         when(presentacionService.findById(any())).thenAnswer(i -> Optional.of(new Presentacion()));
         when(service.save(any())).thenAnswer(i -> i.getArgument(0));
         TransferenciaItem existente = new TransferenciaItem();
         existente.setId(ITEM_EXISTENTE);
-        when(service.findById(ITEM_EXISTENTE)).thenReturn(Optional.of(existente));
+        when(service.lockById(ITEM_EXISTENTE)).thenReturn(Optional.of(existente));
     }
 
     private TransferenciaItemInput input(Long id) {
@@ -84,7 +86,7 @@ class TransferenciaItemGraphQLControlStockTest {
         compras.setNombre(com.franco.dev.service.productos.CostosPorProductoService.SUCURSAL_COMPRAS);
         Transferencia desdeCompras = new Transferencia();
         desdeCompras.setSucursalOrigen(compras);
-        when(transferenciaService.findById(any())).thenReturn(Optional.of(desdeCompras));
+        when(transferenciaService.lockCompartidoById(any())).thenReturn(Optional.of(desdeCompras));
 
         resolver.saveTransferenciaItem(input(null), null);
 

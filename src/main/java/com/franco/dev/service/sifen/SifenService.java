@@ -1071,11 +1071,22 @@ public class SifenService {
                 if ("Aprobado".equalsIgnoreCase(eventoParsed.getEstadoResultado())) {
                     eventoExistente.setEstado(EstadoEvento.APROBADO);
                     log.info("      ✅ Evento APROBADO - Protocolo: {}", eventoParsed.getProtocoloAutorizacion());
+                    // Un PENDIENTE que SIFEN aprobo despues: sin esto la factura quedaba sin el cliente nominado
+                    FacturaLegal facturaNominada = de.getFacturaLegal();
+                    if (facturaNominada != null && eventoExistente.getCliente() != null) {
+                        try {
+                            SifenEventoService.aplicarReceptorNominado(facturaNominada, eventoExistente.getCliente());
+                            facturaLegalService.save(facturaNominada);
+                        } catch (IllegalArgumentException e) {
+                            // El evento aprobado se guarda igual: SIFEN ya nomino
+                            log.error("      ❌ No se pudo aplicar el receptor a la factura ID {}: {}", facturaNominada.getId(), e.getMessage());
+                        }
+                    }
                 } else if ("Rechazado".equalsIgnoreCase(eventoParsed.getEstadoResultado())) {
                     eventoExistente.setEstado(EstadoEvento.RECHAZADO);
                     log.info("      ❌ Evento RECHAZADO - Motivo: {}", eventoParsed.getMensajeRespuesta());
                 }
-                
+
                 eventoNominacionDEService.save(eventoExistente);
                 return; // Ya existe, no hacer más
             }
@@ -1135,9 +1146,15 @@ public class SifenService {
                 nuevoEvento.setEstado(EstadoEvento.APROBADO);
                 
                 // ✅ ACTUALIZAR FACTURA CON EL CLIENTE NOMINADO
-                factura.setCliente(cliente);
+                try {
+                    SifenEventoService.aplicarReceptorNominado(factura, cliente);
+                } catch (IllegalArgumentException e) {
+                    // El evento aprobado se guarda igual: SIFEN ya nomino; queda al menos el cliente
+                    factura.setCliente(cliente);
+                    log.error("      ❌ No se pudo copiar el receptor a la factura ID {}: {}", factura.getId(), e.getMessage());
+                }
                 facturaLegalService.save(factura);
-                
+
                 log.info("      ✅ Evento APROBADO - Factura ID {} actualizada con cliente ID {}", 
                     factura.getId(), cliente.getId());
                 log.info("      📋 Protocolo: {}", eventoParsed.getProtocoloAutorizacion());

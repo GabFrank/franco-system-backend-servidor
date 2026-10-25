@@ -33,6 +33,22 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
                         "UPPER(usr.nickname) like UPPER(concat('%', ?1, '%'))")
         public List<Funcionario> findByIdOrPersonaNombre(String texto);
 
+        /**
+         * Buscador de funcionarios paginado: id, nombre o nickname del usuario. El nickname es del
+         * usuario de la misma persona y no todo funcionario tiene usuario: exists y no join, para no
+         * perder a los que no tienen ni duplicar filas en el count de la pagina.
+         */
+        @Query("select f from Funcionario f " +
+                        "join f.persona p where " +
+                        "(:soloActivos = false or f.activo = true) and " +
+                        "(cast(f.id as text) like concat('%', :texto, '%') or " +
+                        "upper(p.nombre) like concat('%', :texto, '%') or " +
+                        "exists (select usr.id from Usuario usr where usr.persona = p and " +
+                        "upper(usr.nickname) like concat('%', :texto, '%'))) " +
+                        "order by p.nombre")
+        public Page<Funcionario> searchPage(@Param("texto") String texto, @Param("soloActivos") boolean soloActivos,
+                        Pageable pageable);
+
         public Funcionario findByUsuarioId(Long id);
 
         /**
@@ -80,7 +96,9 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
                         // coalesce: las filas viejas quedaron en false por el DEFAULT de la
                         // migracion, pero un insert que no mande la columna puede dejar null,
                         // y ese caso tiene que caer en "No cobra por banco", no fuera del filtro.
-                        "(cast(:cobraBanco as boolean) is null or coalesce(u.cobraBanco, false) = :cobraBanco) " +
+                        "(cast(:cobraBanco as boolean) is null or coalesce(u.cobraBanco, false) = :cobraBanco) and " +
+                        // null cae en "No", igual que lo muestra el legajo ("Inscripto en IPS").
+                        "(cast(:ipsActivo as boolean) is null or coalesce(u.ipsActivo, false) = :ipsActivo) " +
                         "order by p.nombre")
         public Page<Funcionario> findAllWithFilterAndPage(
                         @Param("id") Long id,
@@ -91,5 +109,6 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
                         @Param("diarista") Boolean diarista,
                         @Param("fasePrueba") Boolean fasePrueba,
                         @Param("cobraBanco") Boolean cobraBanco,
+                        @Param("ipsActivo") Boolean ipsActivo,
                         Pageable pageable);
 }

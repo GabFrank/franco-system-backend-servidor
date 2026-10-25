@@ -1,8 +1,10 @@
 package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.financiero.FormaPago;
+import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.operaciones.CobroDetalle;
 import com.franco.dev.graphql.operaciones.VentaGraphQL.AjustesCobro;
+import com.franco.dev.graphql.operaciones.VentaGraphQL.TotalesMovimientos;
 import com.franco.dev.graphql.operaciones.VentaGraphQL.TotalesPorFormaPago;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,6 +39,106 @@ class VentaGraphQLTotalesTest {
         cd.setValor(valor);
         cd.setCambio(cambio);
         return cd;
+    }
+
+    private static CobroDetalle enMoneda(CobroDetalle cd, String denominacion) {
+        Moneda moneda = new Moneda();
+        moneda.setDenominacion(denominacion);
+        cd.setMoneda(moneda);
+        return cd;
+    }
+
+    private static CobroDetalle gs(String tipo, Double valor) {
+        return enMoneda(detalle(tipo, "EFECTIVO", valor, 1.0), "GUARANI");
+    }
+
+    @Test
+    @DisplayName("#454: el Total final es lo cobrado, el aumento no se suma otra vez")
+    void totalFinalNoSumaElAumentoDosVeces() {
+        // Venta 180.000, cobro en efectivo 270.000 con aumento 90.000 (F8).
+        TotalesMovimientos t = VentaGraphQL.totalesDeMovimientos(Arrays.asList(
+                gs("PAGO", 270000.0),
+                gs("AUMENTO", 90000.0)));
+
+        assertEquals(270000.0, t.totalFinal, DELTA);
+        assertEquals(90000.0, t.aumento, DELTA);
+        assertEquals(270000.0, t.recibido, DELTA);
+    }
+
+    @Test
+    @DisplayName("#454: un aumento histórico en negativo se muestra en positivo")
+    void aumentoNegativoSeMuestraPositivo() {
+        // Antes de 2024-10 la línea quedaba en negativo, pero el pago ya lo incluía.
+        TotalesMovimientos t = VentaGraphQL.totalesDeMovimientos(Arrays.asList(
+                gs("PAGO", 270000.0),
+                gs("AUMENTO", -90000.0)));
+
+        assertEquals(270000.0, t.totalFinal, DELTA);
+        assertEquals(90000.0, t.aumento, DELTA);
+    }
+
+    @Test
+    @DisplayName("#454: pago con vuelto, aumento en Gs y en moneda extranjera")
+    void pagoVueltoYAumentoEnVariasMonedas() {
+        TotalesMovimientos t = VentaGraphQL.totalesDeMovimientos(Arrays.asList(
+                gs("PAGO", 100000.0),
+                gs("VUELTO", -5000.0),
+                gs("AUMENTO", 2000.0),
+                enMoneda(detalle("PAGO", "EFECTIVO", 20.0, 1300.0), "REAL"),
+                enMoneda(detalle("AUMENTO", "EFECTIVO", 1.0, 1300.0), "REAL"),
+                enMoneda(detalle("PAGO", "EFECTIVO", 10.0, 7500.0), "DOLAR"),
+                enMoneda(detalle("AUMENTO", "EFECTIVO", 0.5, 7500.0), "DOLAR")));
+
+        double recibido = 100000.0 - 5000.0 + 20.0 * 1300.0 + 10.0 * 7500.0;
+        assertEquals(95000.0, t.recibidoGs, DELTA);
+        assertEquals(20.0, t.recibidoRs, DELTA);
+        assertEquals(10.0, t.recibidoDs, DELTA);
+        assertEquals(recibido, t.recibido, DELTA);
+        assertEquals(recibido, t.totalFinal, DELTA);
+        assertEquals(2000.0 + 1300.0 + 3750.0, t.aumento, DELTA);
+    }
+
+    @Test
+    @DisplayName("#454: con descuento y aumento en la misma venta el Total final es lo cobrado")
+    void descuentoYAumentoNoTocanElTotalFinal() {
+        TotalesMovimientos t = VentaGraphQL.totalesDeMovimientos(Arrays.asList(
+                gs("PAGO", 50000.0),
+                gs("DESCUENTO", 3000.0),
+                gs("AUMENTO", 1000.0)));
+
+        assertEquals(50000.0, t.totalFinal, DELTA);
+        assertEquals(3000.0, t.descuento, DELTA);
+        assertEquals(1000.0, t.aumento, DELTA);
+    }
+
+    @Test
+    @DisplayName("Cambio null vale 1; una moneda no reconocida no suma; lista null da cero")
+    void casosBordeDeMovimientos() {
+        TotalesMovimientos t = VentaGraphQL.totalesDeMovimientos(Arrays.asList(
+                enMoneda(detalle("PAGO", "EFECTIVO", 15.0, null), "REAL"),
+                enMoneda(detalle("PAGO", "EFECTIVO", 999.0, 1.0), "PESO"),
+                detalle("DESCUENTO", "EFECTIVO", 500.0, 1.0)));
+
+        assertEquals(15.0, t.recibido, DELTA);
+        assertEquals(15.0, t.totalFinal, DELTA);
+        assertEquals(0.0, t.descuento, DELTA);
+        assertEquals(0.0, VentaGraphQL.totalesDeMovimientos(null).totalFinal, DELTA);
+    }
+
+    @Test
+    @DisplayName("#454: el resumen toma el aumento negativo en valor absoluto")
+    void ajustesDeTomaElAumentoEnValorAbsoluto() {
+        List<CobroDetalle> detalles = Arrays.asList(
+                detalle("PAGO", "EFECTIVO", 270000.0, 1.0),
+                detalle("AUMENTO", "EFECTIVO", -90000.0, 1.0));
+
+        AjustesCobro ajustes = VentaGraphQL.ajustesDe(detalles);
+        assertEquals(90000.0, ajustes.aumento, DELTA);
+
+        TotalesPorFormaPago totales = new TotalesPorFormaPago();
+        VentaGraphQL.repartirPorFormaPago(detalles, formaPago("EFECTIVO"),
+                180000.0 - ajustes.descuento + ajustes.aumento, totales);
+        assertEquals(270000.0, totales.general, DELTA);
     }
 
     @Test

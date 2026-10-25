@@ -15,6 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.util.Collections;
 import java.util.Optional;
@@ -53,6 +54,7 @@ class TransferenciaGraphQLSolicitanteTest {
         ReflectionTestUtils.setField(resolver, "usuarioService", usuarioService);
         ReflectionTestUtils.setField(resolver, "transferenciaItemService", transferenciaItemService);
         ReflectionTestUtils.setField(resolver, "movimientoStockService", movimientoStockService);
+        ReflectionTestUtils.setField(resolver, "transactionManager", mock(PlatformTransactionManager.class));
 
         when(usuarioService.findById(any())).thenReturn(Optional.of(new Usuario()));
         when(transferenciaItemService.findByTransferenciaId(any())).thenReturn(Collections.emptyList());
@@ -72,6 +74,7 @@ class TransferenciaGraphQLSolicitanteTest {
         t.setEstado(TransferenciaEstado.ABIERTA);
         t.setSolicitante(solicitante);
         when(service.findById(id)).thenReturn(Optional.of(t));
+        when(service.lockById(id)).thenReturn(Optional.of(t));
         return t;
     }
 

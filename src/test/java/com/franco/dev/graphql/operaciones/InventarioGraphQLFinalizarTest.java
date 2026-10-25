@@ -13,12 +13,16 @@ import com.franco.dev.service.operaciones.InventarioLoteService;
 import com.franco.dev.service.operaciones.InventarioProductoItemService;
 import com.franco.dev.service.operaciones.InventarioProductoService;
 import com.franco.dev.service.operaciones.InventarioService;
+import com.franco.dev.service.operaciones.LoteFefoService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.productos.ProductoService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import graphql.GraphQLException;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -32,11 +36,14 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -64,6 +71,9 @@ class InventarioGraphQLFinalizarTest {
     private ProductoService productoService;
     private MovimientoStockService movimientoStockService;
     private InventarioLoteService inventarioLoteService;
+    private LoteFefoService loteFefoService;
+    private PlatformTransactionManager transactionManager;
+    private Inventario inventario;
     private InventarioGraphQL resolver;
 
     private InventarioProductoItem item(Long productoId, Double cantidadContada, double porPresentacion) {
@@ -87,7 +97,7 @@ class InventarioGraphQLFinalizarTest {
         Sucursal sucursal = new Sucursal();
         sucursal.setId(SUCURSAL);
 
-        Inventario inventario = new Inventario();
+        inventario = new Inventario();
         inventario.setId(INVENTARIO);
         inventario.setSucursal(sucursal);
         inventario.setEstado(InventarioEstado.ABIERTO);
@@ -97,6 +107,8 @@ class InventarioGraphQLFinalizarTest {
 
         service = mock(InventarioService.class);
         when(service.findById(INVENTARIO)).thenReturn(Optional.of(inventario));
+        when(service.lockById(INVENTARIO)).thenReturn(Optional.of(inventario));
+        when(service.save(any(Inventario.class))).thenAnswer(invocacion -> invocacion.getArgument(0));
 
         inventarioProductoService = mock(InventarioProductoService.class);
         when(inventarioProductoService.findByInventarioId(INVENTARIO))
@@ -128,6 +140,10 @@ class InventarioGraphQLFinalizarTest {
         ReflectionTestUtils.setField(resolver, "productoService", productoService);
         ReflectionTestUtils.setField(resolver, "movimientoStockService", movimientoStockService);
         ReflectionTestUtils.setField(resolver, "inventarioLoteService", inventarioLoteService);
+        loteFefoService = mock(LoteFefoService.class);
+        ReflectionTestUtils.setField(resolver, "loteFefoService", loteFefoService);
+        transactionManager = mock(PlatformTransactionManager.class);
+        ReflectionTestUtils.setField(resolver, "transactionManager", transactionManager);
     }
 
     /** El mismo item, pero de un producto CON control de lote y atribuido a un lote. */
@@ -377,5 +393,97 @@ class InventarioGraphQLFinalizarTest {
 
         assertEquals(InventarioEstado.CONCLUIDO, finalizado.getEstado());
         assertEquals(Boolean.FALSE, finalizado.getAbierto());
+    }
+
+    // #465: la finalizacion entera en una transaccion y bajo el lock de saldo por lote.
+
+    @Test
+    @DisplayName("con un producto con lote, el lock de saldo se toma antes de leer stock y saldos")
+    void conLoteBloqueaAntesDeLeer() {
+        conProductoConLote(CONTADO);
+        conContadoPorLote(CONTADO, 41L, 7.0);
+        when(inventarioLoteService.saldosPorLote(eq(CONTADO), eq(SUCURSAL), any()))
+                .thenReturn(saldos(41L, 10.0));
+        conItems(Collections.singletonList(itemConLote(CONTADO, 7.0, 1.0, 41L)));
+
+        resolver.finalizarInventarioEnSucursal(INVENTARIO);
+
+        InOrder orden = inOrder(loteFefoService, movimientoStockService, inventarioLoteService);
+        orden.verify(loteFefoService).bloquearSaldo(SUCURSAL);
+        orden.verify(movimientoStockService).stockByProductoIdAndSucursalId(CONTADO, SUCURSAL);
+        orden.verify(inventarioLoteService).saldosPorLote(eq(CONTADO), eq(SUCURSAL), any());
+        orden.verify(movimientoStockService).save(any(MovimientoStock.class));
+    }
+
+    @Test
+    @DisplayName("una toma sin productos con lote no toma el lock de la sucursal")
+    void sinLoteNoBloquea() {
+        // Frenaria las transferencias con lote de la sucursal sin proteger nada.
+        conItems(Collections.singletonList(item(CONTADO, 7.0, 1.0)));
+
+        resolver.finalizarInventarioEnSucursal(INVENTARIO);
+
+        verify(loteFefoService, never()).bloquearSaldo(any());
+    }
+
+    @Test
+    @DisplayName("si falla un producto, la transaccion se revierte entera y la toma no se guarda")
+    void fallaAMitadRevierteTodo() {
+        conItems(Arrays.asList(item(CONTADO, 7.0, 1.0), item(SIN_CONTAR, 3.0, 1.0)));
+        when(movimientoStockService.save(any(MovimientoStock.class)))
+                .thenAnswer(invocacion -> invocacion.getArgument(0))
+                .thenThrow(new RuntimeException("falla en el segundo producto"));
+
+        assertThrows(RuntimeException.class, () -> resolver.finalizarInventario(INVENTARIO));
+
+        verify(transactionManager).getTransaction(any());
+        verify(transactionManager).rollback(any());
+        verify(transactionManager, never()).commit(any());
+        verify(service, never()).save(any(Inventario.class));
+    }
+
+    @Test
+    @DisplayName("si vence la espera del lock, se revierte sin escribir ningun ajuste")
+    void esperaVencidaRevierte() {
+        conProductoConLote(CONTADO);
+        conItems(Collections.singletonList(itemConLote(CONTADO, 7.0, 1.0, 41L)));
+        doThrow(new GraphQLException("Reintentá")).when(loteFefoService).bloquearSaldo(SUCURSAL);
+
+        assertThrows(GraphQLException.class, () -> resolver.finalizarInventario(INVENTARIO));
+
+        verify(movimientoStockService, never()).save(any(MovimientoStock.class));
+        verify(transactionManager).rollback(any());
+        verify(transactionManager, never()).commit(any());
+    }
+
+    @Test
+    @DisplayName("el estado se mira con la fila bloqueada: si otro ya la concluyo, no ajusta de nuevo")
+    void yaConcluidaConLockNoAjusta() {
+        // findById devuelve la lectura de antes de que otro finalizara; lockById, lo que se ve al
+        // soltarse su lock. Con la primera se escribian ajustes duplicados.
+        Inventario concluida = new Inventario();
+        concluida.setId(INVENTARIO);
+        concluida.setSucursal(inventario.getSucursal());
+        concluida.setEstado(InventarioEstado.CONCLUIDO);
+        when(service.lockById(INVENTARIO)).thenReturn(Optional.of(concluida));
+        conItems(Collections.singletonList(item(CONTADO, 7.0, 1.0)));
+
+        assertNull(resolver.finalizarInventario(INVENTARIO));
+
+        verify(movimientoStockService, never()).save(any(MovimientoStock.class));
+        verify(service, never()).save(any(Inventario.class));
+    }
+
+    @Test
+    @DisplayName("finalizar guarda la toma concluida dentro de la transaccion y la commitea")
+    void finalizarCommitea() {
+        conItems(Collections.singletonList(item(CONTADO, 7.0, 1.0)));
+
+        Inventario finalizado = resolver.finalizarInventario(INVENTARIO);
+
+        assertEquals(InventarioEstado.CONCLUIDO, finalizado.getEstado());
+        verify(service).lockById(INVENTARIO);
+        verify(service).save(inventario);
+        verify(transactionManager).commit(any());
     }
 }

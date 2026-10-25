@@ -15,9 +15,13 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @AllArgsConstructor
@@ -33,6 +37,8 @@ public class InventarioService extends CrudService<Inventario, InventarioReposit
     private MovimientoPrintService movimientoPrintService;
     @Autowired
     private ModificacionService modificacionService;
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @Override
     public InventarioRepository getRepository() {
@@ -47,7 +53,7 @@ public class InventarioService extends CrudService<Inventario, InventarioReposit
         Inventario entidadAnterior = null;
         boolean esNuevo = (entity.getId() == null);
         if (!esNuevo) {
-            entidadAnterior = repository.findById(entity.getId()).orElse(null);
+            entidadAnterior = leerCommiteado(entity.getId());
         }
 
         Inventario e = super.save(entity);
@@ -65,6 +71,23 @@ public class InventarioService extends CrudService<Inventario, InventarioReposit
         }
 
         return e;
+    }
+
+    /**
+     * El estado anterior para la auditoria, en una transaccion aparte. Dentro de la de quien guarda
+     * (la finalizacion, #465), findById devuelve la misma instancia ya modificada y el registro
+     * perdia el cambio de estado.
+     */
+    private Inventario leerCommiteado(Long id) {
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+        tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        tx.setReadOnly(true);
+        return tx.execute(status -> repository.findById(id).orElse(null));
+    }
+
+    /** Lock pesimista de la fila: solo dentro de una transaccion. Ver {@link InventarioRepository#lockById}. */
+    public Optional<Inventario> lockById(Long id) {
+        return repository.lockById(id);
     }
 
     @Override

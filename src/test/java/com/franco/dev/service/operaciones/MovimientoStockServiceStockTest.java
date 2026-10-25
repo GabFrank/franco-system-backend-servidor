@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -205,5 +206,49 @@ class MovimientoStockServiceStockTest {
         List<String> excluidos = Collections.singletonList("COMPRAS");
         assertEquals(10.0,
                 service.stockByProductoIdExcluyendoNombresSucursal(PRODUCTO_ID, excluidos), DELTA);
+    }
+
+    /** Cantidad del reporte con el filtro de signo: solo las sucursales de ese signo, sin COMPRAS. */
+    @Test
+    void stockDelSignoSumaSoloLasSucursalesDeEseSignoSinLasExcluidas() {
+        conSucursales();
+        conStock(new StockPorSucursalDto(1L, 10.0),
+                 new StockPorSucursalDto(2L, -20.0),
+                 new StockPorSucursalDto(999L, 500.0));
+        List<String> excluidos = Collections.singletonList("COMPRAS");
+
+        assertEquals(10.0, service.stockDelSignoExcluyendoNombresSucursal(PRODUCTO_ID, true, excluidos), DELTA);
+        assertEquals(-20.0, service.stockDelSignoExcluyendoNombresSucursal(PRODUCTO_ID, false, excluidos), DELTA);
+        verify(repository, times(2)).stockPorSucursales(PRODUCTO_ID);
+        verify(repository, never()).stockByProductoIdAndSucursalId(anyLong(), anyLong());
+    }
+
+    /** El cero no es de ningún signo, y una cantidad nula se salta como en la suma total. */
+    @Test
+    void stockDelSignoNoCuentaElCeroNiLasNulas() {
+        conSucursales();
+        conStock(new StockPorSucursalDto(1L, 0.0),
+                 new StockPorSucursalDto(2L, null));
+
+        assertEquals(0.0, service.stockDelSignoExcluyendoNombresSucursal(
+                PRODUCTO_ID, true, Collections.<String>emptyList()), DELTA);
+        assertEquals(0.0, service.stockDelSignoExcluyendoNombresSucursal(
+                PRODUCTO_ID, false, Collections.<String>emptyList()), DELTA);
+    }
+
+    /**
+     * La lista trae el producto si alguna sucursal es positiva por poco que sea: su cantidad no puede
+     * dar cero. El signo se mira antes del redondeo a Float, y 1e-9 sigue siendo positivo en Float.
+     */
+    @Test
+    void stockDelSignoNoPierdeUnPositivoMinimo() {
+        conSucursales();
+        conStock(new StockPorSucursalDto(1L, 1e-9),
+                 new StockPorSucursalDto(2L, -5.0));
+
+        double stock = service.stockDelSignoExcluyendoNombresSucursal(
+                PRODUCTO_ID, true, Collections.<String>emptyList());
+
+        assertTrue(stock > 0, "un positivo mínimo sigue siendo positivo: " + stock);
     }
 }

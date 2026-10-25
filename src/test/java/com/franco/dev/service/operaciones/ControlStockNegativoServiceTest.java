@@ -6,9 +6,12 @@ import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.domain.productos.Producto;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import javax.persistence.EntityManager;
 import java.math.BigDecimal;
@@ -17,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 /**
@@ -30,11 +34,13 @@ class ControlStockNegativoServiceTest {
     private static final long ORIGEN_ID = 6L;
 
     private ControlStockNegativoService service;
+    private JdbcTemplate jdbc;
 
     @BeforeEach
     void setUp() {
         // spy: las dos salidas a la base (stockPrevio e insertarTransferencia) se reemplazan por test.
-        service = spy(new ControlStockNegativoService(mock(JdbcTemplate.class), mock(EntityManager.class)));
+        jdbc = mock(JdbcTemplate.class);
+        service = spy(new ControlStockNegativoService(jdbc, mock(EntityManager.class)));
         doNothing().when(service).insertarTransferencia(anyLong(), anyLong(), anyDouble(), any(), any(), any(), any());
     }
 
@@ -129,5 +135,47 @@ class ControlStockNegativoServiceTest {
         assertTrue(ControlStockNegativoService.debeRegistrar(new BigDecimal("-0.001")));
         assertFalse(ControlStockNegativoService.debeRegistrar(new BigDecimal("0.001")));
         assertFalse(ControlStockNegativoService.debeRegistrar(null));
+    }
+
+    @AfterEach
+    void sinTransaccion() {
+        TransactionSynchronizationManager.setActualTransactionActive(false);
+    }
+
+    @Test
+    void dentroDeUnaTransaccionUnFalloVuelveAlSavepoint() {
+        // #468: saveTransferenciaItem corre en una transaccion y JdbcTemplate comparte su conexion.
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        stockEnOrigen("0");
+        doThrow(new RuntimeException("timeout")).when(service)
+                .insertarTransferencia(anyLong(), anyLong(), anyDouble(), any(), any(), any(), any());
+
+        assertFalse(service.registrarTransferencia(item()));
+
+        InOrder orden = inOrder(jdbc);
+        orden.verify(jdbc).execute("SAVEPOINT control_stock_negativo");
+        orden.verify(jdbc).execute("ROLLBACK TO SAVEPOINT control_stock_negativo");
+    }
+
+    @Test
+    void dentroDeUnaTransaccionSinFalloNoVuelve() {
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        stockEnOrigen("0");
+
+        assertTrue(service.registrarTransferencia(item()));
+
+        verify(jdbc).execute("SAVEPOINT control_stock_negativo");
+        verify(jdbc, never()).execute("ROLLBACK TO SAVEPOINT control_stock_negativo");
+    }
+
+    @Test
+    void fueraDeUnaTransaccionNoUsaSavepoint() {
+        stockEnOrigen("0");
+        doThrow(new RuntimeException("timeout")).when(service)
+                .insertarTransferencia(anyLong(), anyLong(), anyDouble(), any(), any(), any(), any());
+
+        assertFalse(service.registrarTransferencia(item()));
+
+        verify(jdbc, never()).execute(anyString());
     }
 }

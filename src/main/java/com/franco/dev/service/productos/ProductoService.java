@@ -587,6 +587,12 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         String stockFiltroLabel = (stockFiltro != null && !stockFiltro.equals("todos"))
                 ? stockFiltro.toUpperCase() : "TODOS";
         filtroStock.append("STOCK: ").append(stockFiltroLabel);
+        boolean cantidadDelSigno = sucursalId == null && ("positivo".equals(stockFiltro) || "negativo".equals(stockFiltro));
+        if (cantidadDelSigno) {
+            filtroStock.append("positivo".equals(stockFiltro)
+                    ? " (SUMA DE SUCURSALES POSITIVAS, SIN COMPRAS)"
+                    : " (SUMA DE SUCURSALES NEGATIVAS, SIN COMPRAS)");
+        }
         if (sucursalId != null) {
             try {
                 Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
@@ -612,6 +618,10 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             if (sucursalId != null) {
                 // Hay sucursal seleccionada: mostrar solo esa sucursal
                 stockCantidad = movimientoStockService.stockByProductoIdAndSucursalId(p.getId(), sucursalId);
+            } else if (cantidadDelSigno) {
+                // Misma regla que la lista: solo las sucursales del signo, sin COMPRAS ni SERVIDOR
+                stockCantidad = movimientoStockService.stockDelSignoExcluyendoNombresSucursal(
+                        p.getId(), "positivo".equals(stockFiltro), java.util.Arrays.asList("COMPRAS", "SERVIDOR"));
             } else if (!puedeVerStockCompras) {
                 // Sin permiso de ver COMPRAS: excluir esa sucursal del total para
                 // evitar que pueda deducir el stock de COMPRAS por diferencia matemática

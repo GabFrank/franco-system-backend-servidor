@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.domain.operaciones.NotaPedido;
 import com.franco.dev.graphql.operaciones.input.NotaPedidoInput;
 import com.franco.dev.service.operaciones.NotaPedidoService;
@@ -18,6 +19,9 @@ import java.util.Optional;
 
 @Component
 public class NotaPedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private ComprasSecurityService seg;
 
     @Autowired
     private NotaPedidoService service;
@@ -40,6 +44,7 @@ public class NotaPedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 //    }
 
     public NotaPedido saveNotaPedido(NotaPedidoInput input){
+        seg.exigirAdmin(); // sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         NotaPedido e = m.map(input, NotaPedido.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -48,6 +53,7 @@ public class NotaPedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public Boolean deleteNotaPedido(Long id){
+        seg.exigirAdmin(); // sin pantalla que la llame
         return service.deleteById(id);
     }
 

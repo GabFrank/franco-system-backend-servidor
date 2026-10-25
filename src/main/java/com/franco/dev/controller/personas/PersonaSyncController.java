@@ -119,8 +119,20 @@ public class PersonaSyncController {
         return ResponseEntity.status(isCreate ? HttpStatus.CREATED : HttpStatus.OK).body(respuesta(saved));
     }
 
+    private static final Object ALTA_CLIENTE = new Object();
+
     @PostMapping("/clientes")
     public ResponseEntity<Cliente> saveCliente(@RequestBody ClienteSyncRequest request) {
+        if (request.getId() != null) return guardarCliente(request);
+        // farmacia no tiene UNIQUE(persona_id) en cliente: dos altas simultaneas duplicarian y la replica
+        // trabaria las filiales (que si lo tienen).
+        // shortcut: lock en memoria, vale con un central por base; con varias instancias hace falta el indice
+        synchronized (ALTA_CLIENTE) {
+            return guardarCliente(request);
+        }
+    }
+
+    private ResponseEntity<Cliente> guardarCliente(ClienteSyncRequest request) {
         boolean isCreate = request.getId() == null;
         if (isCreate && request.getPersonaId() != null) {
             // Alta idempotente: si la persona ya es cliente se devuelve ese, sin tocarlo.

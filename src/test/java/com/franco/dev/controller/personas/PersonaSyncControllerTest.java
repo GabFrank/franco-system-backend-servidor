@@ -330,4 +330,28 @@ class PersonaSyncControllerTest {
         p.setId(7L);
         assertNull(c.savePersona(p).getBody().getUsuario());
     }
+
+    @Test
+    void dosAltasSimultaneasDeLaMismaPersonaGuardanUnSoloCliente() throws Exception {
+        sesion();
+        java.util.concurrent.atomic.AtomicReference<Cliente> enBase = new java.util.concurrent.atomic.AtomicReference<>();
+        when(clienteService.findByPersonaId(7L)).thenAnswer(i -> enBase.get());
+        when(clienteService.save(any())).thenAnswer(i -> {
+            Thread.sleep(100);
+            Cliente g = i.getArgument(0);
+            g.setId(9L);
+            enBase.set(g);
+            return g;
+        });
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.concurrent.Future<org.springframework.http.ResponseEntity<Cliente>> a = pool.submit(() -> c.saveCliente(cliente(null, null)));
+            java.util.concurrent.Future<org.springframework.http.ResponseEntity<Cliente>> b = pool.submit(() -> c.saveCliente(cliente(null, null)));
+            assertEquals(9L, a.get().getBody().getId());
+            assertEquals(9L, b.get().getBody().getId());
+        } finally {
+            pool.shutdownNow();
+        }
+        verify(clienteService, times(1)).save(any());
+    }
 }

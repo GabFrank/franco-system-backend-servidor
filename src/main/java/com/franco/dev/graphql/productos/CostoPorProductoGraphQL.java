@@ -34,6 +34,9 @@ import java.util.Optional;
 @Component
 public class CostoPorProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
+    @Autowired
+    private com.franco.dev.service.productos.PrecioSecurityService seg;
+
     private static final Logger log = LoggerFactory.getLogger(CostoPorProductoGraphQL.class);
     private static final DecimalFormat df = new DecimalFormat("#,###.##");
 
@@ -70,6 +73,7 @@ public class CostoPorProductoGraphQL implements GraphQLQueryResolver, GraphQLMut
     }
 
     public CostoPorProducto saveCostoPorProducto(CostoPorProductoInput input){
+        seg.requireAnyRole("EDITAR PRODUCTOS");
         if(input.getId()==null) input.setCreadoEn(LocalDateTime.now());
         CostoPorProducto referenciaAnterior = obtenerReferenciaAnterior(input);
         ModelMapper m = new ModelMapper();
@@ -80,6 +84,7 @@ public class CostoPorProductoGraphQL implements GraphQLQueryResolver, GraphQLMut
     }
 
     public Boolean deleteCostoPorProducto(Long id){
+        seg.requireAnyRole(); // sin pantalla que la llame
         return service.deleteById(id);
     }
 

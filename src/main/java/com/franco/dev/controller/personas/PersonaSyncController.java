@@ -18,6 +18,7 @@ import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.utils.ImageService;
 import graphql.GraphQLException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.dao.DataIntegrityViolationException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -57,6 +58,13 @@ public class PersonaSyncController {
     public ResponseEntity<Persona> savePersona(@RequestBody PersonaSyncRequest request) {
         exigirImagenesValidas(request.getImagenes());
         boolean isCreate = request.getId() == null;
+        String documento = isCreate ? normalizarDocumento(request.getDocumento()) : null;
+        if (documento != null) {
+            // Alta idempotente: el filial busca solo en su base y puede no tener la persona todavía.
+            Persona existente = personaService.findByDocumento(documento);
+            if (existente != null) return ResponseEntity.ok(respuesta(existente));
+            request.setDocumento(documento);
+        }
         Persona persona = request.getId() != null
                 ? personaService.findById(request.getId())
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe la persona " + request.getId()))
@@ -99,13 +107,38 @@ public class PersonaSyncController {
             persona.setNacimiento(DateUtils.stringToDate(request.getNacimiento()));
         }
 
-        Persona saved = personaService.save(persona);
-        return ResponseEntity.status(isCreate ? HttpStatus.CREATED : HttpStatus.OK).body(saved);
+        Persona saved;
+        try {
+            saved = personaService.save(persona);
+        } catch (DataIntegrityViolationException carrera) {
+            // Otra alta del mismo documento ganó entre la búsqueda y el insert.
+            Persona existente = documento != null ? personaService.findByDocumento(documento) : null;
+            if (existente == null) throw carrera;
+            return ResponseEntity.ok(respuesta(existente));
+        }
+        return ResponseEntity.status(isCreate ? HttpStatus.CREATED : HttpStatus.OK).body(respuesta(saved));
     }
+
+    private static final Object ALTA_CLIENTE = new Object();
 
     @PostMapping("/clientes")
     public ResponseEntity<Cliente> saveCliente(@RequestBody ClienteSyncRequest request) {
+        if (request.getId() != null) return guardarCliente(request);
+        // farmacia no tiene UNIQUE(persona_id) en cliente: dos altas simultaneas duplicarian y la replica
+        // trabaria las filiales (que si lo tienen).
+        // shortcut: lock en memoria, vale con un central por base; con varias instancias hace falta el indice
+        synchronized (ALTA_CLIENTE) {
+            return guardarCliente(request);
+        }
+    }
+
+    private ResponseEntity<Cliente> guardarCliente(ClienteSyncRequest request) {
         boolean isCreate = request.getId() == null;
+        if (isCreate && request.getPersonaId() != null) {
+            // Alta idempotente: si la persona ya es cliente se devuelve ese, sin tocarlo.
+            Cliente existente = clienteService.findByPersonaId(request.getPersonaId());
+            if (existente != null) return ResponseEntity.ok(respuesta(existente));
+        }
         Cliente cliente = request.getId() != null
                 ? clienteService.findById(request.getId())
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe el cliente " + request.getId()))
@@ -145,8 +178,54 @@ public class PersonaSyncController {
             cliente.setUsuario(null);
         }
 
-        Cliente saved = clienteService.save(cliente);
-        return ResponseEntity.status(isCreate ? HttpStatus.CREATED : HttpStatus.OK).body(saved);
+        Cliente saved;
+        try {
+            saved = clienteService.save(cliente);
+        } catch (DataIntegrityViolationException carrera) {
+            Cliente existente = isCreate ? clienteService.findByPersonaId(request.getPersonaId()) : null;
+            if (existente == null) throw carrera;
+            return ResponseEntity.ok(respuesta(existente));
+        }
+        return ResponseEntity.status(isCreate ? HttpStatus.CREATED : HttpStatus.OK).body(respuesta(saved));
+    }
+
+    /** Igual que {@code PersonaService.save}: sin espacios y cortado en el guion del DV. Null si no hay documento útil. */
+    static String normalizarDocumento(String documento) {
+        if (documento == null) return null;
+        String d = documento.trim();
+        int guion = d.indexOf('-');
+        if (guion >= 0) d = d.substring(0, guion).trim();
+        return d.isEmpty() || "X".equalsIgnoreCase(d) ? null : d;
+    }
+
+    /** Solo los campos que el filial copia de la respuesta: sin relaciones (nada lazy, ningún usuario). */
+    static Persona respuesta(Persona p) {
+        Persona r = new Persona();
+        r.setId(p.getId());
+        r.setNombre(p.getNombre());
+        r.setApodo(p.getApodo());
+        r.setDocumento(p.getDocumento());
+        r.setEmail(p.getEmail());
+        r.setDireccion(p.getDireccion());
+        r.setTelefono(p.getTelefono());
+        r.setSexo(p.getSexo());
+        r.setSocialMedia(p.getSocialMedia());
+        r.setImagenes(p.getImagenes());
+        r.setNacimiento(p.getNacimiento());
+        r.setCreadoEn(p.getCreadoEn());
+        return r;
+    }
+
+    static Cliente respuesta(Cliente c) {
+        Cliente r = new Cliente();
+        r.setId(c.getId());
+        r.setTipo(c.getTipo());
+        r.setCredito(c.getCredito());
+        r.setCodigo(c.getCodigo());
+        r.setTributa(c.getTributa());
+        r.setVerificadoSet(c.getVerificadoSet());
+        r.setCreadoEn(c.getCreadoEn());
+        return r;
     }
 
     /**

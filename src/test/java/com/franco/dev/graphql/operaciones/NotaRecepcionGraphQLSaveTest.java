@@ -38,6 +38,7 @@ class NotaRecepcionGraphQLSaveTest {
         service = mock(NotaRecepcionService.class);
         resolver = new NotaRecepcionGraphQL();
         ReflectionTestUtils.setField(resolver, "service", service);
+        ReflectionTestUtils.setField(resolver, "seg", new com.franco.dev.service.operaciones.compras.ComprasSecurityFalso("RECIBIR PEDIDOS"));
         when(service.save(any())).thenAnswer(i -> i.getArgument(0));
         when(service.findById(any())).thenReturn(Optional.empty());
     }

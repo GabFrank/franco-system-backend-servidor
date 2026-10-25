@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.domain.personas.Usuario;
@@ -31,6 +32,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private ComprasSecurityService seg;
 
     @Autowired
     private NotaRecepcionService service;
@@ -130,6 +134,7 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public NotaRecepcion saveNotaRecepcion(NotaRecepcionInput input) {
+        seg.exigirCompras();
         ModelMapper m = new ModelMapper();
         NotaRecepcion e = m.map(input, NotaRecepcion.class);
         if (input.getDocumentoId() != null)
@@ -169,6 +174,7 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public Boolean deleteNotaRecepcion(Long id) {
+        seg.exigirCompras();
         try {
             // With the refactor, PedidoItem no longer has direct notaRecepcion reference
             // The relationship is now through NotaRecepcionItem
@@ -255,6 +261,7 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * @return Resultado de la asignación con ítems creados y errores
      */
     public AsignacionResult asignarItemsANota(Long notaRecepcionId, List<Long> pedidoItemIds, Long usuarioId) {
+        seg.exigirCompras();
         try {
             Usuario usuario = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
             return service.asignarItemsANota(notaRecepcionId, pedidoItemIds, usuario);

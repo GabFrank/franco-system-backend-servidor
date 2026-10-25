@@ -32,6 +32,9 @@ import java.util.Optional;
 public class ProgramarPrecioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.productos.PrecioSecurityService seg;
+
+    @Autowired
     private ProgramarPrecioService service;
 
     @Autowired
@@ -57,6 +60,7 @@ public class ProgramarPrecioGraphQL implements GraphQLQueryResolver, GraphQLMuta
     }
 
     public ProgramarPrecio saveProgramarPrecio(ProgramarPrecioInput input){
+        seg.requireAnyRole(); // sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         ProgramarPrecio e = m.map(input, ProgramarPrecio.class);
         if(e.getUsuario()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -66,6 +70,7 @@ public class ProgramarPrecioGraphQL implements GraphQLQueryResolver, GraphQLMuta
     }
 
     public Boolean deleteProgramarPrecio(Long id){
+        seg.requireAnyRole(); // sin pantalla que la llame
         return service.deleteById(id);
     }
 

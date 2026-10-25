@@ -61,6 +61,15 @@ public class PrecioSecurityService {
         return false;
     }
 
+    /** Sin roles = solo ADMIN. */
+    public void requireAnyRole(String... roles) {
+        if (!hasAnyRole(roles)) {
+            throw new GraphQLException(roles.length == 0
+                    ? "No autorizado: esta acción es solo para un administrador."
+                    : "No autorizado: se requiere el rol " + String.join(" o ", roles) + " para esta acción.");
+        }
+    }
+
     /** Crear, editar o cortar un precio especial. */
     public void requireGestionar() {
         if (!hasAnyRole(CREAR, EDITAR)) {

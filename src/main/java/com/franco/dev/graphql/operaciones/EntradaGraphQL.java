@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.InventarioSecurityService;
 import com.franco.dev.domain.operaciones.Entrada;
 import com.franco.dev.domain.operaciones.EntradaItem;
 import com.franco.dev.domain.operaciones.MovimientoStock;
@@ -26,6 +27,9 @@ import java.util.Optional;
 
 @Component
 public class EntradaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private InventarioSecurityService seg;
 
     @Autowired
     private EntradaService service;
@@ -55,6 +59,7 @@ public class EntradaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 //    }
 
     public Entrada saveEntrada(EntradaInput input){
+        seg.requireAnyRole();
         ModelMapper m = new ModelMapper();
         Entrada e = m.map(input, Entrada.class);
         if(input.getUsuarioId()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -65,6 +70,7 @@ public class EntradaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Boolean deleteEntrada(Long id){
+        seg.requireAnyRole();
         return service.deleteById(id);
     }
 
@@ -77,6 +83,7 @@ public class EntradaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Boolean finalizarEntrada(Long id){
+        seg.requireAnyRole();
         return service.finalizarEntrada(id);
     }
 

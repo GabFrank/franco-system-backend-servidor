@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.service.productos.PrecioSecurityService;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.productos.ProductoProveedor;
 import com.franco.dev.graphql.productos.input.ProductoProveedorInput;
@@ -23,6 +24,14 @@ import java.util.Optional;
 
 @Component
 public class ProductoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private PrecioSecurityService seg;
+
+    /** Se desvincula desde la ficha del producto (EDITAR PRODUCTOS) y desde gestion de compras. */
+    private static final String[] ROLES_DESVINCULAR = java.util.stream.Stream.concat(
+            java.util.stream.Stream.of(PrecioSecurityService.EDITAR_PRODUCTOS),
+            com.franco.dev.service.operaciones.compras.ComprasSecurityService.ROLES_COMPRAS.stream()).toArray(String[]::new);
 
     @Autowired
     private ProductoProveedorService service;
@@ -65,6 +74,7 @@ public class ProductoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMu
 
     @Transactional
     public ProductoProveedor saveProductoProveedor(ProductoProveedorInput input) {
+        seg.requireAnyRole(PrecioSecurityService.EDITAR_PRODUCTOS);
         if (input.getProductoId() == null) {
             throw new GraphQLException("El producto es requerido");
         }
@@ -100,6 +110,7 @@ public class ProductoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMu
 
     @Transactional
     public ProductoProveedor desvincularProductoProveedor(Long id, String motivo) {
+        seg.requireAnyRole(ROLES_DESVINCULAR);
         Optional<ProductoProveedor> optional = service.findById(id);
         if (!optional.isPresent()) {
             throw new GraphQLException("ProductoProveedor no encontrado con id: " + id);

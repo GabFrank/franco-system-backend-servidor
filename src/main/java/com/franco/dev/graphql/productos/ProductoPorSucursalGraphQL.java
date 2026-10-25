@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.service.productos.PrecioSecurityService;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
 import com.franco.dev.domain.productos.Producto;
@@ -25,6 +26,9 @@ import java.util.Optional;
 
 @Component
 public class ProductoPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private PrecioSecurityService seg;
 
     @Autowired
     private ProductoPorSucursalService service;
@@ -57,6 +61,7 @@ public class ProductoPorSucursalGraphQL implements GraphQLQueryResolver, GraphQL
     }
 
     public ProductoPorSucursal saveProductoPorSucursal(ProductoPorSucursalInput input){
+        seg.requireAnyRole(); // sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         ProductoPorSucursal e = m.map(input, ProductoPorSucursal.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -67,6 +72,7 @@ public class ProductoPorSucursalGraphQL implements GraphQLQueryResolver, GraphQL
     }
 
     public Boolean deleteProductoPorSucursal(Long id){
+        seg.requireAnyRole(); // sin pantalla que la llame
         return service.deleteById(id);
     }
 

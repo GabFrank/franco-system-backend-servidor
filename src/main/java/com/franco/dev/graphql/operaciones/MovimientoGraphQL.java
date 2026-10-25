@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.InventarioSecurityService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.dto.StockPorTipoMovimientoDto;
 import com.franco.dev.domain.empresarial.Sucursal;
@@ -38,6 +39,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private InventarioSecurityService seg;
 
     @Autowired
     private MovimientoStockService service;
@@ -112,6 +116,7 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public MovimientoStock saveMovimientoStock(MovimientoStockInput input) {
+        seg.requireAnyRole(InventarioSecurityService.EDITAR_PRODUCTOS);
         try {
             MovimientoStock e = new MovimientoStock();
             if (input.getId() != null && input.getId() != 0) {
@@ -146,6 +151,7 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public Boolean deleteMovimientoStock(Long id, Long sucId) {
+        seg.requireAnyRole();
         return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 

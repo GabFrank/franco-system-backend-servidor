@@ -21,6 +21,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 public class TelemetriaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private TelemetriaService service;
 
     @Autowired
@@ -48,6 +51,7 @@ public class TelemetriaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public Telemetria saveTelemetria(TelemetriaInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         Telemetria e = m.map(input, Telemetria.class);
         if (input.getDispositivoId() != null) {
@@ -60,6 +64,7 @@ public class TelemetriaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public Boolean deleteTelemetria(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         return service.deleteById(id);
     }
 }

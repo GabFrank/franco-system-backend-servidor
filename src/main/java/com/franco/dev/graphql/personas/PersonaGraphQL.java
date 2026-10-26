@@ -26,6 +26,13 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 @Component
 public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
+    /** Pantallas que dan de alta personas y proveedores: personas, usuarios, funcionarios, RRHH, compras y gastos. */
+    public static final String[] ROLES_PERSONAS = java.util.stream.Stream.concat(
+            java.util.stream.Stream.of("VER PERSONAS", "EDITAR PERSONAS", "VER USUARIOS", "EDITAR USUARIOS",
+                    "VER FUNCIONARIOS", "CREAR FUNCIONARIOS", "EDITAR FUNCIONARIOS", "RRHH VER", "RRHH GESTIONAR"),
+            com.franco.dev.service.operaciones.compras.ComprasSecurityService.ROLES_COMPRAS.stream())
+            .toArray(String[]::new);
+
     @Autowired
     private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
 
@@ -64,6 +71,7 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Persona savePersona(PersonaInput input) {
+        seg.requireAnyRole(PersonaGraphQL.ROLES_PERSONAS);
         if (!PersonaService.imagenesValidas(input.getImagenes()))
             throw new GraphQLException("La imagen tiene que ser un nombre de archivo, no una ruta.");
         Persona e;

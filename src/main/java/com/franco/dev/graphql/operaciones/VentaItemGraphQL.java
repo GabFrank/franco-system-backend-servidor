@@ -33,6 +33,9 @@ import java.util.Optional;
 public class VentaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private VentaItemService service;
 
     @Autowired
@@ -59,6 +62,7 @@ public class VentaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public VentaItem saveVentaItem(VentaItemInput input) {
+        seg.requireSuperusuario(); // los clientes la mandan al filial; aca solo llega via saveVenta (ADMIN)
         ModelMapper m = new ModelMapper();
         Venta venta = ventaService.findById(new EmbebedPrimaryKey(input.getVentaId(), input.getSucursalId()))
                 .orElse(null);
@@ -79,6 +83,7 @@ public class VentaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public Boolean deleteVentaItem(Long id, Long sucId) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 

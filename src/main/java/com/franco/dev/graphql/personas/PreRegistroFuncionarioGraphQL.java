@@ -24,6 +24,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 public class PreRegistroFuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private PreRegistroFuncionarioService service;
 
     @Autowired
@@ -53,6 +56,7 @@ public class PreRegistroFuncionarioGraphQL implements GraphQLQueryResolver, Grap
     }
 
     public PreRegistroFuncionario savePreRegistroFuncionario(PreRegistroFuncionarioInput input) {
+        seg.requireAnyRole(FuncionarioGraphQL.ROLES_ALTA);
         ModelMapper m = new ModelMapper();
         PreRegistroFuncionario e = m.map(input, PreRegistroFuncionario.class);
         if(input.getFechaIngreso()!=null) e.setFechaIngreso(stringToDate(input.getFechaIngreso()));
@@ -66,6 +70,7 @@ public class PreRegistroFuncionarioGraphQL implements GraphQLQueryResolver, Grap
     }
 
     public Boolean deletePreRegistroFuncionario(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

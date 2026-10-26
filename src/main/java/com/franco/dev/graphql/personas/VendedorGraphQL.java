@@ -23,6 +23,9 @@ import java.util.Optional;
 public class VendedorGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private VendedorService service;
 
     @Autowired
@@ -52,6 +55,7 @@ public class VendedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Vendedor saveVendedor(VendedorInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         Vendedor e = m.map(input, Vendedor.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -61,6 +65,7 @@ public class VendedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Boolean deleteVendedor(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

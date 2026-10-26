@@ -320,6 +320,17 @@ Es la misma cuenta para **todas las instancias** (alpha, beta, farmacia, bodega)
 - En el primer deploy con el envio automatico prendido salen las facturas aprobadas de las ultimas 48 h que tengan correo.
 - **Pruebas de envio: solo con el cliente DIEGO PAULINHO AMARILLA MERCADO.** Las bases dev son copias de produccion con correos reales de clientes.
 
+## Facturas en papel con IA
+
+Las compras se pueden cargar desde fotos de la factura en papel: la IA (OpenAI) extrae los datos y se revisan antes de confirmar.
+
+- **Clave de OpenAI**: se carga en el desktop, Configuracion > Inteligencia artificial (solo ADMIN). Se guarda cifrada con AES-GCM en `empresarial.configuracion_sistema`, con `CONFIG_MASTER_KEY` como llave maestra.
+- **`CONFIG_MASTER_KEY`**: secret del repo (Settings > Secrets and variables > Actions); cada deploy la escribe en `/opt/frc-backend-central/<instancia>/.env` (`deploy.yml` -> `deploy.sh`, paso independiente del correo). Sin el secret el `.env` no se toca.
+- **Sin `CONFIG_MASTER_KEY`** el central arranca igual; solo falla, con un mensaje claro, guardar o leer la clave de OpenAI.
+- **Cambiarla** vuelve ilegible la clave ya guardada: hay que volver a cargarla en Configuracion.
+- **Central-only**: `documento_recibido_foto` y `configuracion_sistema` no se replican.
+- **Costo por factura**: `documento_recibido.ia_tokens_entrada`, `ia_tokens_salida` e `ia_modelo`.
+
 ## Control de stock negativo
 
 `operaciones.control_stock_negativo` guarda una fila por cada salida de un producto cuyo stock en la sucursal ya era 0 o negativo. La mira el equipo de inventario desde el desktop (Inventario > «Control de stock negativo»). Es **central-only**: no está en `configuraciones.replication_table` ni en ninguna publicación (`V243.1`).

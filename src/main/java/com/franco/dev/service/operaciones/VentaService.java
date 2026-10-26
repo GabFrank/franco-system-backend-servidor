@@ -70,6 +70,9 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
     private MovimientoStockService movimientoStockService;
 
     @Autowired
+    private MovimientoStockLoteService movimientoStockLoteService;
+
+    @Autowired
     private VentaItemService ventaItemService;
 
     @Autowired
@@ -311,6 +314,9 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                         movStock.setEstado(true);
                     }
                     movStock = movimientoStockService.save(movStock);
+                    // El desglose por lote sigue al movimiento: anulada, sus unidades vuelven al
+                    // lote; reactivada, se vuelven a descontar. Igual que hace la filial.
+                    movimientoStockLoteService.sincronizarEstado(movStock);
                 }
             }
             // La venta con tarjeta sigue a la venta: cancelada, su cupon queda libre para otra; reactivada,

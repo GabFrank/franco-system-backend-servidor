@@ -29,7 +29,7 @@ public class RenglonFacturaMobile {
     /** OK, DIFERENCIA, FUERA_DE_PEDIDO, SIN_PRODUCTO */
     private String estado;
     private String estadoEtiqueta;
-    /** MANUAL, APRENDIDO, CODIGO_BARRAS, CODIGO_PAQUETE, CODIGO_INTERNO */
+    /** MANUAL, APRENDIDO, APRENDIDO_DESCRIPCION, CODIGO_BARRAS, CODIGO_PAQUETE, CODIGO_INTERNO */
     private String tipoMatch;
     private String tipoMatchEtiqueta;
     private Long productoId;

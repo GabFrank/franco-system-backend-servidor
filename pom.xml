@@ -37,6 +37,17 @@
 			  -Dflyway.user=franco -Dflyway.password=franco
 		-->
 		<skipFlyway>true</skipFlyway>
+
+		<!--
+			Parches de seguridad sin cambiar de Spring Boot (2.7.18 ya no recibe arreglos).
+			Pisan las versiones del BOM de Boot dentro de la misma linea (Tomcat 9, Netty 4.1,
+			Logback 1.2). Verificado 2026-10-26: build + tests iguales, y el jar levantado
+			contra el esquema de bodega3 responde igual que con las versiones viejas
+			(login, GraphQL, multipart, websocket, servidor GPS).
+		-->
+		<tomcat.version>9.0.123</tomcat.version>
+		<netty.version>4.1.139.Final</netty.version>
+		<logback.version>1.2.13</logback.version>
 	</properties>
 
 	<dependencies>
@@ -72,7 +83,7 @@
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
-			<version>42.6.0</version>
+			<version>42.7.14</version>
 		</dependency>
 
 		<dependency>

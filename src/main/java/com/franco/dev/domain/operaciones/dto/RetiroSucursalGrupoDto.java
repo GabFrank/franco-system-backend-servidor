@@ -18,8 +18,10 @@ public class RetiroSucursalGrupoDto {
     private String sucursalNombre;
     /** Lineas consolidadas por producto+presentacion. */
     private List<RetiroLineaConsolidadaDto> lineas;
-    /** Desglose por caja fisica (una entrada por item). */
+    /** Desglose por producto (una entrada por item, con el identificador de su devolucion). */
     private List<RetiroCajaDto> cajas;
     /** Ids de las devoluciones incluidas en este grupo. */
     private List<Long> devolucionIds;
+    /** Las devoluciones del grupo, cada una con sus productos: lo que se escanea al retirar. */
+    private List<RetiroDevolucionResumenDto> devoluciones;
 }

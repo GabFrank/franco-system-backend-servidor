@@ -1,5 +1,8 @@
 package com.franco.dev.graphql.operaciones;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
+import com.franco.dev.service.operaciones.TransferenciaRoles;
 import com.franco.dev.domain.operaciones.ConfiguracionTransferencia;
 import com.franco.dev.graphql.operaciones.input.ConfiguracionTransferenciaInput;
 import com.franco.dev.service.operaciones.ConfiguracionTransferenciaService;
@@ -15,6 +18,9 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class ConfiguracionTransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
+    @Autowired
+    private TesoreriaSecurityService seg;
+
     private final ConfiguracionTransferenciaService service;
     private final UsuarioService usuarioService;
 
@@ -23,6 +29,7 @@ public class ConfiguracionTransferenciaGraphQL implements GraphQLQueryResolver, 
     }
 
     public ConfiguracionTransferencia saveConfiguracionTransferencia(ConfiguracionTransferenciaInput input) {
+        seg.requireSuperusuario(); // configuracion o sin pantalla que la llame
         ConfiguracionTransferencia config = service.findOrCreate();
         if (input.getPermitirStockNegativo() != null) {
             config.setPermitirStockNegativo(input.getPermitirStockNegativo());

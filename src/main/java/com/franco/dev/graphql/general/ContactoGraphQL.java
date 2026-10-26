@@ -20,6 +20,9 @@ import java.util.Optional;
 public class ContactoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private ContactoService service;
 
     @Autowired
@@ -43,6 +46,7 @@ public class ContactoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Contacto saveContacto(ContactoInput input) {
+        seg.requireSuperusuario(); // sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         Contacto e = m.map(input, Contacto.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -51,6 +55,7 @@ public class ContactoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Boolean deleteContacto(Long id) {
+        seg.requireSuperusuario(); // sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

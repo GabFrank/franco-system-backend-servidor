@@ -620,6 +620,7 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     // ===== IMPRESION DE PEDIDO =====
 
     public String imprimirPedidoPDF(Long pedidoId) {
+        seg.exigirCompras();
         Pedido pedido = service.findById(pedidoId)
                 .orElseThrow(() -> new GraphQLException("Pedido no encontrado: " + pedidoId));
         List<PedidoItem> items = pedidoItemService.findByPedidoId(pedidoId);
@@ -627,6 +628,7 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Boolean imprimirPedidoTicket(Long pedidoId, String printerName) {
+        seg.exigirCompras();
         Pedido pedido = service.findById(pedidoId)
                 .orElseThrow(() -> new GraphQLException("Pedido no encontrado: " + pedidoId));
         List<PedidoItem> items = pedidoItemService.findByPedidoId(pedidoId);

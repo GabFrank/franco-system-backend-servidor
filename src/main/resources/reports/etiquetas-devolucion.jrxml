@@ -1,67 +1,126 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Etiquetas de separado de devolucion. Cards cortables en 2 columnas. -->
+<!--
+  Etiqueta de separado de una devolucion: UNA sola por devolucion, con un QR
+  (el identificador) y la lista de productos. Escanear el QR trae la devolucion
+  entera; por eso no se imprime una etiqueta por producto.
+  Datasource: los productos (EtiquetaDevolucionFilaDto). Cabecera por parametros.
+-->
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
-    name="etiquetas-devolucion" pageWidth="595" pageHeight="842"
-    columnCount="2" printOrder="Horizontal" columnWidth="268" columnSpacing="19"
+    name="etiquetas-devolucion" pageWidth="595" pageHeight="842" columnWidth="555"
     leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20"
     whenNoDataType="AllSectionsNoDetail"
     uuid="c1e2d3f4-a5b6-47c8-9d0e-1f2a3b4c5d6e">
     <property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record"/>
-    <field name="identificador" class="java.lang.String"/>
+    <parameter name="identificador" class="java.lang.String"/>
+    <parameter name="sucursal" class="java.lang.String"/>
+    <parameter name="proveedor" class="java.lang.String"/>
+    <parameter name="fecha" class="java.lang.String"/>
+    <parameter name="qr" class="java.lang.String"/>
+    <parameter name="cantidadProductos" class="java.lang.Integer"/>
     <field name="codigo" class="java.lang.String"/>
     <field name="producto" class="java.lang.String"/>
     <field name="cantidad" class="java.lang.String"/>
     <field name="motivo" class="java.lang.String"/>
-    <field name="qr" class="java.lang.String"/>
-    <detail>
-        <band height="132" splitType="Prevent">
-            <!-- Borde punteado para recortar -->
-            <rectangle radius="4">
-                <reportElement x="0" y="2" width="268" height="126" uuid="d0000001-0000-0000-0000-000000000001"/>
-                <graphicElement>
-                    <pen lineWidth="0.8" lineStyle="Dashed" lineColor="#888888"/>
-                </graphicElement>
-            </rectangle>
-            <!-- Identificador (grande) -->
+    <title>
+        <band height="126" splitType="Prevent">
+            <line>
+                <reportElement x="0" y="0" width="555" height="1" uuid="e0000001-0000-0000-0000-000000000001"/>
+                <graphicElement><pen lineWidth="0.8" lineStyle="Dashed" lineColor="#888888"/></graphicElement>
+            </line>
             <textField>
-                <reportElement x="8" y="8" width="180" height="18" uuid="d0000001-0000-0000-0000-000000000002"/>
-                <textElement><font size="12" isBold="true"/></textElement>
-                <textFieldExpression><![CDATA[$F{identificador}]]></textFieldExpression>
+                <reportElement x="0" y="10" width="420" height="28" uuid="e0000001-0000-0000-0000-000000000002"/>
+                <textElement><font size="20" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{identificador}]]></textFieldExpression>
             </textField>
-            <!-- QR arriba a la derecha -->
+            <textField isBlankWhenNull="true">
+                <reportElement x="0" y="42" width="420" height="16" uuid="e0000001-0000-0000-0000-000000000003"/>
+                <textElement><font size="10"/></textElement>
+                <textFieldExpression><![CDATA["Sucursal: " + ($P{sucursal} == null ? "" : $P{sucursal})]]></textFieldExpression>
+            </textField>
+            <textField isBlankWhenNull="true">
+                <reportElement x="0" y="58" width="420" height="16" uuid="e0000001-0000-0000-0000-000000000004"/>
+                <textElement><font size="10"/></textElement>
+                <textFieldExpression><![CDATA["Proveedor: " + ($P{proveedor} == null ? "" : $P{proveedor})]]></textFieldExpression>
+            </textField>
+            <textField isBlankWhenNull="true">
+                <reportElement x="0" y="74" width="420" height="16" uuid="e0000001-0000-0000-0000-000000000005"/>
+                <textElement><font size="10"/></textElement>
+                <textFieldExpression><![CDATA["Fecha: " + ($P{fecha} == null ? "" : $P{fecha})]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="94" width="420" height="16" uuid="e0000001-0000-0000-0000-000000000006"/>
+                <textElement><font size="10" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[($P{cantidadProductos} != null && $P{cantidadProductos}.intValue() == 1) ? "1 producto" : (($P{cantidadProductos} == null ? 0 : $P{cantidadProductos}.intValue()) + " productos")]]></textFieldExpression>
+            </textField>
             <componentElement>
-                <reportElement x="196" y="6" width="64" height="64" uuid="d0000001-0000-0000-0000-000000000003"/>
+                <reportElement x="445" y="8" width="110" height="110" uuid="e0000001-0000-0000-0000-000000000007"/>
                 <jr:QRCode xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components"
                     xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports/components http://jasperreports.sourceforge.net/xsd/components.xsd">
-                    <jr:codeExpression><![CDATA[$F{qr}]]></jr:codeExpression>
+                    <jr:codeExpression><![CDATA[$P{qr}]]></jr:codeExpression>
                 </jr:QRCode>
             </componentElement>
-            <!-- Codigo -->
+        </band>
+    </title>
+    <columnHeader>
+        <band height="18">
+            <staticText>
+                <reportElement x="0" y="2" width="90" height="14" uuid="e0000002-0000-0000-0000-000000000001"/>
+                <textElement><font size="8" isBold="true"/></textElement>
+                <text><![CDATA[Código]]></text>
+            </staticText>
+            <staticText>
+                <reportElement x="92" y="2" width="225" height="14" uuid="e0000002-0000-0000-0000-000000000002"/>
+                <textElement><font size="8" isBold="true"/></textElement>
+                <text><![CDATA[Producto]]></text>
+            </staticText>
+            <staticText>
+                <reportElement x="319" y="2" width="130" height="14" uuid="e0000002-0000-0000-0000-000000000003"/>
+                <textElement><font size="8" isBold="true"/></textElement>
+                <text><![CDATA[Cantidad]]></text>
+            </staticText>
+            <staticText>
+                <reportElement x="451" y="2" width="104" height="14" uuid="e0000002-0000-0000-0000-000000000004"/>
+                <textElement><font size="8" isBold="true"/></textElement>
+                <text><![CDATA[Motivo]]></text>
+            </staticText>
+            <line>
+                <reportElement x="0" y="17" width="555" height="1" uuid="e0000002-0000-0000-0000-000000000005"/>
+                <graphicElement><pen lineWidth="0.5" lineColor="#888888"/></graphicElement>
+            </line>
+        </band>
+    </columnHeader>
+    <detail>
+        <band height="16" splitType="Stretch">
             <textField isBlankWhenNull="true">
-                <reportElement x="8" y="28" width="180" height="12" uuid="d0000001-0000-0000-0000-000000000004"/>
+                <reportElement x="0" y="2" width="90" height="13" uuid="e0000003-0000-0000-0000-000000000001"/>
                 <textElement><font size="8"/></textElement>
                 <textFieldExpression><![CDATA[$F{codigo}]]></textFieldExpression>
             </textField>
-            <!-- Producto (id + descripcion) -->
-            <textField>
-                <reportElement x="8" y="44" width="252" height="26" uuid="d0000001-0000-0000-0000-000000000005"/>
-                <textElement><font size="9" isBold="true"/></textElement>
+            <textField isStretchWithOverflow="true" isBlankWhenNull="true">
+                <reportElement stretchType="RelativeToTallestObject" x="92" y="2" width="225" height="13" uuid="e0000003-0000-0000-0000-000000000002"/>
+                <textElement><font size="8"/></textElement>
                 <textFieldExpression><![CDATA[$F{producto}]]></textFieldExpression>
             </textField>
-            <!-- Cantidad -->
-            <textField>
-                <reportElement x="8" y="76" width="252" height="16" uuid="d0000001-0000-0000-0000-000000000006"/>
-                <textElement><font size="10" isBold="true"/></textElement>
+            <textField isStretchWithOverflow="true" isBlankWhenNull="true">
+                <reportElement stretchType="RelativeToTallestObject" x="319" y="2" width="130" height="13" uuid="e0000003-0000-0000-0000-000000000003"/>
+                <textElement><font size="8" isBold="true"/></textElement>
                 <textFieldExpression><![CDATA[$F{cantidad}]]></textFieldExpression>
             </textField>
-            <!-- Motivo -->
-            <textField isBlankWhenNull="true">
-                <reportElement x="8" y="96" width="252" height="24" uuid="d0000001-0000-0000-0000-000000000007"/>
+            <textField isStretchWithOverflow="true" isBlankWhenNull="true">
+                <reportElement stretchType="RelativeToTallestObject" x="451" y="2" width="104" height="13" uuid="e0000003-0000-0000-0000-000000000004"/>
                 <textElement><font size="8"/></textElement>
-                <textFieldExpression><![CDATA[$F{motivo} == null || $F{motivo}.isEmpty() ? null : "Motivo: " + $F{motivo}]]></textFieldExpression>
+                <textFieldExpression><![CDATA[$F{motivo}]]></textFieldExpression>
             </textField>
         </band>
     </detail>
+    <summary>
+        <band height="14">
+            <line>
+                <reportElement x="0" y="8" width="555" height="1" uuid="e0000004-0000-0000-0000-000000000001"/>
+                <graphicElement><pen lineWidth="0.8" lineStyle="Dashed" lineColor="#888888"/></graphicElement>
+            </line>
+        </band>
+    </summary>
 </jasperReport>

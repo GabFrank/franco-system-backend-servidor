@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.service.productos.PrecioSecurityService;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.productos.Familia;
 import com.franco.dev.domain.productos.Producto;
@@ -27,6 +28,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 public class FamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private PrecioSecurityService seg;
+
+    @Autowired
     private FamiliaService service;
 
     @Autowired
@@ -49,6 +53,7 @@ public class FamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Familia saveFamilia(FamiliaInput input){
+        seg.requireAnyRole(PrecioSecurityService.EDITAR_PRODUCTOS);
         ModelMapper m = new ModelMapper();
         Familia e = m.map(input, Familia.class);
         if(input.getUsuarioId()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -74,6 +79,7 @@ public class FamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Boolean deleteFamilia(Long id){
+        seg.requireAnyRole(); // sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
 

@@ -25,6 +25,7 @@ public class PrecioSecurityService {
     public static final String ADMIN = "ADMIN";
     public static final String CREAR = "CREAR PRECIOS";
     public static final String EDITAR = "EDITAR PRECIOS";
+    public static final String EDITAR_PRODUCTOS = "EDITAR PRODUCTOS";
 
     @Autowired private UsuarioService usuarioService;
     @Autowired private RoleService roleService;
@@ -59,6 +60,15 @@ public class PrecioSecurityService {
             if (r != null && mine.contains(r.trim().toUpperCase())) return true;
         }
         return false;
+    }
+
+    /** Sin roles = solo ADMIN. */
+    public void requireAnyRole(String... roles) {
+        if (!hasAnyRole(roles)) {
+            throw new GraphQLException(roles.length == 0
+                    ? "No autorizado: esta acción es solo para un administrador."
+                    : "No autorizado: se requiere el rol " + String.join(" o ", roles) + " para esta acción.");
+        }
     }
 
     /** Crear, editar o cortar un precio especial. */

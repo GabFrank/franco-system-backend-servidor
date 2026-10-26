@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.service.productos.PrecioSecurityService;
 import com.franco.dev.domain.productos.Familia;
 import com.franco.dev.domain.productos.ProductoImagen;
 import com.franco.dev.graphql.productos.input.FamiliaInput;
@@ -23,6 +24,9 @@ import java.util.Optional;
 public class ProductoImagenGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private PrecioSecurityService seg;
+
+    @Autowired
     private ProductoImagenService service;
 
     @Autowired
@@ -39,6 +43,7 @@ public class ProductoImagenGraphQL implements GraphQLQueryResolver, GraphQLMutat
     }
 
     public ProductoImagen saveProductoImagen(ProductoImagenInput input){
+        seg.requireAnyRole(); // sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         ProductoImagen e = m.map(input, ProductoImagen.class);
         return service.save(e);
@@ -62,6 +67,7 @@ public class ProductoImagenGraphQL implements GraphQLQueryResolver, GraphQLMutat
     }
 
     public Boolean deleteProductoImagen(Long id){
+        seg.requireAnyRole(); // sin pantalla que la llame
         return service.deleteById(id);
     }
 

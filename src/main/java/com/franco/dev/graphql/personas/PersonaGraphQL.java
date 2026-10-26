@@ -8,6 +8,7 @@ import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.PersonaInput;
 import com.franco.dev.service.general.CiudadService;
 import com.franco.dev.service.personas.PersonaService;
+import graphql.GraphQLException;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -24,6 +25,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
 
     @Autowired
     private PersonaService service;
@@ -60,6 +64,8 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Persona savePersona(PersonaInput input) {
+        if (!PersonaService.imagenesValidas(input.getImagenes()))
+            throw new GraphQLException("La imagen tiene que ser un nombre de archivo, no una ruta.");
         Persona e;
 
         if (input.getId() != null) {
@@ -106,6 +112,8 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Boolean deletePersona(Long id) {
+        // solo la llama el rollback del wizard de alta de funcionario
+        seg.requireAnyRole(FuncionarioGraphQL.ROLES_ALTA);
         Boolean ok = service.deleteById(id);
         return ok;
     }

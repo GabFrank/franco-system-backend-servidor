@@ -16,6 +16,9 @@ import java.util.Optional;
 public class ConfiguracionGeneralGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private ConfiguracionGeneralService service;
 
     @Autowired
@@ -28,6 +31,7 @@ public class ConfiguracionGeneralGraphQL implements GraphQLQueryResolver, GraphQ
 
 
     public ConfiguracionGeneral saveConfiguracionGeneral(ConfiguracionGeneralInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         input.setId((long) 1);
         ModelMapper m = new ModelMapper();
         ConfiguracionGeneral e = m.map(input, ConfiguracionGeneral.class);

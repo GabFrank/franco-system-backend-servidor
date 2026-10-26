@@ -19,6 +19,9 @@ import java.util.stream.Collectors;
 public class MarcaEquipoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private MarcaEquipoService service;
 
     @Autowired
@@ -33,6 +36,7 @@ public class MarcaEquipoGraphQL implements GraphQLQueryResolver, GraphQLMutation
     }
 
     public MarcaEquipoOutput saveMarcaEquipo(MarcaEquipoInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         MarcaEquipo entity = new MarcaEquipo();
         if (input.getId() != null) {
             entity = service.findById(input.getId()).orElse(new MarcaEquipo());
@@ -51,6 +55,7 @@ public class MarcaEquipoGraphQL implements GraphQLQueryResolver, GraphQLMutation
     }
 
     public Boolean deleteMarcaEquipo(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         try {
             return service.deleteById(id);
         } catch (Exception err) {

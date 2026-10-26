@@ -1,0 +1,18 @@
+# Configuración de la IA (OpenAI) para leer facturas en papel. La clave nunca vuelve completa.
+type ConfiguracionIa {
+    claveCargada: Boolean!
+    claveFinal: String
+    modelo: String
+    promptAdicional: String
+    cifradoDisponible: Boolean!
+}
+
+extend type Query {
+    configuracionIa: ConfiguracionIa!
+}
+
+extend type Mutation {
+    # apiKey null = no cambia, "" = borra
+    guardarConfiguracionIa(apiKey: String, modelo: String, promptAdicional: String): ConfiguracionIa!
+    probarConexionIa: String!
+}

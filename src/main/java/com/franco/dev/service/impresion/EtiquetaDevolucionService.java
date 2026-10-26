@@ -3,6 +3,7 @@ package com.franco.dev.service.impresion;
 import com.franco.dev.domain.operaciones.Devolucion;
 import com.franco.dev.domain.operaciones.DevolucionConfiguracion;
 import com.franco.dev.domain.operaciones.DevolucionItem;
+import com.franco.dev.domain.operaciones.dto.EtiquetaDevolucionDto;
 import com.franco.dev.domain.operaciones.dto.EtiquetaDevolucionFilaDto;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.Presentacion;
@@ -31,22 +32,28 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.print.PrintService;
 import java.io.InputStream;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
- * Etiquetas de separado (una por item). Se imprimen al marcar SEPARADO para
- * pegar en cada bulto. Contienen identificador, producto, cantidad, motivo y un
- * QR con el identificador (para reusar el escaneo de retiro).
+ * Etiqueta de separado: <b>una por devolucion</b>, con un solo QR y la lista de
+ * sus productos. Se imprime al marcar SEPARADO y se pega en la caja.
  *
- * Dos salidas: ticket termico (ESC/POS) y PDF A4 (Jasper, 2 columnas cortables).
+ * El QR lleva el identificador (DEV-{sucursal}-{id}). Escanearlo trae la
+ * devolucion entera con todos sus productos (PWA: boton de escanear y retiro a
+ * proveedor), asi que una etiqueta por producto solo gastaba papel: antes se
+ * imprimia una por item y todas llevaban el mismo QR.
+ *
+ * Dos salidas: ticket termico (ESC/POS) y PDF A4 (Jasper).
  *
  * Usado en:
- * - Desktop: Si
- * - Mobile: No
+ * - Desktop: Si (al separar y desde el detalle)
+ * - Mobile: Si (PWA, PDF al separar)
  */
 @Service
 public class EtiquetaDevolucionService {
@@ -54,6 +61,7 @@ public class EtiquetaDevolucionService {
     private static final String IMPRESORA_DEFAULT = "TICKET58";
     private static final int COLUMNAS_58 = 32;
     private static final int COLUMNAS_80 = 48;
+    private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     @Autowired
     private DevolucionService devolucionService;
@@ -70,52 +78,73 @@ public class EtiquetaDevolucionService {
     @Autowired
     private DevolucionConfiguracionService configuracionService;
 
-    /** Una fila de etiqueta por item de la devolucion. */
+    /** La etiqueta de la devolucion, con todos sus productos. */
     @Transactional(readOnly = true)
-    public List<EtiquetaDevolucionFilaDto> construirFilas(Long devolucionId) {
+    public EtiquetaDevolucionDto construirEtiqueta(Long devolucionId) {
         Devolucion d = devolucionService.findById(devolucionId)
                 .orElseThrow(() -> new GraphQLException("Devolucion no encontrada: " + devolucionId));
-        String identificador = d.getIdentificador() != null ? d.getIdentificador() : ("#" + d.getId());
-
-        List<EtiquetaDevolucionFilaDto> filas = new ArrayList<>();
-        for (DevolucionItem item : devolucionItemService.findByDevolucionId(devolucionId)) {
-            Presentacion pres = item.getPresentacion();
-            String codigo = codigoDe(pres);
-            String producto = (item.getProducto() != null ? item.getProducto().getId() + " · "
-                    + item.getProducto().getDescripcion() : "");
-            String motivo = item.getMotivoAveria() != null ? item.getMotivoAveria().getDescripcion() : "";
-            filas.add(new EtiquetaDevolucionFilaDto(
-                    identificador, codigo, producto.trim(),
-                    textoCantidad(item), motivo, identificador));
-        }
-        if (filas.isEmpty()) {
-            throw new GraphQLException("La devolucion no tiene items para etiquetar");
-        }
-        return filas;
+        return armar(d, devolucionItemService.findByDevolucionId(devolucionId), this::codigoDe);
     }
 
-    /** PDF A4 (Base64) con las etiquetas en 2 columnas cortables. */
+    /**
+     * Arma la etiqueta sin tocar la base: la devolucion y sus items ya cargados,
+     * y como se obtiene el codigo de una presentacion.
+     */
+    static EtiquetaDevolucionDto armar(Devolucion d, List<DevolucionItem> items,
+                                       Function<Presentacion, String> codigoDe) {
+        if (items == null || items.isEmpty()) {
+            throw new GraphQLException("La devolucion no tiene items para etiquetar");
+        }
+        String identificador = d.getIdentificador() != null ? d.getIdentificador() : ("#" + d.getId());
+
+        List<EtiquetaDevolucionFilaDto> productos = new ArrayList<>();
+        for (DevolucionItem item : items) {
+            String codigo = codigoDe.apply(item.getPresentacion());
+            String producto = item.getProducto() != null
+                    ? item.getProducto().getId() + " · " + item.getProducto().getDescripcion() : "";
+            String motivo = item.getMotivoAveria() != null && item.getMotivoAveria().getDescripcion() != null
+                    ? item.getMotivoAveria().getDescripcion() : "";
+            productos.add(new EtiquetaDevolucionFilaDto(codigo != null ? codigo : "",
+                    producto.trim(), textoCantidad(item), motivo));
+        }
+
+        String sucursal = d.getSucursalOrigen() != null && d.getSucursalOrigen().getNombre() != null
+                ? d.getSucursalOrigen().getNombre() : "";
+        String proveedor = d.getProveedor() != null && d.getProveedor().getPersona() != null
+                && d.getProveedor().getPersona().getNombre() != null
+                ? d.getProveedor().getPersona().getNombre() : "Sin proveedor";
+        String fecha = d.getFecha() != null ? d.getFecha().format(FECHA) : "";
+        return new EtiquetaDevolucionDto(identificador, sucursal, proveedor, fecha, identificador, productos);
+    }
+
+    /** PDF A4 (Base64) con la etiqueta de la devolucion. */
     @Transactional(readOnly = true)
     public String generarPdf(Long devolucionId) {
-        List<EtiquetaDevolucionFilaDto> filas = construirFilas(devolucionId);
+        EtiquetaDevolucionDto etiqueta = construirEtiqueta(devolucionId);
         try {
             ClassPathResource resource = new ClassPathResource("reports/etiquetas-devolucion.jrxml");
             InputStream inputStream = resource.getInputStream();
             JasperReport jasperReport = JasperCompileManager.compileReport(inputStream);
-            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(filas);
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(etiqueta.getProductos());
             Map<String, Object> parameters = new HashMap<>();
+            parameters.put("identificador", etiqueta.getIdentificador());
+            parameters.put("sucursal", etiqueta.getSucursal());
+            parameters.put("proveedor", etiqueta.getProveedor());
+            parameters.put("fecha", etiqueta.getFecha());
+            parameters.put("qr", etiqueta.getQr());
+            parameters.put("cantidadProductos", etiqueta.getProductos().size());
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
             byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
             return Base64.getEncoder().encodeToString(pdfBytes);
         } catch (Exception e) {
-            throw new GraphQLException("Error al generar las etiquetas PDF: " + e.getMessage());
+            throw new GraphQLException("Error al generar la etiqueta PDF: " + e.getMessage());
         }
     }
 
-    /** Imprime una etiqueta termica por item, cada una con su QR. */
+    /** Imprime la etiqueta en un solo ticket termico: cabecera, productos y un QR. */
     @Transactional(readOnly = true)
     public Boolean imprimirTicket(Long devolucionId, String printerName, Integer anchoMm) {
-        List<EtiquetaDevolucionFilaDto> filas = construirFilas(devolucionId);
+        EtiquetaDevolucionDto etiqueta = construirEtiqueta(devolucionId);
         DevolucionConfiguracion config = configuracionService.getConfiguracion();
         int ancho = anchoMm != null ? anchoMm
                 : (config.getTicketAnchoMm() != null ? config.getTicketAnchoMm() : 58);
@@ -135,31 +164,39 @@ public class EtiquetaDevolucionService {
             EscPos escpos = new EscPos(printerOutputStream);
             Style center = new Style().setJustification(EscPosConst.Justification.Center);
             Style centerBold = new Style().setJustification(EscPosConst.Justification.Center).setBold(true);
-            QRCode qrCode = new QRCode();
+            Style bold = new Style().setBold(true);
             String sep = repetir("-", columnas);
 
-            for (EtiquetaDevolucionFilaDto fila : filas) {
-                escpos.writeLF(centerBold, recortar(fila.getIdentificador(), columnas));
-                escpos.writeLF(sep);
-                if (!fila.getCodigo().isEmpty()) escpos.writeLF(center, recortar(fila.getCodigo(), columnas));
-                escpos.writeLF(recortar(fila.getProducto(), columnas * 2));
-                escpos.writeLF(centerBold, recortar(fila.getCantidad(), columnas));
-                if (!fila.getMotivo().isEmpty()) escpos.writeLF(center, recortar("Motivo: " + fila.getMotivo(), columnas));
-                escpos.feed(1);
-                escpos.write(qrCode.setSize(6).setJustification(EscPosConst.Justification.Center), fila.getQr());
-                escpos.feed(1);
-                escpos.writeLF(sep);
-                escpos.feed(2);
+            escpos.writeLF(centerBold, recortar(etiqueta.getIdentificador(), columnas));
+            escpos.writeLF(center, recortar(etiqueta.getSucursal(), columnas));
+            escpos.writeLF(center, recortar(etiqueta.getProveedor(), columnas));
+            if (!etiqueta.getFecha().isEmpty()) escpos.writeLF(center, etiqueta.getFecha());
+            escpos.writeLF(sep);
+            for (EtiquetaDevolucionFilaDto p : etiqueta.getProductos()) {
+                escpos.writeLF(bold, recortar(p.getProducto(), columnas * 2));
+                escpos.writeLF(recortar(p.getCantidad(), columnas));
+                if (!p.getMotivo().isEmpty()) escpos.writeLF(recortar("Motivo: " + p.getMotivo(), columnas));
             }
-            escpos.feed(2);
+            escpos.writeLF(sep);
+            escpos.writeLF(center, recortar(textoTotal(etiqueta.getProductos().size()), columnas));
+            escpos.feed(1);
+            escpos.write(new QRCode().setSize(6).setJustification(EscPosConst.Justification.Center),
+                    etiqueta.getQr());
+            escpos.feed(1);
+            escpos.writeLF(center, recortar("Escanear para ver los productos", columnas));
+            escpos.feed(4);
             escpos.close();
         } catch (Exception e) {
-            throw new GraphQLException("Error al imprimir las etiquetas: " + e.getMessage());
+            throw new GraphQLException("Error al imprimir la etiqueta: " + e.getMessage());
         }
         return true;
     }
 
-    private String textoCantidad(DevolucionItem item) {
+    static String textoTotal(int productos) {
+        return productos == 1 ? "1 producto" : productos + " productos";
+    }
+
+    private static String textoCantidad(DevolucionItem item) {
         double cantidad = item.getCantidad() != null ? item.getCantidad() : 0.0;
         Presentacion pres = item.getPresentacion();
         String presDesc = pres != null && pres.getDescripcion() != null ? pres.getDescripcion() : "";
@@ -175,7 +212,7 @@ public class EtiquetaDevolucionService {
         return cod != null && cod.getCodigo() != null ? cod.getCodigo() : "";
     }
 
-    private String fmt(double v) {
+    private static String fmt(double v) {
         return v == Math.rint(v) ? String.valueOf((long) v) : String.valueOf(v);
     }
 

@@ -151,6 +151,12 @@ public class NotificacionDestinatarioService
                 .collect(java.util.stream.Collectors.toList());
     }
 
+    /** true si el usuario es destinatario de la notificacion. */
+    @Transactional(readOnly = true)
+    public boolean tieneAcceso(Long notificacionId, Long usuarioId) {
+        return usuarioId != null && repository.findUsuarioIdsConAccesoNotificacion(notificacionId).contains(usuarioId);
+    }
+
     @Transactional(readOnly = true)
     public List<Usuario> obtenerUsuariosConAcceso(Long notificacionId) {
         List<Long> usuarioIds = repository.findUsuarioIdsConAccesoNotificacion(notificacionId);

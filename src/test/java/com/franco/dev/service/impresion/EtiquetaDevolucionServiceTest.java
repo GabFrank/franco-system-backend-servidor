@@ -96,6 +96,36 @@ class EtiquetaDevolucionServiceTest {
         assertEquals("7 productos", EtiquetaDevolucionService.textoTotal(7));
     }
 
+    /**
+     * El ticket termico de una devolucion de 7 productos es UNO: los 7
+     * productos y un solo QR con el identificador.
+     */
+    @Test
+    void elTicketTermicoEsUnoConUnSoloQr() throws Exception {
+        EtiquetaDevolucionDto e = EtiquetaDevolucionService.armar(devolucion(), sieteItems(), pres -> "");
+        java.io.ByteArrayOutputStream salida = new java.io.ByteArrayOutputStream();
+        EtiquetaDevolucionService.escribirTicket(e, 32, salida);
+        byte[] bytes = salida.toByteArray();
+        String texto = new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1);
+
+        // GS ( k 03 00 31 51 30: "imprimir el QR guardado". Uno solo por ticket.
+        String imprimirQr = new String(new byte[]{0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30},
+                java.nio.charset.StandardCharsets.ISO_8859_1);
+        assertEquals(1, ocurrencias(texto, imprimirQr));
+        for (int i = 1; i <= 7; i++) {
+            assertEquals(1, ocurrencias(texto, "PRODUCTO " + i), "falta el producto " + i);
+        }
+        // El identificador va en la cabecera y como contenido del QR.
+        assertEquals(2, ocurrencias(texto, "DEV-1-24"));
+        assertEquals(1, ocurrencias(texto, "7 productos"));
+    }
+
+    private static int ocurrencias(String texto, String buscado) {
+        int n = 0;
+        for (int i = texto.indexOf(buscado); i >= 0; i = texto.indexOf(buscado, i + 1)) n++;
+        return n;
+    }
+
     /** El PDF de una devolucion de 7 productos es una sola pagina, no 7 tarjetas. */
     @Test
     void elPdfEsUnaSolaPagina() throws Exception {

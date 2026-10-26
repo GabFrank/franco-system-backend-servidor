@@ -31,7 +31,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.print.PrintService;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -161,35 +163,44 @@ public class EtiquetaDevolucionService {
         }
 
         try (PrinterOutputStream printerOutputStream = new PrinterOutputStream(printService)) {
-            EscPos escpos = new EscPos(printerOutputStream);
-            Style center = new Style().setJustification(EscPosConst.Justification.Center);
-            Style centerBold = new Style().setJustification(EscPosConst.Justification.Center).setBold(true);
-            Style bold = new Style().setBold(true);
-            String sep = repetir("-", columnas);
-
-            escpos.writeLF(centerBold, recortar(etiqueta.getIdentificador(), columnas));
-            escpos.writeLF(center, recortar(etiqueta.getSucursal(), columnas));
-            escpos.writeLF(center, recortar(etiqueta.getProveedor(), columnas));
-            if (!etiqueta.getFecha().isEmpty()) escpos.writeLF(center, etiqueta.getFecha());
-            escpos.writeLF(sep);
-            for (EtiquetaDevolucionFilaDto p : etiqueta.getProductos()) {
-                escpos.writeLF(bold, recortar(p.getProducto(), columnas * 2));
-                escpos.writeLF(recortar(p.getCantidad(), columnas));
-                if (!p.getMotivo().isEmpty()) escpos.writeLF(recortar("Motivo: " + p.getMotivo(), columnas));
-            }
-            escpos.writeLF(sep);
-            escpos.writeLF(center, recortar(textoTotal(etiqueta.getProductos().size()), columnas));
-            escpos.feed(1);
-            escpos.write(new QRCode().setSize(6).setJustification(EscPosConst.Justification.Center),
-                    etiqueta.getQr());
-            escpos.feed(1);
-            escpos.writeLF(center, recortar("Escanear para ver los productos", columnas));
-            escpos.feed(4);
-            escpos.close();
+            escribirTicket(etiqueta, columnas, printerOutputStream);
         } catch (Exception e) {
             throw new GraphQLException("Error al imprimir la etiqueta: " + e.getMessage());
         }
         return true;
+    }
+
+    /**
+     * Escribe el ticket de UNA devolucion: cabecera, todos sus productos y un
+     * solo QR. Separado de la impresora para poder probarlo sin una.
+     */
+    static void escribirTicket(EtiquetaDevolucionDto etiqueta, int columnas, OutputStream salida)
+            throws IOException {
+        EscPos escpos = new EscPos(salida);
+        Style center = new Style().setJustification(EscPosConst.Justification.Center);
+        Style centerBold = new Style().setJustification(EscPosConst.Justification.Center).setBold(true);
+        Style bold = new Style().setBold(true);
+        String sep = repetir("-", columnas);
+
+        escpos.writeLF(centerBold, recortar(etiqueta.getIdentificador(), columnas));
+        escpos.writeLF(center, recortar(etiqueta.getSucursal(), columnas));
+        escpos.writeLF(center, recortar(etiqueta.getProveedor(), columnas));
+        if (!etiqueta.getFecha().isEmpty()) escpos.writeLF(center, etiqueta.getFecha());
+        escpos.writeLF(sep);
+        for (EtiquetaDevolucionFilaDto p : etiqueta.getProductos()) {
+            escpos.writeLF(bold, recortar(p.getProducto(), columnas * 2));
+            escpos.writeLF(recortar(p.getCantidad(), columnas));
+            if (!p.getMotivo().isEmpty()) escpos.writeLF(recortar("Motivo: " + p.getMotivo(), columnas));
+        }
+        escpos.writeLF(sep);
+        escpos.writeLF(center, recortar(textoTotal(etiqueta.getProductos().size()), columnas));
+        escpos.feed(1);
+        escpos.write(new QRCode().setSize(6).setJustification(EscPosConst.Justification.Center),
+                etiqueta.getQr());
+        escpos.feed(1);
+        escpos.writeLF(center, recortar("Escanear para ver los productos", columnas));
+        escpos.feed(4);
+        escpos.close();
     }
 
     static String textoTotal(int productos) {
@@ -216,13 +227,13 @@ public class EtiquetaDevolucionService {
         return v == Math.rint(v) ? String.valueOf((long) v) : String.valueOf(v);
     }
 
-    private String recortar(String s, int max) {
+    private static String recortar(String s, int max) {
         if (s == null) return "";
         String t = s.trim();
         return t.length() > max ? t.substring(0, max) : t;
     }
 
-    private String repetir(String s, int veces) {
+    private static String repetir(String s, int veces) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < veces; i++) sb.append(s);
         return sb.toString();

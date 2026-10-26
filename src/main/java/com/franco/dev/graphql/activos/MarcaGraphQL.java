@@ -20,6 +20,9 @@ import java.util.Optional;
 public class MarcaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private MarcaService service;
 
     @Autowired
@@ -39,6 +42,7 @@ public class MarcaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Marca saveMarca(MarcaInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         Marca e = m.map(input, Marca.class);
         if (input.getUsuarioId() != null)
@@ -53,6 +57,7 @@ public class MarcaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Boolean deleteMarca(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         try {
             Boolean ok = service.deleteById(id);
             return ok;

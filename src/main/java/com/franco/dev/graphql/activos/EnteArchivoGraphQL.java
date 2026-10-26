@@ -25,6 +25,9 @@ import java.util.Optional;
 public class EnteArchivoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private EnteArchivoService service;
 
     @Autowired
@@ -79,6 +82,7 @@ public class EnteArchivoGraphQL implements GraphQLQueryResolver, GraphQLMutation
     }
 
     public EnteArchivo saveEnteArchivo(EnteArchivoInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         EnteArchivo e = input.getId() != null
                 ? service.findById(input.getId()).orElse(new EnteArchivo())
                 : new EnteArchivo();
@@ -133,6 +137,7 @@ public class EnteArchivoGraphQL implements GraphQLQueryResolver, GraphQLMutation
     }
 
     public Boolean deleteEnteArchivo(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         try {
             return service.deleteById(id);
         } catch (Exception err) {

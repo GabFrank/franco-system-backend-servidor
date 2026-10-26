@@ -93,8 +93,11 @@ type SugerenciaProductoMobile {
     presentacionDescripcion: String
     factor: Float
     codigo: String
+    # APRENDIDO_DESCRIPCION, CODIGO_PARECIDO, DESCRIPCION o PROVEEDOR
     tipo: String
     motivo: String
+    # Lo aprendido por la descripción, sin ambigüedad: se ofrece para confirmar con un toque
+    preseleccionada: Boolean
 }
 
 type RenglonFacturaMobile {

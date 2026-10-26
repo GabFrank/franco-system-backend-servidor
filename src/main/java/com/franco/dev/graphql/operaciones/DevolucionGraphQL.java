@@ -492,6 +492,7 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     /** Imprime las etiquetas de separado en impresora termica. */
     public Boolean imprimirEtiquetasSeparado(Long devolucionId, String printerName, Integer anchoMm) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         if (devolucionId == null) throw new GraphQLException("devolucionId es requerido");
         try {
             return etiquetaDevolucionService.imprimirTicket(devolucionId, printerName, anchoMm);
@@ -506,6 +507,7 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
      * desktop dejara de mandar el default y usara el valor registrado.
      */
     public Boolean imprimirTicketRetiroProveedor(List<Long> devolucionIds, String printerName, Integer anchoMm) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         if (devolucionIds == null || devolucionIds.isEmpty()) {
             throw new GraphQLException("devolucionIds es requerido");
         }

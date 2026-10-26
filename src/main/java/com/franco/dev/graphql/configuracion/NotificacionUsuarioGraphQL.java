@@ -28,6 +28,18 @@ import org.slf4j.LoggerFactory;
 @Component
 public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
+    @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    /** Comentar o mover en el tablero: destinatario o ADMIN. */
+    private void exigirAccesoNotificacion(Long notificacionId) {
+        if (seg.esSuperusuario() || notificacionId == null) return;
+        com.franco.dev.domain.personas.Usuario u = seg.requireUsuarioDeSesion();
+        if (!notificacionDestinatarioService.tieneAcceso(notificacionId, u.getId())) {
+            throw new graphql.GraphQLException("No autorizado: la notificacion no es tuya.");
+        }
+    }
+
     private static final Logger LOGGER = LoggerFactory.getLogger(NotificacionUsuarioGraphQL.class);
 
     @Autowired
@@ -84,6 +96,7 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
     }
 
     public Boolean cambiarEstadoTableroNotificacion(Long notificacionId, String estado) {
+        exigirAccesoNotificacion(notificacionId);
         try {
             org.springframework.security.core.Authentication authentication = org.springframework.security.core.context.SecurityContextHolder
                     .getContext().getAuthentication();
@@ -229,6 +242,7 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
     @org.springframework.transaction.annotation.Transactional
     public NotificacionComentario crearComentarioNotificacion(Long notificacionId, String comentario, String mediaUrl,
             Long comentarioPadreId) {
+        exigirAccesoNotificacion(notificacionId);
         try {
             org.springframework.security.core.Authentication authentication = org.springframework.security.core.context.SecurityContextHolder
                     .getContext().getAuthentication();

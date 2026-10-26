@@ -299,6 +299,41 @@ public class LoteService extends CrudService<Lote, LoteRepository, Long> {
         return repository.save(lote);
     }
 
+    /**
+     * Regla de archivo, pura para poder probarla sin base: solo se archiva un lote sin saldo en
+     * NINGUNA sucursal y con motivo. Con saldo, primero hay que liberarlo (a SIN LOTE) o corregirlo
+     * (a 0) desde el ajuste por lote.
+     */
+    public static void validarArchivable(double saldoTotal, String motivo) {
+        if (Math.abs(saldoTotal) > 0.0001) {
+            throw new IllegalArgumentException("El lote todavia tiene saldo (" + saldoTotal
+                    + " unidades en la red): liberalo a SIN LOTE o corregilo a 0 antes de archivarlo.");
+        }
+        if (motivo == null || motivo.trim().isEmpty()) {
+            throw new IllegalArgumentException("Para archivar un lote el motivo es obligatorio.");
+        }
+    }
+
+    /**
+     * Archiva un lote: lo saca de buscadores y selectores. No toca stock ni el estado del lote
+     * (LIBERADO/CUARENTENA/BLOQUEADO) y no replica: ver la migracion V255.5.
+     */
+    @Transactional
+    public boolean archivar(Long loteId, String motivo, Usuario usuario) {
+        Lote lote = repository.findById(loteId)
+                .orElseThrow(() -> new IllegalArgumentException("Lote no encontrado: " + loteId));
+        Double saldo = repository.saldoTotalLote(lote.getId());
+        validarArchivable(saldo != null ? saldo : 0d, motivo);
+        repository.archivar(lote.getId(), usuario != null ? usuario.getId() : null, motivo.trim());
+        return true;
+    }
+
+    @Transactional
+    public boolean desarchivar(Long loteId) {
+        repository.desarchivar(loteId);
+        return true;
+    }
+
     public List<Lote> findByProductoId(Long productoId) {
         return repository.findByProductoId(productoId);
     }
@@ -315,10 +350,21 @@ public class LoteService extends CrudService<Lote, LoteRepository, Long> {
      */
     public Page<LoteDeProductoDto> buscarLotesDeProducto(Long productoId, Long sucursalId,
                                                           String texto, Pageable pageable) {
+        return buscarLotesDeProducto(productoId, sucursalId, texto, false, pageable);
+    }
+
+    /**
+     * Con {@code incluirArchivados} en false oculta los lotes archivados SIN saldo. Un archivado que
+     * volvio a tener saldo (por ejemplo, una anulacion de venta que le devolvio unidades) se sigue
+     * mostrando, marcado: esconderlo dejaria stock trazado que nadie ve.
+     */
+    public Page<LoteDeProductoDto> buscarLotesDeProducto(Long productoId, Long sucursalId,
+                                                          String texto, boolean incluirArchivados,
+                                                          Pageable pageable) {
         if (productoId == null) {
             return Page.empty(pageable);
         }
-        return repository.buscarLotesDeProducto(productoId, sucursalId, normalizarFiltro(texto), pageable)
+        return repository.buscarLotesDeProducto(productoId, sucursalId, normalizarFiltro(texto), incluirArchivados, pageable)
                 .map(p -> new LoteDeProductoDto(
                         p.getLoteId(),
                         p.getNumeroLote(),
@@ -326,7 +372,8 @@ public class LoteService extends CrudService<Lote, LoteRepository, Long> {
                         p.getFechaRetiro(),
                         p.getEstado() != null ? EstadoLote.valueOf(p.getEstado()) : null,
                         p.getSaldo() != null ? p.getSaldo() : 0d,
-                        p.getSaldoTotal() != null ? p.getSaldoTotal() : 0d));
+                        p.getSaldoTotal() != null ? p.getSaldoTotal() : 0d,
+                        Boolean.TRUE.equals(p.getArchivado())));
     }
 
     /**

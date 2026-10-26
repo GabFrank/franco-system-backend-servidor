@@ -156,9 +156,11 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
      * sucursal: son los que hacen falta para trazar mercadería que ya estaba sin lote asignado.
      */
     public Page<LoteDeProductoDto> buscarLotesDeProducto(Long productoId, Long sucursalId,
-                                                          String texto, int page, int size) {
+                                                          String texto, int page, int size,
+                                                          Boolean incluirArchivados) {
         Pageable pageable = PageRequest.of(Math.max(page, 0), size > 0 ? size : 10);
-        return loteService.buscarLotesDeProducto(productoId, sucursalId, texto, pageable);
+        return loteService.buscarLotesDeProducto(productoId, sucursalId, texto,
+                Boolean.TRUE.equals(incluirArchivados), pageable);
     }
 
     /**
@@ -287,6 +289,39 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
         Usuario usuario = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
         try {
             return loteService.cambiarEstado(loteId, estado, observacion, usuario);
+        } catch (IllegalArgumentException e) {
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
+    /**
+     * Archiva un lote sin saldo en ninguna sucursal: deja de aparecer en buscadores y selectores.
+     * Con saldo se rechaza; primero hay que liberarlo o corregirlo con ajustarStockLote.
+     */
+    public Boolean archivarLote(Long loteId, String motivo, Long usuarioId) {
+        if (loteId == null) {
+            throw new GraphQLException("loteId es requerido");
+        }
+        Usuario usuario = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
+        try {
+            return loteService.archivar(loteId, motivo, usuario);
+        } catch (IllegalArgumentException e) {
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
+    /** Vuelve a mostrar un lote archivado. */
+    public Boolean desarchivarLote(Long loteId) {
+        if (loteId == null) {
+            throw new GraphQLException("loteId es requerido");
+        }
+        return loteService.desarchivar(loteId);
+    }
+
+    /** Conteo rapido: varios ajustes por lote en una sola transaccion (todo o nada). */
+    public List<AjusteStockLoteResultadoDto> ajustarStockLoteLista(List<AjusteStockLoteInput> inputs) {
+        try {
+            return ajusteStockLoteService.ajustarLista(inputs);
         } catch (IllegalArgumentException e) {
             throw new GraphQLException(e.getMessage());
         }

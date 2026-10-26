@@ -46,4 +46,11 @@ public class AjusteStockLoteInput {
      * exactamente como en la recepción.
      */
     private String fechaRetiro;
+
+    /**
+     * Opcional (conteo rapido): saldo del lote que vio el operador al cargar la pantalla. Si al
+     * confirmar el saldo es otro (se vendio o transfirio mientras contaba), el ajuste se rechaza
+     * para que recargue, en vez de pisar el movimiento nuevo.
+     */
+    private Double saldoEsperado;
 }

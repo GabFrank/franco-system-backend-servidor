@@ -24,6 +24,12 @@ public class PreRegistroFuncionarioController {
     @PostMapping("/pre-registro")
     @ResponseBody
     public ResponseEntity<PreRegistroFuncionario> savePreRegistroFuncionario(@RequestBody final PreRegistroFuncionario entity) {
+        // Sin login (lo llama «Solicitar nuevo usuario» de la app): solo crea. Editar o verificar
+        // un pre-registro es del asistente de funcionarios, por GraphQL y con rol.
+        entity.setId(null);
+        entity.setFuncionario(null);
+        entity.setVerificado(false);
+        entity.setCreadoEn(null);
         return ResponseEntity.ok(service.save(entity));
     }
 }

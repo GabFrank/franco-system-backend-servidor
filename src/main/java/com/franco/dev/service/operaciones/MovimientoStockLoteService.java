@@ -354,6 +354,22 @@ public class MovimientoStockLoteService
             if (asignacion.getCantidad() == null || asignacion.getCantidad() <= 0) {
                 continue;
             }
+            if (asignacion.getLoteId() == null) {
+                // Parte sin trazar: fila "SIN LOTE" con lote nulo, como en la venta de la filial.
+                MovimientoStockLote sinLote = new MovimientoStockLote();
+                sinLote.setSucursalId(movimiento.getSucursalId());
+                sinLote.setMovimientoStockId(movimiento.getId());
+                sinLote.setLote(null);
+                sinLote.setProducto(producto);
+                sinLote.setNumeroLote(LoteFefoService.NUMERO_LOTE_SIN_TRAZAR);
+                sinLote.setCantidad(asignacion.getCantidad() * signo);
+                sinLote.setReferencia(referencia);
+                sinLote.setEstado(movimiento.getEstado() != null ? movimiento.getEstado() : true);
+                sinLote.setUsuario(movimiento.getUsuario());
+                sinLote.setCreadoEn(movimiento.getCreadoEn() != null ? movimiento.getCreadoEn() : LocalDateTime.now());
+                creados.add(save(sinLote));
+                continue;
+            }
             Lote loteMaestro = loteService.findById(asignacion.getLoteId()).orElse(null);
             if (loteMaestro == null) {
                 log.warning("Asignacion FEFO con lote inexistente " + asignacion.getLoteId()

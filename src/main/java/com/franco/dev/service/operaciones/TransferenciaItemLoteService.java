@@ -69,10 +69,7 @@ public class TransferenciaItemLoteService
             return creados;
         }
 
-        for (AsignacionSolicitada solicitada : asignaciones) {
-            if (solicitada == null || solicitada.getLoteId() == null) {
-                continue;
-            }
+        for (AsignacionSolicitada solicitada : sumarPorLote(asignaciones)) {
             Double cantidad = solicitada.getCantidad();
             if (cantidad == null || cantidad <= 0) {
                 continue;
@@ -95,6 +92,24 @@ public class TransferenciaItemLoteService
             creados.add(save(fila));
         }
         return creados;
+    }
+
+    /**
+     * Junta las filas del mismo lote sumando sus cantidades, respetando el orden en que llegaron.
+     * Si la pantalla manda dos veces el mismo lote, guardarlas por separado choca contra
+     * uq_til_item_etapa_lote y el guardado entero falla.
+     */
+    static List<AsignacionSolicitada> sumarPorLote(List<AsignacionSolicitada> asignaciones) {
+        java.util.LinkedHashMap<Long, Double> porLote = new java.util.LinkedHashMap<>();
+        for (AsignacionSolicitada s : asignaciones) {
+            if (s == null || s.getLoteId() == null || s.getCantidad() == null || s.getCantidad() <= 0) {
+                continue;
+            }
+            porLote.merge(s.getLoteId(), s.getCantidad(), Double::sum);
+        }
+        List<AsignacionSolicitada> resultado = new ArrayList<>();
+        porLote.forEach((loteId, cantidad) -> resultado.add(new AsignacionSolicitada(loteId, cantidad)));
+        return resultado;
     }
 
     public List<TransferenciaItemLote> asignacionPorEtapa(Long transferenciaItemId, EtapaAsignacionLote etapa) {

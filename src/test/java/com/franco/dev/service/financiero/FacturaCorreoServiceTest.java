@@ -32,9 +32,12 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -51,6 +54,9 @@ class FacturaCorreoServiceTest {
 
     private static final long FACTURA = 535067L;
     private static final long SUCURSAL = 1L;
+    private static final long USUARIO = 410L;
+    /** La tabla del envio automatico (no la del historial manual). */
+    private static final String AUTOMATICO = "INTO financiero.factura_legal_correo ";
 
     private JdbcTemplate jdbc;
     private FacturaLegalService facturaLegalService;
@@ -76,13 +82,16 @@ class FacturaCorreoServiceTest {
         when(provider.getIfAvailable()).thenReturn(sender);
 
         service = new FacturaCorreoService(jdbc, facturaLegalService, documentoElectronicoService,
-                sucursalService, facturaLegalGraphQL, provider, mock(PlatformTransactionManager.class));
+                sucursalService, facturaLegalGraphQL, provider, mock(PlatformTransactionManager.class),
+                new TesoreriaSecurityFalso(USUARIO, "ANALISIS DE CAJA"));
         ReflectionTestUtils.setField(service, "mailUsername", "facturas@ejemplo.com");
         ReflectionTestUtils.setField(service, "remitente", "");
         ReflectionTestUtils.setField(service, "ventanaHoras", 48);
         ReflectionTestUtils.setField(service, "maxIntentos", 6);
         ReflectionTestUtils.setField(service, "reintentoMinutos", 10);
         ReflectionTestUtils.setField(service, "lote", 20);
+        ReflectionTestUtils.setField(service, "manualPorFacturaDia", 5);
+        ReflectionTestUtils.setField(service, "manualPorUsuarioHora", 20);
 
         when(jdbc.query(anyString(), any(RowMapper.class), any(), any(), any(), any()))
                 .thenReturn(Collections.singletonList(new long[]{FACTURA, SUCURSAL}));
@@ -172,8 +181,87 @@ class FacturaCorreoServiceTest {
 
         verify(sender).send(mensaje);
         assertEquals("diego@ejemplo.com", mensaje.getRecipients(Message.RecipientType.TO)[0].toString());
-        verify(jdbc).update(anyString(), eq(FACTURA), eq(SUCURSAL), eq("diego@ejemplo.com"),
+        verify(jdbc).queryForObject(contains("INSERT INTO financiero.factura_legal_correo_manual"), eq(Long.class),
+                eq(FACTURA), eq(SUCURSAL), eq("diego@ejemplo.com"), eq(USUARIO));
+        verify(jdbc).update(contains("UPDATE financiero.factura_legal_correo_manual"), eq("ENVIADO"), eq(null), any());
+        // Una copia a otra direccion no le quita al cliente el envio automatico.
+        verify(jdbc, never()).update(contains(AUTOMATICO), (Object[]) any());
+    }
+
+    @Test
+    void elEnvioManualAlCorreoDelClienteLaMarcaComoEnviadaParaElAutomatico() {
+        factura(" FINANZAS2@GMAIL.COM.PY ");
+        documento(EstadoDE.APROBADO);
+
+        assertTrue(service.enviarManual(FACTURA, SUCURSAL, "finanzas2@gmail.com.py"));
+
+        verify(jdbc).update(contains(AUTOMATICO), eq(FACTURA), eq(SUCURSAL), eq("finanzas2@gmail.com.py"),
                 eq("ENVIADO"), eq(null), eq("ENVIADO"));
+    }
+
+    @Test
+    void unEnvioManualFallidoAlClienteNoTocaElAutomatico() {
+        factura("finanzas2@gmail.com.py");
+        documento(EstadoDE.APROBADO);
+        doThrow(new MailSendException("conexion rechazada")).when(sender).send(any(MimeMessage.class));
+
+        assertThrows(GraphQLException.class, () -> service.enviarManual(FACTURA, SUCURSAL, "finanzas2@gmail.com.py"));
+
+        verify(jdbc).update(contains("UPDATE financiero.factura_legal_correo_manual"), eq("ERROR"),
+                eq("conexion rechazada"), any());
+        verify(jdbc, never()).update(contains(AUTOMATICO), (Object[]) any());
+    }
+
+    @Test
+    void elEnvioManualCortaAlLlegarAlLimiteDeLaFactura() {
+        factura(null);
+        documento(EstadoDE.APROBADO);
+        when(jdbc.queryForObject(contains("WHERE factura_legal_id"), eq(Long.class), (Object[]) any())).thenReturn(5L);
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> service.enviarManual(FACTURA, SUCURSAL, "diego@ejemplo.com"));
+
+        assertTrue(e.getMessage().contains("24 horas"), e.getMessage());
+        verify(sender, never()).send(any(MimeMessage.class));
+        verify(jdbc, never()).queryForObject(contains("INSERT"), eq(Long.class), (Object[]) any());
+    }
+
+    @Test
+    void elEnvioManualCortaAlLlegarAlLimiteDelUsuario() {
+        factura(null);
+        documento(EstadoDE.APROBADO);
+        when(jdbc.queryForObject(contains("WHERE usuario_id"), eq(Long.class), (Object[]) any())).thenReturn(20L);
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> service.enviarManual(FACTURA, SUCURSAL, "diego@ejemplo.com"));
+
+        assertTrue(e.getMessage().contains("una hora"), e.getMessage());
+        verify(sender, never()).send(any(MimeMessage.class));
+    }
+
+    @Test
+    void siNoSePuedeAnotarElIntentoNoSeEnvia() {
+        factura(null);
+        documento(EstadoDE.APROBADO);
+        when(jdbc.queryForObject(contains("INSERT"), eq(Long.class), (Object[]) any()))
+                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("sin base"));
+
+        assertThrows(GraphQLException.class, () -> service.enviarManual(FACTURA, SUCURSAL, "diego@ejemplo.com"));
+
+        verify(sender, never()).send(any(MimeMessage.class));
+    }
+
+    @Test
+    void sinSesionNoSeEnvia() {
+        ReflectionTestUtils.setField(service, "seg", new TesoreriaSecurityFalso(null));
+        factura(null);
+        documento(EstadoDE.APROBADO);
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> service.enviarManual(FACTURA, SUCURSAL, "diego@ejemplo.com"));
+
+        assertFalse(e.getMessage().isEmpty());
+        verify(sender, never()).send(any(MimeMessage.class));
     }
 
     @Test
@@ -186,6 +274,19 @@ class FacturaCorreoServiceTest {
 
         assertEquals("El correo no es una dirección válida", e.getMessage());
         verify(sender, never()).send(any(MimeMessage.class));
+    }
+
+    @Test
+    void elEnvioManualRechazaUnaDireccionDemasiadoLarga() {
+        factura(null);
+        documento(EstadoDE.APROBADO);
+        String larga = "a".repeat(250) + "@ejemplo.com";
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> service.enviarManual(FACTURA, SUCURSAL, larga));
+
+        assertEquals("El correo no es una dirección válida", e.getMessage());
+        verify(facturaLegalGraphQL, never()).generarPdfFacturaElectronica(anyLong(), anyLong());
     }
 
     @Test

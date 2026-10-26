@@ -26,6 +26,9 @@ import java.util.Optional;
 public class CargoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private CargoService service;
 
     @Autowired
@@ -67,6 +70,7 @@ public class CargoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
      * el id es null, por eso se chequea antes de encadenar.
      */
     public Cargo saveCargo(CargoInput input) throws GraphQLException {
+        seg.requireAnyRole("RRHH GESTIONAR");
         ModelMapper m = new ModelMapper();
         Cargo e = m.map(input, Cargo.class);
         e.setUsuario(input.getUsuarioId() != null
@@ -103,6 +107,7 @@ public class CargoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
      * Mismo patron que ProveedorServicioGraphQL.deleteProveedorServicio.
      */
     public Boolean deleteCargo(Long id) throws GraphQLException {
+        seg.requireAnyRole("RRHH GESTIONAR");
         Long funcionarios = funcionarioRepository.countByCargoId(id);
         if (funcionarios != null && funcionarios > 0) {
             throw new GraphQLException(

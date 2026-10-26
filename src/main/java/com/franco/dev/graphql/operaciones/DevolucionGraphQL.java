@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.TransferenciaRoles;
 import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.operaciones.Devolucion;
 import com.franco.dev.domain.operaciones.RetiroDevolucion;
@@ -168,6 +169,10 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             saved = service.actualizarCabecera(entity);
         } else {
             entity.setEstado(DevolucionEstado.PENDIENTE);
+            // la carga no pide rol: la acreditacion solo entra por acreditarDevolucion
+            entity.setResolucion(null);
+            entity.setNroNotaCredito(null);
+            entity.setMontoAcreditado(null);
             saved = service.save(entity);
         }
 
@@ -191,6 +196,7 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             Long sucursalOrigenId,
             String motivo,
             Long usuarioId) {
+        seg.requireSuperusuario(); // configuracion o sin pantalla que la llame
 
         if (proveedorId == null || sucursalOrigenId == null || usuarioId == null) {
             throw new GraphQLException("Proveedor, sucursal de origen y usuario son requeridos");
@@ -219,6 +225,7 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
      */
     @Transactional
     public Devolucion confirmarDevolucion(Long devolucionId) {
+        seg.requireSuperusuario(); // configuracion o sin pantalla que la llame
         if (devolucionId == null) {
             throw new GraphQLException("ID de la devolución es requerido");
         }
@@ -246,6 +253,7 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
      */
     @Transactional
     public Devolucion cancelarDevolucion(Long devolucionId, String motivoCancelacion) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         if (devolucionId == null) {
             throw new GraphQLException("ID de la devolución es requerido");
         }
@@ -263,6 +271,7 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
      */
     @Transactional
     public Devolucion avanzarEstadoDevolucion(Long devolucionId, DevolucionEstado estado, Long usuarioId) {
+        if (estado != DevolucionEstado.SEPARADO) seg.requireAnyRole(TransferenciaRoles.ROLES); // separar es carga de sucursal
         if (devolucionId == null || estado == null) {
             throw new GraphQLException("devolucionId y estado son requeridos");
         }
@@ -281,6 +290,7 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
      */
     @Transactional
     public Devolucion revertirEstadoDevolucion(Long devolucionId, Long usuarioId) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         if (devolucionId == null) {
             throw new GraphQLException("devolucionId es requerido");
         }
@@ -336,6 +346,7 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     @Transactional
     public RetiroDevolucion revertirRetiroDevolucion(Long retiroId, Long usuarioId) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         if (retiroId == null) throw new GraphQLException("retiroId es requerido");
         com.franco.dev.domain.personas.Usuario usuario = usuarioId != null
                 ? usuarioService.findById(usuarioId).orElse(null) : null;
@@ -348,6 +359,7 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     @Transactional
     public ColectaDevolucion revertirColectaDevolucion(Long colectaId, Long usuarioId) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         if (colectaId == null) throw new GraphQLException("colectaId es requerido");
         com.franco.dev.domain.personas.Usuario usuario = usuarioId != null
                 ? usuarioService.findById(usuarioId).orElse(null) : null;
@@ -513,6 +525,7 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
      * devolucion fallida arrastraria a las exitosas (UnexpectedRollbackException).
      */
     public RetiroBloqueResultadoDto retirarDevolucionesEnBloque(List<Long> devolucionIds, Long usuarioId) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         if (devolucionIds == null || devolucionIds.isEmpty()) {
             throw new GraphQLException("devolucionIds es requerido");
         }
@@ -523,6 +536,7 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     /** Colecta interna: envia una devolucion SEPARADA a un deposito (pasa a COLECTADO). */
     public Devolucion colectarDevolucion(Long devolucionId, Long sucursalDestinoId, Long usuarioId) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         if (devolucionId == null) throw new GraphQLException("devolucionId es requerido");
         com.franco.dev.domain.personas.Usuario usuario = usuarioId != null
                 ? usuarioService.findById(usuarioId).orElse(null) : null;
@@ -532,6 +546,7 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     /** Colecta en bloque a un deposito. El fallo de una no aborta el resto. */
     public RetiroBloqueResultadoDto colectarDevolucionesEnBloque(List<Long> devolucionIds,
                                                                  Long sucursalDestinoId, Long usuarioId) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         if (devolucionIds == null || devolucionIds.isEmpty()) {
             throw new GraphQLException("devolucionIds es requerido");
         }

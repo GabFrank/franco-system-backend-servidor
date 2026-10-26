@@ -30,6 +30,9 @@ import java.util.Optional;
 public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private ProveedorService service;
 
     @Autowired
@@ -54,6 +57,7 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public Proveedor saveProveedor(ProveedorInput input) throws GraphQLException {
+        seg.requireAnyRole(PersonaGraphQL.ROLES_PERSONAS);
         ModelMapper m = new ModelMapper();
         Proveedor e = m.map(input, Proveedor.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -67,6 +71,7 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public Boolean deleteProveedor(Long id){
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

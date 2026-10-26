@@ -24,6 +24,9 @@ import java.util.Optional;
 public class PdvGrupoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private PdvGrupoService service;
 
     @Autowired
@@ -45,6 +48,7 @@ public class PdvGrupoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public PdvGrupo savePdvGrupo(PdvGrupoInput input){
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         PdvGrupo e = m.map(input, PdvGrupo.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -54,6 +58,7 @@ public class PdvGrupoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Boolean deletePdvGrupo(Long id){
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;    }
 

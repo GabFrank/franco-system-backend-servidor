@@ -149,7 +149,10 @@ type FacturaProveedorMobile {
     tipoPagoFactura: String
     plazoCredito: Int
     pedidoId: ID
-    cdc: String!
+    # Null en la factura en papel
+    cdc: String
+    # SIFEN (QR del KuDE) o FOTO (factura en papel leída por IA)
+    origen: String
     tipoDocumento: Int
     tipoDocumentoDescripcion: String
     emisorRuc: String
@@ -313,4 +316,58 @@ extend type Mutation {
     confirmarFacturaMobile(documentoId: ID!, pedidoId: ID!): CompraNotaMobile!
     eliminarNotaComprasMobile(notaId: ID!): CompraPedidoMobile!
     finalizarRecepcionNotasMobile(pedidoId: ID!): CompraPedidoMobile!
+}
+
+# Factura en papel: la cabecera que leyó la IA de las fotos, para revisarla con el papel antes de seguir.
+# dudosos: los campos de los que la IA no estuvo segura (emisorRuc, timbrado, numero…).
+type CabeceraFacturaFotoMobile {
+    documentoId: ID!
+    pedidoId: ID
+    cantidadFotos: Int!
+    emisorRuc: String
+    emisorNombre: String
+    rucValido: Boolean!
+    proveedorId: ID
+    proveedorNombre: String
+    receptorRuc: String
+    receptorEsEmpresa: Boolean
+    timbrado: Int
+    establecimiento: String
+    puntoExpedicion: String
+    numero: String
+    fechaEmision: String
+    condicion: String
+    moneda: String
+    totalGeneral: Float
+    sumaRenglones: Float
+    totalesCuadran: Boolean!
+    cantidadRenglones: Int!
+    dudosos: [String!]!
+    avisos: [String!]!
+}
+
+input CabeceraFacturaFotoInput {
+    documentoId: ID!
+    proveedorId: ID!
+    timbrado: Int!
+    establecimiento: String!
+    puntoExpedicion: String!
+    numero: String!
+    # yyyy-MM-dd
+    fechaEmision: String!
+    # CONTADO | CREDITO
+    condicion: String
+    totalGeneral: Float!
+}
+
+extend type Query {
+    # Una hoja de la factura en papel como data URI (orden desde 1)
+    fotoFacturaMobile(documentoId: ID!, orden: Int!): String
+}
+
+extend type Mutation {
+    # Fotos como data URI (image/jpeg o image/png), 1 a 5, hasta 4 MB cada una. Sin pedidoId, la factura crea la compra
+    leerFacturaFotoMobile(fotos: [String!]!, pedidoId: ID): CabeceraFacturaFotoMobile!
+    # Confirma la cabecera y sigue como la factura electrónica (al pedido o a crear la compra)
+    confirmarCabeceraFacturaFotoMobile(input: CabeceraFacturaFotoInput!): FacturaProveedorMobile!
 }

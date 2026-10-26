@@ -254,7 +254,12 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
                 notaRecepcionService.save(nota);
             }
         }
-        
+
+        // Vínculos producto-proveedor de todas las notas (forzar CONCILIADA no pasa por la conciliación normal)
+        for (NotaRecepcion nota : notas) {
+            notaRecepcionService.vincularProductosConProveedor(nota, null);
+        }
+
         // Finalizar etapa de recepción de notas
         procesoEtapaService.finalizarEtapa(pedidoId, ProcesoEtapaTipo.RECEPCION_NOTA);
         

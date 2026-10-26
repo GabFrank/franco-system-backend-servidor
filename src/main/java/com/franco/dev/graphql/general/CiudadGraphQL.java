@@ -25,6 +25,9 @@ import java.util.Optional;
 public class CiudadGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private CiudadService service;
 
     @Autowired
@@ -50,6 +53,7 @@ public class CiudadGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
 
     public Ciudad saveCiudad(CiudadInput input){
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         Ciudad e = m.map(input, Ciudad.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -61,6 +65,7 @@ public class CiudadGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         return e;    }
 
     public Boolean deleteCiudad(Long id){
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

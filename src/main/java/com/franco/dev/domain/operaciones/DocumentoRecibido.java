@@ -20,6 +20,9 @@ import java.time.LocalDateTime;
 @Table(name = "documento_recibido", schema = "operaciones")
 public class DocumentoRecibido {
 
+    public static final String ORIGEN_SIFEN = "SIFEN";
+    public static final String ORIGEN_FOTO = "FOTO";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -99,4 +102,23 @@ public class DocumentoRecibido {
      */
     @Column(name = "cargar_al_finalizar", nullable = false)
     private Boolean cargarAlFinalizar = false;
+
+    /** SIFEN (QR del KuDE) o FOTO (factura en papel leída por IA). */
+    @Column(name = "origen", nullable = false)
+    private String origen = ORIGEN_SIFEN;
+
+    /** false mientras el comprador no confirmó la cabecera leída por IA. */
+    @Column(name = "cabecera_confirmada", nullable = false)
+    private Boolean cabeceraConfirmada = true;
+
+    @Column(name = "ia_modelo")
+    private String iaModelo;
+    @Column(name = "ia_tokens_entrada")
+    private Integer iaTokensEntrada;
+    @Column(name = "ia_tokens_salida")
+    private Integer iaTokensSalida;
+    @Column(name = "ia_respuesta", columnDefinition = "TEXT")
+    private String iaRespuesta;
+    @Column(name = "ia_dudosos", columnDefinition = "TEXT")
+    private String iaDudosos;
 }

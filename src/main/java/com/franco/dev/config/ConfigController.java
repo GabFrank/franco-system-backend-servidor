@@ -72,21 +72,33 @@ public class ConfigController {
     @ResponseBody
     public ResponseEntity<SucursalesDto> getSucursales() {
         log.info("Enviando sucursales");
-        List<Sucursal> sucursalList = service.findAllNotConfigured();
-        return ResponseEntity.ok(new SucursalesDto(sucursalList));
+        return ResponseEntity.ok(SucursalesDto.de(service.findAllNotConfigured()));
     }
 
     @RequestMapping(value = "/all-sucursales")
     @ResponseBody
     public ResponseEntity<SucursalesDto> getAllSucursales() {
         log.info("Enviando sucursales");
-        List<Sucursal> sucursalList = service.findAll2();
-        return ResponseEntity.ok(new SucursalesDto(sucursalList));
+        return ResponseEntity.ok(SucursalesDto.de(service.findAll2()));
     }
 }
 
 @Data
 @AllArgsConstructor
 class SucursalesDto implements Serializable {
-    private List<Sucursal> sucursalList;
+    private List<SucursalPublica> sucursalList;
+
+    /** Sin login (configuracion inicial y pre-registro de la app): solo lo que esas pantallas muestran. */
+    static SucursalesDto de(List<Sucursal> sucursales) {
+        return new SucursalesDto(sucursales.stream()
+                .map(s -> new SucursalPublica(s.getId(), s.getNombre()))
+                .collect(java.util.stream.Collectors.toList()));
+    }
+}
+
+@Data
+@AllArgsConstructor
+class SucursalPublica implements Serializable {
+    private Long id;
+    private String nombre;
 }

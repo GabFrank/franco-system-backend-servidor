@@ -8,4 +8,7 @@ import java.util.Optional;
 public interface ProveedorCodigoProductoRepository extends JpaRepository<ProveedorCodigoProducto, Long> {
 
     Optional<ProveedorCodigoProducto> findByProveedorIdAndCodigoProveedor(Long proveedorId, String codigoProveedor);
+
+    Optional<ProveedorCodigoProducto> findByProveedorIdAndCodigoProveedorIsNullAndDescripcionNormalizada(
+            Long proveedorId, String descripcionNormalizada);
 }

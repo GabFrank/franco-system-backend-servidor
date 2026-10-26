@@ -320,7 +320,7 @@ public final class FacturaSifenXml {
         return m.find() ? Integer.valueOf(m.group(1)) : null;
     }
 
-    private static String sinCeros(String ruc) {
+    static String sinCeros(String ruc) {
         return ruc == null ? null : ruc.replaceFirst("^0+(?=.)", "");
     }
 

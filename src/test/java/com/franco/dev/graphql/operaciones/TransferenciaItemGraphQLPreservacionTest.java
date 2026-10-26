@@ -55,6 +55,7 @@ class TransferenciaItemGraphQLPreservacionTest {
 
         resolver = new TransferenciaItemGraphQL();
         ReflectionTestUtils.setField(resolver, "service", service);
+        ReflectionTestUtils.setField(resolver, "seg", new com.franco.dev.service.financiero.TesoreriaSecurityFalso(1L, "VER TRANSFERENCIA"));
         ReflectionTestUtils.setField(resolver, "transactionManager", mock(PlatformTransactionManager.class));
         ReflectionTestUtils.setField(resolver, "usuarioService", usuarioService);
         ReflectionTestUtils.setField(resolver, "transferenciaService", transferenciaService);

@@ -11,7 +11,9 @@ public class SugerenciaProductoMobile {
     private String presentacionDescripcion;
     private Double factor;
     private String codigo;
-    /** CODIGO_PARECIDO, DESCRIPCION, PROVEEDOR */
+    /** APRENDIDO_DESCRIPCION, CODIGO_PARECIDO, DESCRIPCION, PROVEEDOR */
     private String tipo;
     private String motivo;
+    /** Lo aprendido por la descripción, sin ambigüedad: la PWA la ofrece para confirmar con un toque. */
+    private Boolean preseleccionada;
 }

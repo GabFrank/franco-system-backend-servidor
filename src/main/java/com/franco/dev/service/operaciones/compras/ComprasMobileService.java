@@ -1830,14 +1830,15 @@ public class ComprasMobileService {
      * Reconoce el producto del renglón como lo haría una persona con el buscador:
      * <ol>
      *   <li>lo aprendido para ese proveedor y su código;</li>
-     *   <li>solo si el renglón no trae código, lo aprendido para esa descripción normalizada (igual a igual,
-     *   nunca por parecido);</li>
      *   <li>el código de barras exacto, con y sin ceros a la izquierda;</li>
      *   <li>el código escrito en el buscador de productos (que encuentra un tramo del código o el código sin
      *   ceros), primero entre los productos de ese proveedor y después en todo el catálogo. Solo se toma si hay
      *   un único producto: si hay varios, van como sugerencias.</li>
      * </ol>
      * Después ajusta el bulto: «SALADIX 6*100GR» facturado por caja se lleva a la presentación de 6.
+     *
+     * Lo aprendido por <b>descripción</b> no se asigna acá: si nada de lo anterior reconoce el renglón, va como
+     * sugerencia preseleccionada para que el comprador la confirme ({@link #aprendidosPorDescripcion}).
      */
     void resolverProducto(DocumentoRecibidoItem r, Proveedor proveedor, Set<Long> productosDelPedido) {
         r.setProducto(null);
@@ -1859,24 +1860,16 @@ public class ComprasMobileService {
                 aprendidaInactiva = aprendido.getPresentacion();
             }
         }
-        // Sin código (la factura de papel suele no traerlo): lo aprendido por la descripción exacta. Con código se
-        // sigue como siempre, por los códigos
+        resolverPorCodigos(r, proveedor, productosDelPedido);
         boolean inactivaPorDescripcion = false;
-        String descripcion = vacio(r.getCodigoProveedor()) ? DescripcionProveedor.normalizar(r.getDescripcion()) : null;
-        if (proveedor != null && descripcion != null) {
-            ProveedorCodigoProducto aprendido = aprendizajeRepository
-                    .findByProveedorIdAndCodigoProveedorIsNullAndDescripcionNormalizada(proveedor.getId(), descripcion)
-                    .orElse(null);
-            if (aprendido != null && aprendido.getPresentacion() != null && aprendido.getPresentacion().getProducto() != null) {
-                if (presentacionUsable(aprendido.getPresentacion())) {
-                    asignar(r, aprendido.getPresentacion(), aprendido.getFactor(), TipoMatch.APRENDIDO_DESCRIPCION);
-                    return;
-                }
-                aprendidaInactiva = aprendido.getPresentacion();
+        if (r.getProducto() == null && aprendidaInactiva == null) {
+            // Lo aprendido por esta descripción apunta solo a productos inactivos: se avisa, como con el código
+            List<ProveedorCodigoProducto> porDescripcion = aprendidosConDescripcion(r, proveedor);
+            if (!porDescripcion.isEmpty() && porDescripcion.stream().noneMatch(a -> presentacionUsable(a.getPresentacion()))) {
+                aprendidaInactiva = porDescripcion.get(0).getPresentacion();
                 inactivaPorDescripcion = true;
             }
         }
-        resolverPorCodigos(r, proveedor, productosDelPedido);
         if (r.getProducto() == null && aprendidaInactiva != null) {
             r.setNotaReconocimiento((inactivaPorDescripcion ? "Esta descripción estaba vinculada a «" : "Este código estaba vinculado a «")
                     + aprendidaInactiva.getProducto().getDescripcion() + "», que está inactivo. Elegí el producto.");
@@ -2124,10 +2117,14 @@ public class ComprasMobileService {
         return !vacio(r.getCodigoProveedor()) || DescripcionProveedor.normalizar(r.getDescripcion()) != null;
     }
 
-    /** Con código se aprende por código (como siempre); sin código, por la descripción normalizada. */
-    private void aprender(Proveedor proveedor, DocumentoRecibidoItem r, Presentacion presentacion, double factor) {
+    /**
+     * La llave es el código si el renglón lo trae y, si no, la descripción normalizada. La descripción se guarda
+     * <b>siempre</b>, también con código: así lo aprendido de una factura electrónica sirve para sugerir el producto
+     * en una de papel (o un renglón sin código) del mismo proveedor.
+     */
+    void aprender(Proveedor proveedor, DocumentoRecibidoItem r, Presentacion presentacion, double factor) {
         String codigo = vacio(r.getCodigoProveedor()) ? null : r.getCodigoProveedor().trim();
-        String descripcion = codigo == null ? DescripcionProveedor.normalizar(r.getDescripcion()) : null;
+        String descripcion = DescripcionProveedor.normalizar(r.getDescripcion());
         if (codigo == null && descripcion == null) return;
         ProveedorCodigoProducto a = (codigo != null
                 ? aprendizajeRepository.findByProveedorIdAndCodigoProveedor(proveedor.getId(), codigo)
@@ -2138,12 +2135,12 @@ public class ComprasMobileService {
             a = new ProveedorCodigoProducto();
             a.setProveedor(proveedor);
             a.setCodigoProveedor(codigo);
-            a.setDescripcionNormalizada(descripcion);
             a.setUsos(0);
             a.setCreadoEn(LocalDateTime.now());
             a.setUsuario(seguridad.usuarioActual());
         }
         a.setDescripcionProveedor(r.getDescripcion());
+        a.setDescripcionNormalizada(descripcion);
         a.setPresentacion(presentacion);
         a.setFactor(factor);
         a.setUsos((a.getUsos() != null ? a.getUsos() : 0) + 1);
@@ -2157,7 +2154,13 @@ public class ComprasMobileService {
      */
     private List<SugerenciaProductoMobile> sugerencias(DocumentoRecibidoItem r, Proveedor proveedor) {
         LinkedHashMap<Long, SugerenciaProductoMobile> porProducto = new LinkedHashMap<>();
+        // Lo aprendido va primero y entero: el mismo producto puede venir con dos bultos distintos
+        List<SugerenciaProductoMobile> aprendidas = new ArrayList<>();
         try {
+            aprendidas.addAll(aprendidosPorDescripcion(r, proveedor));
+            for (SugerenciaProductoMobile s : aprendidas) {
+                porProducto.putIfAbsent(s.getProductoId(), s);
+            }
             // El código en el buscador, cuando dio más de un producto y no se pudo elegir solo
             for (String[] c : codigosDelRenglon(r)) {
                 for (Long proveedorId : proveedor != null ? Arrays.asList(proveedor.getId(), null) : Collections.<Long>singletonList(null)) {
@@ -2219,7 +2222,60 @@ public class ComprasMobileService {
             // Las sugerencias ayudan; si fallan, el comprador igual puede buscar a mano
             log.warn("No se pudieron armar sugerencias para el renglón {}: {}", r.getId(), e.getMessage());
         }
-        return new ArrayList<>(porProducto.values());
+        List<SugerenciaProductoMobile> todas = new ArrayList<>(aprendidas);
+        for (SugerenciaProductoMobile s : porProducto.values()) {
+            if (!aprendidas.contains(s)) todas.add(s);
+        }
+        return todas;
+    }
+
+    /** Lo aprendido para ese proveedor con la misma descripción normalizada (igual a igual, nunca por parecido). */
+    private List<ProveedorCodigoProducto> aprendidosConDescripcion(DocumentoRecibidoItem r, Proveedor proveedor) {
+        String descripcion = DescripcionProveedor.normalizar(r.getDescripcion());
+        if (proveedor == null || descripcion == null) return Collections.emptyList();
+        List<ProveedorCodigoProducto> encontrados = aprendizajeRepository
+                .findByProveedorIdAndDescripcionNormalizada(proveedor.getId(), descripcion);
+        if (encontrados == null) return Collections.emptyList();
+        return encontrados.stream()
+                .filter(a -> a.getPresentacion() != null && a.getPresentacion().getProducto() != null)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * La descripción del renglón ya se vinculó antes, con o sin código, en una factura electrónica o de papel. Si
+     * apunta a <b>una sola</b> presentación (y factor), va preseleccionada: el comprador la confirma con un toque. Si
+     * apunta a varias (dos productos que el proveedor escribe igual), van todas y ninguna preseleccionada.
+     */
+    List<SugerenciaProductoMobile> aprendidosPorDescripcion(DocumentoRecibidoItem r, Proveedor proveedor) {
+        // Una por presentación y factor, la más usada primero
+        LinkedHashMap<String, ProveedorCodigoProducto> distintos = new LinkedHashMap<>();
+        Map<String, Integer> usos = new HashMap<>();
+        aprendidosConDescripcion(r, proveedor).stream()
+                .filter(a -> presentacionUsable(a.getPresentacion()))
+                .sorted(Comparator.comparingInt((ProveedorCodigoProducto a) -> a.getUsos() != null ? a.getUsos() : 0).reversed())
+                .forEach(a -> {
+                    String clave = a.getPresentacion().getId() + "|" + (a.getFactor() != null ? a.getFactor() : 1.0);
+                    distintos.putIfAbsent(clave, a);
+                    usos.merge(clave, a.getUsos() != null ? a.getUsos() : 0, Integer::sum);
+                });
+        boolean unico = distintos.size() == 1;
+        List<SugerenciaProductoMobile> sugerencias = new ArrayList<>();
+        for (Map.Entry<String, ProveedorCodigoProducto> e : distintos.entrySet()) {
+            ProveedorCodigoProducto a = e.getValue();
+            SugerenciaProductoMobile s = sugerencia(a.getPresentacion(), null, TIPO_APRENDIDO_DESCRIPCION,
+                    unico ? "Esta descripción ya se vinculó a este producto" + vecesTexto(usos.get(e.getKey()))
+                            : "Esta descripción se vinculó a más de un producto o bulto: confirmá cuál es");
+            s.setFactor(a.getFactor() != null && a.getFactor() > 0 ? a.getFactor() : s.getFactor());
+            s.setPreseleccionada(unico);
+            sugerencias.add(s);
+        }
+        return sugerencias;
+    }
+
+    static final String TIPO_APRENDIDO_DESCRIPCION = "APRENDIDO_DESCRIPCION";
+
+    private static String vecesTexto(Integer veces) {
+        return veces != null && veces > 1 ? " (" + veces + " veces)" : "";
     }
 
     private Presentacion presentacionParaSugerir(Producto producto) {
@@ -2238,6 +2294,7 @@ public class ComprasMobileService {
         s.setCodigo(codigo);
         s.setTipo(tipo);
         s.setMotivo(motivo);
+        s.setPreseleccionada(false);
         return s;
     }
 

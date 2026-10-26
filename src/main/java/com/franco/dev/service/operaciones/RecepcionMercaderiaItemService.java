@@ -1089,8 +1089,9 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
             return;
         }
         if (numeroLote == null) {
-            throw new GraphQLException("El producto '" + producto.getDescripcion()
-                    + "' requiere control de lote: el número de lote es obligatorio.");
+            // Lotes flexibles (#429): advertencia, no error. Lo recibido queda SIN LOTE.
+            System.out.println("Aviso: '" + producto.getDescripcion()
+                    + "' con control de lote recibido sin número: queda pendiente de lote (SIN LOTE).");
         }
     }
 

@@ -12,7 +12,10 @@ public class FacturaProveedorMobile {
     /** PEDIDO: se carga a un pedido existente. NUEVA_COMPRA: la factura crea el pedido. */
     private String modo;
     private Long pedidoId;
+    /** Null en la factura en papel. */
     private String cdc;
+    /** SIFEN (QR del KuDE) o FOTO (factura en papel leída por IA). */
+    private String origen;
     private Integer tipoDocumento;
     private String tipoDocumentoDescripcion;
     private String emisorRuc;

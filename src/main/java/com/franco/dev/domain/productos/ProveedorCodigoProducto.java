@@ -30,6 +30,10 @@ public class ProveedorCodigoProducto {
     @Column(name = "codigo_proveedor")
     private String codigoProveedor;
 
+    /** Texto normalizado de la descripción: clave cuando la factura no trae código (papel). */
+    @Column(name = "descripcion_normalizada")
+    private String descripcionNormalizada;
+
     @Column(name = "descripcion_proveedor")
     private String descripcionProveedor;
 

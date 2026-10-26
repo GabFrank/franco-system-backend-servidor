@@ -23,6 +23,9 @@ import java.util.Optional;
 public class TipoVehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private TipoVehiculoService service;
 
     @Autowired
@@ -47,6 +50,7 @@ public class TipoVehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public TipoVehiculo saveTipoVehiculo(TipoVehiculoInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         TipoVehiculo e = m.map(input, TipoVehiculo.class);
         if (input.getUsuarioId() != null)
@@ -61,6 +65,7 @@ public class TipoVehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean deleteTipoVehiculo(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         try {
             Boolean ok = service.deleteById(id);
             return ok;

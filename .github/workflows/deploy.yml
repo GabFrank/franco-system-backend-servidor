@@ -259,6 +259,25 @@ jobs:
           fi
           rm -f token-keys.env
 
+      # Clave maestra que cifra la clave de OpenAI guardada en la base (CONFIG_MASTER_KEY). Independiente
+      # del correo y del token. Sin el secret no se sube nada y el .env queda como esta.
+      - name: Upload config master key
+        env:
+          CONFIG_MASTER_KEY: ${{ secrets.CONFIG_MASTER_KEY }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          CONFIG_REMOTE_PATH="/tmp/config-${{ inputs.instance }}-${VERSION}.env"
+          if [[ -z "${CONFIG_MASTER_KEY}" ]]; then
+            echo "CONFIG_MASTER_KEY secret not set. Skipping."
+            # que no se aplique un archivo viejo de un deploy cortado
+            ssh -i ~/.ssh/deploy_key deploy@${{ secrets.DEPLOY_HOST }} "rm -f ${CONFIG_REMOTE_PATH}"
+            exit 0
+          fi
+          umask 077
+          printf 'CONFIG_MASTER_KEY=%s\n' "${CONFIG_MASTER_KEY}" > config-master.env
+          scp -i ~/.ssh/deploy_key config-master.env deploy@${{ secrets.DEPLOY_HOST }}:${CONFIG_REMOTE_PATH}
+          rm -f config-master.env
+
       - name: Execute deploy
         env:
           VERSION: ${{ steps.resolve.outputs.version }}
@@ -267,8 +286,9 @@ jobs:
           FIREBASE_REMOTE_PATH="/tmp/firebase-${{ inputs.instance }}-${VERSION}.json"
           MAIL_REMOTE_PATH="/tmp/mail-${{ inputs.instance }}-${VERSION}.env"
           TOKEN_REMOTE_PATH="/tmp/token-${{ inputs.instance }}-${VERSION}.env"
+          CONFIG_REMOTE_PATH="/tmp/config-${{ inputs.instance }}-${VERSION}.env"
           ssh -i ~/.ssh/deploy_key deploy@${{ secrets.DEPLOY_HOST }} \
-            "chmod +x /tmp/deploy.sh && /tmp/deploy.sh '${VERSION}' '${{ inputs.instance }}' '${FIREBASE_REMOTE_PATH}' '${FIREBASE_TARGET_PATH}' '${MAIL_REMOTE_PATH}' '${TOKEN_REMOTE_PATH}'"
+            "chmod +x /tmp/deploy.sh && /tmp/deploy.sh '${VERSION}' '${{ inputs.instance }}' '${FIREBASE_REMOTE_PATH}' '${FIREBASE_TARGET_PATH}' '${MAIL_REMOTE_PATH}' '${TOKEN_REMOTE_PATH}' '${CONFIG_REMOTE_PATH}'"
 
       - name: Summary
         if: always()

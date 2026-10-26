@@ -23,6 +23,9 @@ import java.util.Optional;
 public class DocumentoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private DocumentoService service;
 
     @Autowired
@@ -38,6 +41,7 @@ public class DocumentoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
 
 
     public Documento saveDocumento(DocumentoInput input){
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         Documento e = m.map(input, Documento.class);
         if(input.getUsuarioId()!=null){
@@ -48,6 +52,7 @@ public class DocumentoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         return e;    }
 
     public Boolean deleteDocumento(Long id){
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
 
         Boolean ok = service.deleteById(id);
 //        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.DOCUMENTO);

@@ -22,6 +22,9 @@ import java.util.stream.Collectors;
 public class EquipoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private EquipoService service;
 
     public Optional<EquipoOutput> equipo(Long id) {
@@ -57,6 +60,7 @@ public class EquipoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public EquipoOutput saveEquipo(EquipoInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         try {
             return service.guardarDesdeInput(input);
         } catch (Exception err) {
@@ -66,6 +70,7 @@ public class EquipoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Boolean deleteEquipo(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         try {
             return service.deleteById(id);
         } catch (Exception err) {

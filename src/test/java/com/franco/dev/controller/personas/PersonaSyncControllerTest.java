@@ -196,6 +196,7 @@ class PersonaSyncControllerTest {
     @Test
     void savePersonaPorGraphQLTambienRechazaUnaRuta() {
         PersonaGraphQL r = new ObjenesisStd().newInstance(PersonaGraphQL.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(r, "seg", new com.franco.dev.service.financiero.TesoreriaSecurityFalso(1L, "VER PERSONAS"));
         PersonaInput in = new PersonaInput();
         in.setImagenes("/opt/frc-backend-central/bodega/.env");
         assertThrows(GraphQLException.class, () -> r.savePersona(in));

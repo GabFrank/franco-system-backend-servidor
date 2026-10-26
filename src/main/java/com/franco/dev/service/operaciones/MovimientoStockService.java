@@ -480,6 +480,7 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
                 List<LoteFefoService.AsignacionLote> asignaciones = loteFefoService.asignarConPreferencia(
                         producto.getId(), salida.getSucursalId(), cantidadSalida, preferencias);
                 advertirSiSeCompletoPorFefo(item, preferencias, asignaciones);
+                asignaciones = completarSinLote(asignaciones, cantidadSalida);
                 movimientoStockLoteService.reemplazarDesglose(
                         salida, producto, asignaciones, item.getId(), -1);
             } else {
@@ -501,6 +502,28 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
                 movimientoStockLoteService.sincronizarEstado(entrada);
             }
         }
+    }
+
+    /**
+     * Lo que FEFO no alcanzó a cubrir con lotes reales se registra como una fila "SIN LOTE"
+     * (lote nulo), igual que hace la venta en la filial. Así el desglose siempre suma la cantidad
+     * del movimiento y la parte sin trazar queda a la vista en origen y en destino, en vez de
+     * desaparecer del libro de lotes.
+     */
+    static List<LoteFefoService.AsignacionLote> completarSinLote(
+            List<LoteFefoService.AsignacionLote> asignaciones, double cantidad) {
+        List<LoteFefoService.AsignacionLote> resultado = asignaciones != null
+                ? new ArrayList<>(asignaciones) : new ArrayList<>();
+        double cubierto = 0;
+        for (LoteFefoService.AsignacionLote a : resultado) {
+            if (a != null && a.getCantidad() != null) cubierto += a.getCantidad();
+        }
+        double faltante = cantidad - cubierto;
+        if (faltante > 0.0001) {
+            resultado.add(new LoteFefoService.AsignacionLote(
+                    null, LoteFefoService.NUMERO_LOTE_SIN_TRAZAR, faltante));
+        }
+        return resultado;
     }
 
     /**
@@ -554,7 +577,7 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
      * orden FEFO en el que salió. Si en el camino se rechaza mercadería, lo que no llegó es lo
      * último de la lista: los lotes de vencimiento más lejano.
      */
-    private List<LoteFefoService.AsignacionLote> recortarAsignaciones(
+    static List<LoteFefoService.AsignacionLote> recortarAsignaciones(
             List<com.franco.dev.domain.operaciones.MovimientoStockLote> filasSalida,
             Double cantidadRecibida) {
         List<LoteFefoService.AsignacionLote> resultado = new ArrayList<>();
@@ -564,12 +587,15 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         double pendiente = cantidadRecibida;
         for (com.franco.dev.domain.operaciones.MovimientoStockLote fila : filasSalida) {
             if (pendiente <= 0.0001) break;
-            if (fila.getLote() == null || fila.getCantidad() == null) continue;
+            if (fila.getCantidad() == null) continue;
             double disponible = Math.abs(fila.getCantidad());
             if (disponible <= 0) continue;
             double aTomar = Math.min(disponible, pendiente);
+            // La fila "SIN LOTE" de la salida (lote nulo) viaja igual: llega como "SIN LOTE".
             resultado.add(new LoteFefoService.AsignacionLote(
-                    fila.getLote().getId(), fila.getNumeroLote(), aTomar));
+                    fila.getLote() != null ? fila.getLote().getId() : null,
+                    fila.getLote() != null ? fila.getNumeroLote() : LoteFefoService.NUMERO_LOTE_SIN_TRAZAR,
+                    aTomar));
             pendiente -= aTomar;
         }
         return resultado;

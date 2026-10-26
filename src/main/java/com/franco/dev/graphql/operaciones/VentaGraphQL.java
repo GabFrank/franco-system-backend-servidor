@@ -372,6 +372,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Boolean reimprimirVenta(Long id, String printerName, String local, Long sucId) throws Exception {
+        seg.requireSuperusuario(); // el PDV reimprime contra el filial
         Venta venta = service.findById(new EmbebedPrimaryKey(id, sucId)).orElse(null);
         if (venta != null) {
             Cobro cobro = cobroGraphQL.cobro(venta.getCobro().getId(), sucId).orElse(null);

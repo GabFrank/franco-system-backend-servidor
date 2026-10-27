@@ -33,16 +33,25 @@ class OpenAiVisionServiceTest {
 
     final List<String> cuerpos = new ArrayList<>();
     final List<String> respuestas = new ArrayList<>();
+    final List<String> clavesClaude = new ArrayList<>();
     OpenAiVisionService service;
 
     @BeforeEach
     void setUp() {
+        lenient().when(config.valor(ConfiguracionSistemaService.CLAVE_IA_PROVEEDOR)).thenReturn(Optional.empty());
         lenient().when(config.valor(ConfiguracionSistemaService.CLAVE_OPENAI_API_KEY)).thenReturn(Optional.of("sk-test"));
         lenient().when(config.valor(ConfiguracionSistemaService.CLAVE_OPENAI_MODELO)).thenReturn(Optional.empty());
         lenient().when(config.valor(ConfiguracionSistemaService.CLAVE_OPENAI_PROMPT)).thenReturn(Optional.empty());
         service = new OpenAiVisionService(config) {
             @Override
             String post(String apiKey, String body) {
+                cuerpos.add(body);
+                return respuestas.remove(0);
+            }
+
+            @Override
+            String postClaude(String apiKey, String body) {
+                clavesClaude.add(apiKey);
                 cuerpos.add(body);
                 return respuestas.remove(0);
             }
@@ -178,5 +187,88 @@ class OpenAiVisionServiceTest {
         FacturaIaLeida f = service.leer(Arrays.asList(new byte[]{1}, new byte[]{2}));
         assertEquals(0, new BigDecimal("1234.5").compareTo(f.getTotalGeneral()));
         assertEquals(0, new BigDecimal("1234.5").compareTo(f.getItems().get(1).getTotalItem()));
+    }
+
+    // ------------------------------------------------------------------ Claude
+
+    void usarClaude(String modelo) {
+        when(config.valor(ConfiguracionSistemaService.CLAVE_IA_PROVEEDOR)).thenReturn(Optional.of("CLAUDE"));
+        when(config.valor(ConfiguracionSistemaService.CLAVE_ANTHROPIC_API_KEY)).thenReturn(Optional.of("sk-ant-test"));
+        when(config.valor(ConfiguracionSistemaService.CLAVE_ANTHROPIC_MODELO)).thenReturn(Optional.ofNullable(modelo));
+    }
+
+    static String respuestaClaude(String json, String stop, int in, int out) throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode root = M.createObjectNode();
+        root.put("model", "claude-opus-5-5");
+        root.put("stop_reason", stop);
+        com.fasterxml.jackson.databind.node.ArrayNode content = root.putArray("content");
+        content.addObject().put("type", "thinking").put("thinking", "");
+        content.addObject().put("type", "text").put("text", json);
+        root.putObject("usage").put("input_tokens", in).put("output_tokens", out);
+        return M.writeValueAsString(root);
+    }
+
+    @Test
+    void claudeCuerpoPideSalidaEstructuradaConLaImagen() throws Exception {
+        usarClaude(null);
+        respuestas.add(respuestaClaude("{\"items\":[]}", "end_turn", 10, 5));
+        service.leer(Collections.singletonList(new byte[]{0x41}));
+
+        assertEquals("sk-ant-test", clavesClaude.get(0));
+        JsonNode b = M.readTree(cuerpos.get(0));
+        assertEquals("claude-opus-5-5", b.path("model").asText());
+        assertEquals(16000, b.path("max_tokens").asInt());
+        assertFalse(b.has("temperature"));
+        assertEquals("default", b.path("fallbacks").asText());
+        assertTrue(b.path("system").asText().contains("FRANCO AREVALOS"));
+        assertEquals("json_schema", b.path("output_config").path("format").path("type").asText());
+        JsonNode img = b.path("messages").get(0).path("content").get(0);
+        assertEquals("image", img.path("type").asText());
+        assertEquals("image/jpeg", img.path("source").path("media_type").asText());
+        assertEquals("QQ==", img.path("source").path("data").asText());
+    }
+
+    @Test
+    void claudeEsquemaSinTiposArray() throws Exception {
+        String schema = OpenAiVisionService.schemaClaude().toString();
+        assertFalse(schema.contains("\"type\":["), schema);
+        JsonNode items = OpenAiVisionService.schemaClaude().path("properties").path("items");
+        assertEquals("array", items.path("anyOf").get(0).path("type").asText());
+        assertEquals("null", items.path("anyOf").get(1).path("type").asText());
+        JsonNode item = items.path("anyOf").get(0).path("items");
+        assertFalse(item.path("additionalProperties").asBoolean(true));
+        assertEquals("number", item.path("properties").path("cantidad").path("anyOf").get(0).path("type").asText());
+    }
+
+    @Test
+    void claudeRespuestaPasaPorElMismoPostProceso() throws Exception {
+        usarClaude("claude-haiku-5-5");
+        respuestas.add(respuestaClaude("{\"numero\":\"001-002-0001234\",\"totalGeneral\":264.408,"
+                + "\"items\":[{\"descripcion\":\"A\",\"totalItem\":264.408}]}", "end_turn", 100, 50));
+        FacturaIaLeida f = service.leer(Collections.singletonList(new byte[]{1}));
+
+        assertFalse(M.readTree(cuerpos.get(0)).has("fallbacks"));
+        assertEquals("claude-opus-5-5", f.getModelo());
+        assertEquals(100, f.getTokensEntrada());
+        assertEquals(50, f.getTokensSalida());
+        assertEquals("0001234", f.getNumero());
+        assertEquals(new BigDecimal("264408"), f.getTotalGeneral());
+        assertEquals(new BigDecimal("264408"), f.getItems().get(0).getTotalItem());
+    }
+
+    @Test
+    void claudeCortadaAvisa() throws Exception {
+        usarClaude(null);
+        respuestas.add(respuestaClaude("{\"items\":[", "max_tokens", 1, 1));
+        IOException e = assertThrows(IOException.class, () -> service.leer(Collections.singletonList(new byte[]{1})));
+        assertTrue(e.getMessage().contains("cortada"));
+    }
+
+    @Test
+    void claudeSinClaveAvisaClaro() {
+        when(config.valor(ConfiguracionSistemaService.CLAVE_IA_PROVEEDOR)).thenReturn(Optional.of("CLAUDE"));
+        when(config.valor(ConfiguracionSistemaService.CLAVE_ANTHROPIC_API_KEY)).thenReturn(Optional.empty());
+        IOException e = assertThrows(IOException.class, () -> service.leer(Collections.singletonList(new byte[]{1})));
+        assertTrue(e.getMessage().contains("no está configurada"));
     }
 }

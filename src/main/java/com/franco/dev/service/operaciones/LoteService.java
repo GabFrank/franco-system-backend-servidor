@@ -288,6 +288,7 @@ public class LoteService extends CrudService<Lote, LoteRepository, Long> {
     public Lote cambiarEstado(Long loteId, EstadoLote estado, String observacion, Usuario usuario) {
         Lote lote = repository.findById(loteId)
                 .orElseThrow(() -> new IllegalArgumentException("Lote no encontrado: " + loteId));
+        verificarNoEliminado(lote);
         lote.setEstado(estado);
         if (observacion != null) {
             lote.setObservacion(observacion);
@@ -334,6 +335,70 @@ public class LoteService extends CrudService<Lote, LoteRepository, Long> {
         return true;
     }
 
+    // --- Eliminar lote creado por error = baja logica (lotes fase 3, entrega 3; V255.8) ---
+
+    /** Regla pura: solo un lote sin ninguna referencia y con motivo. */
+    public static void validarEliminable(long referencias, String motivo) {
+        if (referencias > 0) {
+            throw new IllegalArgumentException("El lote ya tiene movimientos o referencias (" + referencias
+                    + "): no se puede eliminar. Archivalo o bloquealo.");
+        }
+        if (motivo == null || motivo.trim().isEmpty()) {
+            throw new IllegalArgumentException("Para eliminar un lote el motivo es obligatorio.");
+        }
+    }
+
+    /**
+     * Niega cualquier operacion sobre un lote eliminado (ajustes, liberar, atribuir, reasignar,
+     * cambio de estado). Solo "Restaurar" lo devuelve.
+     */
+    public void verificarNoEliminado(Lote lote) {
+        if (lote != null && lote.getId() != null && repository.estaEliminado(lote.getId())) {
+            throw new IllegalArgumentException("El lote " + lote.getNumeroLote()
+                    + " fue eliminado: restauralo antes de usarlo.");
+        }
+    }
+
+    /**
+     * Baja logica: guarda la copia y el estado anterior en lote_eliminado y deja el lote BLOQUEADO.
+     * El UPDATE baja a las filiales (BLOQUEADO existe en todas las versiones) y FEFO deja de
+     * ofrecerlo. No borra la fila.
+     */
+    @Transactional
+    public boolean eliminar(Long loteId, String motivo, Usuario usuario) {
+        Lote lote = repository.findById(loteId)
+                .orElseThrow(() -> new IllegalArgumentException("Lote no encontrado: " + loteId));
+        if (repository.estaEliminado(lote.getId())) {
+            throw new IllegalArgumentException("El lote " + lote.getNumeroLote() + " ya está eliminado.");
+        }
+        Long refs = repository.contarReferencias(lote.getId());
+        validarEliminable(refs != null ? refs : 0L, motivo);
+        repository.registrarEliminado(lote.getId(), usuario != null ? usuario.getId() : null, motivo.trim());
+        lote.setEstado(EstadoLote.BLOQUEADO);
+        if (usuario != null) {
+            lote.setUsuario(usuario);
+        }
+        lote.setActualizadoEn(LocalDateTime.now());
+        repository.save(lote);
+        return true;
+    }
+
+    /** Devuelve el lote a su estado anterior y quita la marca de eliminado. */
+    @Transactional
+    public boolean restaurar(Long loteId) {
+        Lote lote = repository.findById(loteId)
+                .orElseThrow(() -> new IllegalArgumentException("Lote no encontrado: " + loteId));
+        String anterior = repository.estadoAnteriorEliminado(lote.getId());
+        if (anterior == null) {
+            throw new IllegalArgumentException("El lote " + lote.getNumeroLote() + " no está eliminado.");
+        }
+        lote.setEstado(EstadoLote.valueOf(anterior));
+        lote.setActualizadoEn(LocalDateTime.now());
+        repository.save(lote);
+        repository.borrarEliminado(lote.getId());
+        return true;
+    }
+
     public List<Lote> findByProductoId(Long productoId) {
         return repository.findByProductoId(productoId);
     }
@@ -373,7 +438,8 @@ public class LoteService extends CrudService<Lote, LoteRepository, Long> {
                         p.getEstado() != null ? EstadoLote.valueOf(p.getEstado()) : null,
                         p.getSaldo() != null ? p.getSaldo() : 0d,
                         p.getSaldoTotal() != null ? p.getSaldoTotal() : 0d,
-                        Boolean.TRUE.equals(p.getArchivado())));
+                        Boolean.TRUE.equals(p.getArchivado()),
+                        Boolean.TRUE.equals(p.getEliminado())));
     }
 
     /**

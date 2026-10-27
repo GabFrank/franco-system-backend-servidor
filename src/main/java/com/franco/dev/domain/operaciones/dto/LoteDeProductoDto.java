@@ -41,4 +41,7 @@ public class LoteDeProductoDto {
 
     /** Archivado: saldo 0 en toda la red y oculto de buscadores y selectores. */
     private Boolean archivado;
+
+    /** Eliminado por error (baja logica, queda BLOQUEADO): solo se muestra con incluirArchivados. */
+    private Boolean eliminado;
 }

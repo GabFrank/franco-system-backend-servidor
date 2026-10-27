@@ -185,6 +185,7 @@ public class AjusteStockLoteService {
         if (lote == null || lote.getId() == null) {
             throw new IllegalArgumentException("No se pudo resolver el lote del ajuste.");
         }
+        loteService.verificarNoEliminado(lote);
 
         double saldoLote = saldoDeLote(input.getProductoId(), input.getSucursalId(), lote.getId());
         if (input.getSaldoEsperado() != null

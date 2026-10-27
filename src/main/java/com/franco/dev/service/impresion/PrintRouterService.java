@@ -8,6 +8,7 @@ import com.franco.dev.utilitarios.print.TicketFormato;
 import com.franco.dev.utilitarios.print.escpos.EscPos;
 import com.franco.dev.utilitarios.print.escpos.EscPosConst;
 import com.franco.dev.utilitarios.print.escpos.Style;
+import graphql.GraphQLException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -25,6 +27,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -148,6 +151,12 @@ public class PrintRouterService {
             HttpEntity<String> request = new HttpEntity<>(objectMapper.writeValueAsString(body), buildAuthHeaders());
             Map<?, ?> responseBody = restTemplate.postForEntity(url, request, Map.class).getBody();
             if (responseBody != null && responseBody.get("errors") != null) {
+                String rechazo = rechazoPorRol(responseBody.get("errors"));
+                if (rechazo != null) {
+                    // La filial controla el rol antes de imprimir: no se imprimio nada y el usuario tiene que saber por que.
+                    log.warn("[PRINT] La filial {} rechazo la impresion (impresora id={}): {}", url, impresoraId, rechazo);
+                    throw new GraphQLException("Sucursal " + owner.getNombre() + ": " + rechazo);
+                }
                 log.error("[PRINT] La filial {} devolvio errores GraphQL (impresora id={}): {}",
                         url, impresoraId, responseBody.get("errors"));
                 return false;
@@ -162,10 +171,29 @@ public class PrintRouterService {
             }
             log.info("[PRINT] Reenviado y confirmado en {} (impresora id={})", url, impresoraId);
             return true;
+        } catch (GraphQLException e) {
+            throw e;
+        } catch (HttpClientErrorException.Unauthorized e) {
+            // El filtro JWT de la filial corta antes del resolver: no se imprimio. Es configuracion, no la sesion del usuario.
+            log.error("[PRINT] La filial {} rechazo el token del central (impresora id={})", url, impresoraId);
+            throw new GraphQLException("Sucursal " + owner.getNombre()
+                    + ": no aceptó la sesión del central. No se imprimió; avisá a soporte.");
         } catch (Exception e) {
             log.error("[PRINT] Error reenviando impresion a {}: {}", url, e.getMessage(), e);
             return false;
         }
+    }
+
+    /** El primer mensaje de la filial que empieza con «No autorizado», o null. Tolera un {@code errors} mal formado. */
+    static String rechazoPorRol(Object errors) {
+        if (!(errors instanceof List)) return null;
+        for (Object error : (List<?>) errors) {
+            Object mensaje = error instanceof Map ? ((Map<?, ?>) error).get("message") : null;
+            if (mensaje instanceof String && ((String) mensaje).startsWith("No autorizado")) {
+                return (String) mensaje;
+            }
+        }
+        return null;
     }
 
     private HttpHeaders buildAuthHeaders() {

@@ -229,15 +229,38 @@ class OpenAiVisionServiceTest {
     }
 
     @Test
-    void claudeEsquemaSinTiposArray() throws Exception {
+    void claudeEsquemaRespetaElLimiteDeCamposConNull() throws Exception {
         String schema = OpenAiVisionService.schemaClaude().toString();
         assertFalse(schema.contains("\"type\":["), schema);
-        JsonNode items = OpenAiVisionService.schemaClaude().path("properties").path("items");
-        assertEquals("array", items.path("anyOf").get(0).path("type").asText());
-        assertEquals("null", items.path("anyOf").get(1).path("type").asText());
-        JsonNode item = items.path("anyOf").get(0).path("items");
+        // Claude rechaza más de 16 campos con unión (anyOf / tipo array).
+        int uniones = schema.split("\"anyOf\"", -1).length - 1;
+        assertTrue(uniones <= 16, "uniones=" + uniones);
+
+        JsonNode props = OpenAiVisionService.schemaClaude().path("properties");
+        assertEquals("string", props.path("emisorRuc").path("type").asText());
+        assertEquals("number", props.path("totalGeneral").path("anyOf").get(0).path("type").asText());
+        assertEquals("null", props.path("totalGeneral").path("anyOf").get(1).path("type").asText());
+        assertEquals("array", props.path("items").path("type").asText());
+        JsonNode item = props.path("items").path("items");
         assertFalse(item.path("additionalProperties").asBoolean(true));
+        assertEquals("string", item.path("properties").path("descripcion").path("type").asText());
         assertEquals("number", item.path("properties").path("cantidad").path("anyOf").get(0).path("type").asText());
+    }
+
+    @Test
+    void claudeTextoVacioSeVuelveNull() throws Exception {
+        usarClaude(null);
+        respuestas.add(respuestaClaude("{\"emisorRuc\":\"\",\"timbrado\":\" \",\"emisorNombre\":\"ACME\","
+                + "\"error\":\"\",\"dudosos\":[],\"items\":[{\"codigoBarras\":\"\",\"descripcion\":\"A\","
+                + "\"totalItem\":null,\"dudosos\":[]}]}", "end_turn", 1, 1));
+        FacturaIaLeida f = service.leer(Collections.singletonList(new byte[]{1}));
+        assertNull(f.getEmisorRuc());
+        assertNull(f.getTimbrado());
+        assertNull(f.getError());
+        assertEquals("ACME", f.getEmisorNombre());
+        assertNull(f.getItems().get(0).getCodigoBarras());
+        assertEquals("A", f.getItems().get(0).getDescripcion());
+        assertTrue(M.readTree(cuerpos.get(0)).path("system").asText().contains("cadena vacía"));
     }
 
     @Test

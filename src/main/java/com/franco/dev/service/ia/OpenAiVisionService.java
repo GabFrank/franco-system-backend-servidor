@@ -329,7 +329,7 @@ public class OpenAiVisionService {
         ObjectNode root = MAPPER.createObjectNode();
         root.put("model", modelo);
         root.put("max_tokens", MAX_TOKENS_CLAUDE);
-        root.put("system", prompt);
+        root.put("system", prompt + "\n\n" + TEXTO_VACIO_CLAUDE);
         ObjectNode format = root.putObject("output_config").putObject("format");
         format.put("type", "json_schema");
         format.set("schema", schemaClaude());
@@ -355,10 +355,17 @@ public class OpenAiVisionService {
         return false;
     }
 
-    /** El mismo esquema que OpenAI, con los tipos "X o null" escritos como anyOf. */
+    /**
+     * El mismo esquema que OpenAI, adaptado al límite de Claude (máximo 16 campos que admiten null):
+     * textos y listas no admiten null (vienen "" o []), y solo los números quedan como anyOf con null.
+     * El "" se vuelve null en parsearRespuestaClaude.
+     */
     static ObjectNode schemaClaude() {
         return (ObjectNode) anyOfEnVezDeTipoNull(schema());
     }
+
+    private static final String TEXTO_VACIO_CLAUDE = "En los campos de texto, si un dato no es legible o no "
+            + "figura, devolvé una cadena vacía (\"\") en lugar de null; en las listas, una lista vacía.";
 
     private static JsonNode anyOfEnVezDeTipoNull(JsonNode n) {
         if (!n.isObject()) return n;
@@ -372,7 +379,9 @@ public class OpenAiVisionService {
         if (o.has("items")) o.set("items", anyOfEnVezDeTipoNull(o.get("items")));
         JsonNode tipo = o.get("type");
         if (tipo != null && tipo.isArray() && tipo.size() == 2 && "null".equals(tipo.get(1).asText())) {
-            o.put("type", tipo.get(0).asText());
+            String base = tipo.get(0).asText();
+            o.put("type", base);
+            if ("string".equals(base) || "array".equals(base)) return o;
             ObjectNode alternativa = MAPPER.createObjectNode();
             ArrayNode anyOf = alternativa.putArray("anyOf");
             anyOf.add(o);
@@ -380,6 +389,23 @@ public class OpenAiVisionService {
             return alternativa;
         }
         return o;
+    }
+
+    /** Claude devuelve "" donde OpenAI devuelve null (ver schemaClaude): se vuelve a null. */
+    static JsonNode vacioANull(JsonNode n) {
+        if (n.isObject()) {
+            ObjectNode o = (ObjectNode) n;
+            List<String> campos = new ArrayList<>();
+            o.fieldNames().forEachRemaining(campos::add);
+            for (String c : campos) {
+                JsonNode v = o.get(c);
+                if (v.isTextual() && v.asText().trim().isEmpty()) o.putNull(c);
+                else vacioANull(v);
+            }
+        } else if (n.isArray()) {
+            for (JsonNode v : n) vacioANull(v);
+        }
+        return n;
     }
 
     FacturaIaLeida parsearRespuestaClaude(String responseBody, String modeloSolicitado) throws IOException {
@@ -398,7 +424,7 @@ public class OpenAiVisionService {
         }
         if (texto.length() == 0) throw new IOException("Respuesta de Claude sin contenido: " + truncar(responseBody, 300));
         JsonNode usage = root.path("usage");
-        return parsearContenido(texto.toString(),
+        return parsearContenido(MAPPER.writeValueAsString(vacioANull(MAPPER.readTree(texto.toString()))),
                 root.path("model").asText(modeloSolicitado),
                 usage.has("input_tokens") ? usage.get("input_tokens").asInt() : null,
                 usage.has("output_tokens") ? usage.get("output_tokens").asInt() : null);

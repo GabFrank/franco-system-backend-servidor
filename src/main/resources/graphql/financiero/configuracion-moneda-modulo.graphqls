@@ -1,0 +1,46 @@
+# Modulos que eligen su moneda (V258.5). Solo PDV admite una moneda por sucursal.
+enum ModuloMoneda {
+    COMPRAS
+    COSTOS
+    PRECIOS
+    PDV
+}
+
+"Desde vigenteDesde, el modulo usa la moneda. Una fila nueva reemplaza a la anterior de su clave; ninguna se edita."
+type ConfiguracionMonedaModulo {
+    id: ID!
+    modulo: ModuloMoneda!
+    "null = toda la empresa. Solo PDV admite una por sucursal."
+    sucursal: Sucursal
+    moneda: Moneda!
+    vigenteDesde: Date
+    "false = se ignora y rige la anterior activa de la misma clave."
+    activo: Boolean!
+    usuarioNickname: String
+    creadoEn: Date
+}
+
+"Siempre crea una fila nueva."
+input ConfiguracionMonedaModuloInput {
+    modulo: ModuloMoneda!
+    "Solo para PDV; null = toda la empresa."
+    sucursalId: ID
+    monedaId: ID!
+    "yyyy-MM-dd HH:mm o ISO-8601. Null = ahora."
+    vigenteDesde: String
+}
+
+extend type Query {
+    "La moneda que usa el modulo ahora. Sin configuracion, la de la empresa. No pide rol."
+    monedaDeModulo(modulo: ModuloMoneda!, sucursalId: ID): Moneda
+    "La moneda de la empresa (principal, o el guarani). No pide rol."
+    monedaEmpresa: Moneda
+    "modulo null = todos. Mas reciente primero."
+    configuracionesMonedaModulo(modulo: ModuloMoneda): [ConfiguracionMonedaModulo]!
+}
+
+extend type Mutation {
+    saveConfiguracionMonedaModulo(input: ConfiguracionMonedaModuloInput!): ConfiguracionMonedaModulo!
+    "Desactivar la fila vigente vuelve el modulo a la anterior: es la vuelta atras."
+    setActivoConfiguracionMonedaModulo(id: ID!, activo: Boolean!): ConfiguracionMonedaModulo!
+}

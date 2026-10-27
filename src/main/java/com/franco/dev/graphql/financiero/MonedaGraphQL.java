@@ -54,10 +54,34 @@ public class MonedaGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
 
+    /**
+     * Reemplazo completo del registro, salvo dos campos que se conservan:
+     * <ul>
+     *   <li>{@code principal}: la moneda de la empresa no se cambia desde el ABM. Pasarla a otra
+     *   moneda cambia la base de todos los modulos y se hace solo con el procedimiento de corte.
+     *   Una moneda nueva nace no principal.</li>
+     *   <li>{@code codigoIso}, cuando el input no lo trae: un cliente anterior a V258.5 no conoce el
+     *   campo y lo borraria al guardar cualquier otro cambio.</li>
+     * </ul>
+     */
     public Moneda saveMoneda(MonedaInput input) {
         seg.requireGestionar();
         ModelMapper m = new ModelMapper();
         Moneda e = m.map(input, Moneda.class);
+        Moneda actual = input.getId() != null ? service.findById(input.getId()).orElse(null) : null;
+        e.setPrincipal(actual != null ? actual.getPrincipal() : Boolean.FALSE);
+        if (input.getCodigoIso() == null) {
+            e.setCodigoIso(actual != null ? actual.getCodigoIso() : null);
+        } else {
+            String iso = input.getCodigoIso().trim().toUpperCase(java.util.Locale.ROOT);
+            if (iso.isEmpty()) {
+                e.setCodigoIso(null);
+            } else if (!iso.matches("[A-Z]{3}")) {
+                throw new graphql.GraphQLException("El codigo ISO tiene que ser de tres letras (PYG, USD, BRL).");
+            } else {
+                e.setCodigoIso(iso);
+            }
+        }
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setPais(paisService.findById(input.getPaisId()).orElse(null));
         e = service.save(e);

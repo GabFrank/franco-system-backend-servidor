@@ -7,6 +7,8 @@ type Moneda {
     decimales: Int
     reglaRedondeo: String
     redondeoMultiplo: Float
+    "Codigo ISO 4217 (PYG, USD, BRL). Identifica la moneda sin mirar su nombre."
+    codigoIso: String
     pais: Pais
     creadoEn: Date
     usuario: Usuario
@@ -31,6 +33,8 @@ input MonedaInput {
     decimales: Int
     reglaRedondeo: String
     redondeoMultiplo: Float
+    "Null conserva el guardado. principal no se cambia desde aca: lo ignora saveMoneda."
+    codigoIso: String
     paisId: Int
     usuarioId: Int
 }

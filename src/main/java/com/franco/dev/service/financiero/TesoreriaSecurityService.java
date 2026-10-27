@@ -53,6 +53,12 @@ public class TesoreriaSecurityService {
     public static final String CAMBIAR_COTIZACION = "CAMBIAR COTIZACION";
 
     /**
+     * Elegir la moneda de cada modulo (compras, costos, precios, PDV). Rol propio: cambia en que
+     * moneda nacen los documentos de toda la empresa. Lo garantiza V258.5; no lo otorga a nadie.
+     */
+    public static final String CONFIGURAR_MONEDA = "CONFIGURAR MONEDA";
+
+    /**
      * Cancelar o reactivar una venta, y cancelar su factura. Tampoco es un rol de tesorería: es el que
      * ya exige el PDV en el desktop (ROLES.CANCELACION_DE_VENTA). Es un dato de personas.role, no lo
      * crea ninguna migración.

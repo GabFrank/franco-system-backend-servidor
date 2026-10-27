@@ -59,6 +59,9 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
     private AjusteStockLoteService ajusteStockLoteService;
 
     @Autowired
+    private com.franco.dev.service.operaciones.ReasignacionLoteService reasignacionLoteService;
+
+    @Autowired
     private InventarioLoteService inventarioLoteService;
 
     @Autowired
@@ -179,6 +182,18 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
      * de lote no rompa la correspondencia entre las dos cuentas. Ver
      * {@link AjusteStockLoteService} para las dos operaciones que soporta.
      */
+    /**
+     * Pasa unidades de un lote a otro del mismo producto en una sucursal, sin cambiar la
+     * existencia (lotes fase 3). Ver {@link com.franco.dev.service.operaciones.ReasignacionLoteService}.
+     */
+    public AjusteStockLoteResultadoDto reasignarLote(com.franco.dev.graphql.operaciones.input.ReasignarLoteInput input) {
+        try {
+            return reasignacionLoteService.reasignar(input);
+        } catch (IllegalArgumentException e) {
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
     public AjusteStockLoteResultadoDto ajustarStockLote(AjusteStockLoteInput input) {
         seg.requireAnyRole(InventarioSecurityService.EDITAR_PRODUCTOS);
         try {

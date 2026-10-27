@@ -343,6 +343,11 @@ extend type Mutation {
     # contando cosas distintas.
     ajustarStockLote(input: AjusteStockLoteInput!): AjusteStockLoteResultado
 
+    # Pasa unidades de un lote a otro del mismo producto en UNA sucursal, sin cambiar la existencia
+    # (venta, transferencia o recepcion que salio con el lote equivocado). Los dos lotes tienen que
+    # existir ya en la filial; rechaza si la sucursal no esta sincronizada (salvo forzar).
+    reasignarLote(input: ReasignarLoteInput!): AjusteStockLoteResultado
+
     # Archiva un lote: lo saca de buscadores y selectores sin tocar stock ni estado. Exige saldo 0
     # en TODAS las sucursales y motivo; con saldo, primero ajustarStockLote en modo LIBERAR o
     # CORREGIR. No replica a las filiales (no les hace falta: sin saldo FEFO no lo elige).
@@ -367,6 +372,20 @@ enum ModoAjusteLote {
     # El lote tiene mas saldo del que hay con ese numero: baja el lote y la diferencia vuelve a
     # SIN LOTE. El total NO cambia. Solo baja; motivo obligatorio.
     LIBERAR
+}
+
+input ReasignarLoteInput {
+    productoId: ID!
+    sucursalId: ID!
+    loteOrigenId: ID!
+    loteDestinoId: ID!
+    # Unidades base que pasan del origen al destino.
+    cantidad: Float!
+    motivo: String!
+    referencia: String
+    saldoEsperado: Float
+    forzar: Boolean
+    usuarioId: ID
 }
 
 input AjusteStockLoteInput {

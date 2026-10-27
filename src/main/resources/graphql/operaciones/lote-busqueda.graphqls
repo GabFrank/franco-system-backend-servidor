@@ -51,10 +51,24 @@ type ResultadoBusquedaLote {
     trazabilidad: TrazabilidadProducto
 }
 
+# De que lote salio un item de una venta (#429, fase 2, entrega 2). Una fila por item y lote;
+# lo no atribuido viene con loteId nulo y numeroLote "SIN LOTE".
+type LoteVentaItem {
+    ventaItemId: ID
+    productoId: ID
+    loteId: ID
+    numeroLote: String
+    fechaVencimiento: Date
+    cantidad: Float
+    anulado: Boolean
+}
+
 extend type Query {
     # Busca en el MAESTRO de lotes (incluye saldo 0 y archivados), tolerante a mayusculas,
     # separadores y ceros a la izquierda: "3497" encuentra "03497". Primero coincidencia exacta;
     # si no hay y la clave tiene 3 o mas caracteres, parcial. Hasta 20 resultados.
     # Requiere VER PRODUCTOS y ANALISIS DE CAJA o ANALISIS DE VENTA.
     buscarLotePorNumero(numeroLote: String!, productoId: ID): ResultadoBusquedaLote
+    # De que lote salio cada item de la venta. Mismo permiso que buscarLotePorNumero.
+    lotesDeVenta(ventaId: ID!, sucursalId: ID!): [LoteVentaItem]
 }

@@ -333,6 +333,31 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
         return loteService.desarchivar(loteId);
     }
 
+    /** Elimina un lote creado por error (baja logica: queda BLOQUEADO y se puede restaurar). */
+    public Boolean eliminarLote(Long loteId, String motivo, Long usuarioId) {
+        if (loteId == null) {
+            throw new GraphQLException("loteId es requerido");
+        }
+        Usuario usuario = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
+        try {
+            return loteService.eliminar(loteId, motivo, usuario);
+        } catch (IllegalArgumentException e) {
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
+    /** Restaura un lote eliminado a su estado anterior. */
+    public Boolean restaurarLote(Long loteId) {
+        if (loteId == null) {
+            throw new GraphQLException("loteId es requerido");
+        }
+        try {
+            return loteService.restaurar(loteId);
+        } catch (IllegalArgumentException e) {
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
     /** Conteo rapido: varios ajustes por lote en una sola transaccion (todo o nada). */
     public List<AjusteStockLoteResultadoDto> ajustarStockLoteLista(List<AjusteStockLoteInput> inputs) {
         try {

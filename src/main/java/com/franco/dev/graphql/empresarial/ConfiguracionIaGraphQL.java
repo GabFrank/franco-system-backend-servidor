@@ -18,11 +18,12 @@ public class ConfiguracionIaGraphQL implements GraphQLQueryResolver, GraphQLMuta
         return service.configuracionIa();
     }
 
-    public ConfiguracionIa guardarConfiguracionIa(String apiKey, String modelo, String promptAdicional) {
-        return service.guardarConfiguracionIa(apiKey, modelo, promptAdicional);
+    public ConfiguracionIa guardarConfiguracionIa(String apiKey, String modelo, String promptAdicional,
+                                                  String proveedor, String claudeApiKey, String claudeModelo) {
+        return service.guardarConfiguracionIa(apiKey, modelo, promptAdicional, proveedor, claudeApiKey, claudeModelo);
     }
 
-    public String probarConexionIa() {
-        return service.probarConexionIa();
+    public String probarConexionIa(String proveedor) {
+        return service.probarConexionIa(proveedor);
     }
 }

@@ -102,4 +102,37 @@ class ConfiguracionSistemaServiceTest {
         assertFalse(ia.getClaveCargada());
         assertNull(ia.getClaveFinal());
     }
+
+    @Test
+    void guardaProveedorYClaveDeClaudeSinDevolverla() {
+        ConfiguracionSistemaService s = servicio("master");
+        ConfiguracionSistema k = new ConfiguracionSistema();
+        k.setClave(ConfiguracionSistemaService.CLAVE_ANTHROPIC_API_KEY);
+        k.setEncriptado(true);
+        bd.put(k.getClave(), k);
+        comoUsuarioConRol("ADMIN");
+
+        ConfiguracionIa ia = s.configuracionIa();
+        assertEquals("OPENAI", ia.getProveedor());
+        assertFalse(ia.getClaudeClaveCargada());
+        assertEquals("claude-opus-5-5", ia.getClaudeModelo());
+
+        ia = s.guardarConfiguracionIa(null, null, null, "claude", "sk-ant-api03-XyZw", " ");
+        assertEquals("CLAUDE", ia.getProveedor());
+        assertTrue(ia.getClaudeClaveCargada());
+        assertEquals("…XyZw", ia.getClaudeClaveFinal());
+        assertEquals("claude-opus-5-5", ia.getClaudeModelo());
+        assertFalse(ia.getClaveCargada());
+        assertNotEquals("sk-ant-api03-XyZw", bd.get("anthropic.api_key").getValor());
+
+        assertEquals("OPENAI", s.guardarConfiguracionIa(null, null, null, "otro", null, null).getProveedor());
+    }
+
+    @Test
+    void probarConexionClaudeSinClaveAvisa() {
+        ConfiguracionSistemaService s = servicio("master");
+        comoUsuarioConRol("ADMIN");
+        GraphQLException e = assertThrows(GraphQLException.class, () -> s.probarConexionIa("CLAUDE"));
+        assertTrue(e.getMessage().contains("Claude"));
+    }
 }

@@ -27,8 +27,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Lee una factura en papel con OpenAI Vision: una llamada por página (json_schema estricto,
- * temperature 0) y fusión de los resultados. La clave y el modelo salen de ConfiguracionSistemaService.
+ * Lee una factura en papel con IA: una llamada por página y fusión de los resultados.
+ * El proveedor (OpenAI o Claude), la clave y el modelo salen de ConfiguracionSistemaService.
+ * Los dos proveedores devuelven el mismo JSON (mismo esquema estricto) y pasan por el mismo post-proceso.
  */
 @Service
 public class OpenAiVisionService {
@@ -36,7 +37,13 @@ public class OpenAiVisionService {
     private static final Logger log = LoggerFactory.getLogger(OpenAiVisionService.class);
 
     private static final String SIN_CLAVE = "La lectura de facturas en papel no está configurada: "
-            + "pedile a un administrador que cargue la clave de OpenAI.";
+            + "pedile a un administrador que cargue la clave de la IA.";
+
+    /** Tope de tokens de salida para Claude: incluye su razonamiento interno, por eso es mayor que el de OpenAI. */
+    private static final int MAX_TOKENS_CLAUDE = 16000;
+    /** Modelos de Claude que aceptan el reintento automático en otro modelo si el primero rechaza la imagen. */
+    private static final String[] MODELOS_CLAUDE_CON_FALLBACK =
+            {"claude-opus-5-5", "claude-opus-5", "claude-fable-5-1", "claude-sonnet-5-5"};
 
     private static final String PROMPT_BASE =
             "Sos un asistente especializado en facturas y notas comerciales de Paraguay para empresas " +
@@ -81,6 +88,12 @@ public class OpenAiVisionService {
     @Value("${app.openai.timeout-ms:90000}")
     private int timeoutMs = 90000;
 
+    @Value("${app.anthropic.base-url:https://api.anthropic.com}")
+    private String anthropicBaseUrl = "https://api.anthropic.com";
+
+    @Value("${app.anthropic.timeout-ms:180000}")
+    private int anthropicTimeoutMs = 180000;
+
     @Autowired
     public OpenAiVisionService(ConfiguracionSistemaService configService) {
         this.configService = configService;
@@ -93,13 +106,22 @@ public class OpenAiVisionService {
             if (j == null || j.length == 0) throw new IOException("Imagen vacía");
         }
 
+        boolean claude;
         String apiKey;
         String modelo;
         String promptAdicional;
         try {
-            apiKey = configService.valor(ConfiguracionSistemaService.CLAVE_OPENAI_API_KEY).orElse(null);
-            modelo = configService.valor(ConfiguracionSistemaService.CLAVE_OPENAI_MODELO)
-                    .filter(s -> !s.trim().isEmpty()).orElse(ConfiguracionSistemaService.MODELO_POR_DEFECTO);
+            claude = ConfiguracionSistemaService.PROVEEDOR_CLAUDE.equals(ConfiguracionSistemaService.normalizarProveedor(
+                    configService.valor(ConfiguracionSistemaService.CLAVE_IA_PROVEEDOR).orElse(null)));
+            if (claude) {
+                apiKey = configService.valor(ConfiguracionSistemaService.CLAVE_ANTHROPIC_API_KEY).orElse(null);
+                modelo = configService.valor(ConfiguracionSistemaService.CLAVE_ANTHROPIC_MODELO)
+                        .filter(s -> !s.trim().isEmpty()).orElse(ConfiguracionSistemaService.MODELO_CLAUDE_POR_DEFECTO);
+            } else {
+                apiKey = configService.valor(ConfiguracionSistemaService.CLAVE_OPENAI_API_KEY).orElse(null);
+                modelo = configService.valor(ConfiguracionSistemaService.CLAVE_OPENAI_MODELO)
+                        .filter(s -> !s.trim().isEmpty()).orElse(ConfiguracionSistemaService.MODELO_POR_DEFECTO);
+            }
             promptAdicional = configService.valor(ConfiguracionSistemaService.CLAVE_OPENAI_PROMPT).orElse("");
         } catch (RuntimeException e) {
             // Sin CONFIG_MASTER_KEY u otro fallo al leer la configuración: no exponer detalles.
@@ -114,9 +136,14 @@ public class OpenAiVisionService {
 
         List<FacturaIaLeida> partes = new ArrayList<>();
         for (byte[] jpeg : jpegs) {
-            String dataUrl = "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(jpeg);
-            String respuesta = post(apiKey.trim(), buildRequestBody(modelo, prompt, dataUrl));
-            partes.add(parsearRespuesta(respuesta, modelo));
+            String base64 = Base64.getEncoder().encodeToString(jpeg);
+            if (claude) {
+                String respuesta = postClaude(apiKey.trim(), buildRequestBodyClaude(modelo, prompt, base64));
+                partes.add(parsearRespuestaClaude(respuesta, modelo));
+            } else {
+                String respuesta = post(apiKey.trim(), buildRequestBody(modelo, prompt, "data:image/jpeg;base64," + base64));
+                partes.add(parsearRespuesta(respuesta, modelo));
+            }
         }
         // Moneda del documento fusionado (primer valor no nulo; null = PYG), igual para todas las hojas.
         String moneda = null;
@@ -236,6 +263,16 @@ public class OpenAiVisionService {
         String content = choices.get(0).path("message").path("content").asText("");
         if (content.isEmpty()) throw new IOException("Respuesta de OpenAI sin contenido");
 
+        JsonNode usage = root.path("usage");
+        return parsearContenido(content,
+                root.path("model").asText(modeloSolicitado),
+                usage.has("prompt_tokens") ? usage.get("prompt_tokens").asInt() : null,
+                usage.has("completion_tokens") ? usage.get("completion_tokens").asInt() : null);
+    }
+
+    /** Convierte el JSON que devolvió la IA (cualquier proveedor) en FacturaIaLeida. */
+    FacturaIaLeida parsearContenido(String content, String modelo, Integer tokensEntrada, Integer tokensSalida)
+            throws IOException {
         JsonNode node = MAPPER.readTree(content);
         FacturaIaLeida data = MAPPER.treeToValue(node, FacturaIaLeida.class);
         if (data.getDudosos() == null) data.setDudosos(new ArrayList<>());
@@ -246,12 +283,151 @@ public class OpenAiVisionService {
         // Los montos se normalizan en leer(), una sola vez, con la moneda del documento fusionado.
         partirNumero(data);
 
-        JsonNode usage = root.path("usage");
-        data.setTokensEntrada(usage.has("prompt_tokens") ? usage.get("prompt_tokens").asInt() : null);
-        data.setTokensSalida(usage.has("completion_tokens") ? usage.get("completion_tokens").asInt() : null);
-        data.setModelo(root.path("model").asText(modeloSolicitado));
+        data.setTokensEntrada(tokensEntrada);
+        data.setTokensSalida(tokensSalida);
+        data.setModelo(modelo);
         data.setRespuestaCruda(content);
         return data;
+    }
+
+    // ------------------------------------------------------------------ Claude
+
+    /** POST a la Messages API de Claude; devuelve el cuerpo de la respuesta. Se sobrescribe en tests. */
+    String postClaude(String apiKey, String requestBody) throws IOException {
+        URL url = new URL(anthropicBaseUrl.replaceAll("/+$", "") + "/v1/messages");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        try {
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("x-api-key", apiKey);
+            conn.setRequestProperty("anthropic-version", ConfiguracionSistemaService.ANTHROPIC_VERSION);
+            if (MAPPER.readTree(requestBody).has("fallbacks")) {
+                conn.setRequestProperty("anthropic-beta", "server-side-fallback-2026-07-01");
+            }
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setConnectTimeout(anthropicTimeoutMs);
+            conn.setReadTimeout(anthropicTimeoutMs);
+            conn.setDoOutput(true);
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(requestBody.getBytes(StandardCharsets.UTF_8));
+            }
+            int code = conn.getResponseCode();
+            String body = leerStream(code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream());
+            if (code < 200 || code >= 300) {
+                throw new IOException("Claude HTTP " + code + ": " + truncar(body.replace(apiKey, "***"), 500));
+            }
+            return body;
+        } finally {
+            conn.disconnect();
+        }
+    }
+
+    /**
+     * Pedido a Claude: la imagen + el mismo prompt y esquema que OpenAI, con salida JSON estructurada
+     * (output_config.format). Sin temperature: la versión 2026-10-21 de la API la rechaza.
+     */
+    String buildRequestBodyClaude(String modelo, String prompt, String imagenBase64) {
+        ObjectNode root = MAPPER.createObjectNode();
+        root.put("model", modelo);
+        root.put("max_tokens", MAX_TOKENS_CLAUDE);
+        root.put("system", prompt + "\n\n" + TEXTO_VACIO_CLAUDE);
+        ObjectNode format = root.putObject("output_config").putObject("format");
+        format.put("type", "json_schema");
+        format.set("schema", schemaClaude());
+        if (admiteFallback(modelo)) root.put("fallbacks", "default");
+
+        ArrayNode messages = root.putArray("messages");
+        ObjectNode user = messages.addObject();
+        user.put("role", "user");
+        ArrayNode content = user.putArray("content");
+        ObjectNode img = content.addObject();
+        img.put("type", "image");
+        ObjectNode source = img.putObject("source");
+        source.put("type", "base64");
+        source.put("media_type", "image/jpeg");
+        source.put("data", imagenBase64);
+        content.addObject().put("type", "text")
+                .put("text", "Analizá esta imagen y extraé los datos según el esquema indicado.");
+        return root.toString();
+    }
+
+    static boolean admiteFallback(String modelo) {
+        for (String m : MODELOS_CLAUDE_CON_FALLBACK) if (m.equals(modelo)) return true;
+        return false;
+    }
+
+    /**
+     * El mismo esquema que OpenAI, adaptado al límite de Claude (máximo 16 campos que admiten null):
+     * textos y listas no admiten null (vienen "" o []), y solo los números quedan como anyOf con null.
+     * El "" se vuelve null en parsearRespuestaClaude.
+     */
+    static ObjectNode schemaClaude() {
+        return (ObjectNode) anyOfEnVezDeTipoNull(schema());
+    }
+
+    private static final String TEXTO_VACIO_CLAUDE = "En los campos de texto, si un dato no es legible o no "
+            + "figura, devolvé una cadena vacía (\"\") en lugar de null; en las listas, una lista vacía.";
+
+    private static JsonNode anyOfEnVezDeTipoNull(JsonNode n) {
+        if (!n.isObject()) return n;
+        ObjectNode o = ((ObjectNode) n).deepCopy();
+        JsonNode props = o.get("properties");
+        if (props != null && props.isObject()) {
+            ObjectNode nuevas = MAPPER.createObjectNode();
+            props.fields().forEachRemaining(e -> nuevas.set(e.getKey(), anyOfEnVezDeTipoNull(e.getValue())));
+            o.set("properties", nuevas);
+        }
+        if (o.has("items")) o.set("items", anyOfEnVezDeTipoNull(o.get("items")));
+        JsonNode tipo = o.get("type");
+        if (tipo != null && tipo.isArray() && tipo.size() == 2 && "null".equals(tipo.get(1).asText())) {
+            String base = tipo.get(0).asText();
+            o.put("type", base);
+            if ("string".equals(base) || "array".equals(base)) return o;
+            ObjectNode alternativa = MAPPER.createObjectNode();
+            ArrayNode anyOf = alternativa.putArray("anyOf");
+            anyOf.add(o);
+            anyOf.addObject().put("type", "null");
+            return alternativa;
+        }
+        return o;
+    }
+
+    /** Claude devuelve "" donde OpenAI devuelve null (ver schemaClaude): se vuelve a null. */
+    static JsonNode vacioANull(JsonNode n) {
+        if (n.isObject()) {
+            ObjectNode o = (ObjectNode) n;
+            List<String> campos = new ArrayList<>();
+            o.fieldNames().forEachRemaining(campos::add);
+            for (String c : campos) {
+                JsonNode v = o.get(c);
+                if (v.isTextual() && v.asText().trim().isEmpty()) o.putNull(c);
+                else vacioANull(v);
+            }
+        } else if (n.isArray()) {
+            for (JsonNode v : n) vacioANull(v);
+        }
+        return n;
+    }
+
+    FacturaIaLeida parsearRespuestaClaude(String responseBody, String modeloSolicitado) throws IOException {
+        JsonNode root = MAPPER.readTree(responseBody);
+        String stop = root.path("stop_reason").asText("");
+        if ("max_tokens".equals(stop)) {
+            throw new IOException("La IA devolvió una respuesta cortada (demasiados ítems o foto poco legible). "
+                    + "Probá con una imagen más nítida o subí menos páginas por vez.");
+        }
+        if ("refusal".equals(stop)) {
+            throw new IOException("Claude no quiso procesar la imagen. Probá con otra foto o con OpenAI.");
+        }
+        StringBuilder texto = new StringBuilder();
+        for (JsonNode b : root.path("content")) {
+            if ("text".equals(b.path("type").asText())) texto.append(b.path("text").asText(""));
+        }
+        if (texto.length() == 0) throw new IOException("Respuesta de Claude sin contenido: " + truncar(responseBody, 300));
+        JsonNode usage = root.path("usage");
+        return parsearContenido(MAPPER.writeValueAsString(vacioANull(MAPPER.readTree(texto.toString()))),
+                root.path("model").asText(modeloSolicitado),
+                usage.has("input_tokens") ? usage.get("input_tokens").asInt() : null,
+                usage.has("output_tokens") ? usage.get("output_tokens").asInt() : null);
     }
 
     /** Si el modelo devolvió el número completo (001-002-0001234), lo parte en tres. */

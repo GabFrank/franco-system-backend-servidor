@@ -80,4 +80,17 @@ public class InventarioSecurityService {
                     : "No autorizado: se requiere el rol " + String.join(" o ", roles) + " para esta acción.");
         }
     }
+
+    /**
+     * Usuario autenticado (del token), para dejarlo como autor. Nunca el usuarioId que arma el
+     * cliente.
+     */
+    public Usuario requireUsuarioDeSesion() {
+        String nick = currentNickname();
+        Usuario u = nick != null ? usuarioService.findByNickname(nick).orElse(null) : null;
+        if (u == null) {
+            throw new GraphQLException("No autorizado: volvé a iniciar sesión.");
+        }
+        return u;
+    }
 }

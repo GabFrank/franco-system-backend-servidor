@@ -6,3 +6,110 @@ enum ModoParticipacionSorteo {
     # cantidad_fija tickets si el monto computable alcanza el minimo.
     CANTIDAD_FIJA
 }
+
+type Sorteo {
+    id: ID!
+    nombre: String
+    descripcion: String
+    montoMinimo: Float
+    modoParticipacion: ModoParticipacionSorteo
+    cantidadFija: Int
+    topePorVenta: Int
+    incluyeTarjeta: Boolean
+    fechaDesde: Date
+    fechaHasta: Date
+    fechaSorteo: Date
+    todasSucursales: Boolean
+    activo: Boolean
+    sucursales: [Sucursal]
+    premios: [SorteoPremio]
+    creadoEn: Date
+    usuarioNickname: String
+    tieneParticipaciones: Boolean
+}
+
+type SorteoPremio {
+    id: ID!
+    orden: Int
+    descripcion: String
+    producto: Producto
+    cantidad: Int
+}
+
+type SorteoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Sorteo]
+}
+
+type SorteoParticipacion {
+    id: ID!
+    sucursalId: Int
+    sucursalNombre: String
+    ventaId: Int
+    codigo: String
+    cantidad: Int
+    clienteNombre: String
+    documento: String
+    anulada: Boolean
+    creadoEn: Date
+}
+
+type SorteoParticipacionPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [SorteoParticipacion]
+}
+
+type SorteoResumenSucursal {
+    sucursalId: Int
+    sucursalNombre: String
+    participaciones: Int
+    tickets: Int
+}
+
+input SorteoPremioInput {
+    descripcion: String
+    productoId: Int
+    cantidad: Int
+}
+
+input SorteoInput {
+    id: Int
+    nombre: String
+    descripcion: String
+    montoMinimo: Float
+    # Nombre de ModoParticipacionSorteo (el input Java lo recibe como String).
+    modoParticipacion: String
+    cantidadFija: Int
+    topePorVenta: Int
+    incluyeTarjeta: Boolean
+    fechaDesde: String
+    fechaHasta: String
+    fechaSorteo: String
+    todasSucursales: Boolean
+    sucursalIds: [Int]
+    premios: [SorteoPremioInput]
+}
+
+extend type Query {
+    filterSorteos(texto: String, soloVigentes: Boolean, page: Int = 0, size: Int = 15): SorteoPage
+    sorteo(id: Int): Sorteo
+    sorteoParticipaciones(sorteoId: Int!, sucursalId: Int, codigo: String, page: Int = 0, size: Int = 20): SorteoParticipacionPage
+    sorteoResumen(sorteoId: Int!): [SorteoResumenSucursal]
+}
+
+extend type Mutation {
+    saveSorteo(input: SorteoInput!): Sorteo!
+    cortarSorteo(id: Int!): Sorteo!
+}

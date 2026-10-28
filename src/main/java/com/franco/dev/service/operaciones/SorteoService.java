@@ -172,6 +172,10 @@ public class SorteoService {
         return repository.save(s);
     }
 
+    public Sorteo buscar(Long id) {
+        return repository.findById(id).orElse(null);
+    }
+
     public Page<Sorteo> filtrar(String texto, Boolean soloVigentes, int page, int size) {
         String t = texto != null && !texto.trim().isEmpty() ? texto.trim().toUpperCase() : null;
         return repository.filtrar(t, Boolean.TRUE.equals(soloVigentes), LocalDate.now(clock), PageRequest.of(page, size));

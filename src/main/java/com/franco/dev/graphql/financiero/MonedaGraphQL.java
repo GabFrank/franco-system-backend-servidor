@@ -87,8 +87,14 @@ public class MonedaGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
                 e.setCodigoIso(iso);
             }
         }
-        e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        e.setPais(paisService.findById(input.getPaisId()).orElse(null));
+        // El ABM del desktop no lee el usuario y a veces no trae el pais: sin id se conserva el guardado
+        // (findById(null) tiraba NPE y editar una moneda fallaba).
+        e.setUsuario(input.getUsuarioId() != null
+                ? usuarioService.findById(input.getUsuarioId()).orElse(null)
+                : (actual != null ? actual.getUsuario() : null));
+        e.setPais(input.getPaisId() != null
+                ? paisService.findById(input.getPaisId()).orElse(null)
+                : (actual != null ? actual.getPais() : null));
         e = service.save(e);
         return e;
     }

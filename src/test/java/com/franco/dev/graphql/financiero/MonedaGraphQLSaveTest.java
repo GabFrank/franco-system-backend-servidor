@@ -93,6 +93,22 @@ class MonedaGraphQLSaveTest {
         assertEquals("PYG", graphql.saveMoneda(misma).getCodigoIso());
     }
 
+    @Test
+    void sinUsuarioNiPais_conservaLosGuardados() {
+        com.franco.dev.domain.personas.Usuario usuario = new com.franco.dev.domain.personas.Usuario();
+        com.franco.dev.domain.general.Pais pais = new com.franco.dev.domain.general.Pais();
+        guardada.setUsuario(usuario);
+        guardada.setPais(pais);
+
+        Moneda e = graphql.saveMoneda(input(1L));
+        assertSame(usuario, e.getUsuario());
+        assertSame(pais, e.getPais());
+
+        Moneda nueva = graphql.saveMoneda(input(null));
+        assertNull(nueva.getUsuario());
+        assertNull(nueva.getPais());
+    }
+
     private static MonedaInput input(Long id) {
         MonedaInput in = new MonedaInput();
         in.setId(id);

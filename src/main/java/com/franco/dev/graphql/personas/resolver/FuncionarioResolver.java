@@ -17,6 +17,9 @@ public class FuncionarioResolver implements GraphQLResolver<Funcionario> {
     @Autowired
     private UsuarioService usuarioService;
 
+    @Autowired
+    private com.franco.dev.service.administrativo.HorarioService horarioService;
+
 
     public String nombrePersona(Funcionario e) {
         if(e.getPersona()!=null) return e.getPersona().getNombre();
@@ -43,6 +46,11 @@ public class FuncionarioResolver implements GraphQLResolver<Funcionario> {
     public String nickname(Funcionario f){
         Usuario usuario = f.getPersona() != null ? usuarioService.findByPersonaId(f.getPersona().getId()) : null;
         return usuario != null ? usuario.getNickname().toUpperCase() : "";
+    }
+
+    /** Horario por dia de la semana, ej. "L-Mi Día 08:00-17:00 · J Madrugada 17:00-01:00" (#523). */
+    public String horarioResumen(Funcionario f) {
+        return horarioService.resumen(f);
     }
 
 }

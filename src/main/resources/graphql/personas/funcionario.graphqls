@@ -14,6 +14,8 @@ type Funcionario {
     activo: Boolean
     nickname: String
     horario: Horario
+    "Horario por dia de la semana (#523), ej. \"L-Mi Día 08:00-17:00 · J Madrugada 17:00-01:00\"."
+    horarioResumen: String
     fechaEgreso: Date
     motivoEgreso: String
     codigoInterno: String

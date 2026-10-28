@@ -187,12 +187,18 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
     /**
      * El horario se resuelve por el dia de la jornada, no por el de la marcacion: la salida de
      * un turno noche cae al dia siguiente y no debe traer el horario de ese otro dia.
+     *
+     * Y por la hora de la entrada de la jornada (#523): con dos horarios el mismo dia se elige
+     * el de entrada mas cercana, y la salida o el regreso del almuerzo no deben cambiarlo.
      */
     private LocalDateTime fechaDeLaJornada(Jornada jornada, LocalDateTime fechaReferencia) {
         if (jornada == null || jornada.getFecha() == null) {
             return fechaReferencia;
         }
-        return jornada.getFecha().atTime(fechaReferencia.toLocalTime());
+        LocalDateTime entrada = jornada.getMarcacionEntrada() != null
+                ? jornada.getMarcacionEntrada().getFechaEntrada()
+                : null;
+        return jornada.getFecha().atTime(entrada != null ? entrada.toLocalTime() : fechaReferencia.toLocalTime());
     }
 
     private LocalDateTime obtenerFechaReferencia(Marcacion marcacion) {

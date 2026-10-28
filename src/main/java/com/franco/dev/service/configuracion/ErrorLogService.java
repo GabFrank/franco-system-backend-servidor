@@ -2,9 +2,6 @@ package com.franco.dev.service.configuracion;
 
 import com.franco.dev.config.ErrorLog;
 import com.franco.dev.domain.EmbebedPrimaryKey;
-import com.franco.dev.domain.configuracion.Actualizacion;
-import com.franco.dev.domain.configuracion.enums.TipoActualizacion;
-import com.franco.dev.repository.configuracion.ActualizacionRepository;
 import com.franco.dev.repository.configuracion.ErrorLogRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;

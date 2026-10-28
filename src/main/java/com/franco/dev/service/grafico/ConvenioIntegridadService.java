@@ -28,6 +28,7 @@ import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -45,8 +46,11 @@ public class ConvenioIntegridadService {
     private static final Logger log = LoggerFactory.getLogger(ConvenioIntegridadService.class);
 
     static final int TOPE_IDS = 50;
-    private static final int HILOS = 6;
+    /** Un hilo por filial (son ~20): con menos, las que esperan en cola gastan el tope sin intentarse. */
+    private static final int HILOS = 24;
     private static final long ESPERA_TOTAL_SEG = 25;
+    private static final Pattern HOST_VALIDO = Pattern.compile("^[A-Za-z0-9.\\-]+$");
+    private static final Pattern BASE_VALIDA = Pattern.compile("^[A-Za-z0-9_]+$");
     private static final DateTimeFormatter FORMATO_FECHA_HORA = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private static final String SQL_FILAS =
@@ -56,7 +60,11 @@ public class ConvenioIntegridadService {
     private final JdbcTemplate jdbcTemplate;
     private final SucursalService sucursalService;
     private final LogicalReplicationService replicationService;
-    private final ExecutorService pool = Executors.newFixedThreadPool(HILOS);
+    private final ExecutorService pool = Executors.newFixedThreadPool(HILOS, r -> {
+        Thread t = new Thread(r, "convenios-filial");
+        t.setDaemon(true);
+        return t;
+    });
     private final ReentrantLock enCurso = new ReentrantLock();
 
     @Value("${spring.datasource.username:franco}")
@@ -102,6 +110,7 @@ public class ConvenioIntegridadService {
         if (!enCurso.tryLock()) {
             throw new GraphQLException("Ya hay una consulta de integridad de convenios en curso. Esperá a que termine.");
         }
+        Map<Long, Future<List<Fila>>> futuros = new LinkedHashMap<>();
         try {
             Set<Long> filtro = sucIds == null ? Collections.emptySet()
                     : sucIds.stream().filter(Objects::nonNull).collect(Collectors.toSet());
@@ -112,10 +121,12 @@ public class ConvenioIntegridadService {
 
             Map<Long, List<Fila>> central = filasCentral(sucursales, desde, hasta);
             String baseFilial = replicationService.getBranchDbName();
+            if (baseFilial == null || !BASE_VALIDA.matcher(baseFilial).matches()) {
+                throw new GraphQLException("El nombre de la base de las filiales configurado no es válido.");
+            }
 
-            Map<Long, Future<List<Fila>>> futuros = new LinkedHashMap<>();
             for (Sucursal s : sucursales) {
-                if (tieneIp(s)) {
+                if (conexionValida(s)) {
                     futuros.put(s.getId(), pool.submit(() -> filasFilial(s, baseFilial, desde, hasta)));
                 }
             }
@@ -124,9 +135,9 @@ public class ConvenioIntegridadService {
             List<ConvenioSucursalIntegridad> res = new ArrayList<>();
             for (Sucursal s : sucursales) {
                 List<Fila> filasCentral = central.getOrDefault(s.getId(), Collections.emptyList());
-                if (!tieneIp(s)) {
+                if (!conexionValida(s)) {
                     res.add(sinFilial(s, filasCentral, estado, ConvenioSucursalIntegridad.SIN_IP,
-                            "La sucursal no tiene IP o puerto configurado"));
+                            "La sucursal no tiene una IP o un puerto válido configurado"));
                     continue;
                 }
                 Future<List<Fila>> f = futuros.get(s.getId());
@@ -149,12 +160,18 @@ public class ConvenioIntegridadService {
             }
             return res;
         } finally {
+            // Si la corrida se corta, que no queden consultas a filiales pisándose con la próxima.
+            futuros.values().forEach(f -> f.cancel(true));
             enCurso.unlock();
         }
     }
 
-    private static boolean tieneIp(Sucursal s) {
-        return s.getIp() != null && !s.getIp().trim().isEmpty() && s.getPuerto() != null;
+    /** IP (o nombre) y puerto que se pueden usar tal cual en la URL JDBC, sin parámetros colados. */
+    static boolean conexionValida(Sucursal s) {
+        String ip = s.getIp() == null ? null : s.getIp().trim();
+        Integer puerto = s.getPuerto();
+        return ip != null && HOST_VALIDO.matcher(ip).matches()
+                && puerto != null && puerto > 0 && puerto <= 65535;
     }
 
     private static LocalDate parsearFecha(String valor, String campo) {
@@ -250,7 +267,11 @@ public class ConvenioIntegridadService {
         r.setSucursalNombre(nombre);
         r.setCentral(conteo(c.values(), estado));
         r.setUltimoCentral(ultimo(c.values()));
-        if (filial == null) return r;
+        if (filial == null) {
+            // El schema exige estadoIntegridad: sin filial no hay comparación posible.
+            r.setEstadoIntegridad(ConvenioSucursalIntegridad.SIN_CONEXION);
+            return r;
+        }
 
         Map<Long, Fila> f = porId(filial, sucursalId);
         r.setFilial(conteo(f.values(), estado));

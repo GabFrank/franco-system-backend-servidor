@@ -1,5 +1,6 @@
 package com.franco.dev.service.grafico;
 
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.enums.EstadoVentaCredito;
 import com.franco.dev.graphql.grafico.dto.ConvenioSucursalIntegridad;
 import com.franco.dev.service.grafico.ConvenioIntegridadService.Fila;
@@ -97,8 +98,30 @@ class ConvenioIntegridadServiceTest {
     void filialNoConsultadaDejaFilialNull() {
         ConvenioSucursalIntegridad r = comparar(Collections.singletonList(fila(5, "ABIERTO")), null, null);
         assertNull(r.getFilial());
-        assertNull(r.getEstadoIntegridad());
+        assertEquals(ConvenioSucursalIntegridad.SIN_CONEXION, r.getEstadoIntegridad());
         assertEquals(1, r.getCentral().getTotal());
+    }
+
+    private static Sucursal sucursal(String ip, Integer puerto) {
+        Sucursal s = new Sucursal();
+        s.setIp(ip);
+        s.setPuerto(puerto);
+        return s;
+    }
+
+    @Test
+    void conexionValidaSoloConHostYPuertoLimpios() {
+        assertTrue(ConvenioIntegridadService.conexionValida(sucursal("172.25.1.3", 5551)));
+        assertTrue(ConvenioIntegridadService.conexionValida(sucursal(" localhost ", 5551)));
+        assertFalse(ConvenioIntegridadService.conexionValida(sucursal(null, 5551)));
+        assertFalse(ConvenioIntegridadService.conexionValida(sucursal("", 5551)));
+        assertFalse(ConvenioIntegridadService.conexionValida(sucursal("172.25.1.3", null)));
+        assertFalse(ConvenioIntegridadService.conexionValida(sucursal("172.25.1.3", 0)));
+        assertFalse(ConvenioIntegridadService.conexionValida(sucursal("172.25.1.3", 70000)));
+        // Nada que pueda colar parámetros o rutas en la URL JDBC.
+        assertFalse(ConvenioIntegridadService.conexionValida(sucursal("host/otra?options=x", 5551)));
+        assertFalse(ConvenioIntegridadService.conexionValida(sucursal("host:1234", 5551)));
+        assertFalse(ConvenioIntegridadService.conexionValida(sucursal("a&b", 5551)));
     }
 
     @Test

@@ -151,6 +151,46 @@ public class HorarioService extends CrudService<Horario, HorarioRepository, Long
         return resultado;
     }
 
+    /**
+     * Los horarios que rigen para el funcionario: los mismos que usa la marcacion (los propios
+     * de su usuario, o el principal si todavia no tiene ninguno propio).
+     */
+    @Transactional(readOnly = true)
+    public List<Horario> deFuncionario(Long funcionarioId) {
+        Funcionario f = funcionarioRepository.findById(funcionarioId)
+                .orElseThrow(() -> new GraphQLException("Funcionario no encontrado: " + funcionarioId));
+        Usuario usuario = f.getPersona() != null ? usuarioService.findByPersonaId(f.getPersona().getId()) : null;
+        return horarioResolver.horariosVigentes(usuario != null ? usuario.getId() : null, f);
+    }
+
+    /**
+     * Le quita un horario al funcionario. Si es propio de su usuario se borra; si es el
+     * principal compartido de antes de #523, solo se lo desvincula y los demas lo conservan.
+     */
+    @Transactional
+    public Funcionario quitarDeFuncionario(Long funcionarioId, Long horarioId) {
+        Funcionario f = funcionarioRepository.findById(funcionarioId)
+                .orElseThrow(() -> new GraphQLException("Funcionario no encontrado: " + funcionarioId));
+        Horario h = repository.findById(horarioId)
+                .orElseThrow(() -> new GraphQLException("Horario no encontrado: " + horarioId));
+        Usuario usuario = f.getPersona() != null ? usuarioService.findByPersonaId(f.getPersona().getId()) : null;
+        boolean propio = usuario != null && h.getUsuario() != null && h.getUsuario().getId().equals(usuario.getId());
+        if (propio && !compartido(h, f)) {
+            eliminar(horarioId);
+        } else if (f.getHorario() != null && f.getHorario().getId().equals(horarioId)) {
+            f.setHorario(null);
+            funcionarioRepository.save(f);
+        } else if (propio) {
+            // Propio pero tambien lo usan otros funcionarios: deja de ser de este usuario.
+            h.setUsuario(null);
+            repository.save(h);
+        } else {
+            throw new GraphQLException("Ese horario no está asignado a este funcionario");
+        }
+        repository.flush();
+        return funcionarioRepository.findById(funcionarioId).orElse(f);
+    }
+
     /** Horario por dia del funcionario, ej. "L-Mi Día 08:00-17:00 · J Madrugada 17:00-01:00". */
     @Transactional(readOnly = true)
     public String resumen(Funcionario funcionario) {

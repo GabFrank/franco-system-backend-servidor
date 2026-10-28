@@ -40,6 +40,16 @@ public class HorarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findByUsuarioId(usuarioId);
     }
 
+    /** Los horarios que rigen para el funcionario, los mismos que usa la marcacion (#523). */
+    public List<Horario> horariosPorFuncionario(Long funcionarioId) {
+        return service.deFuncionario(funcionarioId);
+    }
+
+    public com.franco.dev.domain.personas.Funcionario quitarHorarioFuncionario(Long funcionarioId, Long horarioId) {
+        seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR, "EDITAR FUNCIONARIOS");
+        return service.quitarDeFuncionario(funcionarioId, horarioId);
+    }
+
     public Horario saveHorario(HorarioInput input) {
         seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR, "EDITAR FUNCIONARIOS");
         Horario e = toEntity(input);

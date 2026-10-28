@@ -74,9 +74,14 @@ public class HorarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     /** "Asignar a otros": copia el horario a cada funcionario como horario propio (#523). */
     public com.franco.dev.service.administrativo.dto.CopiaHorarioResultado copiarHorario(
-            Long horarioId, List<Long> funcionarioIds) {
+            Long horarioId, List<Integer> funcionarioIds) {
         seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR, "EDITAR FUNCIONARIOS");
-        return service.copiar(horarioId, funcionarioIds);
+        // [Int] del schema llega como Integer: con List<Long> el borrado de tipos deja pasar
+        // Integer y revienta al iterar (ClassCastException). Se convierte acá.
+        List<Long> ids = funcionarioIds == null ? java.util.Collections.emptyList()
+                : funcionarioIds.stream().filter(java.util.Objects::nonNull).map(Integer::longValue)
+                        .collect(java.util.stream.Collectors.toList());
+        return service.copiar(horarioId, ids);
     }
 
     public Boolean deleteHorario(Long id) {

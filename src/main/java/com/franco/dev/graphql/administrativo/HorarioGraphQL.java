@@ -45,6 +45,12 @@ public class HorarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.deFuncionario(funcionarioId);
     }
 
+    /** Crea un horario y se lo deja asignado al funcionario (#523). */
+    public com.franco.dev.domain.personas.Funcionario agregarHorarioFuncionario(Long funcionarioId, HorarioInput horario) {
+        seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR, "EDITAR FUNCIONARIOS");
+        return service.agregarAFuncionario(funcionarioId, toEntity(horario));
+    }
+
     public com.franco.dev.domain.personas.Funcionario quitarHorarioFuncionario(Long funcionarioId, Long horarioId) {
         seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR, "EDITAR FUNCIONARIOS");
         return service.quitarDeFuncionario(funcionarioId, horarioId);

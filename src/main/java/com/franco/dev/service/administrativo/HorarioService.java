@@ -164,6 +164,48 @@ public class HorarioService extends CrudService<Horario, HorarioRepository, Long
     }
 
     /**
+     * Crea un horario y se lo deja asignado al funcionario: queda como horario propio de su
+     * usuario (la cuenta que marca, por la persona).
+     */
+    @Transactional
+    public Funcionario agregarAFuncionario(Long funcionarioId, Horario horario) {
+        Funcionario f = funcionarioRepository.findById(funcionarioId)
+                .orElseThrow(() -> new GraphQLException("Funcionario no encontrado: " + funcionarioId));
+        Usuario usuario = f.getPersona() != null ? usuarioService.findByPersonaId(f.getPersona().getId()) : null;
+        if (usuario == null) {
+            throw new GraphQLException("El funcionario no tiene usuario para marcar: no se le puede asignar horario");
+        }
+        validarDatos(horario);
+
+        // Si todavia usa el principal compartido (sin horarios propios), al tener uno propio el
+        // compartido dejaria de regir: se lo copia como propio para que lo conserve.
+        boolean sinPropios = repository.findByUsuarioIdOrderByIdDesc(usuario.getId()).stream()
+                .noneMatch(h -> h.getHoraEntrada() != null);
+        Horario principal = f.getHorario();
+        if (sinPropios && principal != null && principal.getHoraEntrada() != null) {
+            Horario copia = new Horario();
+            copiarDatos(principal, copia);
+            copia.setToleranciaMinutos(principal.getToleranciaMinutos());
+            copia.setInicioDescanso(principal.getInicioDescanso());
+            copia.setFinDescanso(principal.getFinDescanso());
+            copia.setUsuario(usuario);
+            f.setHorario(repository.save(copia));
+            funcionarioRepository.save(f);
+        }
+
+        Horario nuevo = new Horario();
+        copiarDatos(horario, nuevo);
+        nuevo.setUsuario(usuario);
+        nuevo = repository.save(nuevo);
+        if (f.getHorario() == null) {
+            f.setHorario(nuevo);
+            funcionarioRepository.save(f);
+        }
+        repository.flush();
+        return f;
+    }
+
+    /**
      * Le quita un horario al funcionario. Si es propio de su usuario se borra; si es el
      * principal compartido de antes de #523, solo se lo desvincula y los demas lo conservan.
      */

@@ -19,8 +19,8 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-/** Quitarle un horario a un funcionario desde la lista (#523). */
-class HorarioServiceQuitarTest {
+/** Agregarle y quitarle horarios a un funcionario desde la lista (#523). */
+class HorarioServiceFuncionarioTest {
 
     private HorarioRepository repository;
     private FuncionarioRepository funcionarioRepository;
@@ -88,5 +88,49 @@ class HorarioServiceQuitarTest {
         horario(6L, otro);
 
         assertThrows(GraphQLException.class, () -> service.quitarDeFuncionario(507L, 6L));
+    }
+
+    @Test
+    void agregar_creaElHorarioComoPropioDelUsuario() {
+        when(repository.findByUsuarioIdOrderByIdDesc(494L)).thenReturn(Collections.emptyList());
+        when(repository.save(any(Horario.class))).thenAnswer(inv -> inv.getArgument(0));
+        Horario input = new Horario();
+        input.setTurno(com.franco.dev.domain.administrativo.enums.Turno.NOCHE);
+        input.setHoraEntrada(java.time.LocalTime.of(18, 0));
+        input.setHoraSalida(java.time.LocalTime.of(23, 0));
+
+        service.agregarAFuncionario(507L, input);
+
+        assertNotNull(funcionario.getHorario());
+        assertEquals(usuario, funcionario.getHorario().getUsuario());
+        assertEquals(java.time.LocalTime.of(18, 0), funcionario.getHorario().getHoraEntrada());
+    }
+
+    @Test
+    void agregar_aQuienUsaElCompartido_leCopiaElCompartidoParaQueNoLoPierda() {
+        Usuario otro = new Usuario();
+        otro.setId(123L);
+        Horario compartido = horario(6L, otro);
+        compartido.setTurno(com.franco.dev.domain.administrativo.enums.Turno.DIA);
+        compartido.setHoraEntrada(java.time.LocalTime.of(8, 0));
+        compartido.setHoraSalida(java.time.LocalTime.of(17, 0));
+        funcionario.setHorario(compartido);
+        when(repository.findByUsuarioIdOrderByIdDesc(494L)).thenReturn(Collections.emptyList());
+        java.util.List<Horario> guardados = new java.util.ArrayList<>();
+        when(repository.save(any(Horario.class))).thenAnswer(inv -> {
+            guardados.add(inv.getArgument(0));
+            return inv.getArgument(0);
+        });
+        Horario input = new Horario();
+        input.setTurno(com.franco.dev.domain.administrativo.enums.Turno.NOCHE);
+        input.setHoraEntrada(java.time.LocalTime.of(18, 0));
+        input.setHoraSalida(java.time.LocalTime.of(23, 0));
+
+        service.agregarAFuncionario(507L, input);
+
+        assertEquals(2, guardados.size(), "la copia del compartido y el nuevo");
+        assertEquals(java.time.LocalTime.of(8, 0), guardados.get(0).getHoraEntrada());
+        assertEquals(usuario, guardados.get(0).getUsuario());
+        assertEquals(otro, compartido.getUsuario(), "el compartido no se toca");
     }
 }

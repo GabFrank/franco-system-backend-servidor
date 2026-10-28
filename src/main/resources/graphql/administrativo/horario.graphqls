@@ -53,6 +53,8 @@ extend type Mutation {
     saveHorariosUsuario(usuarioId: Int!, horarios: [HorarioInput]!): [Horario]!
     "Copia el horario a cada funcionario como horario propio (#523)."
     copiarHorario(horarioId: ID!, funcionarioIds: [Int]!): CopiaHorarioResultado!
+    "Crea un horario y se lo deja asignado al funcionario (#523)."
+    agregarHorarioFuncionario(funcionarioId: Int!, horario: HorarioInput!): Funcionario
     "Le quita un horario al funcionario: borra el propio, desvincula el compartido (#523)."
     quitarHorarioFuncionario(funcionarioId: Int!, horarioId: ID!): Funcionario
 }

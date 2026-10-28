@@ -72,7 +72,8 @@ public class SorteoService {
 
         String nombre = input.getNombre() != null ? input.getNombre().trim() : "";
         if (nombre.isEmpty()) throw new GraphQLException("El nombre del sorteo es obligatorio.");
-        if (input.getMontoMinimo() == null || input.getMontoMinimo() <= 0) {
+        if (input.getMontoMinimo() == null || input.getMontoMinimo().isNaN()
+                || input.getMontoMinimo().isInfinite() || input.getMontoMinimo() <= 0) {
             throw new GraphQLException("El monto mínimo tiene que ser mayor a cero.");
         }
         ModoParticipacionSorteo modo = parseModo(input.getModoParticipacion());
@@ -87,7 +88,8 @@ public class SorteoService {
         LocalDate desde = DateUtils.stringToLocalDate(input.getFechaDesde());
         LocalDate hasta = DateUtils.stringToLocalDate(input.getFechaHasta());
         LocalDate fechaSorteo = DateUtils.stringToLocalDate(input.getFechaSorteo());
-        if (desde != null && hasta != null && hasta.isBefore(desde)) {
+        LocalDate desdeEfectivo = desde != null ? desde : (existente != null ? existente.getFechaDesde() : null);
+        if (desdeEfectivo != null && hasta != null && hasta.isBefore(desdeEfectivo)) {
             throw new GraphQLException("La fecha hasta no puede ser anterior a la fecha desde.");
         }
         boolean todas = Boolean.TRUE.equals(input.getTodasSucursales());
@@ -148,14 +150,15 @@ public class SorteoService {
             p.setSorteo(s);
             s.getPremios().add(p);
         }
-        if (!idsActuales(s).equals(sucursalIds)) {
-            s.getSucursales().clear();
-            for (Long sucursalId : sucursalIds) {
-                SorteoSucursal ss = new SorteoSucursal();
-                ss.setSorteo(s);
-                ss.setSucursalId(sucursalId);
-                s.getSucursales().add(ss);
-            }
+        // Diff y no clear()+add: Hibernate inserta antes de borrar huerfanos y chocaria con uq_sorteo_sucursal.
+        s.getSucursales().removeIf(ss -> !sucursalIds.contains(ss.getSucursalId()));
+        Set<Long> presentes = idsActuales(s);
+        for (Long sucursalId : sucursalIds) {
+            if (presentes.contains(sucursalId)) continue;
+            SorteoSucursal ss = new SorteoSucursal();
+            ss.setSorteo(s);
+            ss.setSucursalId(sucursalId);
+            s.getSucursales().add(ss);
         }
         return repository.save(s);
     }

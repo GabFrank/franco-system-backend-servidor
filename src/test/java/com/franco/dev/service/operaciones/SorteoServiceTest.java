@@ -256,6 +256,44 @@ class SorteoServiceTest {
     }
 
     @Test
+    void editarSucursalesAplicaSoloLaDiferencia() {
+        Sorteo viejo = existente();
+        SorteoSucursal uno = viejo.getSucursales().get(0);
+        when(repository.findById(5L)).thenReturn(Optional.of(viejo));
+        conParticipaciones(false);
+        Sucursal s5 = new Sucursal();
+        s5.setId(5L);
+        when(sucursalService.findById(5L)).thenReturn(Optional.of(s5));
+        SorteoInput in = input();
+        in.setId(5L);
+        in.setSucursalIds(Arrays.asList(1L, 5L));
+        Sorteo s = service.guardar(in, autor);
+        assertEquals(2, s.getSucursales().size());
+        assertSame(uno, s.getSucursales().get(0));
+        assertEquals(1L, uno.getSucursalId());
+        assertEquals(5L, s.getSucursales().get(1).getSucursalId());
+        assertNull(s.getSucursales().get(1).getId());
+    }
+
+    @Test
+    void rechazaMontoNaNInfinitoYRangoContraDesdeGuardado() {
+        SorteoInput in = input();
+        in.setMontoMinimo(Double.NaN);
+        falla("El monto mínimo tiene que ser mayor a cero.", () -> service.guardar(in, autor));
+        in.setMontoMinimo(Double.POSITIVE_INFINITY);
+        falla("El monto mínimo tiene que ser mayor a cero.", () -> service.guardar(in, autor));
+        Sorteo viejo = existente();
+        viejo.setFechaDesde(LocalDate.of(2026, 11, 10));
+        when(repository.findById(5L)).thenReturn(Optional.of(viejo));
+        conParticipaciones(false);
+        SorteoInput ed = input();
+        ed.setId(5L);
+        ed.setFechaDesde(null);
+        ed.setFechaHasta("2026-11-01");
+        falla("La fecha hasta no puede ser anterior a la fecha desde.", () -> service.guardar(ed, autor));
+    }
+
+    @Test
     void editarCortadoFalla() {
         Sorteo viejo = existente();
         viejo.setActivo(false);

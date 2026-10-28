@@ -119,6 +119,9 @@ class ConvenioIntegridadServiceTest {
                 ConvenioIntegridadService.categoriaError(new PSQLException("Connection to 172.25.1.3:5551 refused", PSQLState.CONNECTION_UNABLE_TO_CONNECT)));
         assertEquals("Sin respuesta (timeout)",
                 ConvenioIntegridadService.categoriaError(new SQLException("x", "08001", new SocketTimeoutException("connect timed out"))));
+        // Lo que de verdad tira pgjdbc al vencer connectTimeout (visto contra una IP sin respuesta).
+        assertEquals("Sin respuesta (timeout)",
+                ConvenioIntegridadService.categoriaError(new PSQLException("Connection attempt timed out.", PSQLState.CONNECTION_UNABLE_TO_CONNECT)));
         assertEquals("La consulta tardó demasiado",
                 ConvenioIntegridadService.categoriaError(new SQLException("canceling statement", "57014")));
         assertEquals("Error de consulta", ConvenioIntegridadService.categoriaError(new RuntimeException("x")));

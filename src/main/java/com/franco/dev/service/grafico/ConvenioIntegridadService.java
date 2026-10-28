@@ -211,7 +211,11 @@ public class ConvenioIntegridadService {
     /** Mensaje para el usuario sin host ni credenciales; el detalle queda en el log. */
     static String categoriaError(Throwable e) {
         for (Throwable t = e; t != null; t = t.getCause()) {
-            if (t instanceof SocketTimeoutException) return "Sin respuesta (timeout)";
+            // pgjdbc informa el connectTimeout como «Connection attempt timed out.» (08001), sin SocketTimeoutException.
+            if (t instanceof SocketTimeoutException
+                    || (t.getMessage() != null && t.getMessage().contains("timed out"))) {
+                return "Sin respuesta (timeout)";
+            }
         }
         String estadoSql = e instanceof SQLException ? ((SQLException) e).getSQLState() : null;
         if (estadoSql != null) {

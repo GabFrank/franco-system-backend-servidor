@@ -40,38 +40,63 @@ public class HorarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findByUsuarioId(usuarioId);
     }
 
+    /** Los horarios que rigen para el funcionario, los mismos que usa la marcacion (#523). */
+    public List<Horario> horariosPorFuncionario(Long funcionarioId) {
+        return service.deFuncionario(funcionarioId);
+    }
+
+    /** Crea un horario y se lo deja asignado al funcionario (#523). */
+    public com.franco.dev.domain.personas.Funcionario agregarHorarioFuncionario(Long funcionarioId, HorarioInput horario) {
+        seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR, "EDITAR FUNCIONARIOS");
+        return service.agregarAFuncionario(funcionarioId, toEntity(horario));
+    }
+
+    public com.franco.dev.domain.personas.Funcionario quitarHorarioFuncionario(Long funcionarioId, Long horarioId) {
+        seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR, "EDITAR FUNCIONARIOS");
+        return service.quitarDeFuncionario(funcionarioId, horarioId);
+    }
+
     public Horario saveHorario(HorarioInput input) {
         seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR, "EDITAR FUNCIONARIOS");
-        ModelMapper m = new ModelMapper();
-        Horario e = m.map(input, Horario.class);
-
-        if (input.getHoraEntrada() != null)
-            e.setHoraEntrada(LocalTime.parse(input.getHoraEntrada()));
-        if (input.getHoraSalida() != null)
-            e.setHoraSalida(LocalTime.parse(input.getHoraSalida()));
-        if (input.getInicioDescanso() != null)
-            e.setInicioDescanso(LocalTime.parse(input.getInicioDescanso()));
-        if (input.getFinDescanso() != null)
-            e.setFinDescanso(LocalTime.parse(input.getFinDescanso()));
-
+        Horario e = toEntity(input);
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
+        return service.saveValidado(e);
+    }
 
-        if (input.getDias() != null) {
-            e.setDias(input.getDias().stream().map(com.franco.dev.domain.administrativo.enums.Dia::valueOf)
-                    .collect(java.util.stream.Collectors.toSet()));
-        }
+    /** Guarda la tabla de horarios del usuario entera (#523); los que no vienen se quitan. */
+    public List<Horario> saveHorariosUsuario(Long usuarioId, List<HorarioInput> horarios) {
+        seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR, "EDITAR FUNCIONARIOS");
+        return service.saveDeUsuario(usuarioId,
+                horarios.stream().map(this::toEntity).collect(java.util.stream.Collectors.toList()));
+    }
 
-        if (input.getTurno() != null) {
-            e.setTurno(input.getTurno());
-        }
-
-        return service.save(e);
+    /** "Asignar a otros": copia el horario a cada funcionario como horario propio (#523). */
+    public com.franco.dev.service.administrativo.dto.CopiaHorarioResultado copiarHorario(
+            Long horarioId, List<Long> funcionarioIds) {
+        seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR, "EDITAR FUNCIONARIOS");
+        return service.copiar(horarioId, funcionarioIds);
     }
 
     public Boolean deleteHorario(Long id) {
         seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR, "EDITAR FUNCIONARIOS");
-        return service.deleteById(id);
+        return service.eliminar(id);
+    }
+
+    private Horario toEntity(HorarioInput input) {
+        ModelMapper m = new ModelMapper();
+        Horario e = m.map(input, Horario.class);
+        e.setUsuario(null);
+        e.setHoraEntrada(input.getHoraEntrada() != null ? LocalTime.parse(input.getHoraEntrada()) : null);
+        e.setHoraSalida(input.getHoraSalida() != null ? LocalTime.parse(input.getHoraSalida()) : null);
+        e.setInicioDescanso(input.getInicioDescanso() != null ? LocalTime.parse(input.getInicioDescanso()) : null);
+        e.setFinDescanso(input.getFinDescanso() != null ? LocalTime.parse(input.getFinDescanso()) : null);
+        if (input.getDias() != null) {
+            e.setDias(input.getDias().stream().map(com.franco.dev.domain.administrativo.enums.Dia::valueOf)
+                    .collect(java.util.stream.Collectors.toSet()));
+        }
+        e.setTurno(input.getTurno());
+        return e;
     }
 }

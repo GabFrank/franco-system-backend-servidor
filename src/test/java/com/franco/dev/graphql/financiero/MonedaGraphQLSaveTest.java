@@ -79,6 +79,20 @@ class MonedaGraphQLSaveTest {
         assertThrows(GraphQLException.class, () -> graphql.saveMoneda(malo));
     }
 
+    @Test
+    void codigoIsoDeOtraMonedaSeRechaza_elPropioNo() {
+        when(service.porCodigoIso("PYG")).thenReturn(guardada);
+
+        MonedaInput otra = input(3L);
+        otra.setCodigoIso("pyg");
+        GraphQLException ex = assertThrows(GraphQLException.class, () -> graphql.saveMoneda(otra));
+        assertTrue(ex.getMessage().contains("GUARANI"));
+
+        MonedaInput misma = input(1L);
+        misma.setCodigoIso("PYG");
+        assertEquals("PYG", graphql.saveMoneda(misma).getCodigoIso());
+    }
+
     private static MonedaInput input(Long id) {
         MonedaInput in = new MonedaInput();
         in.setId(id);

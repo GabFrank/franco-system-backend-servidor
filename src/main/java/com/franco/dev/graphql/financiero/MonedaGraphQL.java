@@ -79,6 +79,11 @@ public class MonedaGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
             } else if (!iso.matches("[A-Z]{3}")) {
                 throw new graphql.GraphQLException("El codigo ISO tiene que ser de tres letras (PYG, USD, BRL).");
             } else {
+                // El indice unico lo rechazaria igual, pero con un error de Hibernate ilegible.
+                Moneda otra = service.porCodigoIso(iso);
+                if (otra != null && !otra.getId().equals(input.getId())) {
+                    throw new graphql.GraphQLException("El codigo ISO " + iso + " ya lo tiene " + otra.getDenominacion() + ".");
+                }
                 e.setCodigoIso(iso);
             }
         }

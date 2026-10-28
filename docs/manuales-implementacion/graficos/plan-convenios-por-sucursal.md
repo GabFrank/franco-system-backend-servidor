@@ -128,3 +128,42 @@ No se persiste nada. Los campos nuevos son de la respuesta GraphQL:
   como mucho ese timeout.
 - Hora de corte: el rango es por días completos. Si el convenio corta a una hora puntual del 29, hace
   falta agregar hora al filtro (no pedido).
+
+## Registro de ejecución (2026-10-28)
+
+**Pruebas de runtime** (central de la rama en 8081, perfil dev con Flyway apagado porque la base
+local no tenía las migraciones 258.3/259.3 de develop; desktop `ng serve -c web` en 127.0.0.1:4200):
+
+| Caso | Cómo | Resultado |
+|---|---|---|
+| Sucursal sana | 24 contra `general` local | OK, 9 = 9 |
+| Faltante, sobrante y estado distinto | En `bodega`: 1338 → CANCELADO, 1339 fuera de rango, fila 999001 nueva; se restauraron al final | 1339 / 999001 / 1338 detectados |
+| Filtro de estado | ABIERTO y Canceladas | Cambian los conteos y la comparación sigue igual |
+| Sin IP | 25 y 999 | SIN IP |
+| IP muerta / puerto cerrado | 25 → `10.255.255.1`, 999 → `localhost:5999` | SIN CONEXIÓN a los ~3 s: «Sin respuesta (timeout)» y «Conexión rechazada» |
+| IP con caracteres de URL | 25 → valor con `/` y `?` | SIN IP, no se conecta |
+| Sin ADMIN | `PRUEBANR` | Rechazado |
+| Dos corridas a la vez | API + pantalla | La segunda recibe «consulta en curso» y la pantalla no queda trabada |
+| Fechas inválidas | Rango invertido y formato | Mensaje claro |
+| Pantalla | Tarjeta del tablero, multi-select, calendario, Limpiar | OK |
+
+- **Bug encontrado en la prueba:** pgjdbc informa el `connectTimeout` sin `SocketTimeoutException`, y
+  la pantalla decía «Conexión rechazada». Se corrigió y se agregó un test con la excepción real.
+- **Incidente de prueba:** una corrida con «Todas las sucursales» salió a las filiales reales de
+  bodega. Fue un SELECT por filial, de solo lectura, sin escrituras.
+- **No probado por pantalla:** que la vista se limpie cuando la consulta falla. La extensión de Chrome
+  se desconectó; queda para la prueba de Franco.
+
+**Auditoría del diff (paso 8):**
+
+- **Fijo 2:** N/A. No hay migraciones, ni tablas, ni enums tocados.
+- **Fijo 1:** el rol es la primera línea, no hay inyección SQL y no se filtran datos en la respuesta.
+  Se agregó validación de host, puerto y base antes de conectar, y la cancelación de las consultas
+  pendientes.
+- **Fijo 3:** el contrato coincide entre schema, Java y desktop. Con un central viejo, el desktop
+  avisa el error y el tablero no se rompe.
+- **Cambios por la auditoría:**
+  - un hilo por filial (24);
+  - `estadoIntegridad` nunca queda null;
+  - la vista se limpia si la consulta falla.
+- **Descartado:** mover la función del gráfico a otro archivo. Es solo prolijidad.

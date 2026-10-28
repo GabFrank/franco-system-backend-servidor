@@ -126,7 +126,7 @@ public class LogicalReplicationService {
     /**
      * Nombre de la base de datos del servidor filial al conectar a una sucursal. Si está configurado en configuraciones.local se usa; si no, "general".
      */
-    private String getBranchDbName() {
+    public String getBranchDbName() {
         Optional<Local> localOpt = localRepository.findFirstByOrderByIdAsc();
         String value = localOpt
                 .map(Local::getNombreBaseDatosFilial)

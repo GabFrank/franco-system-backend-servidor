@@ -580,7 +580,7 @@ public class ComprasMobileService {
         Long sugerida = null;
         String motivo = null;
         Double factorSugerido = null;
-        Double ultimo = ultimoPrecioCompra(productoId);
+        Double ultimo = ultimoPrecioCompraEnMonedaDe(productoId, renglon != null ? renglon.getDocumentoRecibido() : null);
         double precio = renglon != null ? nz(renglon.getPrecioUnitario()) - nz(renglon.getDescuentoUnitario()) : 0;
         if (renglon != null && precio > 0) {
             List<Double> candidatos = presentaciones.stream().map(p -> p.getCantidad() != null && p.getCantidad() > 0 ? p.getCantidad() : 1.0)
@@ -1271,6 +1271,21 @@ public class ComprasMobileService {
         List<Long> ids = jdbc.queryForList("SELECT id FROM financiero.forma_pago WHERE UPPER(descripcion) = ? "
                 + "AND COALESCE(activo, true) = true ORDER BY id LIMIT 1", Long.class, descripcion);
         return ids.isEmpty() ? null : ids.get(0);
+    }
+
+    /**
+     * La última compra en la moneda de la factura, para compararla con sus precios: la de
+     * {@link #ultimoPrecioCompra} está en guaraníes y una factura en dólares daba «−100 %» y sugería mal el
+     * bulto. Con la cotización de la factura (la de compras si no la trae); sin cotización no hay con qué
+     * comparar y se devuelve null, como si no hubiera compra anterior. En guaraníes, la de siempre.
+     */
+    Double ultimoPrecioCompraEnMonedaDe(Long productoId, DocumentoRecibido doc) {
+        Double ultimo = ultimoPrecioCompra(productoId);
+        if (ultimo == null || doc == null) return ultimo;
+        Moneda moneda = monedaDeOrNull(doc.getMoneda());
+        if (moneda == null || MonedaService.esGuarani(moneda)) return ultimo;
+        Double cotizacion = cotizacionDe(moneda, doc);
+        return cotizacion != null && cotizacion > 1 ? ultimo / cotizacion : null;
     }
 
     /** El último precio de compra del producto (por unidad base, con lo que se cargó en la nota). */
@@ -2041,7 +2056,7 @@ public class ComprasMobileService {
         List<Double> candidatos = presentaciones.stream().map(Presentacion::getCantidad).collect(Collectors.toList());
         List<Integer> numeros = Similitud.numerosDeBulto(r.getDescripcion());
         Integer bulto = CruceFactura.productosDe(numeros).stream().max(Integer::compare).orElse(null);
-        Double ultimo = ultimoPrecioCompra(r.getProducto().getId());
+        Double ultimo = ultimoPrecioCompraEnMonedaDe(r.getProducto().getId(), r.getDocumentoRecibido());
         double actual = r.getFactor() != null && r.getFactor() > 0 ? r.getFactor() : 1.0;
         Double factor = CruceFactura.factorPorPrecio(precio, ultimo, candidatos, numeros);
         if (factor == null) {

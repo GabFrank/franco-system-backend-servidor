@@ -43,4 +43,16 @@ class SorteoGraphQLSeguridadTest {
         assertThrows(GraphQLException.class, () -> resolver.cortarSorteo(1L));
         verifyNoInteractions(service);
     }
+
+    @Test
+    void participacionesSinRolFalla() {
+        assertThrows(GraphQLException.class, () -> resolver.sorteoParticipaciones(1L, null, null, 0, 20));
+        verifyNoInteractions(consulta);
+    }
+
+    @Test
+    void resumenSinRolFalla() {
+        assertThrows(GraphQLException.class, () -> resolver.sorteoResumen(1L));
+        verifyNoInteractions(consulta);
+    }
 }

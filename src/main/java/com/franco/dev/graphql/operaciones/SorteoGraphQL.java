@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-/** Sorteos para clientes. Las escrituras exigen el mismo rol que los precios; las queries quedan abiertas. */
+/** Sorteos para clientes. Las escrituras y la lectura de participaciones (datos personales de clientes) exigen el mismo rol que los precios; el listado de sorteos queda abierto. */
 @Component
 @AllArgsConstructor
 public class SorteoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -32,10 +32,12 @@ public class SorteoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     public Page<SorteoParticipacionConsulta.Fila> sorteoParticipaciones(Long sorteoId, Long sucursalId, String codigo,
                                                                         Integer page, Integer size) {
+        seg.requireGestionar();
         return consulta.listar(sorteoId, sucursalId, codigo, pagina(page), tamano(size, 20));
     }
 
     public List<SorteoParticipacionConsulta.Resumen> sorteoResumen(Long sorteoId) {
+        seg.requireGestionar();
         return consulta.resumen(sorteoId);
     }
 

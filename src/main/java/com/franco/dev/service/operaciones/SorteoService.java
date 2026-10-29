@@ -30,7 +30,8 @@ import java.util.*;
 /**
  * Alta, edicion y corte de sorteos para clientes. Solo el central escribe; las filiales los leen por
  * replicacion. "Hoy" es -03 fijo. Un sorteo con participaciones no puede cambiar las reglas de juego
- * (monto, modo, tope, tarjeta, sucursales): hay que cortarlo y crear uno nuevo.
+ * (monto, modo, tope, tarjeta): hay que cortarlo y crear uno nuevo. Las sucursales solo se pueden
+ * agregar (o pasar a todas), nunca quitar.
  */
 @Service
 public class SorteoService {
@@ -125,11 +126,15 @@ public class SorteoService {
                     || s.getModoParticipacion() != modo
                     || !Objects.equals(s.getCantidadFija(), cantidadFija)
                     || !Objects.equals(s.getTopePorVenta(), input.getTopePorVenta())
-                    || !Objects.equals(s.getIncluyeTarjeta(), incluyeTarjeta)
-                    || !Objects.equals(s.getTodasSucursales(), todas)
-                    || !idsActuales(s).equals(sucursalIds);
-            if (cambiaReglas && tieneParticipaciones(s.getId())) {
-                throw new GraphQLException("El sorteo ya tiene participaciones: no se pueden cambiar el monto, el modo ni las sucursales. Cortalo y creá uno nuevo.");
+                    || !Objects.equals(s.getIncluyeTarjeta(), incluyeTarjeta);
+            // Con participaciones las sucursales solo crecen: se pueden agregar o pasar a "todas",
+            // pero no sacar una que ya vendio tickets.
+            boolean quitaSucursales = !todas
+                    && (Boolean.TRUE.equals(s.getTodasSucursales()) || !sucursalIds.containsAll(idsActuales(s)));
+            if ((cambiaReglas || quitaSucursales) && tieneParticipaciones(s.getId())) {
+                throw new GraphQLException(cambiaReglas
+                        ? "El sorteo ya tiene participaciones: no se pueden cambiar el monto, el modo, las cantidades ni la tarjeta. Cortalo y creá uno nuevo."
+                        : "El sorteo ya tiene participaciones: se pueden agregar sucursales, pero no quitar las que ya tenía.");
             }
         }
         s.setNombre(nombre);

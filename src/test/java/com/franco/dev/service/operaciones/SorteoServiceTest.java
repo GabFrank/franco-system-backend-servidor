@@ -51,7 +51,7 @@ class SorteoServiceTest {
         service = new SorteoService(repository, sucursalService, productoService, jdbc, clock);
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(repository.existsByNombreIgnoreCaseAndActivoTrueAndIdNot(anyString(), anyLong())).thenReturn(false);
-        for (long id : new long[]{1L, 3L}) {
+        for (long id : new long[]{1L, 3L, 5L}) {
             Sucursal s = new Sucursal();
             s.setId(id);
             when(sucursalService.findById(id)).thenReturn(Optional.of(s));
@@ -230,9 +230,57 @@ class SorteoServiceTest {
         SorteoInput in = input();
         in.setId(5L);
         in.setMontoMinimo(200000.0);
-        falla("El sorteo ya tiene participaciones: no se pueden cambiar el monto, el modo ni las sucursales. Cortalo y creá uno nuevo.",
+        falla("El sorteo ya tiene participaciones: no se pueden cambiar el monto, el modo, las cantidades ni la tarjeta. Cortalo y creá uno nuevo.",
                 () -> service.guardar(in, autor));
         verify(repository, never()).save(any());
+    }
+
+    @Test
+    void editarConParticipacionesAgregandoSucursalesAnda() {
+        when(repository.findById(5L)).thenReturn(Optional.of(existente()));
+        conParticipaciones(true);
+        SorteoInput in = input();
+        in.setId(5L);
+        in.setSucursalIds(Arrays.asList(1L, 3L, 5L));
+        Sorteo s = service.guardar(in, autor);
+        assertEquals(3, s.getSucursales().size());
+    }
+
+    @Test
+    void editarConParticipacionesPasandoATodasAnda() {
+        when(repository.findById(5L)).thenReturn(Optional.of(existente()));
+        conParticipaciones(true);
+        SorteoInput in = input();
+        in.setId(5L);
+        in.setTodasSucursales(true);
+        in.setSucursalIds(Collections.emptyList());
+        Sorteo s = service.guardar(in, autor);
+        assertTrue(s.getTodasSucursales());
+    }
+
+    @Test
+    void editarConParticipacionesQuitandoSucursalFalla() {
+        when(repository.findById(5L)).thenReturn(Optional.of(existente()));
+        conParticipaciones(true);
+        SorteoInput in = input();
+        in.setId(5L);
+        in.setSucursalIds(Arrays.asList(1L));
+        falla("El sorteo ya tiene participaciones: se pueden agregar sucursales, pero no quitar las que ya tenía.",
+                () -> service.guardar(in, autor));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void editarConParticipacionesDejandoDeSerTodasFalla() {
+        Sorteo viejo = existente();
+        viejo.setTodasSucursales(true);
+        viejo.getSucursales().clear();
+        when(repository.findById(5L)).thenReturn(Optional.of(viejo));
+        conParticipaciones(true);
+        SorteoInput in = input();
+        in.setId(5L);
+        falla("El sorteo ya tiene participaciones: se pueden agregar sucursales, pero no quitar las que ya tenía.",
+                () -> service.guardar(in, autor));
     }
 
     @Test

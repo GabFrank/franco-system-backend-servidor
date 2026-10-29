@@ -373,8 +373,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (destino != null || printService != null) {
             OutputStream salida = destino;
             if (salida == null) {
-                printerOutputStream = this.printerOutputStream != null ? this.printerOutputStream
-                        : new PrinterOutputStream(printService);
+                printerOutputStream = new PrinterOutputStream(printService);
                 salida = printerOutputStream;
             }
             // creating the EscPosImage, need buffered image and algorithm.
@@ -740,8 +739,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (destino != null || printService != null) {
             OutputStream salida = destino;
             if (salida == null) {
-                printerOutputStream = this.printerOutputStream != null ? this.printerOutputStream
-                        : new PrinterOutputStream(printService);
+                printerOutputStream = new PrinterOutputStream(printService);
                 salida = printerOutputStream;
             }
             // Styles

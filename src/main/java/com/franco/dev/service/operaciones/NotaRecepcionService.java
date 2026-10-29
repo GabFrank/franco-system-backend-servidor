@@ -6,6 +6,7 @@ import com.franco.dev.domain.operaciones.NotaRecepcionItemDistribucion;
 import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.domain.operaciones.enums.NotaRecepcionItemEstado;
 import com.franco.dev.domain.operaciones.enums.NotaRecepcionEstado;
+import com.franco.dev.domain.operaciones.enums.ProcesoEtapaEstado;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
@@ -111,12 +112,28 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
                 .map(pedido -> pedido.getId())
                 .orElse(null);
 
+        if (pedidoId != null) {
+            ProcesoEtapaEstado estado = procesoEtapaService.getEtapaByPedidoAndTipo(pedidoId, ProcesoEtapaTipo.RECEPCION_NOTA)
+                    .map(e -> e.getEstadoEtapa()).orElse(null);
+            String motivo = motivoNoEliminable(pedidoId, estado);
+            if (motivo != null) throw new IllegalStateException(motivo);
+        }
+
         Boolean eliminado = super.deleteById(id);
 
         if (Boolean.TRUE.equals(eliminado) && pedidoId != null && findByPedidoId(pedidoId).isEmpty()) {
             procesoEtapaService.volverEtapaAPendiente(pedidoId, ProcesoEtapaTipo.RECEPCION_NOTA);
         }
         return eliminado;
+    }
+
+    /**
+     * Por qué no se puede borrar una nota del pedido, o null si se puede. Con la recepción documental finalizada
+     * el pedido quedaba sin notas y con la etapa cerrada: no se le podía cargar otra factura.
+     */
+    static String motivoNoEliminable(Long pedidoId, ProcesoEtapaEstado estadoRecepcionNota) {
+        if (pedidoId == null || estadoRecepcionNota != ProcesoEtapaEstado.COMPLETADA) return null;
+        return "La recepción documental del pedido " + pedidoId + " ya está finalizada: no se puede eliminar la nota.";
     }
 
     public List<NotaRecepcion> findByPedidoId(Long id){
@@ -406,10 +423,10 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
                 save(nota);
                 
                 // Crear vínculos ProductoProveedor cuando la nota se concilia
-                crearVinculosProductoProveedor(nota);
+                vincularProductosConProveedor(nota, null);
             } else {
                 // La nota ya estaba CONCILIADA, verificar si hay nuevos items que requieren vínculos
-                crearVinculosProductoProveedor(nota);
+                vincularProductosConProveedor(nota, null);
             }
         } else if (hayPendientes) {
             // Hay ítems pendientes → Nota = PENDIENTE_CONCILIACION
@@ -424,10 +441,13 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
      * Crea vínculos ProductoProveedor para todos los productos de la nota de recepción
      * cuando esta se concilia. Solo crea vínculos que no existan previamente.
      * 
-     * @param nota Nota de recepción conciliada
+     * Reactiva (y limpia el motivo) los que estaban inactivos. Un producto se procesa una sola vez.
+     *
+     * @param nota    Nota de recepción conciliada
+     * @param usuario quien vincula; null usa el de la nota y si no el del pedido
      */
     @Transactional
-    private void crearVinculosProductoProveedor(NotaRecepcion nota) {
+    public void vincularProductosConProveedor(NotaRecepcion nota, Usuario usuario) {
         // Verificar que la nota tenga un pedido asociado
         if (nota.getPedido() == null || nota.getPedido().getProveedor() == null) {
             logger.warn("La nota {} no tiene pedido o el pedido no tiene proveedor. Abortando creación de vínculos.", nota.getId());
@@ -437,11 +457,9 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
         // Obtener el proveedor del pedido
         Proveedor proveedor = nota.getPedido().getProveedor();
         
-        // Obtener el usuario (de la nota o del pedido como fallback)
-        Usuario usuario = nota.getUsuario();
-        if (usuario == null && nota.getPedido() != null) {
-            usuario = nota.getPedido().getUsuario();
-        }
+        // Usuario: el recibido, si no el de la nota, si no el del pedido
+        if (usuario == null) usuario = nota.getUsuario();
+        if (usuario == null) usuario = nota.getPedido().getUsuario();
 
         // Obtener todos los ítems de la nota
         List<NotaRecepcionItem> items = notaRecepcionItemService.findByNotaRecepcionId(nota.getId());

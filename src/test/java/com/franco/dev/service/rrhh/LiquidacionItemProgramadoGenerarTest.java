@@ -57,6 +57,8 @@ class LiquidacionItemProgramadoGenerarTest {
         });
         when(repository.findByFuncionarioIdAndPeriodo(anyLong(), anyString()))
                 .thenAnswer(i -> Optional.ofNullable(liquidaciones.get((String) i.getArgument(1))));
+        when(repository.findById(anyLong())).thenAnswer(i -> liquidaciones.values().stream()
+                .filter(l -> l.getId().equals(i.getArgument(0))).findFirst());
         LiquidacionItemRepository itemRepository = mock(LiquidacionItemRepository.class);
         when(itemRepository.save(any())).thenAnswer(i -> {
             LiquidacionItem it = i.getArgument(0);
@@ -147,6 +149,21 @@ class LiquidacionItemProgramadoGenerarTest {
         service.generarBorrador(7L, "2026-11", null);
 
         verify(convenio).planificar(any(), any(), argThat(d -> d.compareTo(BigDecimal.valueOf(2_700_000)) == 0), any(), any());
+    }
+
+    @Test
+    void alRegenerarElTopeDelConvenioCuentaLosManuales() {
+        // Octubre sin programados: sueldo 3.000.000. Caso #377 de bodega: el manual quedaba afuera del tope.
+        LiquidacionSueldo octubre = service.generarBorrador(7L, "2026-10", null);
+        service.agregarItemManual(octubre.getId(), "SEGURO", BigDecimal.valueOf(27_000), LiquidacionItemTipo.DESCUENTO, null);
+        clearInvocations(convenio);
+        service.generarBorrador(7L, "2026-10", null);
+        verify(convenio).planificar(any(), any(), argThat(d -> d.compareTo(BigDecimal.valueOf(2_973_000)) == 0), any(), any());
+
+        service.agregarItemManual(octubre.getId(), "COMISION", BigDecimal.valueOf(100_000), LiquidacionItemTipo.HABER, null);
+        clearInvocations(convenio);
+        service.generarBorrador(7L, "2026-10", null);
+        verify(convenio).planificar(any(), any(), argThat(d -> d.compareTo(BigDecimal.valueOf(3_073_000)) == 0), any(), any());
     }
 
     @Test

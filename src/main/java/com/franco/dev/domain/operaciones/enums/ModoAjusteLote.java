@@ -20,5 +20,13 @@ public enum ModoAjusteLote {
      * La existencia estaba mal: rotura, faltante o mercadería encontrada. Corregirla cambia el
      * total del producto en la sucursal, igual que el ajuste de stock de siempre.
      */
-    CORREGIR
+    CORREGIR,
+
+    /**
+     * El lote tiene más saldo del que hay físicamente con ese número, pero la existencia total
+     * está bien (la mercadería salió o está sin rotular). Liberar baja el lote y devuelve esa
+     * diferencia a SIN LOTE: el total no cambia. Es ATRIBUIR al revés, pero explícito: solo
+     * baja, y el motivo es obligatorio porque deja de trazar unidades.
+     */
+    LIBERAR
 }

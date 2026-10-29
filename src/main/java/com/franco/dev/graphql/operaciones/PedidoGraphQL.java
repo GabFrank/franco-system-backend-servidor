@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.*;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaEstado;
@@ -38,6 +39,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private ComprasSecurityService seg;
 
     @Autowired
     private PedidoService service;
@@ -110,6 +114,7 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Boolean deletePedido(Long id) {
+        seg.exigirCompras();
         try {
             return service.cancelarPedido(id);
         } catch (IllegalStateException | IllegalArgumentException e) {
@@ -120,6 +125,7 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     // ===== SAVE OPERATIONS =====
 
     public Pedido savePedido(PedidoInput input) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         Pedido e = m.map(input, Pedido.class);
 
@@ -139,6 +145,7 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     public Pedido savePedidoFull(PedidoInput input, List<String> fechaEntregaList,
             List<Integer> sucursalEntregaList, List<Integer> sucursalInfluenciaList,
             Integer usuarioId) {
+        seg.exigirCompras();
         ModelMapper m = new ModelMapper();
         Boolean isNew = input.getId() == null;
         Pedido e = m.map(input, Pedido.class);
@@ -372,6 +379,7 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
      */
     @Transactional
     public Pedido finalizarCreacionPedido(Long pedidoId) {
+        seg.exigirCompras();
         try {
             if (pedidoId == null) {
                 throw new GraphQLException("ID del pedido es requerido");
@@ -392,6 +400,7 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
      */
     @Transactional
     public Pedido finalizarRecepcionNotas(Long pedidoId) {
+        seg.exigirCompras();
         try {
             if (pedidoId == null) {
                 throw new GraphQLException("ID del pedido es requerido");
@@ -611,6 +620,7 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     // ===== IMPRESION DE PEDIDO =====
 
     public String imprimirPedidoPDF(Long pedidoId) {
+        seg.exigirCompras();
         Pedido pedido = service.findById(pedidoId)
                 .orElseThrow(() -> new GraphQLException("Pedido no encontrado: " + pedidoId));
         List<PedidoItem> items = pedidoItemService.findByPedidoId(pedidoId);
@@ -618,6 +628,7 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Boolean imprimirPedidoTicket(Long pedidoId, String printerName) {
+        seg.exigirCompras();
         Pedido pedido = service.findById(pedidoId)
                 .orElseThrow(() -> new GraphQLException("Pedido no encontrado: " + pedidoId));
         List<PedidoItem> items = pedidoItemService.findByPedidoId(pedidoId);

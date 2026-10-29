@@ -9,6 +9,22 @@ Qué mueve stock en una devolución y qué se puede editar en cada estado. La l�
 - Sin proveedor: `PENDIENTE → SEPARADO → DESCARTADO`
 - `CANCELADA` desde `PENDIENTE` o `SEPARADO`.
 
+## Etiqueta de separado: una por devolución
+
+Al separar se imprime **una sola etiqueta por devolución** (`EtiquetaDevolucionService`), en ticket
+térmico o PDF A4: identificador, sucursal, proveedor, fecha, la lista de productos y **un QR**.
+El QR lleva el identificador (`DEV-{sucursal}-{id}`); escanearlo trae la devolución entera:
+
+- PWA, botón de escanear: abre el detalle de la devolución con todos sus productos.
+- PWA, retiro a proveedor: marca la devolución como verificada y muestra sus productos.
+
+Hasta el 2026-10-26 se imprimía una etiqueta por ítem, pero todas llevaban el mismo QR (el de la
+devolución), así que las demás solo gastaban papel. Las etiquetas viejas siguen sirviendo: el QR no
+cambió.
+
+El consolidado de retiro (`retiroProveedorConsolidado`) trae en cada grupo `devoluciones`: cada
+devolución con sus productos, que es lo que se escanea. `cajas` sigue existiendo (una fila por ítem).
+
 ## Qué mueve stock
 
 | Paso | Movimiento | Sucursal |

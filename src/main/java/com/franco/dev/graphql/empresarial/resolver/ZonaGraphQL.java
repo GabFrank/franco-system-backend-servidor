@@ -25,6 +25,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 public class ZonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private ZonaService service;
 
     @Autowired
@@ -55,6 +58,7 @@ public class ZonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
 
 
     public Zona saveZona(ZonaInput input) {
+        seg.requireAnyRole(com.franco.dev.service.operaciones.InventarioSecurityService.ROLES_INVENTARIO);
         ModelMapper m = new ModelMapper();
         Zona e = m.map(input, Zona.class);
         e.setSector(sectorService.findById(input.getSectorId()).orElse(null));
@@ -67,6 +71,7 @@ public class ZonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     }
 
     public Boolean deleteZona(Long id) {
+        seg.requireAnyRole(com.franco.dev.service.operaciones.InventarioSecurityService.ROLES_INVENTARIO);
         Zona e = service.findById(id).orElse(null);
         Boolean ok = service.deleteById(id);
         return ok;

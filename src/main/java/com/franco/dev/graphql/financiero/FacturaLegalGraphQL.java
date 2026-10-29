@@ -264,6 +264,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean deleteFacturaLegal(Long id, Long sucId) {
+        seg.requireSuperusuario();
         return service.deleteByIdAndSucursalId(id, sucId);
     }
 
@@ -372,8 +373,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (destino != null || printService != null) {
             OutputStream salida = destino;
             if (salida == null) {
-                printerOutputStream = this.printerOutputStream != null ? this.printerOutputStream
-                        : new PrinterOutputStream(printService);
+                printerOutputStream = new PrinterOutputStream(printService);
                 salida = printerOutputStream;
             }
             // creating the EscPosImage, need buffered image and algorithm.
@@ -739,8 +739,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (destino != null || printService != null) {
             OutputStream salida = destino;
             if (salida == null) {
-                printerOutputStream = this.printerOutputStream != null ? this.printerOutputStream
-                        : new PrinterOutputStream(printService);
+                printerOutputStream = new PrinterOutputStream(printService);
                 salida = printerOutputStream;
             }
             // Styles
@@ -1304,6 +1303,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     // Mutation to update factura legal
     @Transactional
     public FacturaLegal updateFacturaLegal(FacturaLegalInput input) {
+        seg.requireAnyRole("ANALISIS DE CAJA");
         if (input.getId() == null || input.getSucursalId() == null) {
             throw new IllegalArgumentException("ID y SucursalId son requeridos");
         }
@@ -1550,6 +1550,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             Long timbradoDetalleId,
             Long monedaId,
             Double tipoCambio) {
+        seg.requireAnyRole("ANALISIS DE CAJA");
         try {
             // Si se proporciona monedaId y tipoCambio, actualizar el input
             if (monedaId != null && tipoCambio != null) {

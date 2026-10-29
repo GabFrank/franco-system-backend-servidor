@@ -321,6 +321,10 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 entidadAnterior = productoOpt.get();
             }
         }
+        // Por valor: con open-session-in-view entidadAnterior es la instancia gestionada y el save la pisa.
+        boolean pasaAInactivo = entidadAnterior != null
+                && !Boolean.FALSE.equals(entidadAnterior.getActivo())
+                && Boolean.FALSE.equals(e.getActivo());
 
         p = repository.save(e);
         repository.flush(); // Asegurar que se guarde antes de registrar la modificación
@@ -337,8 +341,35 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         } catch (Exception ex) {
         }
 
+        if (pasaAInactivo) {
+            inactivarPresentacionesYPrecios(p.getId());
+        }
+
         productoSearchIndexSyncService.sincronizarProducto(p.getId());
         return p;
+    }
+
+    /**
+     * Solo al pasar de activo a inactivo: la PWA da de alta productos inactivos y les carga
+     * presentaciones y precios antes de activarlos. Reactivar el producto no reactiva nada.
+     * Se guardan copias: con open-session-in-view el save relee la instancia gestionada como
+     * «anterior», y si se modificara esa misma el registro de modificaciones no vería el cambio.
+     */
+    private void inactivarPresentacionesYPrecios(Long productoId) {
+        for (Presentacion pre : presentacionService.findByProductoId(productoId)) {
+            for (PrecioPorSucursal pps : precioPorSucursalService.findByPresentacionId(pre.getId())) {
+                if (!Boolean.FALSE.equals(pps.getActivo())) {
+                    precioPorSucursalService.save(new PrecioPorSucursal(pps.getId(), pps.getPrincipal(),
+                            pps.getPresentacion(), pps.getTipoPrecio(), pps.getSucursal(), pps.getPrecio(),
+                            pps.getCreadoEn(), pps.getUsuario(), false));
+                }
+            }
+            if (!Boolean.FALSE.equals(pre.getActivo())) {
+                presentacionService.save(new Presentacion(pre.getId(), pre.getDescripcion(), pre.getCantidad(),
+                        false, pre.getPrincipal(), pre.getCreadoEn(), pre.getProducto(),
+                        pre.getTipoPresentacion(), pre.getUsuario(), pre.getCodigos()));
+            }
+        }
     }
 
     @Override

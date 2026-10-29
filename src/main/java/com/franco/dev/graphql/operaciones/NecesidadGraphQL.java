@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.domain.operaciones.Necesidad;
 import com.franco.dev.graphql.operaciones.input.NecesidadInput;
 import com.franco.dev.service.empresarial.SucursalService;
@@ -18,6 +19,9 @@ import java.util.Optional;
 
 @Component
 public class NecesidadGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private ComprasSecurityService seg;
 
     @Autowired
     private NecesidadService service;
@@ -47,6 +51,7 @@ public class NecesidadGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public Necesidad saveNecesidad(NecesidadInput input){
+        seg.exigirAdmin(); // sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         Necesidad e = m.map(input, Necesidad.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -55,6 +60,7 @@ public class NecesidadGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public Boolean deleteNecesidad(Long id){
+        seg.exigirAdmin(); // sin pantalla que la llame
         return service.deleteById(id);
     }
 

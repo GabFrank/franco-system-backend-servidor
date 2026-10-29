@@ -61,7 +61,8 @@ class ValeCuotasTest {
         PagoSolicitudDetalleRepository detalleRepository = mock(PagoSolicitudDetalleRepository.class);
         service = new ValeService(repository, mock(CajaVirtualService.class), movimientoCajaVirtualService,
                 mock(UsuarioService.class), detalleRepository, cuotaRepository,
-                liquidacionItemRepository, liquidacionFinalItemRepository);
+                liquidacionItemRepository, liquidacionFinalItemRepository,
+                mock(com.franco.dev.repository.operaciones.SolicitudPagoRepository.class));
 
         when(repository.save(any(Vale.class))).thenAnswer(i -> {
             Vale v = i.getArgument(0);

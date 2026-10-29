@@ -81,6 +81,9 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     @Autowired
     private FilialCajaProxyService filialCajaProxyService;
 
+    @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
     private static final Logger log = LoggerFactory.getLogger(PdvCajaGraphQL.class);
 
     public PdvCaja pdvCaja(Long id, Long sucId) {
@@ -97,9 +100,9 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findByDate(inicio, fin, sucId);
     }
 
-    public Page<PdvCaja> cajasWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, int page, int size) {
+    public Page<PdvCaja> cajasWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, Boolean activo, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return service.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio, fechaFin, sucId, verificado, pageable);
+        return service.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio, fechaFin, sucId, verificado, activo, pageable);
     }
 
     public Page<PdvCaja> cajasAnalisisDiferencias(Long cajaId, Long cajaAnteriorId, PdvCajaEstado estado, Long maletinId, String maletinDescripcion, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, String difEstado, int page, int size) {
@@ -134,6 +137,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public PdvCaja savePdvCaja(PdvCajaInput input) {
+        seg.requireAnyRole("ANALISIS DE CAJA", "VENTA TOUCH");
         ModelMapper m = new ModelMapper();
         PdvCaja e = m.map(input, PdvCaja.class);
         if (input.getUsuarioId() != null) {
@@ -152,6 +156,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public PdvCaja savePdvCajaPorSucursal(PdvCajaInput input) {
+        seg.requireAnyRole("VENTA TOUCH");
         ModelMapper m = new ModelMapper();
         PdvCaja e = m.map(input, PdvCaja.class);
         if (input.getUsuarioId() != null) {
@@ -229,6 +234,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public CajaFilialOperacionResult abrirCajaDesdeServidor(PdvCajaInput input, ConteoInput conteoInput, List<ConteoMonedaInput> conteoMonedaInputList, Long cajaId) {
+        seg.requireAnyRole("VENTA TOUCH");
         boolean esCierre = cajaId != null;
         String logPrefix = esCierre ? "CERRAR CAJA" : "ABRIR CAJA";
         long inicioMs = System.currentTimeMillis();
@@ -402,13 +408,15 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         log.info("====== [{}] INICIO -> cajaId={}, sucursalId={}, conteoAnteriorId={}, apertura={} ======",
                 logPrefix, cajaId, sucursalId, conteoAnteriorId, apertura);
 
-        if (conteoInput == null || conteoInput.getUsuarioId() == null) {
-            throw new GraphQLException("No se recibio el usuario que realiza la edicion");
+        if (conteoInput == null) {
+            throw new GraphQLException("No se recibio el conteo a editar");
         }
         if (sucursalId == null) {
             throw new GraphQLException("No se recibio la sucursal de la caja");
         }
-        Long usuarioId = conteoInput.getUsuarioId();
+        // El autor es el de la sesion, no el usuarioId que arma el cliente; el filial recibe el mismo.
+        Long usuarioId = seg.requireUsuarioDeSesion().getId();
+        conteoInput.setUsuarioId(usuarioId);
         if (!usuarioService.tieneRol(usuarioId, "ADMIN")) {
             log.warn("[{}] Usuario id={} sin rol ADMIN intento editar el conteo de la caja id={}", logPrefix, usuarioId, cajaId);
             throw new GraphQLException("Solo un usuario ADMIN puede editar los montos de una caja");

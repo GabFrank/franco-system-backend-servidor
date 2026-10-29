@@ -22,6 +22,9 @@ import java.util.Optional;
 public class MotivoDiferenciaPedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private MotivoDiferenciaPedidoService service;
 
     @Autowired
@@ -42,6 +45,7 @@ public class MotivoDiferenciaPedidoGraphQL implements GraphQLQueryResolver, Grap
 //    }
 
     public MotivoDiferenciaPedido saveMotivoDiferenciaPedido(MotivoDiferenciaPedidoInput input){
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         MotivoDiferenciaPedido e = m.map(input, MotivoDiferenciaPedido.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -49,6 +53,7 @@ public class MotivoDiferenciaPedidoGraphQL implements GraphQLQueryResolver, Grap
     }
 
     public Boolean deleteMotivoDiferenciaPedido(Long id){
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         return service.deleteById(id);
     }
 

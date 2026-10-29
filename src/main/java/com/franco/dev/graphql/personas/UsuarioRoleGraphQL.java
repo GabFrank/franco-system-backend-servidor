@@ -5,6 +5,7 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.personas.UsuarioRole;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.UsuarioRoleInput;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.personas.RoleService;
 import com.franco.dev.service.personas.UsuarioRoleService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -29,6 +30,9 @@ public class UsuarioRoleGraphQL implements GraphQLQueryResolver, GraphQLMutation
     private UsuarioService usuarioService;
 
     @Autowired
+    private TesoreriaSecurityService seg;
+
+    @Autowired
     private RoleService roleService;
 
 
@@ -40,12 +44,14 @@ public class UsuarioRoleGraphQL implements GraphQLQueryResolver, GraphQLMutation
     }
 
     public UsuarioRole saveUsuarioRole(UsuarioRoleInput input) {
+        seg.requireSuperusuario();
         Usuario usuario = usuarioService.findById(input.getUserId()).orElse(null);
         return guardarUsuarioRole(input, usuario);
     }
 
     @Transactional
     public List<UsuarioRole> saveUsuarioRoleList(List<UsuarioRoleInput> inputList) {
+        seg.requireSuperusuario();
         List<UsuarioRole> guardados = new ArrayList<>();
         if (inputList == null || inputList.isEmpty()) {
             return guardados;
@@ -81,6 +87,7 @@ public class UsuarioRoleGraphQL implements GraphQLQueryResolver, GraphQLMutation
     }
 
     public Boolean deleteUsuarioRole(Long id) {
+        seg.requireSuperusuario();
         Boolean ok = service.deleteById(id);
         return ok;
     }

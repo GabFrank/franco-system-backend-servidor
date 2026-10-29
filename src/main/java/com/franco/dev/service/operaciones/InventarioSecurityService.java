@@ -27,6 +27,16 @@ public class InventarioSecurityService {
 
     public static final String ADMIN = "ADMIN";
     public static final String VER_INVENTARIO = "VER INVENTARIO";
+    public static final String CREAR_INVENTARIO = "CREAR INVENTARIO";
+    public static final String PARTICIPAR_DEL_INVENTARIO = "PARTICIPAR DEL INVENTARIO";
+    public static final String EDITAR_PRODUCTOS = "EDITAR PRODUCTOS";
+
+    /** Tomar parte de una toma: crearla, abrir zonas y contar (los clientes abren el módulo con estos roles). */
+    public static final String[] ROLES_INVENTARIO = {VER_INVENTARIO, CREAR_INVENTARIO, PARTICIPAR_DEL_INVENTARIO};
+    /** Finalizar, cancelar o reabrir una toma: mueven stock. */
+    public static final String[] ROLES_GESTION_INVENTARIO = {VER_INVENTARIO, CREAR_INVENTARIO};
+    /** Crear un lote o cambiarle las fechas: desde el conteo (PWA) o desde productos. */
+    public static final String[] ROLES_LOTE_CONTEO = {EDITAR_PRODUCTOS, VER_INVENTARIO, CREAR_INVENTARIO, PARTICIPAR_DEL_INVENTARIO};
 
     @Autowired private UsuarioService usuarioService;
     @Autowired private RoleService roleService;
@@ -65,8 +75,22 @@ public class InventarioSecurityService {
 
     public void requireAnyRole(String... roles) {
         if (!hasAnyRole(roles)) {
-            throw new GraphQLException("No autorizado: se requiere el rol "
-                    + String.join(" o ", roles) + " para esta accion.");
+            throw new GraphQLException(roles.length == 0
+                    ? "No autorizado: esta acción es solo para un administrador."
+                    : "No autorizado: se requiere el rol " + String.join(" o ", roles) + " para esta acción.");
         }
+    }
+
+    /**
+     * Usuario autenticado (del token), para dejarlo como autor. Nunca el usuarioId que arma el
+     * cliente.
+     */
+    public Usuario requireUsuarioDeSesion() {
+        String nick = currentNickname();
+        Usuario u = nick != null ? usuarioService.findByNickname(nick).orElse(null) : null;
+        if (u == null) {
+            throw new GraphQLException("No autorizado: volvé a iniciar sesión.");
+        }
+        return u;
     }
 }

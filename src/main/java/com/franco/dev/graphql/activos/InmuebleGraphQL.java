@@ -30,6 +30,9 @@ import java.util.Optional;
 public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private InmuebleService service;
 
     @Autowired
@@ -83,6 +86,7 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Inmueble saveInmueble(InmuebleInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         Inmueble e = new Inmueble();
         if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new Inmueble());
@@ -192,6 +196,7 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Boolean deleteInmueble(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         try {
             return service.deleteById(id);
         } catch (Exception err) {

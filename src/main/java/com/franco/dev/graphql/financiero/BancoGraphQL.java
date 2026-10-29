@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.productos.Producto;
@@ -20,6 +21,9 @@ import java.util.Optional;
 
 @Component
 public class BancoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private BancoService service;
@@ -44,6 +48,7 @@ public class BancoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Banco saveBanco(BancoInput input) {
+        seg.requireGestionar();
         ModelMapper m = new ModelMapper();
         Banco e = m.map(input, Banco.class);
         if (input.getUsuarioId() != null) {
@@ -58,6 +63,7 @@ public class BancoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Boolean deleteBanco(Long id) {
+        seg.requireGestionar();
         Boolean ok = service.deleteById(id);
         return ok;
     }

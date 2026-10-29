@@ -20,6 +20,9 @@ import java.util.Optional;
 public class PaisGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private PaisService service;
 
     @Autowired
@@ -44,6 +47,7 @@ public class PaisGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
 
 
     public Pais savePais(PaisInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         Pais e = m.map(input, Pais.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -52,6 +56,7 @@ public class PaisGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     }
 
     public Boolean deletePais(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

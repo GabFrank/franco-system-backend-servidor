@@ -172,6 +172,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     public Venta saveVenta(VentaInput ventaInput, List<VentaItemInput> ventaItemList, CobroInput cobroInput,
             List<CobroDetalleInput> cobroDetalleList, Boolean ticket, String printerName, String local)
             throws Exception {
+        seg.requireSuperusuario(); // antes de crear el cobro: ningún cliente la llama al central
         Venta venta = null;
         Cobro cobro = cobroGraphQL.saveCobro(cobroInput, cobroDetalleList, ventaInput.getCajaId());
         List<VentaItem> ventaItemList1 = new ArrayList<>();
@@ -215,6 +216,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Boolean deleteVenta(Long id, Long sucId) {
+        seg.requireCancelarVenta();
         Boolean ok = service.deleteById(new EmbebedPrimaryKey(id, sucId));
         return ok;
     }
@@ -225,7 +227,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
     public void deshacerVenta(Venta venta, Cobro cobro, Long sucId) {
         if (cobro != null) {
-            cobroGraphQL.deleteCobro(cobro.getId(), sucId);
+            cobroGraphQL.borrarCobro(cobro.getId(), sucId);
         }
     }
 
@@ -370,6 +372,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Boolean reimprimirVenta(Long id, String printerName, String local, Long sucId) throws Exception {
+        seg.requireSuperusuario(); // el PDV reimprime contra el filial
         Venta venta = service.findById(new EmbebedPrimaryKey(id, sucId)).orElse(null);
         if (venta != null) {
             Cobro cobro = cobroGraphQL.cobro(venta.getCobro().getId(), sucId).orElse(null);

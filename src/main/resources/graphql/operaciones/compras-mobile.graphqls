@@ -1,0 +1,376 @@
+# Compras desde el celular (PWA): cargar la factura del proveedor al pedido escaneando el KuDE.
+# Etapa RECEPCION_NOTA ("Recepción documental") del pedido, con las reglas del desktop aplicadas en el central.
+# Fechas como texto "yyyy-MM-dd HH:mm". Cantidades y precios de la nota en unidades base; precios con IVA.
+
+type CompraPedidoResumenMobile {
+    pedidoId: ID!
+    proveedorId: ID
+    proveedorNombre: String
+    proveedorRuc: String
+    fecha: String
+    monedaSimbolo: String
+    totalPedido: Float
+    cantidadItems: Int
+    itemsPendientes: Int
+    cantidadNotas: Int
+    estadoEtapa: String
+    etapaActual: String
+    etapaEtiqueta: String
+}
+
+type CompraPedidoResumenMobilePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [CompraPedidoResumenMobile]
+}
+
+type CompraPedidoItemMobile {
+    pedidoItemId: ID!
+    productoId: ID
+    descripcion: String
+    presentacionDescripcion: String
+    presentacionCantidad: Float
+    cantidadSolicitada: Float
+    cantidadFacturada: Float
+    cantidadPendiente: Float
+    precioUnitario: Float
+    esBonificacion: Boolean
+    pendienteTexto: String
+}
+
+type CompraNotaMobile {
+    id: ID!
+    numero: Int
+    numeroCompleto: String
+    timbrado: Int
+    cdc: String
+    electronica: Boolean
+    fecha: String
+    estado: String
+    estadoEtiqueta: String
+    valor: Float
+    monedaSimbolo: String
+    cantidadItems: Int
+    itemsSinDistribuir: Int
+    puedeEliminar: Boolean
+}
+
+type CompraPedidoMobile {
+    pedidoId: ID!
+    proveedorId: ID
+    proveedorNombre: String
+    proveedorRuc: String
+    fecha: String
+    monedaDenominacion: String
+    monedaSimbolo: String
+    cotizacion: Float
+    estadoEtapa: String
+    puedeCargarFacturas: Boolean
+    puedeFinalizar: Boolean
+    motivoNoOpera: String
+    totalPedido: Float
+    totalFacturado: Float
+    itemsPendientes: Int
+    items: [CompraPedidoItemMobile!]!
+    notas: [CompraNotaMobile!]!
+}
+
+type AvisoFacturaMobile {
+    tipo: String!
+    nivel: String!
+    mensaje: String!
+}
+
+type SugerenciaProductoMobile {
+    productoId: ID!
+    presentacionId: ID!
+    descripcion: String
+    presentacionDescripcion: String
+    factor: Float
+    codigo: String
+    # APRENDIDO_DESCRIPCION, CODIGO_PARECIDO, DESCRIPCION o PROVEEDOR
+    tipo: String
+    motivo: String
+    # Lo aprendido por la descripción, sin ambigüedad: se ofrece para confirmar con un toque
+    preseleccionada: Boolean
+}
+
+type RenglonFacturaMobile {
+    id: ID!
+    orden: Int
+    codigoProveedor: String
+    gtin: String
+    gtinPaquete: String
+    descripcion: String
+    unidadMedida: String
+    cantidad: Float
+    precioUnitario: Float
+    descuentoUnitario: Float
+    porcentajeDescuento: Float
+    total: Float
+    tasaIva: Int
+    ivaTexto: String
+    lote: String
+    vencimiento: String
+    esBonificacion: Boolean
+    estado: String!
+    estadoEtiqueta: String
+    tipoMatch: String
+    tipoMatchEtiqueta: String
+    productoId: ID
+    productoDescripcion: String
+    presentacionId: ID
+    presentacionDescripcion: String
+    factor: Float
+    pedidoItemId: ID
+    cantidadBase: Float
+    precioUnitarioBase: Float
+    pedidoCantidadPendiente: Float
+    pedidoPrecioUnitario: Float
+    diferencias: [String!]!
+    avisosIva: [String!]!
+    avisos: [String!]!
+    alertas: [String!]!
+    requiereObservacion: Boolean
+    observacionFaltante: Boolean
+    observacion: String
+    sugerencias: [SugerenciaProductoMobile!]!
+}
+
+type FacturaProveedorMobile {
+    id: ID!
+    # PEDIDO: se carga a un pedido existente. NUEVA_COMPRA: la factura crea el pedido.
+    modo: String
+    # Solo si la factura los trae; si no, los elige el comprador
+    formaPagoId: ID
+    formaPagoDescripcion: String
+    tipoPagoFactura: String
+    plazoCredito: Int
+    pedidoId: ID
+    # Null en la factura en papel
+    cdc: String
+    # SIFEN (QR del KuDE) o FOTO (factura en papel leída por IA)
+    origen: String
+    tipoDocumento: Int
+    tipoDocumentoDescripcion: String
+    emisorRuc: String
+    emisorNombre: String
+    receptorRuc: String
+    receptorNombre: String
+    timbrado: Int
+    establecimiento: String
+    puntoExpedicion: String
+    numero: String
+    numeroCompleto: String
+    fechaEmision: String
+    condicion: String
+    moneda: String
+    # La moneda del sistema que corresponde a la de la factura; null si el sistema no la tiene
+    monedaId: ID
+    monedaSimbolo: String
+    cotizacion: Float
+    subtotalExenta: Float
+    subtotalIva5: Float
+    subtotalIva10: Float
+    totalDescuento: Float
+    totalGeneral: Float
+    totalIva5: Float
+    totalIva10: Float
+    totalIva: Float
+    totalNota: Float
+    consultadaEn: String
+    proveedorId: ID
+    proveedorNombre: String
+    renglonesOk: Int
+    renglonesConDiferencia: Int
+    renglonesFueraDePedido: Int
+    renglonesSinProducto: Int
+    renglonesSinObservacion: Int
+    puedeConfirmar: Boolean
+    motivoNoConfirma: String
+    notaRecepcionId: ID
+    avisos: [AvisoFacturaMobile!]!
+    renglones: [RenglonFacturaMobile!]!
+    itemsNoFacturados: [CompraPedidoItemMobile!]!
+}
+
+type ResumenFinalizarNotasMobile {
+    pedidoId: ID!
+    puedeFinalizar: Boolean
+    motivo: String
+    cantidadNotas: Int
+    totalFacturado: Float
+    notasPendientes: Int
+    itemsSinDistribuir: Int
+    itemsSinFacturar: [CompraPedidoItemMobile!]!
+    avisos: [String!]!
+}
+
+type PedidosParaFacturaMobile {
+    cdc: String
+    tipoDocumentoDescripcion: String
+    numeroCompleto: String
+    proveedorRuc: String
+    proveedorId: ID
+    proveedorNombre: String
+    pedidos: [CompraPedidoResumenMobile!]!
+}
+
+type OpcionMobile {
+    id: ID!
+    descripcion: String
+}
+
+type OpcionesNuevaCompraMobile {
+    formasPago: [OpcionMobile!]!
+    sucursales: [OpcionMobile!]!
+    monedas: [OpcionMobile!]!
+}
+
+# La factura de un proveedor leída de SIFEN, armada en PDF con la plantilla de nuestras facturas (base64)
+type KudeProveedorMobile {
+    documentoId: ID!
+    cdc: String!
+    tipoDocumentoDescripcion: String
+    numeroCompleto: String
+    emisorNombre: String
+    emisorRuc: String
+    fechaEmision: String
+    condicion: String
+    monedaSimbolo: String
+    totalGeneral: Float
+    cantidadRenglones: Int
+    cancelada: Boolean
+    nombreArchivo: String
+    pdf: String!
+}
+
+# Los precios del pedido en otra moneda que la factura. La nota sigue en la moneda de la factura.
+type ConversionMonedaMobile {
+    monedaId: ID!
+    monedaSimbolo: String
+    mismaMoneda: Boolean
+    factor: Float
+    cotizacionFactura: Float
+    cotizacionPedido: Float
+    totalPedido: Float
+    texto: String
+}
+
+type PresentacionCompraMobile {
+    id: ID!
+    descripcion: String
+    cantidad: Float
+    codigo: String
+    sugerida: Boolean
+    motivo: String
+    precioPorUnidad: Float
+    comparacion: String
+    cierraConUltimaCompra: Boolean
+    factorSugerido: Float
+}
+
+input RepartoRenglonMobileInput {
+    renglonId: ID!
+    sucursalId: ID!
+    cantidad: Float!
+}
+
+extend type Query {
+    # Todas las compras, la última primero; con soloEsperandoFactura, solo las de la etapa de notas abierta
+    comprasMobile(texto: String, soloEsperandoFactura: Boolean, page: Int = 0, size: Int = 20): CompraPedidoResumenMobilePage
+    presentacionesCompraMobile(productoId: ID!, renglonId: ID): [PresentacionCompraMobile!]!
+    facturaNuevaCompraMobile(id: ID!): FacturaProveedorMobile
+    opcionesNuevaCompraMobile: OpcionesNuevaCompraMobile
+    conversionMonedaCompraMobile(documentoId: ID!, monedaId: ID!): ConversionMonedaMobile
+    pedidosEsperandoFacturaMobile(texto: String, proveedorId: ID, page: Int = 0, size: Int = 20): CompraPedidoResumenMobilePage
+    pedidoComprasMobile(pedidoId: ID!): CompraPedidoMobile
+    pedidosParaFacturaMobile(qr: String!): PedidosParaFacturaMobile
+    facturaProveedorMobile(id: ID!, pedidoId: ID): FacturaProveedorMobile
+    resumenFinalizarNotasMobile(pedidoId: ID!): ResumenFinalizarNotasMobile
+}
+
+extend type Mutation {
+    # La factura crea la compra: pedido, ítems y reparto. Queda en la planificación («Ítems del pedido») y la factura
+    # se carga como nota sola al finalizarla en el desktop.
+    leerFacturaNuevaCompraMobile(qr: String!): FacturaProveedorMobile!
+    # Escanear el KuDE y ver la factura del proveedor en PDF. Solo consulta: no crea nada
+    kudeFacturaProveedorMobile(qr: String!): KudeProveedorMobile!
+    crearCompraDesdeFacturaMobile(
+        documentoId: ID!
+        formaPagoId: ID
+        plazoCredito: Int
+        # Viejo: una sola sucursal. Se usa si no viene sucursalIds
+        sucursalId: ID
+        sucursalIds: [ID!]
+        # Con varias sucursales: cuánto de cada renglón va a cada una, en la unidad de la factura
+        repartos: [RepartoRenglonMobileInput!]
+        # La moneda del pedido; sin ella, la de la factura. Con otra, los precios se convierten con la cotización
+        monedaId: ID
+    ): CompraPedidoMobile!
+    leerFacturaProveedorMobile(pedidoId: ID!, qr: String!): FacturaProveedorMobile!
+    vincularRenglonFacturaMobile(renglonId: ID!, presentacionId: ID!, factor: Float, recordar: Boolean): FacturaProveedorMobile!
+    observarRenglonFacturaMobile(renglonId: ID!, observacion: String): FacturaProveedorMobile!
+    confirmarFacturaMobile(documentoId: ID!, pedidoId: ID!): CompraNotaMobile!
+    eliminarNotaComprasMobile(notaId: ID!): CompraPedidoMobile!
+    finalizarRecepcionNotasMobile(pedidoId: ID!): CompraPedidoMobile!
+}
+
+# Factura en papel: la cabecera que leyó la IA de las fotos, para revisarla con el papel antes de seguir.
+# dudosos: los campos de los que la IA no estuvo segura (emisorRuc, timbrado, numero…).
+type CabeceraFacturaFotoMobile {
+    documentoId: ID!
+    pedidoId: ID
+    cantidadFotos: Int!
+    emisorRuc: String
+    emisorNombre: String
+    rucValido: Boolean!
+    proveedorId: ID
+    proveedorNombre: String
+    receptorRuc: String
+    receptorEsEmpresa: Boolean
+    timbrado: Int
+    establecimiento: String
+    puntoExpedicion: String
+    numero: String
+    fechaEmision: String
+    condicion: String
+    moneda: String
+    totalGeneral: Float
+    sumaRenglones: Float
+    totalesCuadran: Boolean!
+    cantidadRenglones: Int!
+    dudosos: [String!]!
+    avisos: [String!]!
+}
+
+input CabeceraFacturaFotoInput {
+    documentoId: ID!
+    proveedorId: ID!
+    timbrado: Int!
+    establecimiento: String!
+    puntoExpedicion: String!
+    numero: String!
+    # yyyy-MM-dd
+    fechaEmision: String!
+    # CONTADO | CREDITO
+    condicion: String
+    totalGeneral: Float!
+}
+
+extend type Query {
+    # Una hoja de la factura en papel como data URI (orden desde 1)
+    fotoFacturaMobile(documentoId: ID!, orden: Int!): String
+}
+
+extend type Mutation {
+    # Fotos como data URI (image/jpeg o image/png), 1 a 5, hasta 4 MB cada una. Sin pedidoId, la factura crea la compra
+    leerFacturaFotoMobile(fotos: [String!]!, pedidoId: ID): CabeceraFacturaFotoMobile!
+    # Confirma la cabecera y sigue como la factura electrónica (al pedido o a crear la compra)
+    confirmarCabeceraFacturaFotoMobile(input: CabeceraFacturaFotoInput!): FacturaProveedorMobile!
+}

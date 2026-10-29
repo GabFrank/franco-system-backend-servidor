@@ -4,6 +4,9 @@ import com.franco.dev.graphql.financiero.input.ConteoInput;
 import com.franco.dev.graphql.financiero.input.ConteoMonedaInput;
 import com.franco.dev.service.financiero.FilialCajaProxyService;
 import com.franco.dev.service.financiero.PdvCajaService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
+import com.franco.dev.domain.personas.Usuario;
+import graphql.GraphQLException;
 import com.franco.dev.service.personas.UsuarioService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +38,7 @@ class PdvCajaGraphQLEditarConteoTest {
     @Mock private PdvCajaService service;
     @Mock private UsuarioService usuarioService;
     @Mock private FilialCajaProxyService filialCajaProxyService;
+    @Mock private TesoreriaSecurityService seg;
 
     @InjectMocks private PdvCajaGraphQL resolver;
 
@@ -44,6 +48,9 @@ class PdvCajaGraphQLEditarConteoTest {
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         when(usuarioService.tieneRol(USUARIO, "ADMIN")).thenReturn(true);
+        Usuario sesion = new Usuario();
+        sesion.setId(USUARIO);
+        when(seg.requireUsuarioDeSesion()).thenReturn(sesion);
         when(service.findById(CAJA, SUCURSAL)).thenReturn(null);
     }
 
@@ -83,5 +90,28 @@ class PdvCajaGraphQLEditarConteoTest {
 
         assertFalse(e.getMessage().contains("No se modifico"),
                 "la filial pudo haber confirmado la edicion antes del timeout");
+    }
+
+    @Test
+    void el_autor_es_el_de_la_sesion_y_no_el_usuario_del_input() throws Exception {
+        Long otroAdmin = 8L;
+        when(usuarioService.tieneRol(otroAdmin, "ADMIN")).thenReturn(true);
+        when(usuarioService.tieneRol(USUARIO, "ADMIN")).thenReturn(false);
+        ConteoInput input = conteoInput();
+        input.setUsuarioId(otroAdmin);
+
+        assertThrows(GraphQLException.class, () -> resolver.editarConteoCajaDesdeServidor(CAJA, SUCURSAL,
+                CONTEO_ANTERIOR, true, input, Collections.emptyList()));
+        verifyNoInteractions(filialCajaProxyService);
+    }
+
+    @Test
+    void a_la_filial_viaja_el_usuario_de_la_sesion() throws Exception {
+        ConteoInput input = conteoInput();
+        input.setUsuarioId(null);
+        resolver.editarConteoCajaDesdeServidor(CAJA, SUCURSAL, CONTEO_ANTERIOR, true, input, Collections.emptyList());
+
+        verify(filialCajaProxyService).editarConteoEnFilial(eq(CAJA), eq(SUCURSAL), eq(CONTEO_ANTERIOR), eq(true),
+                argThat((ConteoInput c) -> USUARIO.equals(c.getUsuarioId())), any(), eq(USUARIO));
     }
 }

@@ -1,5 +1,7 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
+import com.franco.dev.service.operaciones.TransferenciaRoles;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.activos.Vehiculo;
 import com.franco.dev.domain.operaciones.HojaRuta;
@@ -51,6 +53,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver, GraphQLSubscriptionResolver {
 
     @Autowired
+    private TesoreriaSecurityService seg;
+
+    @Autowired
     private TransferenciaService service;
 
     @Autowired
@@ -90,12 +95,10 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
     /**
      * Avisa que se escaneó el QR de una transferencia.
      *
-     * Va sin seguridad igual que {@code ventaCreditoQrAuth}: lo único que
-     * viaja son dos ids que el que escanea ya tenía delante en el QR, y lo
-     * único que provoca es que se cierre un diálogo. No lee ni modifica
-     * nada de la transferencia.
+     * Pide sesión: el único que la llama es el escáner de la PWA, que siempre
+     * está logueado. Lo único que provoca es que se cierre un diálogo; no lee
+     * ni modifica nada de la transferencia.
      */
-    @Unsecured
     public Boolean transferenciaQrEscaneado(Long id, Long sucursalId) {
         try {
             TransferenciaQrEscaneadoUpdate entity = new TransferenciaQrEscaneadoUpdate();
@@ -187,6 +190,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * valida contra lo que dejo el avance y se rechaza si el input trae la etapa anterior.
      */
     public Transferencia saveTransferencia(TransferenciaInput input) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         return new TransactionTemplate(transactionManager).execute(status -> guardarTransferencia(input));
     }
 
@@ -310,6 +314,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public Boolean deleteTransferencia(Long id) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         try {
             Transferencia transferencia = service.findById(id).orElse(null);
             List<TransferenciaItem> transferenciaItemList = transferenciaItemService
@@ -366,6 +371,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * se colaba justamente por este agujero.
      */
     public Boolean finalizarTransferencia(Long id, Long usuarioId) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         Transferencia transferencia = service.findById(id).orElse(null);
         Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
         if (transferencia.getEstado() == TransferenciaEstado.ABIERTA) {
@@ -389,6 +395,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * copiar las cantidades encima de lo que el primero ya verifico.
      */
     public Boolean avanzarEtapaTransferencia(Long id, EtapaTransferencia etapa, Long usuarioId) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         return new TransactionTemplate(transactionManager)
                 .execute(status -> avanzarEtapa(id, etapa, usuarioId));
     }
@@ -538,6 +545,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * avanzada a medias.
      */
     public Transferencia verificarParaTransporteMobile(VerificarParaTransporteInput input) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         return new TransactionTemplate(transactionManager).execute(status -> verificarParaTransporte(input));
     }
 

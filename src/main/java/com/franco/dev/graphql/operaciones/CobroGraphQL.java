@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
 import com.franco.dev.domain.operaciones.Cobro;
@@ -24,6 +25,9 @@ import java.util.Optional;
 
 @Component
 public class CobroGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private CobroService service;
@@ -57,7 +61,7 @@ public class CobroGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         if (cobro != null) {
             for (CobroDetalleInput c : cobroDetalleList) {
                 c.setCobroId(cobro.getId());
-                CobroDetalle cobroDetalle = cobroDetalleGraphQL.saveCobroDetalle(c);
+                CobroDetalle cobroDetalle = cobroDetalleGraphQL.guardarCobroDetalle(c);
                 if (cobroDetalle.getDescuento() != true && cobroDetalle.getFormaPago().getDescripcion().toUpperCase().contains("EFECTIVO")) {
                     MovimientoCajaInput movimientoCajaInput = new MovimientoCajaInput();
                     movimientoCajaInput.setMonedaId(c.getMonedaId());
@@ -67,7 +71,7 @@ public class CobroGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
                     movimientoCajaInput.setReferencia(cobro.getId());
                     movimientoCajaInput.setTipoMovimiento(PdvCajaTipoMovimiento.VENTA);
                     movimientoCajaInput.setUsuarioId(cobro.getUsuario().getId());
-                    movimientoCajaGraphQL.saveMovimientoCaja(movimientoCajaInput);
+                    movimientoCajaGraphQL.guardarMovimientoCaja(movimientoCajaInput);
                 }
 
             }
@@ -79,6 +83,12 @@ public class CobroGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Boolean deleteCobro(Long id, Long sucId) {
+        seg.requireCancelarVenta();
+        return borrarCobro(id, sucId);
+    }
+
+    /** Sin control de rol: lo usa VentaGraphQL.deshacerVenta para revertir una venta que fallo a mitad de camino. */
+    public Boolean borrarCobro(Long id, Long sucId) {
         List<CobroDetalle> cobroDetalleList = cobroDetalleGraphQL.cobroDetallePorCobroId(id, sucId);
         for (CobroDetalle c : cobroDetalleList) {
             movimientoCajaGraphQL.desactivarByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento.VENTA, c.getId(), sucId);

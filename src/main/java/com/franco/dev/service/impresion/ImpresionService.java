@@ -203,12 +203,9 @@ public class ImpresionService {
      */
     public Boolean printBalance(PdvCajaBalanceDto balanceDto, String printerName, String local, OutputStream destino) {
         try {
-            if (destino == null) {
-                selectedPrintService = printingService.getPrintService(printerName);
-            }
-            if (destino != null || selectedPrintService != null) {
-                OutputStream salida = destino != null ? destino
-                        : (printerOutputStream = new PrinterOutputStream(selectedPrintService));
+            PrintService impresora = destino == null ? printingService.getPrintService(printerName) : null;
+            if (destino != null || impresora != null) {
+                OutputStream salida = destino != null ? destino : new PrinterOutputStream(impresora);
                 // creating the EscPosImage, need buffered image and algorithm.
                 // Styles
                 Style center = new Style().setJustification(EscPosConst.Justification.Center);
@@ -427,7 +424,6 @@ public class ImpresionService {
                 }
                 escpos.feed(5);
                 escpos.close();
-                if (destino == null) printerOutputStream.close();
                 return true;
             }
         } catch (IOException e) {
@@ -629,19 +625,24 @@ public class ImpresionService {
             java.util.List<NotaTicketDto> notas,
             java.util.List<FormaPagoTicketDto> formasPago) {
         try {
-            selectedPrintService = printerName != null ? printingService.getPrintService(printerName) : null;
-            if (selectedPrintService == null) {
-                selectedPrintService = PrinterOutputStream.getPrintServiceByName("TICKET58");
+            PrintService impresora = printerName != null ? printingService.getPrintService(printerName) : null;
+            if (impresora == null) {
+                try {
+                    impresora = PrinterOutputStream.getPrintServiceByName("TICKET58");
+                } catch (IllegalArgumentException e) {
+                    throw new GraphQLException("No se encontro la impresora "
+                            + (printerName != null ? printerName : "TICKET58"));
+                }
             }
-            if (selectedPrintService != null) {
-                printerOutputStream = new PrinterOutputStream(selectedPrintService);
+            if (impresora != null) {
+                PrinterOutputStream salida = new PrinterOutputStream(impresora);
                 Style center = new Style().setJustification(EscPosConst.Justification.Center);
                 QRCode qrCode = new QRCode();
 
                 BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
                 imageBufferedImage = resize(imageBufferedImage, 200, 100);
                 BitImageWrapper imageWrapper = new BitImageWrapper();
-                EscPos escpos = new EscPos(printerOutputStream);
+                EscPos escpos = new EscPos(salida);
                 Bitonal algorithm = new BitonalThreshold();
                 EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
                 imageWrapper.setJustification(EscPosConst.Justification.Center);
@@ -702,11 +703,26 @@ public class ImpresionService {
                 escpos.write(qrCode.setSize(8).setJustification(EscPosConst.Justification.Center), qrData);
                 escpos.feed(4);
                 escpos.close();
-                printerOutputStream.close();
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            throw fallaImpresion(e);
         }
+    }
+
+    /** La impresora por nombre; si no esta, la falla le llega al que imprime en vez de no imprimir en silencio. */
+    private PrintService impresoraOFalla(String nombre) {
+        PrintService impresora = printingService.getPrintService(nombre);
+        if (impresora == null) {
+            throw new GraphQLException("No se encontro la impresora " + nombre);
+        }
+        return impresora;
+    }
+
+    /** La falla de impresion con su motivo (la salida ya lo trae como «No se pudo imprimir: ...»). */
+    private static GraphQLException fallaImpresion(IOException e) {
+        String motivo = e.getMessage();
+        return new GraphQLException(motivo != null && motivo.startsWith("No se pudo")
+                ? motivo : "No se pudo imprimir: " + motivo);
     }
 
     /**
@@ -809,9 +825,9 @@ public class ImpresionService {
             Boolean ticket, String printerName) {
         if (ticket != null && ticket == true) {
             try {
-                selectedPrintService = printingService.getPrintService(printerName);
-                if (selectedPrintService != null) {
-                    printerOutputStream = new PrinterOutputStream(selectedPrintService);
+                PrintService impresora = impresoraOFalla(printerName);
+                if (impresora != null) {
+                    PrinterOutputStream salida = new PrinterOutputStream(impresora);
                     // creating the EscPosImage, need buffered image and algorithm.
                     // Styles
                     Style center = new Style().setJustification(EscPosConst.Justification.Center);
@@ -821,7 +837,7 @@ public class ImpresionService {
                     BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
                     imageBufferedImage = resize(imageBufferedImage, 200, 100);
                     BitImageWrapper imageWrapper = new BitImageWrapper();
-                    EscPos escpos = new EscPos(printerOutputStream);
+                    EscPos escpos = new EscPos(salida);
                     Bitonal algorithm = new BitonalThreshold();
                     EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
                     imageWrapper.setJustification(EscPosConst.Justification.Center);
@@ -855,10 +871,9 @@ public class ImpresionService {
                     escpos.feed(5);
 
                     escpos.close();
-                    printerOutputStream.close();
                 }
             } catch (IOException e) {
-
+                throw fallaImpresion(e);
             }
             return null;
         } else {
@@ -1331,9 +1346,9 @@ public class ImpresionService {
 
     public void imprimirCodigoDeBarra(Codigo codigo) {
         try {
-            selectedPrintService = printingService.getPrintService("adesivo");
-            if (selectedPrintService != null) {
-                printerOutputStream = new PrinterOutputStream(selectedPrintService);
+            PrintService impresora = impresoraOFalla("adesivo");
+            if (impresora != null) {
+                PrinterOutputStream salida = new PrinterOutputStream(impresora);
                 // creating the EscPosImage, need buffered image and algorithm.
                 // Styles
                 Style center = new Style().setJustification(EscPosConst.Justification.Center);
@@ -1343,7 +1358,7 @@ public class ImpresionService {
                 BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
                 imageBufferedImage = resize(imageBufferedImage, 200, 100);
                 RasterBitImageWrapper imageWrapper = new RasterBitImageWrapper();
-                EscPos escpos = new EscPos(printerOutputStream);
+                EscPos escpos = new EscPos(salida);
                 Bitonal algorithm = new BitonalThreshold();
                 EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
                 imageWrapper.setJustification(EscPosConst.Justification.Center);
@@ -1412,10 +1427,9 @@ public class ImpresionService {
                 // }
                 escpos.feed(5);
                 escpos.close();
-                printerOutputStream.close();
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            throw fallaImpresion(e);
         }
     }
     @Data
@@ -2141,9 +2155,9 @@ public class ImpresionService {
         if (ticket != null && ticket) {
             // ===== ESC/POS TICKET =====
             try {
-                selectedPrintService = printingService.getPrintService(printerName);
-                if (selectedPrintService != null) {
-                    printerOutputStream = new PrinterOutputStream(selectedPrintService);
+                PrintService impresora = impresoraOFalla(printerName);
+                if (impresora != null) {
+                    PrinterOutputStream salida = new PrinterOutputStream(impresora);
                     Style center = new Style().setJustification(EscPosConst.Justification.Center);
                     QRCode qrCode = new QRCode();
 
@@ -2151,7 +2165,7 @@ public class ImpresionService {
                             .read(new File(imageService.getImagePath() + "logo.png"));
                     imageBufferedImage = resize(imageBufferedImage, 200, 100);
                     BitImageWrapper imageWrapper = new BitImageWrapper();
-                    EscPos escpos = new EscPos(printerOutputStream);
+                    EscPos escpos = new EscPos(salida);
                     Bitonal algorithm = new BitonalThreshold();
                     EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
                     imageWrapper.setJustification(EscPosConst.Justification.Center);
@@ -2221,10 +2235,10 @@ public class ImpresionService {
                     escpos.writeLF(center, "Comprador");
                     escpos.feed(5);
                     escpos.close();
-                    printerOutputStream.close();
                 }
             } catch (IOException e) {
                 log.error("Error al imprimir ticket de pedido: {}", e.getMessage(), e);
+                throw fallaImpresion(e);
             }
             return null;
         } else {

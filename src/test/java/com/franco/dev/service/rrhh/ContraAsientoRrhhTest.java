@@ -162,6 +162,16 @@ class ContraAsientoRrhhTest {
         assertEquals(LiquidacionFinalEstado.APROBADA, lf.getEstado());
     }
 
+    /** Issue #515: aprobado con total negativo quedaba trabado en APROBADA; se corta al aprobar. */
+    @Test
+    void noSePuedeAprobarUnFiniquitoConTotalNegativo() {
+        LiquidacionFinal lf = finiquito(new BigDecimal("-800000"), LiquidacionFinalEstado.BORRADOR);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> finiquitoService.aprobar(77L, null));
+        assertTrue(e.getMessage().toLowerCase().contains("negativo"), e.getMessage());
+        assertEquals(LiquidacionFinalEstado.BORRADOR, lf.getEstado());
+    }
+
     /** Issue #300: una cuota del finiquito cobrada por caja despues del borrador frena el pago sin mover la caja. */
     @Test
     void unFiniquitoConCuotaCambiadaNoMueveLaCaja() {

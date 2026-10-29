@@ -21,7 +21,7 @@ import static org.mockito.Mockito.*;
 /**
  * La última compra está en guaraníes; los precios de la factura, en su moneda. Al vincular un renglón de una
  * factura en dólares se comparaban sin convertir: 4,86 USD contra 2.400 Gs daba «−100 % sobre la última
- * compra» y el bulto se sugería con esa misma cuenta.
+ * compra» y el bulto se sugería con esa misma cuenta. Primero cuenta una nota en la moneda de la factura.
  */
 class UltimaCompraEnMonedaDeFacturaTest {
 
@@ -34,7 +34,9 @@ class UltimaCompraEnMonedaDeFacturaTest {
     @BeforeEach
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
-        when(jdbc.queryForList(anyString(), eq(Double.class), any())).thenReturn(Collections.singletonList(2400.0));
+        // Ultima nota en guaranies: 2.400. En dolares, por defecto ninguna.
+        when(jdbc.queryForList(anyString(), eq(Double.class), eq(7L))).thenReturn(Collections.singletonList(2400.0));
+        when(jdbc.queryForList(anyString(), eq(Double.class), eq(7L), eq(3L))).thenReturn(Collections.emptyList());
         Moneda usd = new Moneda();
         usd.setId(3L);
         usd.setDenominacion("DOLAR");
@@ -67,7 +69,14 @@ class UltimaCompraEnMonedaDeFacturaTest {
     }
 
     @Test
-    void enDolares_conLaCotizacionDeLaFactura() {
+    void enDolares_primeroLaUltimaNotaEnDolares_sinConvertir() {
+        when(jdbc.queryForList(anyString(), eq(Double.class), eq(7L), eq(3L))).thenReturn(Collections.singletonList(0.39));
+        assertEquals(0.39, service.ultimoPrecioCompraEnMonedaDe(7L, doc("USD", 6000.0)), 1e-9);
+        verifyNoInteractions(cotizacionService);
+    }
+
+    @Test
+    void enDolares_sinNotaEnDolares_laDeGuaraniesConLaCotizacionDeLaFactura() {
         assertEquals(0.4, service.ultimoPrecioCompraEnMonedaDe(7L, doc("USD", 6000.0)), 1e-9);
     }
 

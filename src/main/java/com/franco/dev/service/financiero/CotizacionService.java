@@ -46,6 +46,11 @@ public class CotizacionService {
      * ultima fila cargada (lo de siempre); con uno, la ultima hasta ese instante. El guarani vale 1.
      * Vacio si no hay fila o el valor no es positivo; el umbral propio (algunos piden &gt; 1) lo
      * aplica quien llama.
+     * <p>
+     * ⚠️ No reconstruye el pasado: {@code CotizacionMercadoScheduler} pisa cada 10 minutos el mercado de
+     * la ultima fila, asi que con un instante anterior a la ultima carga del comercio el mercado que
+     * se lee es el del dia de esa carga, no el del instante. Lo que necesita una cotizacion fija la
+     * guarda al momento (cada documento la suya; el costo, {@code cotizacion_partida}).
      */
     public Optional<BigDecimal> paraCompra(Moneda moneda, LocalDateTime instante) {
         if (moneda == null || moneda.getId() == null) return Optional.empty();

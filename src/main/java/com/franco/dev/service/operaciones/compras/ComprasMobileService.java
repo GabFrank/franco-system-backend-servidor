@@ -1274,18 +1274,31 @@ public class ComprasMobileService {
     }
 
     /**
-     * La última compra en la moneda de la factura, para compararla con sus precios: la de
-     * {@link #ultimoPrecioCompra} está en guaraníes y una factura en dólares daba «−100 %» y sugería mal el
-     * bulto. Con la cotización de la factura (la de compras si no la trae); sin cotización no hay con qué
-     * comparar y se devuelve null, como si no hubiera compra anterior. En guaraníes, la de siempre.
+     * La última compra en la moneda de la factura, para compararla con sus precios. Primero la última nota en esa
+     * misma moneda, tal cual; si no hay, la última en guaraníes pasada con la cotización de la factura (la de
+     * compras si no la trae). Comparar dólares contra {@link #ultimoPrecioCompra}, que está en guaraníes, daba
+     * «−100 %» y sugería mal el bulto. Sin nota ni cotización devuelve null, como si no hubiera compra anterior.
+     * En guaraníes, la de siempre.
      */
     Double ultimoPrecioCompraEnMonedaDe(Long productoId, DocumentoRecibido doc) {
+        Moneda moneda = doc != null ? monedaDeOrNull(doc.getMoneda()) : null;
+        if (moneda == null || MonedaService.esGuarani(moneda)) return ultimoPrecioCompra(productoId);
+        Double enSuMoneda = ultimoPrecioCompraEn(productoId, moneda.getId());
+        if (enSuMoneda != null) return enSuMoneda;
         Double ultimo = ultimoPrecioCompra(productoId);
-        if (ultimo == null || doc == null) return ultimo;
-        Moneda moneda = monedaDeOrNull(doc.getMoneda());
-        if (moneda == null || MonedaService.esGuarani(moneda)) return ultimo;
+        if (ultimo == null) return null;
         Double cotizacion = cotizacionDe(moneda, doc);
         return cotizacion != null && cotizacion > 1 ? ultimo / cotizacion : null;
+    }
+
+    /** Lo mismo que {@link #ultimoPrecioCompra}, de las notas en una moneda dada. */
+    private Double ultimoPrecioCompraEn(Long productoId, Long monedaId) {
+        List<Double> precios = jdbc.queryForList("SELECT nri.precio_unitario_en_nota FROM operaciones.nota_recepcion_item nri "
+                + "JOIN operaciones.nota_recepcion nr ON nr.id = nri.nota_recepcion_id "
+                + "WHERE nri.producto_id = ? AND COALESCE(nri.es_bonificacion, false) = false "
+                + "AND COALESCE(nri.estado::text, '') <> 'RECHAZADO' AND nri.precio_unitario_en_nota > 0 "
+                + "AND nr.moneda_id = ? ORDER BY nri.id DESC LIMIT 1", Double.class, productoId, monedaId);
+        return precios.isEmpty() ? null : precios.get(0);
     }
 
     /** El último precio de compra del producto (por unidad base, con lo que se cargó en la nota). */

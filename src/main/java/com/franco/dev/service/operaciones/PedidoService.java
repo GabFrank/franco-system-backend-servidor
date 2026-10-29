@@ -65,6 +65,9 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
     private NotaRecepcionService notaRecepcionService;
 
     @Autowired
+    private AnulacionStockCompraService anulacionStockCompraService;
+
+    @Autowired
     private ApplicationEventPublisher eventPublisher;
 
     @Override
@@ -438,7 +441,9 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
     }
 
     /**
-     * Cancela un pedido marcando sus etapas como CANCELADA (no elimina el registro).
+     * Cancela un pedido marcando sus etapas como CANCELADA (no elimina el registro) y, sin importar
+     * la etapa en la que esté, anula el stock que ya entró por la recepción de mercadería (#535).
+     * Las dos cosas van en la misma transacción: si falla la anulación, el pedido no queda cancelado.
      */
     @Transactional
     public Boolean cancelarPedido(Long pedidoId) {
@@ -450,6 +455,7 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
                 () -> new IllegalArgumentException("Pedido no encontrado: " + pedidoId));
 
         procesoEtapaService.cancelarEtapasByPedidoId(pedidoId);
+        anulacionStockCompraService.anularStockDePedido(pedidoId);
         return true;
     }
 }

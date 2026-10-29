@@ -1,7 +1,6 @@
 package com.franco.dev.service.operaciones.compras;
 
 import com.franco.dev.domain.empresarial.Sucursal;
-import com.franco.dev.domain.financiero.Cambio;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.operaciones.DocumentoRecibido;
 import com.franco.dev.domain.operaciones.DocumentoRecibidoItem;
@@ -58,7 +57,7 @@ import com.franco.dev.repository.operaciones.DocumentoRecibidoRepository;
 import com.franco.dev.repository.operaciones.PedidoSucursalEntregaRepository;
 import com.franco.dev.repository.productos.CodigoRepository;
 import com.franco.dev.repository.productos.ProveedorCodigoProductoRepository;
-import com.franco.dev.service.financiero.CambioService;
+import com.franco.dev.service.financiero.CotizacionService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.operaciones.NotaRecepcionItemDistribucionService;
 import com.franco.dev.service.operaciones.NotaRecepcionItemService;
@@ -115,7 +114,7 @@ public class ComprasMobileService {
     private static final double TOLERANCIA_TOTAL = 1.0;
     static final String CABECERA_SIN_CONFIRMAR = "Confirmá los datos de la factura en papel antes de seguir.";
 
-    /** Código ISO 4217 de SIFEN → denominación de financiero.moneda. */
+    /** Código ISO 4217 de SIFEN → denominación de financiero.moneda. Respaldo de {@code moneda.codigo_iso}. */
     private static final Map<String, String> MONEDAS = new HashMap<>();
 
     static {
@@ -139,7 +138,7 @@ public class ComprasMobileService {
     @Autowired private NotaRecepcionItemDistribucionService distribucionService;
     @Autowired private ProcesoEtapaService procesoEtapaService;
     @Autowired private MonedaService monedaService;
-    @Autowired private CambioService cambioService;
+    @Autowired private CotizacionService cotizacionService;
     @Autowired private CodigoRepository codigoRepository;
     @Autowired private PresentacionService presentacionService;
     @Autowired private ProductoProveedorService productoProveedorService;
@@ -821,11 +820,11 @@ public class ComprasMobileService {
             c.setTexto("La moneda de la factura.");
         } else {
             StringBuilder t = new StringBuilder("Los precios del pedido se convierten: ");
-            if (!GUARANI.equals(destino.getDenominacion())) {
+            if (!MonedaService.esGuarani(destino)) {
                 t.append("1 ").append(texto(destino.getSimbolo())).append(" = ").append(CruceFactura.importe(cotDestino)).append(" Gs.");
             }
-            if (!GUARANI.equals(origen.getDenominacion())) {
-                if (!GUARANI.equals(destino.getDenominacion())) t.append(" y ");
+            if (!MonedaService.esGuarani(origen)) {
+                if (!MonedaService.esGuarani(destino)) t.append(" y ");
                 t.append("1 ").append(texto(origen.getSimbolo())).append(" = ").append(CruceFactura.importe(cotOrigen)).append(" Gs.");
             }
             t.append(". Total del pedido: ").append(texto(destino.getSimbolo())).append(" ")
@@ -838,17 +837,13 @@ public class ComprasMobileService {
 
     /** Guaraníes por unidad de la moneda: 1 el guaraní; la de la factura si es su moneda; si no, el último cambio. */
     private Double cotizacionDe(Moneda m, DocumentoRecibido doc) {
-        if (m == null || GUARANI.equals(m.getDenominacion())) return 1.0;
+        if (m == null || MonedaService.esGuarani(m)) return 1.0;
         Moneda deFactura = monedaDeOrNull(doc.getMoneda());
         if (deFactura != null && Objects.equals(deFactura.getId(), m.getId())
                 && doc.getCotizacion() != null && doc.getCotizacion() > 1) {
             return doc.getCotizacion();
         }
-        Cambio cambio = cambioService.findLastByMonedaId(m.getId());
-        Double tasa = cambio == null ? null
-                : cambio.getValorEnGsCompraMercado() != null ? cambio.getValorEnGsCompraMercado()
-                : cambio.getValorEnGsVentaMercado() != null ? cambio.getValorEnGsVentaMercado()
-                : cambio.getValorEnGs();
+        Double tasa = cotizacionService.paraCompraDouble(m);
         return tasa != null && tasa > 1 ? tasa : null;
     }
 
@@ -1121,7 +1116,7 @@ public class ComprasMobileService {
         for (DocumentoRecibidoItem r : renglones) entrada.add(entradaDe(r));
         List<CruceFactura.Resultado> resultados = CruceFactura.sinPedido(entrada);
         Moneda moneda = monedaDeOrNull(doc.getMoneda());
-        boolean enGuaranies = moneda != null && GUARANI.equals(moneda.getDenominacion());
+        boolean enGuaranies = moneda != null && MonedaService.esGuarani(moneda);
 
         FacturaProveedorMobile f = cabecera(doc, null);
         f.setModo("NUEVA_COMPRA");
@@ -1188,9 +1183,8 @@ public class ComprasMobileService {
         } else if (!enGuaranies) {
             Double cot = doc.getCotizacion() != null && doc.getCotizacion() > 1 ? doc.getCotizacion() : null;
             if (cot == null) {
-                Cambio cambio = cambioService.findLastByMonedaId(moneda.getId());
-                cot = cambio != null && cambio.getValorEnGsCompraMercado() != null ? cambio.getValorEnGsCompraMercado()
-                        : cambio != null ? cambio.getValorEnGs() : null;
+                // El mismo orden que la nota (antes este aviso se salteaba el mercado de venta).
+                cot = cotizacionService.paraCompraDouble(moneda);
             }
             a.add(cot == null || cot <= 1
                     ? new AvisoFacturaMobile("MONEDA", "BLOQUEO", "No hay cotización de " + moneda.getDenominacion() + ". Cargá la del día.")
@@ -1684,7 +1678,7 @@ public class ComprasMobileService {
             a.add(new AvisoFacturaMobile("MONEDA", "ADVERTENCIA", "La factura está en " + moneda.getDenominacion()
                     + " y el pedido en " + pedido.getMoneda().getDenominacion() + ": los precios no se comparan."));
         }
-        if (moneda != null && !GUARANI.equals(moneda.getDenominacion())) {
+        if (moneda != null && !MonedaService.esGuarani(moneda)) {
             Double cot = cotizacionOrNull(moneda, doc, pedido);
             a.add(cot == null
                     ? new AvisoFacturaMobile("MONEDA", "BLOQUEO", "No hay cotización de " + moneda.getDenominacion()
@@ -2473,8 +2467,15 @@ public class ComprasMobileService {
         return p != null && p.getPersona() != null ? p.getPersona().getNombre() : "el proveedor";
     }
 
+    /**
+     * La moneda del codigo ISO de la factura: por {@code moneda.codigo_iso} y, mientras la base no lo
+     * tenga cargado (el relleno es V259.6), por la denominacion de siempre.
+     */
     private Moneda monedaDeOrNull(String codigo) {
-        String denominacion = MONEDAS.get(codigo != null ? codigo.trim().toUpperCase() : "PYG");
+        String iso = codigo != null ? codigo.trim().toUpperCase() : MonedaService.ISO_GUARANI;
+        Moneda m = monedaService.porCodigoIso(iso);
+        if (m != null) return m;
+        String denominacion = MONEDAS.get(iso);
         return denominacion != null ? monedaService.findByDescripcion(denominacion) : null;
     }
 
@@ -2486,17 +2487,13 @@ public class ComprasMobileService {
 
     /** Cotización de la nota (R3 del desktop): guaraní 1; si no, la de la factura, la del pedido o el último cambio. */
     private Double cotizacionOrNull(Moneda moneda, DocumentoRecibido doc, Pedido pedido) {
-        if (moneda == null || GUARANI.equals(moneda.getDenominacion())) return 1.0;
+        if (moneda == null || MonedaService.esGuarani(moneda)) return 1.0;
         if (doc.getCotizacion() != null && doc.getCotizacion() > 1) return doc.getCotizacion();
         if (pedido.getMoneda() != null && Objects.equals(pedido.getMoneda().getId(), moneda.getId())
                 && pedido.getCotizacion() != null && pedido.getCotizacion() > 1) {
             return pedido.getCotizacion();
         }
-        Cambio cambio = cambioService.findLastByMonedaId(moneda.getId());
-        Double tasa = cambio == null ? null
-                : cambio.getValorEnGsCompraMercado() != null ? cambio.getValorEnGsCompraMercado()
-                : cambio.getValorEnGsVentaMercado() != null ? cambio.getValorEnGsVentaMercado()
-                : cambio.getValorEnGs();
+        Double tasa = cotizacionService.paraCompraDouble(moneda);
         return tasa != null && tasa > 1 ? tasa : null;
     }
 

@@ -27,6 +27,14 @@ public interface CambioRepository extends HelperRepository<Cambio, Long> {
             "and c.valor_en_gs > 0 order by c.creado_en desc, c.id desc limit 1", nativeQuery = true)
     Cambio findVigenteDelComercio(Long monedaId, java.time.LocalDateTime instante);
 
+    /**
+     * La ultima fila con creado_en hasta un instante, sin filtrar: el mismo criterio que
+     * {@link #findLastByCambioId}, que es lo que usa compras, pero mirando hacia atras.
+     */
+    @Query(value = "select * from financiero.cambio c " +
+            "where c.moneda_id = ?1 and c.creado_en <= ?2 order by c.creado_en desc limit 1", nativeQuery = true)
+    Cambio findUltimoHasta(Long monedaId, java.time.LocalDateTime instante);
+
     @Query("select e from Cambio e " +
             " where cast(e.creadoEn as date) = cast(?1 as date) and ?2 = ?1" +
             "or cast(e.creadoEn as date) >= cast(?1 as date) AND cast(e.creadoEn as date) <= cast(?2 as date)")

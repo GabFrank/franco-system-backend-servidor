@@ -119,6 +119,51 @@ Central de la rama contra `bodega` local, colas `zz_ok` / `zz_rechaza` (se borra
   el directorio temporal;
 - por pantalla en el desktop web: solicitud de pago (Imprimir ticket), pedido (Imprimir ticket) y transferencia.
 
+### Resultado (29/10)
+
+Tests: los 3 de abandono fallan con la clase base anterior; los 3 de `ImpresionServiceAvisaFallaTest` y
+`PdvCajaServiceImprimirBalanceTest` que esperan error fallan con los servicios anteriores. Batería con `develop`
+mergeado: 3110 tests, verde. El test de carrera (200 vueltas, vigía y plazo de 1 ms) pasa, pero **no** reproduce el
+error de orden que corrigió la auditoría del diff (ventana de microsegundos): protege la regla «lo informado coincide
+con lo impreso», no ese orden en particular.
+
+Runtime, central de la rama en el 8093 contra `bodega` local:
+
+| Operación | `zz_ok` | `zz_rechaza` | impresora inexistente |
+|---|---|---|---|
+| solicitud de pago 171 | `true` | «No se pudo imprimir: Printer is not accepting job.» | «No se encontro la impresora zz_noexiste» |
+| transferencia 58215 (ticket) | `null` (sin error) | ídem | ídem |
+| pedido 41 (ticket) | `true` | ídem | ídem |
+| balance caja 6335 | la caja | «No se pudo imprimir el balance» | ídem |
+| venta a crédito 29202 | `true` | «Error al imprimir» | ídem |
+| código de barras 10817 (cola `adesivo`) | `true` | error con el motivo de `lpr` | — |
+
+Todas responden en menos de 0,2 s (la primera, 1,5 s).
+
+Abandono con CUPS real (clases de la rama, plazo de 3 s, 640 bytes sin cerrar): el hilo de envío terminó a los 3,0 s,
+`close()` dio «No se pudo imprimir: el ticket quedo a medio armar (3 s sin escribir ni cerrar)», la cola no recibió
+ningún trabajo y no quedó archivo de spool. `jstack` al final del runtime: ningún hilo de envío vivo.
+
+Pantalla (desktop web contra el 8093): con `zz_rechaza`, solicitud de pago (lista → Imprimir ticket), pedido (lista de
+compras → Imprimir → Imprimir en Ticket) y transferencia (edición → Generar QR → Imprimir) muestran «Ups! Algo salió
+mal: No se pudo imprimir: Printer is not accepting job.». Con `zz_ok`, la solicitud de pago muestra «Ticket enviado a
+imprimir».
+
+Encontrado en la prueba: si la cola deja de aceptar después de que Java la consultó, el motivo que llega trae la línea
+de `lpr` con un archivo temporal (`/tmp/javaprint…`). Es el texto de la `PrintException` de la JDK; queda como está.
+
+## Auditoría del diff (paso 8)
+
+| Hallazgo | Eje | Qué se hizo |
+|---|---|---|
+| `close()` entregaba el fin de datos antes de ganar el estado: un envío completo podía informarse como fallido | Fijo 3 | el estado se gana primero; si ganó el vigía, no se entrega el fin de datos |
+| NPE si `close()` caía entre el CAS del vigía y el registro del motivo | Fijo 1 y 3 | `close()` usa un motivo por defecto |
+| `abandonoMillis` no era `volatile` | Fijo 3 | `volatile` |
+| Faltaba el test de carrera; el de «cerrada a tiempo» no detectaba nada | Fijo 3 | reemplazado por el de 200 vueltas |
+| El motivo de la `PrintException` llega al cliente | Fijo 1 | bajo, igual que `TicketRetiroService`; queda |
+| Sin cambios de permisos ni de datos devueltos | Fijo 1 | verificado |
+| Fijo 2 (esquema y migraciones) | — | N/A para central: el diff no toca `.graphqls` ni migraciones |
+
 ## Auditoría del plan (paso 5)
 
 | Hallazgo | Eje | Qué se hizo |

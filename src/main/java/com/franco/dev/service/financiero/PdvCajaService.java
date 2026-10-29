@@ -468,7 +468,9 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
         PdvCaja pdvCaja = repository.findByIdAndSucursalId(id.getId(), id.getSucursalId());
         if (pdvCaja != null) {
             PdvCajaBalanceDto balanceDto = generarBalance(pdvCaja);
-            impresionService.printBalance(balanceDto, printerName, local);
+            if (!Boolean.TRUE.equals(impresionService.printBalance(balanceDto, printerName, local))) {
+                throw new graphql.GraphQLException("No se pudo imprimir el balance");
+            }
         }
         return pdvCaja;
     }

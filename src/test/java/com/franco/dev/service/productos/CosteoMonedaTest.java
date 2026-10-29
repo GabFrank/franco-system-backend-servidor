@@ -227,6 +227,24 @@ class CosteoMonedaTest {
         assertEquals(new BigDecimal("10000"), costeo.puntoDePartida(vieja, gs).get().setScale(0));
     }
 
+    @Test
+    void ultimoPrecioDePartida_filaViejaEnMonedaDeLaNota() {
+        // Antes del 09/07 ultimo_precio_compra quedaba en la moneda de la nota: 0,39 USD a 6.210 con
+        // costo medio 2.400 Gs (caso real, producto 7 de la copia de bodega).
+        CosteoMoneda costeo = (CosteoMoneda) ReflectionTestUtils.getField(service, "costeoMoneda");
+        costosEn(usd);
+        cambio(usd, 5890.0);
+        CostoPorProducto vieja = fila(2400.0, 0.39, usd, null);
+        vieja.setCotizacion(6210.0);
+        assertEquals(new BigDecimal("0.3900"), costeo.ultimoPrecioDePartida(vieja, usd).get());
+        // En otra moneda de costeo pasa por Gs con la cotizacion de la nota: 0,39 * 6.210 = 2.421,9 Gs.
+        assertEquals(0, new BigDecimal("2421.9").compareTo(costeo.ultimoPrecioDePartida(vieja, gs).get()));
+        // Ya en Gs (posterior al 09/07): 57.000 Gs con cotizacion 5.700 no es 57.000 USD.
+        CostoPorProducto nueva = fila(57000.0, 57000.0, usd, null);
+        nueva.setCotizacion(5700.0);
+        assertEquals(new BigDecimal("9.6774"), costeo.ultimoPrecioDePartida(nueva, usd).get());
+    }
+
     // --- helpers ---
 
     private CostoPorProducto anteriorFila;

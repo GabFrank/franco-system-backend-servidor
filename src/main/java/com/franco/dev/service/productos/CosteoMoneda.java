@@ -128,10 +128,30 @@ public class CosteoMoneda {
                 fila != null ? fila.getCostoMedio() : null, null, true);
     }
 
-    /** Lo mismo para el ultimo precio de compra. */
+    /**
+     * Lo mismo para el ultimo precio de compra. Las filas anteriores a 3920ae74 (2026-07-09) lo
+     * guardaban en la moneda de la nota: se reconocen por fila contra el costo medio, que siempre
+     * estuvo en Gs (la regla de VentaItemService.SQL_ULTIMO_PRECIO_COMPRA_GS, bug 2.0b).
+     */
     public Optional<BigDecimal> ultimoPrecioDePartida(CostoPorProducto fila, Moneda costeo) {
-        return enMonedaDeCosteo(fila, costeo, fila != null ? fila.getUltimoPrecioCompraCosteo() : null,
-                fila != null ? fila.getUltimoPrecioCompra() : null, null, true);
+        if (fila == null) return Optional.empty();
+        if (fila.getUltimoPrecioCompraCosteo() == null && enMonedaDeLaNota(fila)) {
+            if (MonedaService.misma(fila.getMoneda(), costeo)) {
+                return Optional.of(BigDecimal.valueOf(fila.getUltimoPrecioCompra())
+                        .setScale(decimalesCosto(costeo), RoundingMode.HALF_UP));
+            }
+            return enMonedaDeCosteo(fila, costeo, null, fila.getUltimoPrecioCompra() * fila.getCotizacion(), null, true);
+        }
+        return enMonedaDeCosteo(fila, costeo, fila.getUltimoPrecioCompraCosteo(), fila.getUltimoPrecioCompra(), null, true);
+    }
+
+    /** Factor 30: mas alla de eso el precio ya estaba en Gs (0 filas en la zona dudosa, 2026-10-28). */
+    static boolean enMonedaDeLaNota(CostoPorProducto f) {
+        Double upc = f.getUltimoPrecioCompra();
+        Double cotiz = f.getCotizacion();
+        Double medio = f.getCostoMedio();
+        return upc != null && cotiz != null && cotiz > 1 && medio != null && medio > 0
+                && upc * cotiz <= medio * 30;
     }
 
     /** La moneda de costeo de ahora. */

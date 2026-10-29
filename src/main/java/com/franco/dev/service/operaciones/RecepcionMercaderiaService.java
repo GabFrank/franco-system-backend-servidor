@@ -36,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.List;
@@ -199,8 +200,17 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
         BigDecimal totalCostosAdicionales = calcularTotalCostosAdicionalesGs(costosAdicionales, items, recepcion);
         BigDecimal totalValorItems = calcularTotalValorItemsGs(items, recepcion);
         
-        // Procesar cada ítem: generar movimiento de stock y actualizar costo
+        // Procesar cada ítem: generar movimiento de stock y actualizar costo.
+        // Los ítems de una compra ya cancelada no entran al stock (#535): la cancelación anuló lo
+        // recibido hasta ese momento y una recepción compartida puede seguir abierta por otros pedidos.
+        Map<Long, Boolean> pedidoCancelado = new HashMap<>();
         for (RecepcionMercaderiaItem item : items) {
+            Long pedidoId = pedidoIdDe(item);
+            if (pedidoId != null && pedidoCancelado.computeIfAbsent(pedidoId, procesoEtapaService::isPedidoCancelado)) {
+                logger.info("Recepción {}: ítem {} no suma stock, su pedido {} está cancelado",
+                        recepcionId, item.getId(), pedidoId);
+                continue;
+            }
             procesarItemRecepcion(item, totalCostosAdicionales, totalValorItems, recepcion);
         }
         
@@ -225,6 +235,14 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
         // Esto permite finalizar recepciones por sucursales sin bloquear otras sucursales
         
         return recepcionFinalizada;
+    }
+
+    private static Long pedidoIdDe(RecepcionMercaderiaItem item) {
+        if (item.getNotaRecepcionItem() == null || item.getNotaRecepcionItem().getNotaRecepcion() == null
+                || item.getNotaRecepcionItem().getNotaRecepcion().getPedido() == null) {
+            return null;
+        }
+        return item.getNotaRecepcionItem().getNotaRecepcion().getPedido().getId();
     }
 
     /**

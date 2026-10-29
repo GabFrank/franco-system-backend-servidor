@@ -637,10 +637,26 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     public LiquidacionSueldo aprobar(Long id, Long aprobadoPorId) {
         LiquidacionSueldo liq = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion no encontrada"));
         if (liq.getEstado() != LiquidacionSueldoEstado.BORRADOR) throw new GraphQLException("Solo se aprueba desde BORRADOR");
+        // Aprobada con neto negativo no se puede pagar ni cerrar: sus vales no se marcan
+        // DESCONTADO y el borrador del mes siguiente los vuelve a descontar (issue #515).
+        exigirNetoNoNegativo(liq);
         liq.setEstado(LiquidacionSueldoEstado.APROBADA);
         liq.setFechaAprobacion(LocalDateTime.now());
         if (aprobadoPorId != null) liq.setAprobadoPor(usuarioService.findById(aprobadoPorId).orElse(null));
         return repository.save(liq);
+    }
+
+    /**
+     * Neto negativo = los descuentos superan a los haberes: el funcionario le debe a la empresa y
+     * no hay nada que pagarle. Lo comparten aprobar, pagar y el pago por tesoreria.
+     */
+    public static void exigirNetoNoNegativo(LiquidacionSueldo liq) {
+        BigDecimal neto = liq.getTotalNeto() != null ? liq.getTotalNeto() : BigDecimal.ZERO;
+        if (neto.signum() < 0) {
+            throw new GraphQLException("La liquidacion #" + liq.getId() + " tiene neto negativo ("
+                    + neto.toPlainString() + "): los descuentos superan a los haberes, no hay nada que pagar."
+                    + " Corrija los items o pase el saldo al mes siguiente con un item programado.");
+        }
     }
 
     @Transactional
@@ -662,16 +678,9 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     public LiquidacionSueldo pagar(Long id, Long cajaVirtualId) {
         LiquidacionSueldo liq = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion no encontrada"));
         if (liq.getEstado() != LiquidacionSueldoEstado.APROBADA) throw new GraphQLException("Solo se paga una liquidacion APROBADA");
-        // Neto negativo = los descuentos superan a los haberes, o sea que el funcionario le debe
-        // a la empresa: no hay nada que pagarle. Sin este corte el egreso se postea con la
-        // cantidad negada (EGRESO entra por abs().negate()) y termina sacando de la caja
-        // justamente la plata que habria que cobrar.
-        BigDecimal neto = liq.getTotalNeto() != null ? liq.getTotalNeto() : BigDecimal.ZERO;
-        if (neto.signum() < 0) {
-            throw new GraphQLException("La liquidacion #" + liq.getId() + " tiene neto negativo ("
-                    + neto.toPlainString() + "): los descuentos superan a los haberes, no hay nada que pagar."
-                    + " Corrija los items o cobre la diferencia por separado.");
-        }
+        // Sin este corte el egreso se postea con la cantidad negada (EGRESO entra por
+        // abs().negate()) y termina sacando de la caja justamente la plata que habria que cobrar.
+        exigirNetoNoNegativo(liq);
 
         // Antes de mover plata: si una cuota descontada se cobro por caja despues de generar el borrador,
         // el neto ya la trae descontada y pagar la cobraria dos veces (issue #300). Toma las cuotas con

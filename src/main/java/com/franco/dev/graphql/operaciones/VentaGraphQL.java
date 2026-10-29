@@ -64,6 +64,7 @@ import com.franco.dev.utilitarios.print.escpos.Style;
 import com.franco.dev.utilitarios.print.escpos.barcode.QRCode;
 import com.franco.dev.utilitarios.print.escpos.image.*;
 import com.franco.dev.utilitarios.print.output.PrinterOutputStream;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
@@ -311,8 +312,9 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             escpos.writeLF("Fecha: " + venta.getCreadoEn().format(formatter));
             escpos.writeLF("--------------------------------");
 
-            if (venta.getCliente() != null) {
-                escpos.writeLF("Cliente: " + venta.getCliente().getPersona().getNombre().substring(0, 22));
+            String lineaCliente = lineaCliente(venta.getCliente());
+            if (lineaCliente != null) {
+                escpos.writeLF(lineaCliente);
             }
             escpos.writeLF("Producto");
             escpos.writeLF("Cant    P.U                 P.T");
@@ -382,8 +384,10 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
                 FacturaLegal facturaLegal = facturaLegalGraphQL.facturaLegalPorVenta(venta.getId(),
                         venta.getSucursalId());
                 if (facturaLegal != null) {
-                    facturaLegalGraphQL.reimprimirFacturaLegal(facturaLegal.getId(), venta.getSucursalId(),
-                            printerName);
+                    if (!Boolean.TRUE.equals(facturaLegalGraphQL.reimprimirFacturaLegal(facturaLegal.getId(),
+                            venta.getSucursalId(), printerName))) {
+                        throw new GraphQLException("No se pudo reimprimir la factura");
+                    }
                 } else {
                     printTicket58mm(venta, cobro, ventaItemList, cobroDetalleList, true, printerName, local);
                 }
@@ -598,6 +602,18 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         double descuento  = 0.0;
         double aumento    = 0.0;
         double totalFinal = 0.0;
+    }
+
+    /**
+     * Linea "Cliente: " del ticket de 58 mm (32 columnas): el nombre recortado a 22 caracteres solo si es mas largo.
+     * {@code null} si no hay cliente o no tiene nombre: el ticket sale sin esa linea.
+     */
+    static String lineaCliente(Cliente cliente) {
+        if (cliente == null || cliente.getPersona() == null || cliente.getPersona().getNombre() == null) {
+            return null;
+        }
+        String nombre = cliente.getPersona().getNombre();
+        return "Cliente: " + (nombre.length() > 22 ? nombre.substring(0, 22) : nombre);
     }
 
     /**

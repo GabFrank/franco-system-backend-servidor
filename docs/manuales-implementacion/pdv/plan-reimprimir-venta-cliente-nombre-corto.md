@@ -39,6 +39,16 @@ Central de la rama contra `bodega` local, cola CUPS de prueba `zz_ok`, `reimprim
 cliente de nombre de 15 (770812), 22 (758459) y 33 caracteres (770793): las tres imprimen. Con el código de `develop`,
 la 770812 falla (visto en la prueba del #534).
 
+### Resultado (29/10)
+
+- Tests: los 5 de `VentaGraphQLLineaClienteTest` pasan; con la lógica vieja fallan 3 (nombre corto, sin nombre, sin
+  persona). Batería con `develop` (que ya trae el #544) mergeado: 3093 tests, verde.
+- Runtime (central de la rama en el 8093, cola `zz_ok` hacia una impresora falsa que guarda lo recibido):
+  `reimprimirVenta` de 770812, 758459 y 770793 devuelve `true` (0,3–1,9 s). La línea del cliente sale con 24, 31 y 31
+  caracteres (el nombre de 33 recortado a 22).
+- Pantalla: N/A para central porque el desktop no llama a `reimprimirVenta` del central: «Últimas ventas» la manda al
+  filial (`servidor=false`).
+
 ## Fuera de alcance
 
 - El cajero (línea 304) tampoco controla un nombre nulo (sí el largo). No verificado si hay usuarios sin nombre.

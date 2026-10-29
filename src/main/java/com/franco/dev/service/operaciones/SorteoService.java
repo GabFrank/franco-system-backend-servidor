@@ -88,6 +88,7 @@ public class SorteoService {
         LocalDate desde = DateUtils.stringToLocalDate(input.getFechaDesde());
         LocalDate hasta = DateUtils.stringToLocalDate(input.getFechaHasta());
         LocalDate fechaSorteo = DateUtils.stringToLocalDate(input.getFechaSorteo());
+        if (fechaSorteo == null) throw new GraphQLException("Falta la fecha del sorteo.");
         LocalDate desdeEfectivo = desde != null ? desde : (existente != null ? existente.getFechaDesde() : null);
         if (desdeEfectivo != null && hasta != null && hasta.isBefore(desdeEfectivo)) {
             throw new GraphQLException("La fecha hasta no puede ser anterior a la fecha desde.");

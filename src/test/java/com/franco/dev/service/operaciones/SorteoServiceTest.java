@@ -78,6 +78,7 @@ class SorteoServiceTest {
         in.setModoParticipacion("UNA_POR_VENTA");
         in.setFechaDesde("2026-11-01");
         in.setFechaHasta("2026-12-24");
+        in.setFechaSorteo("2026-12-26");
         in.setTodasSucursales(false);
         in.setSucursalIds(Arrays.asList(1L, 3L));
         in.setPremios(Arrays.asList(premio("Canasta", null, 1), premio(null, 7L, 2)));
@@ -178,6 +179,15 @@ class SorteoServiceTest {
         falla("La cantidad de cada premio tiene que ser al menos 1.", () -> service.guardar(in, autor));
         in.setPremios(Collections.singletonList(premio(null, 99L, 1)));
         falla("El producto 99 no existe.", () -> service.guardar(in, autor));
+    }
+
+    @Test
+    void rechazaSinFechaDeSorteo() {
+        SorteoInput in = input();
+        in.setFechaSorteo(null);
+        falla("Falta la fecha del sorteo.", () -> service.guardar(in, autor));
+        in.setFechaSorteo("  ");
+        falla("Falta la fecha del sorteo.", () -> service.guardar(in, autor));
     }
 
     @Test

@@ -180,4 +180,78 @@ class PrinterOutputStreamTest {
 
         assertTrue(enviado.get());
     }
+
+    /** Un job como el de CUPS: lee todo; si la lectura falla, el envio falla (no imprime). */
+    private static DocPrintJob jobQueLee(AtomicInteger recibidos, long pausaPorBloqueMillis) throws PrintException {
+        DocPrintJob job = mock(DocPrintJob.class);
+        doAnswer(inv -> {
+            InputStream in = ((Doc) inv.getArgument(0)).getStreamForBytes();
+            byte[] buffer = new byte[100];
+            int n;
+            try {
+                while ((n = in.read(buffer)) != -1) {
+                    recibidos.addAndGet(n);
+                    Thread.sleep(pausaPorBloqueMillis);
+                }
+            } catch (IOException | InterruptedException e) {
+                throw new PrintException(e.toString());
+            }
+            return null;
+        }).when(job).print(any(), any());
+        return job;
+    }
+
+    @Test
+    void unTicketAMediasSinCerrarCancelaElEnvio() throws Exception {
+        PrinterOutputStream salida = new PrinterOutputStream(impresoraCon(jobQueLee(new AtomicInteger(), 0)));
+        salida.setUncaughtException((t, e) -> { });
+        salida.abandonoMillis = 300;
+
+        salida.write(new byte[100]); // el armado falla aca y nadie cierra
+        salida.threadPrint.join(LIMITE.toMillis());
+
+        assertFalse(salida.threadPrint.isAlive());
+        IOException e = assertThrows(IOException.class, salida::close);
+        assertTrue(e.getMessage().startsWith("No se pudo imprimir: el ticket quedo a medio armar"), e.getMessage());
+    }
+
+    @Test
+    void unaSalidaNuncaEscritaNiCerradaTambienSeCancela() throws Exception {
+        PrinterOutputStream salida = new PrinterOutputStream(impresoraCon(jobQueLee(new AtomicInteger(), 0)));
+        salida.setUncaughtException((t, e) -> { });
+        salida.abandonoMillis = 300;
+
+        salida.threadPrint.join(LIMITE.toMillis());
+
+        assertFalse(salida.threadPrint.isAlive());
+    }
+
+    @Test
+    void unaEscrituraQueEsperaAUnaImpresoraLentaNoSeCancela() throws Exception {
+        AtomicInteger recibidos = new AtomicInteger();
+        // 5000 bytes de a 100 cada 50 ms: el write queda bloqueado ~2,5 s, mucho mas que el plazo.
+        PrinterOutputStream salida = new PrinterOutputStream(impresoraCon(jobQueLee(recibidos, 50)));
+        salida.abandonoMillis = 300;
+
+        assertTimeoutPreemptively(Duration.ofSeconds(10), () -> {
+            salida.write(TICKET);
+            salida.close();
+        });
+
+        assertEquals(TICKET.length, recibidos.get());
+    }
+
+    @Test
+    void unaSalidaCerradaATiempoNoSeCancelaDespues() throws Exception {
+        AtomicInteger recibidos = new AtomicInteger();
+        PrinterOutputStream salida = new PrinterOutputStream(impresoraCon(jobQueLee(recibidos, 0)));
+        salida.abandonoMillis = 300;
+
+        salida.write(new byte[100]);
+        salida.close();
+        Thread.sleep(1500); // pasa el plazo y al menos una revision del vigia
+
+        salida.close();
+        assertEquals(100, recibidos.get());
+    }
 }

@@ -65,6 +65,7 @@ public class PrinterOutputStream extends SalidaConEnvioEnHilo {
         threadPrint = new Thread(runnablePrint);
         threadPrint.setUncaughtExceptionHandler(uncaughtException);
         threadPrint.start();
+        vigilarEnvio(threadPrint);
     }
 
     /**

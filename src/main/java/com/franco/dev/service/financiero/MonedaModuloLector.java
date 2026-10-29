@@ -51,6 +51,22 @@ public class MonedaModuloLector {
         return empresa();
     }
 
+    /**
+     * La fila de toda la empresa que rige un modulo en un instante, para quien necesita su
+     * {@code vigente_desde} (el punto de partida del costo). Vacio sin configuracion o si la base no
+     * responde: ahi rige la moneda de la empresa. No mira filas por sucursal (solo las tiene el PDV).
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED, readOnly = true)
+    public Optional<ConfiguracionMonedaModulo> filaGlobal(ModuloMoneda modulo, LocalDateTime instante) {
+        try {
+            LocalDateTime cuando = instante != null ? instante : LocalDateTime.now();
+            return fila(repository.findByModuloOrderByVigenteDesdeDescIdDesc(modulo), null, cuando);
+        } catch (Exception e) {
+            log.warn("MONEDA_MODULO_ILEGIBLE modulo={}: sin fila vigente", modulo, e);
+        }
+        return Optional.empty();
+    }
+
     /** La moneda de un modulo ahora. */
     public Moneda resolver(ModuloMoneda modulo, Long sucursalId) {
         return resolver(modulo, sucursalId, null);
@@ -69,13 +85,18 @@ public class MonedaModuloLector {
 
     /** Filas ordenadas de la mas reciente a la mas vieja: la primera activa y vigente de la clave. */
     static Optional<Moneda> vigente(List<ConfiguracionMonedaModulo> filas, Long sucursalId, LocalDateTime cuando) {
+        return fila(filas, sucursalId, cuando).map(ConfiguracionMonedaModulo::getMoneda);
+    }
+
+    static Optional<ConfiguracionMonedaModulo> fila(List<ConfiguracionMonedaModulo> filas, Long sucursalId,
+                                                    LocalDateTime cuando) {
         for (ConfiguracionMonedaModulo f : filas) {
             Long sucursalFila = f.getSucursal() != null ? f.getSucursal().getId() : null;
             if (!Objects.equals(sucursalFila, sucursalId)) continue;
             if (f.getVigenteDesde() != null && f.getVigenteDesde().isAfter(cuando)) continue;
             if (Boolean.FALSE.equals(f.getActivo())) continue;
             if (f.getMoneda() == null) continue;
-            return Optional.of(f.getMoneda());
+            return Optional.of(f);
         }
         return Optional.empty();
     }

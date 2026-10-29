@@ -109,6 +109,37 @@ borran al final):
 - `imprimirVentaCredito` y un ticket de retiro a cada cola;
 - `jstack` al final: sin hilos de envío colgados.
 
+### Resultado (29/10)
+
+Central de la rama en el 8093 contra `bodega` local (Flyway, replicación y schedulers apagados), colas `zz_ok` y
+`zz_rechaza` hacia una impresora falsa local. Las colas se borraron al terminar.
+
+| Prueba | `zz_ok` | `zz_rechaza` |
+|---|---|---|
+| `reimprimirFacturaLegal` 452581 | `true`, 0,35 s | `false`, 0,33 s |
+| `reimprimirVenta` 770819 (con factura) | `true`, 0,77 s | error «No se pudo reimprimir la factura» (antes `true`) |
+| `reimprimirVenta` 379827 (sin factura) | `true`, 0,30 s | error |
+| `imprimirVentaCredito` 29202 | `true`, 0,09 s | error «Error al imprimir» |
+| `imprimirTicketRetiroProveedor` [42] (ticket chico) | `true`, 0,07 s | error «No se pudo imprimir: Printer is not accepting job.» las 10 veces |
+| Pantalla: Reportes y Análisis → Facturas → Reimprimir 452581 (desktop web contra el 8093) | «Guardado con éxito», trabajo de 16 KB en la cola | sin aviso de éxito; «No se pudo imprimir» en el log |
+
+Clases de salida de `develop` contra las de la rama, ticket de 300 bytes:
+
+| | `develop` | rama |
+|---|---|---|
+| CUPS `zz_rechaza`, 20 veces | 19 informados como impresos | 20 con error |
+| Red a una IP que no responde | informado como impreso en 11 ms | error «No se pudo confirmar…» a los 10,0 s |
+
+`jstack` al final: un solo hilo de envío vivo, de la venta 770812, cuyo armado del ticket reventó antes del `close`
+(ver abajo). Ninguno de las pruebas del cambio.
+
+Encontrado en la prueba, previo y fuera de alcance:
+- `VentaGraphQL.printTicket58mm` hace `getNombre().substring(0, 22)` del cliente: una venta con un cliente de nombre
+  más corto no se puede reimprimir (`StringIndexOutOfBoundsException`), y el hilo de envío queda leyendo el pipe.
+- Una falla de escritura en `reimprimirVenta` sin factura le llega al cliente como «null» (la envuelve un proxy).
+- `reimprimirVenta` no es alcanzable desde el desktop contra el central: «Últimas ventas» la llama con
+  `servidor=false` (filial).
+
 ## Riesgo y vuelta atrás
 
 - **Riesgo:** bajo. Toca la base de las dos salidas de impresión, dos bloques de cierre y una línea de

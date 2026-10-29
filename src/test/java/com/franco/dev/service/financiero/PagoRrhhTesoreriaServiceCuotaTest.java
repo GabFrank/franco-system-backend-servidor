@@ -3,13 +3,16 @@ package com.franco.dev.service.financiero;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.operaciones.SolicitudPago;
 import com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado;
+import com.franco.dev.domain.rrhh.LiquidacionFinal;
 import com.franco.dev.domain.rrhh.LiquidacionSueldo;
+import com.franco.dev.domain.rrhh.enums.LiquidacionFinalEstado;
 import com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado;
 import com.franco.dev.repository.rrhh.AguinaldoRepository;
 import com.franco.dev.repository.rrhh.LiquidacionFinalRepository;
 import com.franco.dev.repository.rrhh.LiquidacionSueldoRepository;
 import com.franco.dev.service.operaciones.SolicitudPagoService;
 import com.franco.dev.service.rrhh.PrestamoCuotaDescuentoService;
+import com.franco.dev.service.rrhh.dto.PagoRrhhPendienteDto;
 import graphql.GraphQLException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,6 +34,7 @@ import static org.mockito.Mockito.*;
 class PagoRrhhTesoreriaServiceCuotaTest {
 
     private LiquidacionSueldoRepository liquidacionRepository;
+    private LiquidacionFinalRepository finiquitoRepository;
     private SolicitudPagoService solicitudPagoService;
     private PagoProveedorService motor;
     private PrestamoCuotaDescuentoService descuento;
@@ -43,7 +47,8 @@ class PagoRrhhTesoreriaServiceCuotaTest {
         solicitudPagoService = mock(SolicitudPagoService.class);
         motor = mock(PagoProveedorService.class);
         descuento = mock(PrestamoCuotaDescuentoService.class);
-        service = new PagoRrhhTesoreriaService(liquidacionRepository, mock(LiquidacionFinalRepository.class),
+        finiquitoRepository = mock(LiquidacionFinalRepository.class);
+        service = new PagoRrhhTesoreriaService(liquidacionRepository, finiquitoRepository,
                 mock(AguinaldoRepository.class), solicitudPagoService, motor, mock(MonedaService.class), descuento,
                 mock(com.franco.dev.service.rrhh.ValeCuotaDescuentoService.class), mock(com.franco.dev.service.rrhh.ItemProgramadoAplicacionService.class));
         gs = new Moneda();
@@ -137,6 +142,44 @@ class PagoRrhhTesoreriaServiceCuotaTest {
         InOrder orden = inOrder(descuento);
         orden.verify(descuento).validarLiquidacion(5L);
         orden.verify(descuento).validarLiquidacion(9L);
+    }
+
+    /** Issue #515: con neto negativo no hay nada que pagar; ni se lista ni se acepta. */
+    @Test
+    void netoNegativoNoSeListaNiSePaga() {
+        LiquidacionSueldo negativa = liquidacion(5L, -300_000, null);
+        LiquidacionSueldo normal = liquidacion(6L, 1_000_000, null);
+        when(liquidacionRepository.findByEstadoOrderByPeriodoDesc(LiquidacionSueldoEstado.APROBADA))
+                .thenReturn(List.of(negativa, normal));
+
+        List<PagoRrhhPendienteDto> pendientes = service.listarLiquidacionesPendientes();
+        assertEquals(1, pendientes.size());
+        assertEquals(6L, pendientes.get(0).getId());
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> service.pagarRrhhMixto(List.of(pago(5L, -300_000)), null));
+        assertTrue(e.getMessage().contains("neto negativo"), e.getMessage());
+        verify(solicitudPagoService, never()).crearSolicitudVale(any(), any(), any(), any());
+        verify(motor, never()).pagarLoteMixtoObligacionesRrhh(any(), any());
+    }
+
+    @Test
+    void finiquitoNegativoNoSeListaNiSePaga() {
+        LiquidacionFinal negativo = new LiquidacionFinal();
+        negativo.setId(7L);
+        negativo.setEstado(LiquidacionFinalEstado.APROBADA);
+        negativo.setTotalLiquidado(BigDecimal.valueOf(-800_000));
+        when(finiquitoRepository.findById(7L)).thenReturn(Optional.of(negativo));
+        when(finiquitoRepository.findByEstadoOrderByCreadoEnDesc(LiquidacionFinalEstado.APROBADA))
+                .thenReturn(List.of(negativo));
+
+        assertTrue(service.listarFiniquitosPendientes().isEmpty());
+
+        PagoRrhhTesoreriaService.PagoRrhhConLineas p = pago(7L, -800_000);
+        p.setConcepto(PagoRrhhTesoreriaService.ConceptoRrhh.FINIQUITO);
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.pagarRrhhMixto(List.of(p), null));
+        assertTrue(e.getMessage().contains("negativo"), e.getMessage());
+        verify(motor, never()).pagarLoteMixtoObligacionesRrhh(any(), any());
     }
 
     @Test

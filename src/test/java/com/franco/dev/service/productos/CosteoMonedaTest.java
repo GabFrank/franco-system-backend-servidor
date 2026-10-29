@@ -177,6 +177,21 @@ class CosteoMonedaTest {
     }
 
     @Test
+    void puntoDePartida_usaLaCotizacionGuardadaAlConfigurar_aunqueElMercadoHayaCambiado() {
+        // El scheduler pisa el mercado de la ultima fila de cambio: lo de hoy (6.100) no cuenta.
+        ConfiguracionMonedaModulo fila = costos(usd);
+        fila.setCotizacionPartida(new BigDecimal("5700"));
+        when(configuracionRepository.findByModuloOrderByVigenteDesdeDescIdDesc(ModuloMoneda.COSTOS))
+                .thenReturn(Collections.singletonList(fila));
+        cambio(usd, 6100.0);
+        anterior(45600.0, 45600.0, gs, null);
+        stock(20.0);
+        CostoPorProducto g = compra(10.0, 10.0, usd, 6000.0);
+        // Partida 45.600 / 5.700 = 8 USD; (10*8 + 10*10) / 20 = 9
+        assertEquals(new BigDecimal("9.0000"), g.getCostoMedioCosteo());
+    }
+
+    @Test
     void puntoDePartida_sinCotizacionDeVigencia_noPonderaPeroGuarda() {
         costosEn(usd);
         anterior(45600.0, 45600.0, gs, null);

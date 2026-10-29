@@ -11,12 +11,14 @@
 -- con las de siempre. Con COSTOS = moneda de la empresa (sin configurar) son copia.
 --
 -- SIN UPDATE MASIVO: las filas viejas quedan en NULL. El punto de partida de la primera compra
--- con otra moneda de costeo es el costo de la empresa convertido a la cotizacion de compras de
--- vigente_desde (CosteoMoneda).
+-- con otra moneda de costeo es el costo de la empresa convertido a la cotizacion de partida: la de
+-- compras al guardar la fila de COSTOS, en configuracion_moneda_modulo.cotizacion_partida (abajo).
+-- Se guarda porque CotizacionMercadoScheduler pisa cada 10 minutos el mercado de la ultima fila de
+-- cambio: leerla despues daria la cotizacion de hoy, no la del dia en que se configuro.
 --
 -- ORDEN DE DESPLIEGUE --- ⚠️ EL ESPEJO DEL FILIAL (V109.5) VA ANTES
 --
--- costo_por_producto es MAIN_TO_ALL. La primera fila que el central escriba con estas columnas
+-- costo_por_producto y configuracion_moneda_modulo son MAIN_TO_ALL. La primera fila que el central escriba con estas columnas
 -- deja en crash-loop ("missing replicated column") a la filial que no las tenga. Antes de
 -- desplegar este JAR, cada filial del canal tiene que tener 109.5 en flyway_schema_history.
 --
@@ -45,3 +47,10 @@ COMMENT ON COLUMN productos.costo_por_producto.ultimo_precio_compra_costeo IS
     'Ultimo precio de compra en la moneda de costeo. ultimo_precio_compra sigue en la moneda de la empresa.';
 COMMENT ON COLUMN productos.costo_por_producto.cotizacion_costeo IS
     'Guaranies por unidad de la moneda de costeo con que se calculo la fila (1 si es el guarani).';
+
+-- Guaranies por unidad de la moneda de la fila al guardarla (cotizacion de compras). Solo la llena
+-- COSTOS en otra moneda que la de la empresa; NULL en el resto.
+ALTER TABLE financiero.configuracion_moneda_modulo ADD COLUMN IF NOT EXISTS cotizacion_partida NUMERIC;
+
+COMMENT ON COLUMN financiero.configuracion_moneda_modulo.cotizacion_partida IS
+    'COSTOS: guaranies por unidad de la moneda al guardar la fila. Convierte el costo de la empresa en el punto de partida del costeo. NULL en los demas modulos.';

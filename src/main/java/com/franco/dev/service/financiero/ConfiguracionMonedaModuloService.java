@@ -13,6 +13,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -71,7 +72,19 @@ public class ConfiguracionMonedaModuloService {
                     + " no tiene cotizacion cargada. Cargala antes de asignarla a un modulo.");
         }
 
+        // COSTOS en otra moneda: la cotizacion de compras de hoy queda guardada como punto de partida
+        // del costeo (CosteoMoneda). Sin ella las filas viejas no se pueden llevar a esa moneda.
+        BigDecimal cotizacionPartida = null;
+        if (input.getModulo() == ModuloMoneda.COSTOS && !MonedaService.misma(moneda, monedaService.empresa())
+                && !MonedaService.esGuarani(moneda)) {
+            cotizacionPartida = cotizacionService.paraCompra(moneda, null)
+                    .filter(c -> c.compareTo(BigDecimal.ONE) > 0)
+                    .orElseThrow(() -> new GraphQLException("SIN_COTIZACION: " + moneda.getDenominacion()
+                            + " no tiene cotizacion de compras. Cargala antes de llevar los costos a esa moneda."));
+        }
+
         ConfiguracionMonedaModulo e = new ConfiguracionMonedaModulo();
+        e.setCotizacionPartida(cotizacionPartida);
         e.setModulo(input.getModulo());
         e.setSucursal(sucursal);
         e.setMoneda(moneda);

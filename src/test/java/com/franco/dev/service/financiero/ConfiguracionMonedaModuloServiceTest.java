@@ -53,6 +53,10 @@ class ConfiguracionMonedaModuloServiceTest {
         Cambio c = new Cambio();
         c.setValorEnGs(5700.0);
         when(cambioRepository.findVigenteDelComercio(eq(2L), any())).thenReturn(c);
+        Cambio ultimo = new Cambio();
+        ultimo.setValorEnGs(5700.0);
+        ultimo.setValorEnGsCompraMercado(5900.0);
+        when(cambioRepository.findLastByCambioId(2L)).thenReturn(ultimo);
         Sucursal s = new Sucursal();
         s.setId(7L);
         when(sucursalService.findById(7L)).thenReturn(Optional.of(s));
@@ -78,6 +82,29 @@ class ConfiguracionMonedaModuloServiceTest {
         LocalDateTime antes = LocalDateTime.now().minusSeconds(1);
         ConfiguracionMonedaModulo e = service.crear(input(ModuloMoneda.COSTOS, null, 2L, null), autor);
         assertTrue(e.getVigenteDesde().isAfter(antes));
+    }
+
+    @Test
+    void costosEnOtraMoneda_guardaLaCotizacionDeCompraComoPartida() {
+        // La de compras (mercado primero), no la del comercio: es la que usa el costo.
+        ConfiguracionMonedaModulo e = service.crear(input(ModuloMoneda.COSTOS, null, 2L, null), autor);
+        assertEquals(0, new java.math.BigDecimal("5900").compareTo(e.getCotizacionPartida()));
+    }
+
+    @Test
+    void costosSinCotizacionDeCompras_seRechaza() {
+        when(cambioRepository.findLastByCambioId(2L)).thenReturn(null);
+        GraphQLException ex = assertThrows(GraphQLException.class,
+                () -> service.crear(input(ModuloMoneda.COSTOS, null, 2L, null), autor));
+        assertTrue(ex.getMessage().startsWith("SIN_COTIZACION"));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void costosEnLaMonedaDeLaEmpresa_yLosDemasModulos_noGuardanPartida() {
+        assertNull(service.crear(input(ModuloMoneda.COMPRAS, null, 2L, null), autor).getCotizacionPartida());
+        when(monedaService.empresa()).thenReturn(dolar);
+        assertNull(service.crear(input(ModuloMoneda.COSTOS, null, 2L, null), autor).getCotizacionPartida());
     }
 
     @Test

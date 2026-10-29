@@ -18,6 +18,8 @@ type ConfiguracionMonedaModulo {
     activo: Boolean!
     usuarioNickname: String
     creadoEn: Date
+    "COSTOS: guaranies por unidad de la moneda al guardar la fila; fija el punto de partida del costeo. null en los demas modulos."
+    cotizacionPartida: Float
 }
 
 "Siempre crea una fila nueva."

@@ -32,8 +32,8 @@ import java.util.Optional;
  *       de la empresa dividido por la cotizacion. La aritmetica es BigDecimal y se redondea una sola
  *       vez, a los decimales de la moneda de costeo y nunca a menos de {@link #DECIMALES_COSTO}.</li>
  *   <li>Punto de partida (ver {@link #puntoDePartida}): sin UPDATE masivo, la fila anterior sin costo
- *       en esta moneda aporta su costo de la empresa convertido a la cotizacion de compras de
- *       {@code vigente_desde}.</li>
+ *       en esta moneda aporta su costo de la empresa convertido a la cotizacion de partida, guardada
+ *       en la fila de configuracion de COSTOS al crearla.</li>
  *   <li>Nunca lanza: sin cotizacion, la fila queda con las columnas de costeo en NULL y un log. El
  *       costo de siempre se guarda igual.</li>
  * </ul>
@@ -119,8 +119,8 @@ public class CosteoMoneda {
 
     /**
      * El costo medio de {@code fila} en la moneda {@code costeo}: el guardado si la fila ya esta en
-     * esa moneda; si no, su costo de la empresa a la cotizacion de compras de {@code vigente_desde}
-     * de la configuracion de COSTOS que rige ahora (sin fila, la de ahora). Vacio si no hay de donde
+     * esa moneda; si no, su costo de la empresa a la cotizacion de partida guardada en la configuracion
+     * de COSTOS que rige (sin ella, la de compras de {@code vigente_desde}; sin fila, la de ahora). Vacio si no hay de donde
      * sacarlo. Redondeado como se guarda ({@link #decimalesCosto}): es para mostrar.
      */
     public Optional<BigDecimal> puntoDePartida(CostoPorProducto fila, Moneda costeo) {
@@ -167,11 +167,14 @@ public class CosteoMoneda {
         if (enGuaranies == null) return Optional.empty();
         BigDecimal gs = BigDecimal.valueOf(enGuaranies);
         if (esLaDeLaEmpresa(costeo)) return Optional.of(gs);
-        LocalDateTime desde = monedaModuloLector.filaGlobal(ModuloMoneda.COSTOS, cuando)
-                .filter(f -> MonedaService.misma(f.getMoneda(), costeo))
-                .map(ConfiguracionMonedaModulo::getVigenteDesde)
-                .orElse(null);
-        return cotizacionService.paraCompra(costeo, desde)
+        Optional<ConfiguracionMonedaModulo> config = monedaModuloLector.filaGlobal(ModuloMoneda.COSTOS, cuando)
+                .filter(f -> MonedaService.misma(f.getMoneda(), costeo));
+        // La guardada al configurar (V259.5); una fila sin ella cae a la de compras de vigente_desde.
+        Optional<BigDecimal> partida = config.map(ConfiguracionMonedaModulo::getCotizacionPartida);
+        if (!partida.isPresent()) {
+            partida = cotizacionService.paraCompra(costeo, config.map(ConfiguracionMonedaModulo::getVigenteDesde).orElse(null));
+        }
+        return partida
                 .filter(c -> c.signum() > 0)
                 .map(c -> gs.divide(c, CALCULO))
                 .map(v -> redondear ? v.setScale(decimalesCosto(costeo), RoundingMode.HALF_UP) : v);

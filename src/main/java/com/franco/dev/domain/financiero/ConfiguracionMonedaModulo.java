@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -56,6 +57,14 @@ public class ConfiguracionMonedaModulo implements Identifiable<Long> {
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
+
+    /**
+     * COSTOS: guaranies por unidad de la moneda al guardar la fila (cotizacion de compras, V259.5).
+     * Fija el punto de partida del costeo: leerla mas tarde daria el mercado de hoy, porque el
+     * scheduler pisa la ultima fila de cambio. NULL en los demas modulos.
+     */
+    @Column(name = "cotizacion_partida")
+    private BigDecimal cotizacionPartida;
 
     /** Lo unico del autor que expone el .graphqls: el tipo Usuario completo trae el password. */
     public String getUsuarioNickname() {

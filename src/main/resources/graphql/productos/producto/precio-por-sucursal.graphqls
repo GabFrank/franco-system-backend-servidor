@@ -36,3 +36,14 @@ extend type Mutation {
 }
 
 
+
+"Un precio de venta que no esta en la moneda de la empresa (V260.5)."
+type PrecioEnOtraMoneda {
+    precioId: ID!
+    moneda: Moneda!
+}
+
+extend type Query {
+    "Los precios en otra moneda que la de la empresa. Un cliente la pide aparte y la cachea: contra un central viejo falla y todo es de la moneda de la empresa."
+    preciosEnOtraMoneda: [PrecioEnOtraMoneda]!
+}

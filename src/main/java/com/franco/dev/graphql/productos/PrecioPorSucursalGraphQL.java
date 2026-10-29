@@ -4,6 +4,7 @@ import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.financiero.enums.ModuloMoneda;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
+import com.franco.dev.domain.productos.dto.PrecioEnOtraMoneda;
 import com.franco.dev.graphql.productos.input.PrecioPorSucursalInput;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.ControlVersionMoneda;
@@ -76,6 +77,18 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
 
     public Optional<PrecioPorSucursal> precioPorSucursal(Long id) {
         return service.findById(id);
+    }
+
+    /**
+     * Los precios en otra moneda que la de la empresa (V260.5), para que un cliente los cachee una vez
+     * en lugar de pedir la moneda producto por producto. Los que no estan son de la moneda de la empresa.
+     */
+    public List<PrecioEnOtraMoneda> preciosEnOtraMoneda() {
+        Moneda empresa = monedaModuloLector.empresa();
+        return service.getRepository().findConMoneda().stream()
+                .filter(p -> !MonedaService.misma(p.getMoneda(), empresa))
+                .map(p -> new PrecioEnOtraMoneda(p.getId(), p.getMoneda()))
+                .collect(java.util.stream.Collectors.toList());
     }
 
     public List<PrecioPorSucursal> precioPorSucursalPorPresentacionId(Long id) {

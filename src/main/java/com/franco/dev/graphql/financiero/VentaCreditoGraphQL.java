@@ -306,12 +306,17 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         List<VentaCreditoCuota> ventaCreditoCuotaList = ventaCreditoCuotaService
                 .findByVentaCreditoId(ventaCredito.getId(), ventaCredito.getSucursalId());
         Delivery delivery = ventaCredito.getVenta().getDelivery();
+        Boolean impreso;
         try {
-            printTicket58mm(ventaCredito, ventaCredito.getVenta(), null, printerName, ventaCreditoCuotaList, delivery);
-            return true;
+            impreso = printTicket58mm(ventaCredito, ventaCredito.getVenta(), null, printerName, ventaCreditoCuotaList, delivery);
         } catch (Exception e) {
             throw new GraphQLException("Error al imprimir");
         }
+        // false: fallo el envio; null: no encontro la impresora. En los dos casos no salio nada.
+        if (!Boolean.TRUE.equals(impreso)) {
+            throw new GraphQLException("Error al imprimir");
+        }
+        return true;
     }
 
     public Boolean printTicket58mm(VentaCredito ventaCredito, Venta venta, List<VentaItem> ventaItemList,

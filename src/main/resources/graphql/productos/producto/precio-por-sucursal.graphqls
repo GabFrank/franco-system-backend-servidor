@@ -49,3 +49,14 @@ extend type Query {
     "Los precios en otra moneda que la de la empresa. Un cliente la pide aparte y la cachea: contra un central viejo falla y todo es de la moneda de la empresa."
     preciosEnOtraMoneda: [PrecioEnOtraMoneda]!
 }
+
+"La moneda del precio principal de un producto, cuando no es la de la empresa (V260.5)."
+type ProductoMonedaPrecio {
+    productoId: ID!
+    moneda: Moneda!
+}
+
+extend type Query {
+    "Para una pagina de productos, la moneda de su precio principal (solo los que no estan en la moneda de la empresa)."
+    monedaPrecioPrincipalDeProductos(productoIds: [ID]!): [ProductoMonedaPrecio]!
+}

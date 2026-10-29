@@ -5,6 +5,7 @@ import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.financiero.enums.ModuloMoneda;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
 import com.franco.dev.domain.productos.dto.PrecioEnOtraMoneda;
+import com.franco.dev.domain.productos.dto.ProductoMonedaPrecio;
 import com.franco.dev.graphql.productos.input.PrecioPorSucursalInput;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.ControlVersionMoneda;
@@ -73,6 +74,9 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
     @Autowired
     private ControlVersionMoneda controlVersionMoneda;
 
+    @Autowired
+    private com.franco.dev.graphql.productos.resolver.PresentacionResolver presentacionResolver;
+
     @SuppressWarnings("unused")
 
     public Optional<PrecioPorSucursal> precioPorSucursal(Long id) {
@@ -89,6 +93,27 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
                 .filter(p -> !MonedaService.misma(p.getMoneda(), empresa))
                 .map(p -> new PrecioEnOtraMoneda(p.getId(), p.getMoneda()))
                 .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * Para una pagina de productos, la moneda de su precio principal (el mismo que muestra
+     * {@code Producto.precioPrincipal}), solo de los que no estan en la moneda de la empresa. Una sola
+     * llamada por pagina: el listado no puede pedir la moneda en su consulta compartida.
+     */
+    public List<ProductoMonedaPrecio> monedaPrecioPrincipalDeProductos(List<Long> productoIds) {
+        Moneda empresa = monedaModuloLector.empresa();
+        List<ProductoMonedaPrecio> r = new java.util.ArrayList<>();
+        if (productoIds == null) return r;
+        for (Long id : productoIds) {
+            if (id == null) continue;
+            com.franco.dev.domain.productos.Presentacion pre = presentacionService.findByPrincipalAndProductoId(true, id);
+            if (pre == null) continue;
+            PrecioPorSucursal precio = presentacionResolver.precioPrincipal(pre);
+            if (precio != null && precio.getMoneda() != null && !MonedaService.misma(precio.getMoneda(), empresa)) {
+                r.add(new ProductoMonedaPrecio(id, precio.getMoneda()));
+            }
+        }
+        return r;
     }
 
     public List<PrecioPorSucursal> precioPorSucursalPorPresentacionId(Long id) {

@@ -113,8 +113,8 @@ class CosteoMonedaTest {
         CostoPorProducto g = compra(10.0, 10.0, usd, 5700.0);
         assertEquals(57000.0, g.getCostoMedio(), DELTA); // la columna de siempre, en Gs
         assertSame(usd, g.getMonedaCosteo());
-        assertEquals(new BigDecimal("10.00"), g.getUltimoPrecioCompraCosteo());
-        assertEquals(new BigDecimal("10.00"), g.getCostoMedioCosteo());
+        assertEquals(new BigDecimal("10.0000"), g.getUltimoPrecioCompraCosteo());
+        assertEquals(new BigDecimal("10.0000"), g.getCostoMedioCosteo());
         assertEquals(0, new BigDecimal("5700").compareTo(g.getCotizacionCosteo()));
         verifyNoInteractions(cambioRepository); // la cotizacion es la de la nota
     }
@@ -122,11 +122,11 @@ class CosteoMonedaTest {
     @Test
     void enDolares_pondaraEnDolaresYNoEnGuaranies() {
         costosEn(usd);
-        anterior(45600.0, 45600.0, usd, new BigDecimal("8.00"));
+        anterior(45600.0, 45600.0, usd, new BigDecimal("8.0000"));
         stock(20.0);
         // La cotizacion subio de 5.700 a 6.000: en Gs el costo anterior se revaluaria; en USD no.
         CostoPorProducto g = compra(10.0, 10.0, usd, 6000.0);
-        assertEquals(new BigDecimal("9.00"), g.getCostoMedioCosteo());
+        assertEquals(new BigDecimal("9.0000"), g.getCostoMedioCosteo());
         assertEquals((10 * 45600.0 + 10 * 60000.0) / 20, g.getCostoMedio(), DELTA);
     }
 
@@ -137,7 +137,7 @@ class CosteoMonedaTest {
         stock(10.0);
         CostoPorProducto g = compra(10.0, 57000.0, gs, 1.0);
         assertEquals(57000.0, g.getUltimoPrecioCompra(), DELTA);
-        assertEquals(new BigDecimal("10.00"), g.getUltimoPrecioCompraCosteo());
+        assertEquals(new BigDecimal("10.0000"), g.getUltimoPrecioCompraCosteo());
         assertEquals(0, new BigDecimal("5700").compareTo(g.getCotizacionCosteo()));
     }
 
@@ -149,18 +149,18 @@ class CosteoMonedaTest {
         // 50 BRL a 1.140 = 57.000 Gs = 10 USD
         CostoPorProducto g = compra(10.0, 50.0, brl, 1140.0);
         assertEquals(57000.0, g.getUltimoPrecioCompra(), DELTA);
-        assertEquals(new BigDecimal("10.00"), g.getUltimoPrecioCompraCosteo());
+        assertEquals(new BigDecimal("10.0000"), g.getUltimoPrecioCompraCosteo());
     }
 
     @Test
-    void enDolares_redondeaUnaSolaVezALosDecimalesDeLaMoneda() {
+    void enDolares_redondeaUnaSolaVezACuatroDecimalesAunqueElDolarTengaDos() {
         costosEn(usd);
         cambio(usd, 5700.0);
         stock(10.0);
         // 10.000 / 5.700 = 1,7543859...
         CostoPorProducto g = compra(10.0, 10000.0, gs, 1.0);
-        assertEquals(new BigDecimal("1.75"), g.getUltimoPrecioCompraCosteo());
-        assertEquals(new BigDecimal("1.75"), g.getCostoMedioCosteo());
+        assertEquals(new BigDecimal("1.7544"), g.getUltimoPrecioCompraCosteo());
+        assertEquals(new BigDecimal("1.7544"), g.getCostoMedioCosteo());
     }
 
     // --- punto de partida ---
@@ -173,7 +173,7 @@ class CosteoMonedaTest {
         when(cambioRepository.findUltimoHasta(2L, VIGENCIA)).thenReturn(cambioDe(5700.0));
         stock(20.0);
         CostoPorProducto g = compra(10.0, 10.0, usd, 6000.0);
-        assertEquals(new BigDecimal("9.00"), g.getCostoMedioCosteo());
+        assertEquals(new BigDecimal("9.0000"), g.getCostoMedioCosteo());
     }
 
     @Test
@@ -182,7 +182,7 @@ class CosteoMonedaTest {
         anterior(45600.0, 45600.0, gs, null);
         stock(20.0);
         CostoPorProducto g = compra(10.0, 10.0, usd, 6000.0);
-        assertEquals(new BigDecimal("10.00"), g.getCostoMedioCosteo());
+        assertEquals(new BigDecimal("10.0000"), g.getCostoMedioCosteo());
     }
 
     // --- sin cotizacion: el costo de siempre se guarda igual ---
@@ -204,12 +204,12 @@ class CosteoMonedaTest {
     void viaManual_convierteSinPonderar() {
         costosEn(usd);
         cambio(usd, 5700.0);
-        anterior(10000.0, 10000.0, gs, new BigDecimal("3.00"));
+        anterior(10000.0, 10000.0, gs, new BigDecimal("3.0000"));
         when(repository.findLastByProductoId(anyLong(), any())).thenReturn(Collections.singletonList(anteriorFila));
         CostoPorProducto r = service.registrarCostoCompraManual(producto(), 57000.0, gs, sucursal(), null, FECHA);
         assertEquals(57000.0, r.getCostoMedio(), DELTA);
-        assertEquals(new BigDecimal("10.00"), r.getCostoMedioCosteo());
-        assertEquals(new BigDecimal("10.00"), r.getUltimoPrecioCompraCosteo());
+        assertEquals(new BigDecimal("10.0000"), r.getCostoMedioCosteo());
+        assertEquals(new BigDecimal("10.0000"), r.getUltimoPrecioCompraCosteo());
     }
 
     // --- lo que lee el cliente ---
@@ -220,10 +220,10 @@ class CosteoMonedaTest {
         costosEn(usd);
         when(cambioRepository.findUltimoHasta(2L, VIGENCIA)).thenReturn(cambioDe(5700.0));
         CostoPorProducto vieja = fila(10000.0, 10000.0, gs, null);
-        assertEquals(new BigDecimal("1.75"), costeo.puntoDePartida(vieja, usd).get());
-        CostoPorProducto nueva = fila(45600.0, 45600.0, usd, new BigDecimal("8.00"));
+        assertEquals(new BigDecimal("1.7544"), costeo.puntoDePartida(vieja, usd).get());
+        CostoPorProducto nueva = fila(45600.0, 45600.0, usd, new BigDecimal("8.0000"));
         nueva.setMonedaCosteo(usd);
-        assertEquals(new BigDecimal("8.00"), costeo.puntoDePartida(nueva, usd).get());
+        assertEquals(new BigDecimal("8.0000"), costeo.puntoDePartida(nueva, usd).get());
         assertEquals(new BigDecimal("10000"), costeo.puntoDePartida(vieja, gs).get().setScale(0));
     }
 

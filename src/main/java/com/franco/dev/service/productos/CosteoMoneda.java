@@ -30,7 +30,7 @@ import java.util.Optional;
  *       siempre, sin redondeo.</li>
  *   <li>Otra moneda: el precio de la compra en su moneda si la nota esta en la de costeo; si no, el
  *       de la empresa dividido por la cotizacion. La aritmetica es BigDecimal y se redondea una sola
- *       vez, a los decimales de la moneda de costeo.</li>
+ *       vez, a los decimales de la moneda de costeo y nunca a menos de {@link #DECIMALES_COSTO}.</li>
  *   <li>Punto de partida (ver {@link #puntoDePartida}): sin UPDATE masivo, la fila anterior sin costo
  *       en esta moneda aporta su costo de la empresa convertido a la cotizacion de compras de
  *       {@code vigente_desde}.</li>
@@ -44,6 +44,13 @@ public class CosteoMoneda {
 
     private static final Logger log = LoggerFactory.getLogger(CosteoMoneda.class);
     private static final MathContext CALCULO = MathContext.DECIMAL128;
+
+    /**
+     * Decimales minimos del costo en una moneda que no es la de la empresa. El costo unitario es mas
+     * fino que el precio: con los 2 del dolar, 51 productos de farmacia de menos de 0,10 USD tenian
+     * hasta 5 % de error y uno quedaba en 0,00 (2026-10-29). Decidido: 4.
+     */
+    static final int DECIMALES_COSTO = 4;
 
     private final MonedaModuloLector monedaModuloLector;
     private final CotizacionService cotizacionService;
@@ -97,7 +104,7 @@ public class CosteoMoneda {
                             .divide(BigDecimal.valueOf(stockReal), CALCULO);
                 }
             }
-            int decimales = MonedaService.decimales(costeo);
+            int decimales = decimalesCosto(costeo);
             nuevo.setCotizacionCosteo(gsPorUnidad);
             nuevo.setUltimoPrecioCompraCosteo(precio.setScale(decimales, RoundingMode.HALF_UP));
             nuevo.setCostoMedioCosteo(medio.setScale(decimales, RoundingMode.HALF_UP));
@@ -114,7 +121,7 @@ public class CosteoMoneda {
      * El costo medio de {@code fila} en la moneda {@code costeo}: el guardado si la fila ya esta en
      * esa moneda; si no, su costo de la empresa a la cotizacion de compras de {@code vigente_desde}
      * de la configuracion de COSTOS que rige ahora (sin fila, la de ahora). Vacio si no hay de donde
-     * sacarlo. Redondeado a los decimales de la moneda: es para mostrar.
+     * sacarlo. Redondeado como se guarda ({@link #decimalesCosto}): es para mostrar.
      */
     public Optional<BigDecimal> puntoDePartida(CostoPorProducto fila, Moneda costeo) {
         return enMonedaDeCosteo(fila, costeo, fila != null ? fila.getCostoMedioCosteo() : null,
@@ -147,7 +154,7 @@ public class CosteoMoneda {
         return cotizacionService.paraCompra(costeo, desde)
                 .filter(c -> c.signum() > 0)
                 .map(c -> gs.divide(c, CALCULO))
-                .map(v -> redondear ? v.setScale(MonedaService.decimales(costeo), RoundingMode.HALF_UP) : v);
+                .map(v -> redondear ? v.setScale(decimalesCosto(costeo), RoundingMode.HALF_UP) : v);
     }
 
     /**
@@ -156,6 +163,10 @@ public class CosteoMoneda {
      */
     private boolean esLaDeLaEmpresa(Moneda costeo) {
         return MonedaService.esGuarani(costeo) || MonedaService.misma(costeo, monedaModuloLector.empresa());
+    }
+
+    static int decimalesCosto(Moneda costeo) {
+        return Math.max(MonedaService.decimales(costeo), DECIMALES_COSTO);
     }
 
     private static BigDecimal decimal(Double v) {

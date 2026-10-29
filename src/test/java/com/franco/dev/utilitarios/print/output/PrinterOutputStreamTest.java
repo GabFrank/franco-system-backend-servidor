@@ -180,4 +180,105 @@ class PrinterOutputStreamTest {
 
         assertTrue(enviado.get());
     }
+
+    /** Un job como el de CUPS: lee todo; si la lectura falla, el envio falla (no imprime). */
+    private static DocPrintJob jobQueLee(AtomicInteger recibidos, long pausaPorBloqueMillis) throws PrintException {
+        DocPrintJob job = mock(DocPrintJob.class);
+        doAnswer(inv -> {
+            InputStream in = ((Doc) inv.getArgument(0)).getStreamForBytes();
+            byte[] buffer = new byte[100];
+            int n;
+            try {
+                while ((n = in.read(buffer)) != -1) {
+                    recibidos.addAndGet(n);
+                    Thread.sleep(pausaPorBloqueMillis);
+                }
+            } catch (IOException | InterruptedException e) {
+                throw new PrintException(e.toString());
+            }
+            return null;
+        }).when(job).print(any(), any());
+        return job;
+    }
+
+    @Test
+    void unTicketAMediasSinCerrarCancelaElEnvio() throws Exception {
+        PrinterOutputStream salida = new PrinterOutputStream(impresoraCon(jobQueLee(new AtomicInteger(), 0)));
+        salida.setUncaughtException((t, e) -> { });
+        salida.abandonoMillis = 300;
+
+        salida.write(new byte[100]); // el armado falla aca y nadie cierra
+        salida.threadPrint.join(LIMITE.toMillis());
+
+        assertFalse(salida.threadPrint.isAlive());
+        IOException e = assertThrows(IOException.class, salida::close);
+        assertTrue(e.getMessage().startsWith("No se pudo imprimir: el ticket quedo a medio armar"), e.getMessage());
+    }
+
+    @Test
+    void unaSalidaNuncaEscritaNiCerradaTambienSeCancela() throws Exception {
+        PrinterOutputStream salida = new PrinterOutputStream(impresoraCon(jobQueLee(new AtomicInteger(), 0)));
+        salida.setUncaughtException((t, e) -> { });
+        salida.abandonoMillis = 300;
+
+        salida.threadPrint.join(LIMITE.toMillis());
+
+        assertFalse(salida.threadPrint.isAlive());
+    }
+
+    @Test
+    void unaEscrituraQueEsperaAUnaImpresoraLentaNoSeCancela() throws Exception {
+        AtomicInteger recibidos = new AtomicInteger();
+        // 5000 bytes de a 100 cada 50 ms: el write queda bloqueado ~2,5 s, mucho mas que el plazo.
+        PrinterOutputStream salida = new PrinterOutputStream(impresoraCon(jobQueLee(recibidos, 50)));
+        salida.abandonoMillis = 300;
+
+        assertTimeoutPreemptively(Duration.ofSeconds(10), () -> {
+            salida.write(TICKET);
+            salida.close();
+        });
+
+        assertEquals(TICKET.length, recibidos.get());
+    }
+
+    @Test
+    void elVigiaYElCierreNuncaSeContradicen() throws Exception {
+        long revisionOriginal = SalidaConEnvioEnHilo.revisionMillis;
+        SalidaConEnvioEnHilo.revisionMillis = 1; // el vigia revisa cada 1 ms y el plazo es 1 ms: compiten con el cierre
+        try {
+            for (int i = 0; i < 200; i++) {
+                AtomicBoolean impreso = new AtomicBoolean();
+                DocPrintJob job = mock(DocPrintJob.class);
+                doAnswer(inv -> {
+                    InputStream in = ((Doc) inv.getArgument(0)).getStreamForBytes();
+                    try {
+                        while (in.read() != -1) { }
+                    } catch (IOException e) {
+                        throw new PrintException(e.toString());
+                    }
+                    impreso.set(true);
+                    return null;
+                }).when(job).print(any(), any());
+                PrinterOutputStream salida = new PrinterOutputStream(impresoraCon(job));
+                salida.setUncaughtException((t, e) -> { });
+                salida.abandonoMillis = 1;
+
+                salida.write(new byte[100]);
+                boolean cerroBien;
+                try {
+                    salida.close();
+                    cerroBien = true;
+                } catch (IOException e) {
+                    assertTrue(e.getMessage().contains("a medio armar"), e.getMessage());
+                    cerroBien = false;
+                }
+                salida.threadPrint.join(LIMITE.toMillis());
+
+                // Lo que se informa coincide con lo que paso: nunca «impreso» sin imprimir ni al reves.
+                assertEquals(cerroBien, impreso.get(), "vuelta " + i);
+            }
+        } finally {
+            SalidaConEnvioEnHilo.revisionMillis = revisionOriginal;
+        }
+    }
 }

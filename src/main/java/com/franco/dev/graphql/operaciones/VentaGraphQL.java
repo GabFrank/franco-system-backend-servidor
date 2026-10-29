@@ -311,8 +311,9 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             escpos.writeLF("Fecha: " + venta.getCreadoEn().format(formatter));
             escpos.writeLF("--------------------------------");
 
-            if (venta.getCliente() != null) {
-                escpos.writeLF("Cliente: " + venta.getCliente().getPersona().getNombre().substring(0, 22));
+            String lineaCliente = lineaCliente(venta.getCliente());
+            if (lineaCliente != null) {
+                escpos.writeLF(lineaCliente);
             }
             escpos.writeLF("Producto");
             escpos.writeLF("Cant    P.U                 P.T");
@@ -598,6 +599,18 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         double descuento  = 0.0;
         double aumento    = 0.0;
         double totalFinal = 0.0;
+    }
+
+    /**
+     * Linea "Cliente: " del ticket de 58 mm (32 columnas): el nombre recortado a 22 caracteres solo si es mas largo.
+     * {@code null} si no hay cliente o no tiene nombre: el ticket sale sin esa linea.
+     */
+    static String lineaCliente(Cliente cliente) {
+        if (cliente == null || cliente.getPersona() == null || cliente.getPersona().getNombre() == null) {
+            return null;
+        }
+        String nombre = cliente.getPersona().getNombre();
+        return "Cliente: " + (nombre.length() > 22 ? nombre.substring(0, 22) : nombre);
     }
 
     /**

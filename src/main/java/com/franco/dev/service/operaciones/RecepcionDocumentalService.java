@@ -287,26 +287,54 @@ public class RecepcionDocumentalService {
 
     // ---------------------------------------------------------------- División
 
-    /** Cada parte va a su nota; una parte sin cantidad o sin nota elegida no se guarda (como siempre). */
+    /**
+     * Cada parte va a una nota ya cargada del pedido: la nota nueva se carga antes desde el desktop, con su número y
+     * timbrado. Una parte sin cantidad o sin nota válida rechaza toda la división; antes se salteaba en silencio (nota 0
+     * = «Crear Nueva Nota») y el desktop avisaba éxito sin haber guardado nada.
+     */
     @Transactional
     public List<NotaRecepcionItem> dividir(DividirPedidoItemInput input) {
         PedidoItem pedidoItem = pedidoItem(input.getPedidoItemId());
         Presentacion presentacion = presentacion(input.getPresentacionId());
-        List<NotaRecepcionItem> guardados = new ArrayList<>();
-        if (input.getPartes() == null) {
-            return guardados;
+        List<ParteDivisionPedidoItemInput> partes = input.getPartes() == null ? List.of() : input.getPartes();
+        if (partes.stream().noneMatch(Objects::nonNull)) {
+            throw new GraphQLException("La división no tiene partes.");
         }
-        for (ParteDivisionPedidoItemInput parte : input.getPartes()) {
-            if (parte == null || parte.getCantidad() == null || !(parte.getCantidad() > 0)
-                    || parte.getNotaRecepcionId() == null || parte.getNotaRecepcionId() == 0) {
+        Pedido pedido = pedidoItem.getPedido();
+        List<NotaRecepcionItem> guardados = new ArrayList<>();
+        int numeroParte = 0;
+        for (ParteDivisionPedidoItemInput parte : partes) {
+            if (parte == null) {
                 continue;
             }
+            numeroParte++;
+            if (parte.getCantidad() == null || !(parte.getCantidad() > 0)) {
+                throw new GraphQLException("La parte " + numeroParte + " no tiene cantidad: no se dividió el ítem.");
+            }
+            NotaRecepcion nota = notaDeParte(parte.getNotaRecepcionId(), pedido, numeroParte);
             NotaRecepcionItemInput item = NotaRecepcionItemInput.desdePedidoItem(pedidoItem, presentacion,
                     aUnidadesBase(parte.getCantidad(), presentacion), NotaRecepcionItemEstado.CONCILIADO, "", null);
-            item.setNotaRecepcionId(parte.getNotaRecepcionId());
+            item.setNotaRecepcionId(nota.getId());
             guardados.add(guardarItem(item));
         }
         return guardados;
+    }
+
+    /** La nota elegida para una parte: tiene que existir y ser del mismo pedido. */
+    private NotaRecepcion notaDeParte(Long notaRecepcionId, Pedido pedido, int numeroParte) {
+        if (notaRecepcionId == null || notaRecepcionId <= 0) {
+            throw new GraphQLException("La parte " + numeroParte
+                    + " no tiene una nota cargada: creá la nota antes de dividir. No se dividió el ítem.");
+        }
+        NotaRecepcion nota = notaRecepcionService.findById(notaRecepcionId)
+                .orElseThrow(() -> new GraphQLException("La nota de la parte " + numeroParte
+                        + " ya no existe: no se dividió el ítem. Recargá las notas."));
+        Long pedidoDeLaNota = nota.getPedido() != null ? nota.getPedido().getId() : null;
+        if (pedido != null && !Objects.equals(pedidoDeLaNota, pedido.getId())) {
+            throw new GraphQLException("La nota de la parte " + numeroParte
+                    + " es de otro pedido: no se dividió el ítem. Recargá las notas.");
+        }
+        return nota;
     }
 
     // ---------------------------------------------------------------- Comunes

@@ -30,15 +30,16 @@ abstract class SalidaConEnvioEnHilo extends PipedOutputStream {
     private static final int ABIERTA = 0;
     private static final int CERRADA = 1;
     private static final int CANCELADA = 2;
-    private static final long REVISION_MILLIS = 1000;
     private static final ScheduledThreadPoolExecutor VIGIA = crearVigia();
+    /** Cada cuanto revisa el vigia. shortcut: estatico y mutable solo para que los tests lo bajen; no se toca en produccion. */
+    static volatile long revisionMillis = 1000;
 
     protected final PipedInputStream pipedInputStream;
 
     /** Cuanto espera {@link #close()} al hilo de envio. CUPS tarda menos de 1 s en tomar un trabajo. */
     long esperaEnvioMillis = 10_000;
     /** Sin escribir ni cerrar durante este tiempo, el envio se cancela. Armar un ticket tarda milisegundos. */
-    long abandonoMillis = 30_000;
+    volatile long abandonoMillis = 30_000;
 
     /** Por que fallo el envio: gana la primera (el vigia la anota antes de interrumpir). */
     private final AtomicReference<Throwable> fallaEnvio = new AtomicReference<>();
@@ -74,7 +75,7 @@ abstract class SalidaConEnvioEnHilo extends PipedOutputStream {
     }
 
     private void programarRevision() {
-        revision = VIGIA.schedule(this::revisarAbandono, Math.min(REVISION_MILLIS, abandonoMillis), TimeUnit.MILLISECONDS);
+        revision = VIGIA.schedule(this::revisarAbandono, Math.min(revisionMillis, abandonoMillis), TimeUnit.MILLISECONDS);
     }
 
     private void revisarAbandono() {
@@ -154,11 +155,20 @@ abstract class SalidaConEnvioEnHilo extends PipedOutputStream {
      */
     @Override
     public void close() throws IOException {
-        super.close();
-        if (estado.compareAndSet(CANCELADA, CERRADA)) {
-            throw new IOException("No se pudo imprimir: " + fallaEnvio.get().getMessage(), fallaEnvio.get());
+        // Primero se gana el estado: si gano el cierre, el vigia ya no interrumpe; si gano el vigia,
+        // no se entrega el fin de datos (imprimiria el ticket a medias antes de que llegue la interrupcion).
+        boolean cancelada = estado.compareAndSet(CANCELADA, CERRADA);
+        boolean primera = !cancelada && estado.compareAndSet(ABIERTA, CERRADA);
+        if (!cancelada) {
+            super.close();
         }
-        if (!estado.compareAndSet(ABIERTA, CERRADA)) {
+        if (cancelada) {
+            // El vigia pudo ganar el estado y todavia no anotar el motivo.
+            Throwable causa = fallaEnvio.get();
+            throw new IOException("No se pudo imprimir: "
+                    + (causa != null ? causa.getMessage() : "el ticket quedo a medio armar"), causa);
+        }
+        if (!primera) {
             return;
         }
         try {

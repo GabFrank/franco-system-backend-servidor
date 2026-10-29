@@ -242,16 +242,43 @@ class PrinterOutputStreamTest {
     }
 
     @Test
-    void unaSalidaCerradaATiempoNoSeCancelaDespues() throws Exception {
-        AtomicInteger recibidos = new AtomicInteger();
-        PrinterOutputStream salida = new PrinterOutputStream(impresoraCon(jobQueLee(recibidos, 0)));
-        salida.abandonoMillis = 300;
+    void elVigiaYElCierreNuncaSeContradicen() throws Exception {
+        long revisionOriginal = SalidaConEnvioEnHilo.revisionMillis;
+        SalidaConEnvioEnHilo.revisionMillis = 1; // el vigia revisa cada 1 ms y el plazo es 1 ms: compiten con el cierre
+        try {
+            for (int i = 0; i < 200; i++) {
+                AtomicBoolean impreso = new AtomicBoolean();
+                DocPrintJob job = mock(DocPrintJob.class);
+                doAnswer(inv -> {
+                    InputStream in = ((Doc) inv.getArgument(0)).getStreamForBytes();
+                    try {
+                        while (in.read() != -1) { }
+                    } catch (IOException e) {
+                        throw new PrintException(e.toString());
+                    }
+                    impreso.set(true);
+                    return null;
+                }).when(job).print(any(), any());
+                PrinterOutputStream salida = new PrinterOutputStream(impresoraCon(job));
+                salida.setUncaughtException((t, e) -> { });
+                salida.abandonoMillis = 1;
 
-        salida.write(new byte[100]);
-        salida.close();
-        Thread.sleep(1500); // pasa el plazo y al menos una revision del vigia
+                salida.write(new byte[100]);
+                boolean cerroBien;
+                try {
+                    salida.close();
+                    cerroBien = true;
+                } catch (IOException e) {
+                    assertTrue(e.getMessage().contains("a medio armar"), e.getMessage());
+                    cerroBien = false;
+                }
+                salida.threadPrint.join(LIMITE.toMillis());
 
-        salida.close();
-        assertEquals(100, recibidos.get());
+                // Lo que se informa coincide con lo que paso: nunca «impreso» sin imprimir ni al reves.
+                assertEquals(cerroBien, impreso.get(), "vuelta " + i);
+            }
+        } finally {
+            SalidaConEnvioEnHilo.revisionMillis = revisionOriginal;
+        }
     }
 }

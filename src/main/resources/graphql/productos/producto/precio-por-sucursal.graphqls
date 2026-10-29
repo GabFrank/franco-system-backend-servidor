@@ -8,6 +8,8 @@ type PrecioPorSucursal {
     usuario: Usuario
     principal: Boolean
     activo: Boolean
+    "Moneda del precio. null = la moneda de la empresa (principal)."
+    moneda: Moneda
 }
 
 input PrecioPorSucursalInput {

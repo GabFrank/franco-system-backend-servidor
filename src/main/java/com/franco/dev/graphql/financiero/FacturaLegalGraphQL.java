@@ -640,37 +640,10 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             // escpos.write( "Conservar este papel ");
             escpos.feed(5);
 
-            try {
-                if (true) {
-                    escpos.close();
-                    if (destino == null) {
-                        printerOutputStream.close();
-                        this.printerOutputStream = null;
-                    }
-                } else {
-                    this.printerOutputStream = printerOutputStream;
-                }
-                // if (facturaLegal.getId() == null) {
-                // Long numero = timbradoDetalleService.aumentarNumeroFactura(timbradoDetalle);
-                // facturaLegal.setTimbradoDetalleId(timbradoDetalle.getId());
-                // if(venta!=null){
-                // facturaLegal.setVentaId(venta.getId());
-                // facturaLegal.setFecha(venta.getCreadoEn());
-                // facturaLegal.setClienteId(venta.getCliente().getId());
-                // facturaLegal.setCajaId(venta.getCaja().getId());
-                // }
-                // facturaLegal.setTotalFinal(totalFinal);
-                // facturaLegal.setIvaParcial5(totalIva5);
-                // facturaLegal.setIvaParcial10(totalIva10);
-                // facturaLegal.setViaTributaria(false);
-                // facturaLegal.setAutoimpreso(true);
-                // facturaLegal.setNumeroFactura(numero.intValue());
-                // facturaLegal.setTotalParcial5(ventaIva5);
-                // facturaLegal.setTotalParcial10(ventaIva10);
-                // facturaLegal.setTotalParcial0(ventaIva0);
-                // }
-            } catch (IOException ioe) {
-                ioe.printStackTrace();
+            // Cierra la salida de este request (no el campo, que puede ser de otro) y avisa si el envio fallo.
+            escpos.close();
+            if (destino == null) {
+                this.printerOutputStream = null;
             }
         }
     }
@@ -1159,18 +1132,10 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             escpos.writeLF(center.setBold(true), "GRACIAS POR LA PREFERENCIA");
             escpos.feed(5);
 
-            try {
-                if (true) {
-                    escpos.close();
-                    if (destino == null) {
-                        printerOutputStream.close();
-                        this.printerOutputStream = null;
-                    }
-                } else {
-                    this.printerOutputStream = printerOutputStream;
-                }
-            } catch (IOException ioe) {
-                ioe.printStackTrace();
+            // Cierra la salida de este request (no el campo, que puede ser de otro) y avisa si el envio fallo.
+            escpos.close();
+            if (destino == null) {
+                this.printerOutputStream = null;
             }
         }
     }

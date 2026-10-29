@@ -25,6 +25,8 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
 
         public Funcionario findByPersonaId(Long id);
 
+        List<Funcionario> findByHorarioId(Long horarioId);
+
         @Query("select f from Funcionario f " +
                         "join f.persona p " +
                         "left join Usuario usr with usr.persona = p " +

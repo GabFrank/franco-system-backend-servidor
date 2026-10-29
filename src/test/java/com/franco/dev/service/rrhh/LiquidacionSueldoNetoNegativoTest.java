@@ -173,6 +173,29 @@ class LiquidacionSueldoNetoNegativoTest {
     }
 
     /**
+     * Issue #515: aprobada con neto negativo quedaba trabada (no se paga) y sus vales se volvian
+     * a descontar el mes siguiente. Se corta al aprobar.
+     */
+    @Test
+    void noSePuedeAprobarUnaLiquidacionConNetoNegativo() {
+        liq.setEstado(LiquidacionSueldoEstado.BORRADOR);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.aprobar(486L, null));
+        assertTrue(e.getMessage().toLowerCase().contains("neto negativo"), e.getMessage());
+        assertEquals(LiquidacionSueldoEstado.BORRADOR, liq.getEstado());
+        assertNull(liq.getFechaAprobacion());
+    }
+
+    @Test
+    void seApruebaUnaLiquidacionConNetoCero() {
+        liq.setEstado(LiquidacionSueldoEstado.BORRADOR);
+        liq.setTotalNeto(BigDecimal.ZERO);
+
+        service.aprobar(486L, null);
+        assertEquals(LiquidacionSueldoEstado.APROBADA, liq.getEstado());
+    }
+
+    /**
      * Issue #300: una cuota descontada que se cobro por caja despues del borrador. La validacion corre
      * antes de tocar la caja: si rechaza, no se mueve plata y la liquidacion sigue APROBADA.
      */

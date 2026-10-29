@@ -322,11 +322,12 @@ Es la misma cuenta para **todas las instancias** (alpha, beta, farmacia, bodega)
 
 ## Facturas en papel con IA
 
-Las compras se pueden cargar desde fotos de la factura en papel: la IA (OpenAI) extrae los datos y se revisan antes de confirmar.
+Las compras se pueden cargar desde fotos de la factura en papel: la IA extrae los datos y se revisan antes de confirmar.
 
-- **Clave de OpenAI**: se carga en el desktop, Configuracion > Inteligencia artificial (solo ADMIN). Se guarda cifrada con AES-GCM en `empresarial.configuracion_sistema`, con `CONFIG_MASTER_KEY` como llave maestra.
+- **Proveedor: OpenAI o Claude** (API de Anthropic, clave `sk-ant-…`; la suscripcion Pro/Max no sirve). Se elige en el desktop, Configuracion > Inteligencia artificial (solo ADMIN); clave `ia.proveedor` (V258.3, arranca en `OPENAI`). Los dos usan el mismo prompt y el mismo esquema JSON, y pasan por el mismo post-proceso (`OpenAiVisionService`); Claude va por HTTP directo a `/v1/messages` con `output_config.format`, sin el SDK (choca con el Kotlin 1.6 y el OkHttp de Spring Boot 2.7).
+- **Claves**: `openai.api_key` y `anthropic.api_key`, cifradas con AES-GCM en `empresarial.configuracion_sistema`, con `CONFIG_MASTER_KEY` como llave maestra.
 - **`CONFIG_MASTER_KEY`**: secret del repo (Settings > Secrets and variables > Actions); cada deploy la escribe en `/opt/frc-backend-central/<instancia>/.env` (`deploy.yml` -> `deploy.sh`, paso independiente del correo). Sin el secret el `.env` no se toca.
-- **Sin `CONFIG_MASTER_KEY`** el central arranca igual; solo falla, con un mensaje claro, guardar o leer la clave de OpenAI.
+- **Sin `CONFIG_MASTER_KEY`** el central arranca igual; solo falla, con un mensaje claro, guardar o leer las claves de la IA.
 - **Cambiarla** vuelve ilegible la clave ya guardada: hay que volver a cargarla en Configuracion.
 - **Central-only**: `documento_recibido_foto` y `configuracion_sistema` no se replican.
 - **Costo por factura**: `documento_recibido.ia_tokens_entrada`, `ia_tokens_salida` e `ia_modelo`.

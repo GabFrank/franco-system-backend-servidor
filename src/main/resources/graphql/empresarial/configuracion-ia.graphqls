@@ -1,8 +1,15 @@
-# Configuración de la IA (OpenAI) para leer facturas en papel. La clave nunca vuelve completa.
+# Configuración de la IA (OpenAI o Claude) para leer facturas en papel. Las claves nunca vuelven completas.
 type ConfiguracionIa {
+    # Proveedor activo: OPENAI o CLAUDE
+    proveedor: String!
+    # OpenAI (nombres viejos, se mantienen por compatibilidad)
     claveCargada: Boolean!
     claveFinal: String
     modelo: String
+    # Claude
+    claudeClaveCargada: Boolean!
+    claudeClaveFinal: String
+    claudeModelo: String
     promptAdicional: String
     cifradoDisponible: Boolean!
 }
@@ -12,7 +19,9 @@ extend type Query {
 }
 
 extend type Mutation {
-    # apiKey null = no cambia, "" = borra
-    guardarConfiguracionIa(apiKey: String, modelo: String, promptAdicional: String): ConfiguracionIa!
-    probarConexionIa: String!
+    # null = no cambia; en apiKey/claudeApiKey, "" = borra
+    guardarConfiguracionIa(apiKey: String, modelo: String, promptAdicional: String,
+                           proveedor: String, claudeApiKey: String, claudeModelo: String): ConfiguracionIa!
+    # proveedor null = el activo
+    probarConexionIa(proveedor: String): String!
 }

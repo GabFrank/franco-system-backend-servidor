@@ -31,10 +31,15 @@ public class JwtAuthenticationTokenFilter extends AbstractAuthenticationProcessi
      *
      * <p>{@code /public/**} y {@code /login} quedan afuera a proposito: son {@code permitAll} y
      * ahi no hay token que exigir --es por donde entra el telefono que sube la foto del cupon--.
+     *
+     * <p>{@code /notification/**} se agrego con la issue #521: disparaba notificaciones push sin
+     * login. Tiene que estar aca y no solo en SecurityConfig, por lo mismo que {@code /api/**}:
+     * una ruta que exige token pero que ningun filtro autentica responde 401 siempre.
      */
     private static final RequestMatcher RUTAS = new OrRequestMatcher(
             new AntPathRequestMatcher("/graphql/**"),
-            new AntPathRequestMatcher("/api/**"));
+            new AntPathRequestMatcher("/api/**"),
+            new AntPathRequestMatcher("/notification/**"));
 
     public JwtAuthenticationTokenFilter() {
         super(RUTAS);

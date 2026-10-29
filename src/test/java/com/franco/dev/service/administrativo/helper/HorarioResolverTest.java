@@ -21,7 +21,6 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -55,7 +54,6 @@ class HorarioResolverTest {
         marcacion.setUsuario(usuario);
 
         when(horarioRepository.findByUsuarioIdOrderByIdDesc(anyLong())).thenReturn(Collections.emptyList());
-        when(horarioRepository.findByUsuarioIdAndDia(anyLong(), any())).thenReturn(null);
     }
 
     private Horario horario(Long id, LocalTime entrada, LocalTime salida, Turno turno, Dia... dias) {
@@ -130,7 +128,7 @@ class HorarioResolverTest {
     void sinFuncionario_buscaHorarioDelUsuarioParaEseDia() {
         when(funcionarioService.findByPersonaId(PERSONA_ID)).thenReturn(null);
         Horario diurno = horario(6L, LocalTime.of(8, 0), LocalTime.of(17, 0), Turno.DIA, Dia.TODOS);
-        when(horarioRepository.findByUsuarioIdAndDia(USUARIO_ID, Dia.DOMINGO)).thenReturn(diurno);
+        when(horarioRepository.findByUsuarioIdOrderByIdDesc(USUARIO_ID)).thenReturn(Collections.singletonList(diurno));
 
         assertEquals(diurno, resolver.resolver(marcacion, DOMINGO));
     }
@@ -151,5 +149,34 @@ class HorarioResolverTest {
                 .thenReturn(new java.util.ArrayList<>(Set.of(incompleto)));
 
         assertNull(resolver.resolver(marcacion, DOMINGO));
+    }
+
+    // #523: un funcionario con DIA de lunes a miercoles y MADRUGADA los jueves.
+    private static final LocalDateTime JUEVES = LocalDateTime.of(2026, 9, 3, 16, 55);
+
+    @Test
+    void elHorarioDelDia_leGanaAlDeTodos() {
+        Horario todos = horario(9L, LocalTime.of(8, 0), LocalTime.of(17, 0), Turno.DIA, Dia.TODOS);
+        Horario jueves = horario(8L, LocalTime.of(17, 0), LocalTime.of(1, 0), Turno.MADRUGADA, Dia.JUEVES);
+        asignarAlFuncionario(todos);
+        when(horarioRepository.findByUsuarioIdOrderByIdDesc(USUARIO_ID)).thenReturn(Arrays.asList(todos, jueves));
+
+        assertEquals(jueves, resolver.resolver(marcacion, JUEVES));
+        assertEquals(todos, resolver.resolver(marcacion, LUNES));
+    }
+
+    @Test
+    void conHorariosPropios_elPrincipalDelFuncionarioNoTapaElTurnoDelDia() {
+        // Caso del usuario 544 antes de #523: el principal compartido (DIA/TODOS) ganaba
+        // siempre y el MADRUGADA del jueves nunca se aplicaba.
+        asignarAlFuncionario(horario(6L, LocalTime.of(8, 0), LocalTime.of(17, 0), Turno.DIA, Dia.TODOS));
+        Horario semana = horario(20L, LocalTime.of(8, 0), LocalTime.of(17, 0), Turno.DIA,
+                Dia.LUNES, Dia.MARTES, Dia.MIERCOLES);
+        Horario jueves = horario(21L, LocalTime.of(17, 0), LocalTime.of(1, 0), Turno.MADRUGADA, Dia.JUEVES);
+        when(horarioRepository.findByUsuarioIdOrderByIdDesc(USUARIO_ID)).thenReturn(Arrays.asList(jueves, semana));
+
+        assertEquals(Turno.MADRUGADA, resolver.resolver(marcacion, JUEVES).getTurno());
+        assertEquals(Turno.DIA, resolver.resolver(marcacion, LUNES).getTurno());
+        assertNull(resolver.resolver(marcacion, DOMINGO), "un dia sin horario propio queda sin horario");
     }
 }

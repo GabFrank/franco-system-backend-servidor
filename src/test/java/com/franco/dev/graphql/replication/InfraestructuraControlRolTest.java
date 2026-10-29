@@ -1,6 +1,5 @@
 package com.franco.dev.graphql.replication;
 
-import com.franco.dev.graphql.configuracion.ActualizacionGraphQL;
 import com.franco.dev.graphql.empresarial.SucursalGraphQL;
 import com.franco.dev.graphql.impresion.CupsAdminGraphQL;
 import com.franco.dev.service.financiero.TesoreriaSecurityFalso;
@@ -16,7 +15,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Replicacion, tablas de replicacion, impresoras, actualizaciones y sucursales: sin el rol, cada
+ * Replicacion, tablas de replicacion, impresoras y sucursales: sin el rol, cada
  * mutation se corta antes de tocar un servicio (los servicios quedan en null: sin control, NPE).
  */
 class InfraestructuraControlRolTest {
@@ -33,8 +32,6 @@ class InfraestructuraControlRolTest {
             "updateReplicationServiceTables");
     private static final List<String> CUPS = Arrays.asList(
             "instalarImpresoraCups", "instalarImpresoraSmb", "compartirColaCups", "reactivarCola");
-    private static final List<String> ACTUALIZACION = Arrays.asList(
-            "saveActualizacionForSucursales", "saveActualizacion", "deleteActualizacion");
 
     private static Object con(Object resolver, String... roles) {
         ReflectionTestUtils.setField(resolver, "seg", new TesoreriaSecurityFalso(1L, roles));
@@ -64,10 +61,9 @@ class InfraestructuraControlRolTest {
     }
 
     @Test
-    void replicacion_y_actualizaciones_son_de_admin() throws Exception {
+    void replicacion_es_de_admin() throws Exception {
         seRechazan(con(new LogicalReplicationGraphQL(), "SOPORTE", "CONFIGURACION"), REPLICACION);
         seRechazan(con(new ReplicationTableGraphQL(), "SOPORTE", "CONFIGURACION"), TABLAS);
-        seRechazan(con(new ActualizacionGraphQL(), "SOPORTE", "CONFIGURACION"), ACTUALIZACION);
         seRechazan(con(new SucursalGraphQL(), "CONFIGURACION"), List.of("deleteSucursal"));
     }
 

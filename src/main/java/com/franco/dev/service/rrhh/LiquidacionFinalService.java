@@ -601,10 +601,25 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     public LiquidacionFinal aprobar(Long id, Long aprobadoPorId) {
         LiquidacionFinal lf = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion final no encontrada"));
         if (lf.getEstado() != LiquidacionFinalEstado.BORRADOR) throw new GraphQLException("Solo se aprueba un BORRADOR");
+        // Aprobado con total negativo no se puede pagar y queda trabado en APROBADA (issue #515).
+        exigirTotalNoNegativo(lf);
         lf.setEstado(LiquidacionFinalEstado.APROBADA);
         if (aprobadoPorId != null) lf.setAprobadoPor(usuarioService.findById(aprobadoPorId).orElse(null));
         lf.setFechaAprobacion(LocalDateTime.now());
         return repository.save(lf);
+    }
+
+    /**
+     * Total negativo = los descuentos superan a los haberes: el funcionario le debe a la empresa
+     * y no hay finiquito que pagarle. Lo comparten aprobar, pagar y el pago por tesoreria.
+     */
+    public static void exigirTotalNoNegativo(LiquidacionFinal lf) {
+        BigDecimal total = lf.getTotalLiquidado() != null ? lf.getTotalLiquidado() : BigDecimal.ZERO;
+        if (total.signum() < 0) {
+            throw new GraphQLException("El finiquito #" + lf.getId() + " tiene total negativo ("
+                    + total.toPlainString() + "): los descuentos superan a los haberes, no hay nada que pagar."
+                    + " Corrija los items o cobre la diferencia por separado.");
+        }
     }
 
     @Transactional
@@ -625,15 +640,9 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     public LiquidacionFinal pagar(Long id, Long cajaVirtualId) {
         LiquidacionFinal lf = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion final no encontrada"));
         if (lf.getEstado() != LiquidacionFinalEstado.APROBADA) throw new GraphQLException("Solo se paga una APROBADA");
-        // Total negativo = los descuentos superan a los haberes: el funcionario le debe a la
-        // empresa y no hay finiquito que pagarle. Sin este corte el EGRESO se postea con la
-        // cantidad negada y saca de la caja justamente lo que habria que cobrar.
-        BigDecimal total = lf.getTotalLiquidado() != null ? lf.getTotalLiquidado() : BigDecimal.ZERO;
-        if (total.signum() < 0) {
-            throw new GraphQLException("El finiquito #" + lf.getId() + " tiene total negativo ("
-                    + total.toPlainString() + "): los descuentos superan a los haberes, no hay nada que pagar."
-                    + " Corrija los items o cobre la diferencia por separado.");
-        }
+        // Sin este corte el EGRESO se postea con la cantidad negada y saca de la caja
+        // justamente lo que habria que cobrar.
+        exigirTotalNoNegativo(lf);
 
         // Antes de mover plata: una cuota descontada que se cobro por caja despues de generar el borrador
         // se cobraria dos veces (issue #300). Toma las cuotas con lock antes que el saldo de caja.

@@ -49,6 +49,13 @@ public class MonedaGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         return conversionPrecioService.convertir(montosGs);
     }
 
+    /** El kiosco con precios en otra moneda (V260.5): montos en monedaOrigenId (null = guaranies). */
+    public List<PreciosEnMonedaDto> convertirPreciosDesdeMobile(List<Double> montos, Long monedaOrigenId) {
+        Moneda origen = monedaOrigenId != null ? service.findById(monedaOrigenId).orElse(null) : null;
+        if (monedaOrigenId != null && origen == null) return new java.util.ArrayList<>();
+        return conversionPrecioService.convertir(montos, origen);
+    }
+
     public List<Moneda> monedas(int page, int size) {
         return service.findAll2();
     }

@@ -46,6 +46,8 @@ extend type Query {
     monedasSearch(texto: String): [Moneda]
     countMoneda: Int
     convertirPreciosMobile(montosGs: [Float]!): [PreciosEnMoneda]
+    "Como convertirPreciosMobile, con los montos en monedaOrigenId (null = guaranies). Para precios en otra moneda."
+    convertirPreciosDesdeMobile(montos: [Float]!, monedaOrigenId: ID): [PreciosEnMoneda]
 }
 
 extend type Mutation {

@@ -15,4 +15,6 @@ public class PrecioPorSucursalInput {
     private Long usuarioId;
     private Boolean activo;
     private Boolean principal;
+    /** Moneda del precio. null en un alta = la de PRECIOS; en una edicion = conserva la guardada. */
+    private Long monedaId;
 }

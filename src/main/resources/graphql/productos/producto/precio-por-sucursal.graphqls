@@ -19,7 +19,8 @@ input PrecioPorSucursalInput {
     usuarioId: Int
     principal: Boolean
     activo: Boolean
-
+    "null en un alta = la moneda del modulo PRECIOS; en una edicion = conserva la guardada."
+    monedaId: Int
 }
 
 extend type Query {

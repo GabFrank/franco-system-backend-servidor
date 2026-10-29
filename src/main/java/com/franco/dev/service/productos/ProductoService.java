@@ -361,7 +361,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 if (!Boolean.FALSE.equals(pps.getActivo())) {
                     precioPorSucursalService.save(new PrecioPorSucursal(pps.getId(), pps.getPrincipal(),
                             pps.getPresentacion(), pps.getTipoPrecio(), pps.getSucursal(), pps.getPrecio(),
-                            pps.getCreadoEn(), pps.getUsuario(), false));
+                            pps.getCreadoEn(), pps.getUsuario(), false, pps.getMoneda()));
                 }
             }
             if (!Boolean.FALSE.equals(pre.getActivo())) {

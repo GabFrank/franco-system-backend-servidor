@@ -180,4 +180,28 @@ class ReimpresionAccesoTest {
         assertThrows(GraphQLException.class, () -> graphQL.descargarXmlFacturaElectronica(10L, 24L));
         verify(service, times(2)).findByIdAndSucursalId(10L, 24L);
     }
+
+    @Test
+    void imprimirElCreditoSinAdminSeRechazaSinBuscarlo() {
+        s.autenticar("analista", ROL);
+        VentaCreditoGraphQL graphQL = s.resolver(VentaCreditoGraphQL.class);
+        com.franco.dev.service.financiero.VentaCreditoService creditos =
+                mock(com.franco.dev.service.financiero.VentaCreditoService.class);
+        ReflectionTestUtils.setField(graphQL, "service", creditos);
+
+        assertThrows(GraphQLException.class, () -> graphQL.imprimirVentaCredito(1L, 24L, "ticket"));
+        verifyNoInteractions(creditos);
+    }
+
+    @Test
+    void imprimirElCreditoConAdminPasaElControl() {
+        s.autenticar("jefe", "ADMIN");
+        VentaCreditoGraphQL graphQL = s.resolver(VentaCreditoGraphQL.class);
+        com.franco.dev.service.financiero.VentaCreditoService creditos =
+                mock(com.franco.dev.service.financiero.VentaCreditoService.class);
+        ReflectionTestUtils.setField(graphQL, "service", creditos);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> graphQL.imprimirVentaCredito(1L, 24L, "t"));
+        assertEquals("Venta credito no encontrada", e.getMessage());
+    }
 }

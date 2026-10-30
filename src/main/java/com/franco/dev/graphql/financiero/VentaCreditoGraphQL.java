@@ -300,6 +300,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean imprimirVentaCredito(Long id, Long sucId, String printerName) throws GraphQLException {
+        seg.requireSuperusuario();
         VentaCredito ventaCredito = service.findById(new EmbebedPrimaryKey(id, sucId)).orElse(null);
         if (ventaCredito == null)
             throw new GraphQLException("Venta credito no encontrada");

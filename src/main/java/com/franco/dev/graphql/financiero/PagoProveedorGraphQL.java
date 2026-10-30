@@ -24,6 +24,7 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
     private final GastoTesoreriaService gastoTesoreriaService;
     private final TesoreriaSecurityService seg;
     private final com.franco.dev.service.financiero.AltaIdempotenteService altaIdempotente;
+    private final com.franco.dev.service.personas.FuncionarioService funcionarioService;
 
     public List<SolicitudPago> solicitudesPagoPendientes(Long proveedorId) {
         seg.requireVerCaja();
@@ -49,18 +50,20 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
     public SolicitudPago crearGastoParaPago(GastoParaPagoWrapper input, String claveIdempotencia) {
         seg.requireOperarCaja();
         // Antes de interpretar nada: la fecha entra como texto, tal como la mandó el cliente.
-        String huella = new com.franco.dev.service.financiero.HuellaPedido()
+        com.franco.dev.service.financiero.HuellaPedido huella = new com.franco.dev.service.financiero.HuellaPedido()
                 .id(input.getTipoGastoId()).texto(input.getDescripcion()).id(input.getMonedaId())
                 .numero(com.franco.dev.service.financiero.AltaIdempotenteService.monto(input.getMonto())).id(input.getBeneficiarioProveedorId())
-                .id(input.getBeneficiarioPersonaId()).texto(input.getFechaVencimiento()).id(input.getSucursalId())
-                .calcular();
+                .id(input.getBeneficiarioPersonaId()).texto(input.getFechaVencimiento()).id(input.getSucursalId());
+        // Solo si viene: el pedido sin responsable conserva la huella de antes.
+        if (input.getResponsableId() != null) huella.id(input.getResponsableId());
+        com.franco.dev.domain.personas.Funcionario responsable = funcionarioService.responsableOpcional(input.getResponsableId());
         java.time.LocalDateTime venc = (input.getFechaVencimiento() != null && !input.getFechaVencimiento().isEmpty())
                 ? com.franco.dev.utilitarios.DateUtils.stringToDate(input.getFechaVencimiento()) : null;
         com.franco.dev.domain.personas.Usuario usuario = seg.currentUsuario();
-        return altaIdempotente.gastoParaPago(claveIdempotencia, huella, usuario, () -> gastoTesoreriaService.crearGastoParaPago(
+        return altaIdempotente.gastoParaPago(claveIdempotencia, huella.calcular(), usuario, () -> gastoTesoreriaService.crearGastoParaPago(
                 input.getTipoGastoId(), input.getDescripcion(), input.getMonedaId(), input.getMonto(),
                 input.getBeneficiarioProveedorId(), input.getBeneficiarioPersonaId(), venc,
-                input.getSucursalId(), usuario));
+                input.getSucursalId(), usuario, responsable));
     }
 
     public Pago pagarSolicitudesLoteCajaMayor(Long cajaVirtualId, List<PagoLoteWrapper> pagos) {
@@ -152,6 +155,7 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
         private Long beneficiarioPersonaId;
         private String fechaVencimiento;
         private Long sucursalId;
+        private Long responsableId;
     }
 
     @Data

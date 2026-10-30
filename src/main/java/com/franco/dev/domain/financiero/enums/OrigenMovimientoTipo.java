@@ -30,5 +30,8 @@ public enum OrigenMovimientoTipo {
     ACREDITACION_POS,
     /** Ingreso/egreso de un maletín en la caja mayor (recaudación física que llega/sale en el maletín).
      *  Se opera manualmente en tesorería, por eso es anulable directamente desde la caja mayor. */
-    MALETIN
+    MALETIN,
+    /** Ingreso con el que se devuelve lo que sobró de un egreso (origenId = el egreso). Anulable desde la
+     *  caja mayor: al anularlo, el egreso vuelve a tener pendiente. */
+    VUELTO
 }

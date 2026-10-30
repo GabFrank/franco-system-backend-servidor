@@ -37,6 +37,12 @@ public class EntradaVariaService {
     /** Registra la entrada/salida varia y su movimiento de caja. */
     @Transactional
     public EntradaVaria registrar(EntradaVaria e, Usuario usuario) {
+        return registrar(e, usuario, null);
+    }
+
+    /** @param responsable funcionario que retira la plata (opcional); queda en el movimiento de la caja */
+    @Transactional
+    public EntradaVaria registrar(EntradaVaria e, Usuario usuario, com.franco.dev.domain.personas.Funcionario responsable) {
         if (e.getMonto() == null || e.getMonto().signum() <= 0) {
             throw new GraphQLException("El monto de la entrada/salida debe ser positivo");
         }
@@ -58,6 +64,7 @@ public class EntradaVariaService {
         mov.setCantidad(e.getMonto().doubleValue());
         mov.setMoneda(e.getMoneda());
         mov.setUsuario(usuario);
+        mov.setResponsable(responsable);
         mov.setDescripcion(e.getDescripcion());
         mov.setReferenciaId(saved.getId());
         mov.setOrigenTipo(OrigenMovimientoTipo.ENTRADA_VARIA);

@@ -83,4 +83,49 @@ class ImpresionServiceBalanceDestinoTest {
         assertTrue(service.printBalance(balance(), null, null, memoria));
         assertTrue(memoria.size() > 0);
     }
+
+    @Test
+    void elBalanceDeUnaCajaAbiertaSaleConCierreAbierta() throws Exception {
+        PdvCajaBalanceDto abierta = balance();
+        abierta.setFechaCierre(null);
+        abierta.setTotalTarjeta(null);
+        abierta.setTotalRetiroRs(null);
+        ByteArrayOutputStream memoria = new ByteArrayOutputStream();
+
+        assertTrue(service.printBalance(abierta, "ticket", "CAJA 1", memoria));
+        assertTrue(new String(memoria.toByteArray(), java.nio.charset.StandardCharsets.ISO_8859_1).contains("ABIERTA"));
+    }
+
+    @Test
+    void unGastoYUnRetiroConMontosNulosSeImprimenConCero() throws Exception {
+        Persona p = new Persona();
+        p.setNombre("CAJERO");
+        Usuario u = new Usuario();
+        u.setPersona(p);
+        com.franco.dev.domain.personas.Funcionario f = new com.franco.dev.domain.personas.Funcionario();
+        f.setPersona(p);
+        com.franco.dev.service.impresion.dto.GastoDto gasto = new com.franco.dev.service.impresion.dto.GastoDto();
+        gasto.setId(15L);
+        gasto.setCajaId(662L);
+        gasto.setFecha(LocalDateTime.of(2026, 10, 30, 10, 0));
+        gasto.setUsuario(u);
+        gasto.setResponsable(f);
+        gasto.setAutorizadoPor(f);
+        com.franco.dev.domain.financiero.TipoGasto tipo = new com.franco.dev.domain.financiero.TipoGasto();
+        tipo.setDescripcion("LIMPIEZA");
+        gasto.setTipoGasto(tipo);
+
+        service.printGasto(gasto, "ticket", "CAJA 1");
+        String impreso = new String(impresora.bytes(), java.nio.charset.StandardCharsets.ISO_8859_1);
+        assertTrue(impreso.contains("0"), impreso);
+        assertFalse(impreso.contains("null"), impreso);
+
+        com.franco.dev.service.impresion.dto.RetiroDto retiro = new com.franco.dev.service.impresion.dto.RetiroDto();
+        retiro.setId(9L);
+        retiro.setCajaId(662L);
+        retiro.setFecha(LocalDateTime.of(2026, 10, 30, 10, 0));
+        retiro.setUsuario(u);
+        retiro.setResponsable(f);
+        assertDoesNotThrow(() -> service.printRetiro(retiro, "ticket", "CAJA 1", false));
+    }
 }

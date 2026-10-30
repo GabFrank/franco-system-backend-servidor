@@ -10,6 +10,8 @@ import com.roshka.sifen.core.types.TiTipDocRec;
 import com.franco.dev.domain.financiero.DocumentoElectronico;
 import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.financiero.FacturaLegalItem;
+import com.franco.dev.domain.financiero.PdvCaja;
+import graphql.GraphQLException;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
 import com.franco.dev.domain.financiero.dto.ResumenFacturasDto;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
@@ -293,6 +295,10 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     public Boolean reimprimirFacturaLegal(Long id, Long sucId, String printerName) {
         FacturaLegal facturaLegal = service.findByIdAndSucursalId(id, sucId);
+        if (facturaLegal == null) {
+            throw new GraphQLException("La factura " + id + " no existe");
+        }
+        seg.requireUsuarioORol(usuariosDe(facturaLegal), TesoreriaSecurityService.ANALISIS_DE_CAJA);
         List<FacturaLegalItem> facturaLegalItemList = facturaLegalItemService.findByFacturaLegalId(id, sucId);
         try {
             printTicket58mmFactura(facturaLegal.getVenta(), facturaLegal, facturaLegalItemList, printerName);
@@ -301,6 +307,18 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             e.printStackTrace();
         }
         return false;
+    }
+
+    /**
+     * Quienes pueden reimprimirla sin rol: quien la emitió y el dueño de su caja (o de la caja de su venta: el alta
+     * del PDV casi nunca copia la caja). Solo ids, sin inicializar al usuario.
+     */
+    public static List<Long> usuariosDe(FacturaLegal facturaLegal) {
+        PdvCaja caja = facturaLegal.getCaja() != null ? facturaLegal.getCaja()
+                : facturaLegal.getVenta() != null ? facturaLegal.getVenta().getCaja() : null;
+        return java.util.Arrays.asList(
+                facturaLegal.getUsuario() != null ? facturaLegal.getUsuario().getId() : null,
+                caja != null && caja.getUsuario() != null ? caja.getUsuario().getId() : null);
     }
 
     public void printTicket58mmFactura(Venta venta, FacturaLegal facturaLegal,

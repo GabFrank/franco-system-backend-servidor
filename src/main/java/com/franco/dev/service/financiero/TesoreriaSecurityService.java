@@ -12,6 +12,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -58,6 +59,9 @@ public class TesoreriaSecurityService {
      * crea ninguna migración.
      */
     public static final String CANCELACION_DE_VENTA = "CANCELACION DE VENTA";
+
+    /** Reimprimir comprobantes de cajas ajenas (el mismo rol que gatea la lista de facturas). */
+    public static final String ANALISIS_DE_CAJA = "ANALISIS DE CAJA";
 
     /** Cualquier rol de tesorería habilita la lectura. */
     public static final String[] TODOS = {VER, GESTIONAR, CPC_COBRAR, CPP_PAGAR};
@@ -134,6 +138,19 @@ public class TesoreriaSecurityService {
             }
         }
         return false;
+    }
+
+    /**
+     * Pasa si el usuario de la sesión es alguno de {@code usuarioIds} (los null se ignoran) o tiene alguno de los
+     * roles; el superusuario siempre pasa.
+     */
+    public void requireUsuarioORol(Collection<Long> usuarioIds, String... roles) {
+        if (hasAnyRole(roles)) return;
+        Usuario u = currentUsuario();
+        if (u != null && u.getId() != null && usuarioIds != null && usuarioIds.contains(u.getId())) return;
+        log.warn("No autorizado: {} no es el dueño ni tiene {}", currentNickname(), String.join(" o ", roles));
+        throw new GraphQLException("No autorizado: solo el dueño de la caja o el rol "
+                + String.join(" o ", roles) + " puede hacer esto.");
     }
 
     /** Lanza excepción si el usuario no tiene ninguno de los roles (ni es superusuario). */

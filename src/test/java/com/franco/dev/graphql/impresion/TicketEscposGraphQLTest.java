@@ -40,6 +40,7 @@ class TicketEscposGraphQLTest {
     @Mock private PdvCajaService pdvCajaService;
     @Mock private PdvCajaRepository pdvCajaRepository;
     @Mock private ImpresionService impresionService;
+    @Mock private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
     @InjectMocks private TicketEscposGraphQL resolver;
 
     private static final byte[] TICKET = {0x1b, 0x40, 'O', 'K', 0x0a};
@@ -99,5 +100,18 @@ class TicketEscposGraphQLTest {
         when(pdvCajaRepository.findByIdAndSucursalId(7166L, 1L)).thenReturn(caja);
         when(pdvCajaService.generarBalance(caja)).thenReturn(new PdvCajaBalanceDto());
         assertNull(resolver.ticketEscpos(TicketEscposTipo.BALANCE, 7166L, 1L, null));
+    }
+
+    @Test
+    void facturaYBalanceDeOtroSinAccesoSeRechazanSinArmarlos() throws Exception {
+        FacturaLegal factura = new FacturaLegal();
+        when(facturaLegalService.findByIdAndSucursalId(1L, 24L)).thenReturn(factura);
+        when(pdvCajaRepository.findByIdAndSucursalId(2L, 24L)).thenReturn(new PdvCaja());
+        doThrow(new GraphQLException("No autorizado")).when(seg).requireUsuarioORol(any(), any());
+
+        assertThrows(GraphQLException.class, () -> resolver.ticketEscpos(TicketEscposTipo.FACTURA, 1L, 24L, null));
+        assertThrows(GraphQLException.class, () -> resolver.ticketEscpos(TicketEscposTipo.BALANCE, 2L, 24L, null));
+        verifyNoInteractions(facturaLegalItemService, facturaLegalGraphQL, impresionService);
+        verify(pdvCajaService, never()).generarBalance(any());
     }
 }

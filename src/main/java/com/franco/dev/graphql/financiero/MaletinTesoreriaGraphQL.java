@@ -22,6 +22,7 @@ public class MaletinTesoreriaGraphQL implements GraphQLQueryResolver, GraphQLMut
     private final MaletinTesoreriaService service;
     private final TesoreriaSecurityService seg;
     private final com.franco.dev.service.financiero.AltaIdempotenteService altaIdempotente;
+    private final com.franco.dev.service.personas.FuncionarioService funcionarioService;
 
     public List<ValorMaletinItem> valorMaletin(Long maletinId) {
         seg.requireVer();
@@ -50,11 +51,16 @@ public class MaletinTesoreriaGraphQL implements GraphQLQueryResolver, GraphQLMut
 
     public MovimientoCajaVirtual egresarMaletinCajaMayor(Long cajaVirtualId, Long maletinId, Long monedaId,
                                                          Double monto, String descripcion,
-                                                         String claveIdempotencia) {
+                                                         String claveIdempotencia, Long responsableId) {
         seg.requireGestionar();
         BigDecimal m = com.franco.dev.service.financiero.AltaIdempotenteService.monto(monto);
+        com.franco.dev.domain.personas.Funcionario responsable = funcionarioService.responsableOpcional(responsableId);
         com.franco.dev.domain.personas.Usuario usuario = seg.currentUsuario();
-        return altaIdempotente.maletin(false, claveIdempotencia, huellaDe(cajaVirtualId, maletinId, monedaId, m, descripcion),
-                usuario, () -> service.egresarMaletin(cajaVirtualId, maletinId, monedaId, m, descripcion, usuario));
+        // Solo si viene: el pedido sin responsable conserva la huella de antes.
+        String huella = responsableId == null ? huellaDe(cajaVirtualId, maletinId, monedaId, m, descripcion)
+                : new com.franco.dev.service.financiero.HuellaPedido().id(cajaVirtualId).id(maletinId).id(monedaId)
+                        .numero(m).texto(descripcion).id(responsableId).calcular();
+        return altaIdempotente.maletin(false, claveIdempotencia, huella, usuario,
+                () -> service.egresarMaletin(cajaVirtualId, maletinId, monedaId, m, descripcion, usuario, responsable));
     }
 }

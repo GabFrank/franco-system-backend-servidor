@@ -29,6 +29,7 @@ public class MovimientoCajaVirtualGraphQL implements GraphQLQueryResolver, Graph
     private final UsuarioService usuarioService;
     private final TesoreriaSecurityService seg;
     private final com.franco.dev.service.financiero.MovimientosCajaEnLoteService loteService;
+    private final com.franco.dev.service.personas.FuncionarioService funcionarioService;
 
     public MovimientoCajaVirtual movimientoCajaVirtual(Long id) {
         seg.requireVerCaja();
@@ -108,10 +109,11 @@ public class MovimientoCajaVirtualGraphQL implements GraphQLQueryResolver, Graph
     public Boolean registrarMovimientosCajaVirtual(Long cajaVirtualId,
                                                    com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento tipoMovimiento,
                                                    java.util.List<com.franco.dev.graphql.financiero.input.MontoCajaVirtualInput> montos,
-                                                   String descripcion, String claveIdempotencia) {
+                                                   String descripcion, String claveIdempotencia,
+                                                   Long responsableId) {
         seg.requireOperarCaja();
         return loteService.registrarMovimientos(cajaVirtualId, tipoMovimiento, aMontos(montos), descripcion,
-                seg.currentUsuario(), claveIdempotencia);
+                seg.currentUsuario(), claveIdempotencia, funcionarioService.responsableOpcional(responsableId));
     }
 
     /** Transferencia entre dos cajas en varias monedas, en un solo pedido: todo o nada (issue #376). */

@@ -103,7 +103,7 @@ public class MaletinTesoreriaService {
     public MovimientoCajaVirtual ingresarMaletin(Long cajaVirtualId, Long maletinId, Long monedaId,
                                                  BigDecimal monto, String descripcion, Usuario usuario) {
         return postear(cajaVirtualId, maletinId, monedaId, monto,
-                CajaVirtualTipoMovimiento.INGRESO, "INGRESO MALETIN", descripcion, usuario, null);
+                CajaVirtualTipoMovimiento.INGRESO, "INGRESO MALETIN", descripcion, usuario, null, null);
     }
 
     /**
@@ -154,7 +154,7 @@ public class MaletinTesoreriaService {
         List<MovimientoCajaVirtual> creados = new ArrayList<>();
         for (ValorMaletinItem v : aIngresar) {
             creados.add(postear(cajaVirtualId, maletinId, v.getMoneda().getId(), v.getTotal(),
-                    CajaVirtualTipoMovimiento.INGRESO, "INGRESO MALETIN", descripcion, usuario, cierre.caja));
+                    CajaVirtualTipoMovimiento.INGRESO, "INGRESO MALETIN", descripcion, usuario, cierre.caja, null));
         }
         return creados;
     }
@@ -163,14 +163,22 @@ public class MaletinTesoreriaService {
     @Transactional
     public MovimientoCajaVirtual egresarMaletin(Long cajaVirtualId, Long maletinId, Long monedaId,
                                                 BigDecimal monto, String descripcion, Usuario usuario) {
+        return egresarMaletin(cajaVirtualId, maletinId, monedaId, monto, descripcion, usuario, null);
+    }
+
+    /** @param responsable funcionario que lleva el maletín (opcional); queda en el movimiento de la caja */
+    @Transactional
+    public MovimientoCajaVirtual egresarMaletin(Long cajaVirtualId, Long maletinId, Long monedaId,
+                                                BigDecimal monto, String descripcion, Usuario usuario,
+                                                com.franco.dev.domain.personas.Funcionario responsable) {
         return postear(cajaVirtualId, maletinId, monedaId, monto,
-                CajaVirtualTipoMovimiento.EGRESO, "EGRESO MALETIN", descripcion, usuario, null);
+                CajaVirtualTipoMovimiento.EGRESO, "EGRESO MALETIN", descripcion, usuario, null, responsable);
     }
 
     /** {@code cierre}: la caja de PDV cuyo cierre se ingresa, o nulo en los movimientos hechos a mano. */
     private MovimientoCajaVirtual postear(Long cajaVirtualId, Long maletinId, Long monedaId, BigDecimal monto,
                                           CajaVirtualTipoMovimiento tipo, String prefijo, String descripcion, Usuario usuario,
-                                          PdvCaja cierre) {
+                                          PdvCaja cierre, com.franco.dev.domain.personas.Funcionario responsable) {
         req(monto != null && monto.signum() > 0, "Monto de maletín inválido");
         Maletin maletin = maletinService.findById(maletinId)
                 .orElseThrow(() -> new GraphQLException("Maletín no encontrado: " + maletinId));
@@ -185,6 +193,7 @@ public class MaletinTesoreriaService {
         m.setCantidad(monto.doubleValue());
         m.setMoneda(moneda);
         m.setUsuario(usuario);
+        m.setResponsable(responsable);
         m.setDescripcion(prefijo + " " + (maletin.getDescripcion() != null ? maletin.getDescripcion() : ("#" + maletinId))
                 + (descripcion != null && !descripcion.trim().isEmpty() ? " - " + descripcion : ""));
         // La marca del cierre: la caja de PDV y su sucursal. A mano, la referencia repite el maletín.

@@ -12,4 +12,5 @@ public class EntradaVariaInput {
     private Long categoriaId;
     private Long formaPagoId;
     private String numeroComprobante;
+    private Long responsableId;
 }

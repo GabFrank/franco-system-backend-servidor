@@ -13,5 +13,5 @@ extend type Mutation {
     # claveIdempotencia: la genera el cliente por cada intento del usuario y la reenvia al reintentar.
     ingresarMaletinCajaMayor(cajaVirtualId: ID!, maletinId: ID!, monedaId: ID!, monto: Float!, descripcion: String, claveIdempotencia: String): MovimientoCajaVirtual!
     ingresarMaletinCierre(cajaVirtualId: ID!, maletinId: ID!, monedaIds: [ID], descripcion: String): [MovimientoCajaVirtual]
-    egresarMaletinCajaMayor(cajaVirtualId: ID!, maletinId: ID!, monedaId: ID!, monto: Float!, descripcion: String, claveIdempotencia: String): MovimientoCajaVirtual!
+    egresarMaletinCajaMayor(cajaVirtualId: ID!, maletinId: ID!, monedaId: ID!, monto: Float!, descripcion: String, claveIdempotencia: String, responsableId: ID): MovimientoCajaVirtual!
 }

@@ -1837,8 +1837,9 @@ public class ComprasMobileService {
      * </ol>
      * Después ajusta el bulto: «SALADIX 6*100GR» facturado por caja se lleva a la presentación de 6.
      *
-     * Lo aprendido por <b>descripción</b> no se asigna acá: si nada de lo anterior reconoce el renglón, va como
-     * sugerencia preseleccionada para que el comprador la confirme ({@link #aprendidosPorDescripcion}).
+     * Si nada de lo anterior lo reconoce, sigue lo aprendido por <b>descripción</b> (igual o parecida): si apunta a
+     * un solo producto y bulto se asigna solo; si apunta a varios, van como sugerencias para elegir
+     * ({@link #aprendidosPorDescripcion}). Sirve sobre todo para la factura de papel, que no trae códigos.
      */
     void resolverProducto(DocumentoRecibidoItem r, Proveedor proveedor, Set<Long> productosDelPedido) {
         r.setProducto(null);
@@ -1868,6 +1869,8 @@ public class ComprasMobileService {
             if (!porDescripcion.isEmpty() && porDescripcion.stream().noneMatch(a -> presentacionUsable(a.getPresentacion()))) {
                 aprendidaInactiva = porDescripcion.get(0).getPresentacion();
                 inactivaPorDescripcion = true;
+            } else {
+                asignarPorDescripcion(r, porDescripcion);
             }
         }
         if (r.getProducto() == null && aprendidaInactiva != null) {
@@ -2229,16 +2232,50 @@ public class ComprasMobileService {
         return todas;
     }
 
-    /** Lo aprendido para ese proveedor con la misma descripción normalizada (igual a igual, nunca por parecido). */
+    /**
+     * Lo aprendido para ese proveedor con la misma descripción normalizada y, si no hay ninguna igual, con una
+     * {@link DescripcionProveedor#parecida parecida}: la IA puede leer la misma factura de papel con el vencimiento
+     * o el peso de más («Palmito entero 12x1 800g (venc. 09/29)» por «Palmito entero 12x1»).
+     */
     private List<ProveedorCodigoProducto> aprendidosConDescripcion(DocumentoRecibidoItem r, Proveedor proveedor) {
         String descripcion = DescripcionProveedor.normalizar(r.getDescripcion());
         if (proveedor == null || descripcion == null) return Collections.emptyList();
-        List<ProveedorCodigoProducto> encontrados = aprendizajeRepository
-                .findByProveedorIdAndDescripcionNormalizada(proveedor.getId(), descripcion);
-        if (encontrados == null) return Collections.emptyList();
-        return encontrados.stream()
+        List<ProveedorCodigoProducto> encontrados = conProducto(aprendizajeRepository
+                .findByProveedorIdAndDescripcionNormalizada(proveedor.getId(), descripcion));
+        if (!encontrados.isEmpty()) return encontrados;
+        return conProducto(aprendizajeRepository.findByProveedorIdAndDescripcionNormalizadaIsNotNull(proveedor.getId()))
+                .stream()
+                .filter(a -> DescripcionProveedor.parecida(a.getDescripcionNormalizada(), descripcion))
+                .collect(Collectors.toList());
+    }
+
+    private static List<ProveedorCodigoProducto> conProducto(List<ProveedorCodigoProducto> aprendidos) {
+        if (aprendidos == null) return Collections.emptyList();
+        return aprendidos.stream()
                 .filter(a -> a.getPresentacion() != null && a.getPresentacion().getProducto() != null)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * La descripción ya se vinculó a <b>una sola</b> presentación y bulto (activos): el renglón queda reconocido,
+     * como con el código. Si apunta a varias, no se elige: van como sugerencias ({@link #aprendidosPorDescripcion}).
+     * Si se reconoció por una descripción parecida, lo dice, para que el comprador lo vea con el papel en la mano.
+     */
+    private static void asignarPorDescripcion(DocumentoRecibidoItem r, List<ProveedorCodigoProducto> porDescripcion) {
+        List<ProveedorCodigoProducto> usables = porDescripcion.stream()
+                .filter(a -> presentacionUsable(a.getPresentacion()))
+                .collect(Collectors.toList());
+        long distintos = usables.stream()
+                .map(a -> a.getPresentacion().getId() + "|" + (a.getFactor() != null ? a.getFactor() : 1.0))
+                .distinct().count();
+        if (distintos != 1) return;
+        ProveedorCodigoProducto a = usables.get(0);
+        asignar(r, a.getPresentacion(), a.getFactor(), TipoMatch.APRENDIDO_DESCRIPCION);
+        String leida = DescripcionProveedor.normalizar(r.getDescripcion());
+        if (a.getDescripcionNormalizada() != null && !a.getDescripcionNormalizada().equals(leida)) {
+            r.setNotaReconocimiento("Reconocido por una descripción parecida, ya vinculada antes: «"
+                    + a.getDescripcionProveedor() + "».");
+        }
     }
 
     /**

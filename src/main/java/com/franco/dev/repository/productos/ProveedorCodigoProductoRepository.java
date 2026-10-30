@@ -15,4 +15,7 @@ public interface ProveedorCodigoProductoRepository extends JpaRepository<Proveed
 
     /** Todo lo aprendido con esa descripción, venga de un renglón con código o sin código. */
     List<ProveedorCodigoProducto> findByProveedorIdAndDescripcionNormalizada(Long proveedorId, String descripcionNormalizada);
+
+    /** Todo lo aprendido del proveedor que tiene descripción: para buscar una parecida cuando no hay igual. */
+    List<ProveedorCodigoProducto> findByProveedorIdAndDescripcionNormalizadaIsNotNull(Long proveedorId);
 }

@@ -63,7 +63,7 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
                         "AND g.activo = true " +
                         "AND (g.cancelado IS NOT TRUE) " +
                         "GROUP BY tg.descripcion " +
-                        "ORDER BY SUM(g.retiro_gs) DESC", nativeQuery = true)
+                        "ORDER BY SUM(COALESCE(g.retiro_gs, 0)) DESC", nativeQuery = true)
         List<Object[]> gastosPorCategoria(
                         @Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId);
@@ -77,7 +77,7 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
                         "AND g.activo = true " +
                         "AND (g.cancelado IS NOT TRUE) " +
                         "GROUP BY tg.descripcion " +
-                        "ORDER BY SUM(g.retiro_gs) DESC", nativeQuery = true)
+                        "ORDER BY SUM(COALESCE(g.retiro_gs, 0)) DESC", nativeQuery = true)
         List<Object[]> gastosPorCategoriaSinSucursal(
                         @Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin);

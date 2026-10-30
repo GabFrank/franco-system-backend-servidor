@@ -165,4 +165,19 @@ class ReimpresionAccesoTest {
         graphQL.imprimirBalance(1185L, "ticket", "CAJA 1", 24L);
         verify(service).imprimirBalance(any(), eq("ticket"), eq("CAJA 1"));
     }
+
+    @Test
+    void descargarElPdfOElXmlDeUnaFacturaAjenaSinRolSeRechaza() {
+        s.autenticar("cajera");
+        FacturaLegalGraphQL graphQL = s.resolver(FacturaLegalGraphQL.class);
+        FacturaLegalService service = mock(FacturaLegalService.class);
+        ReflectionTestUtils.setField(graphQL, "service", service);
+        FacturaLegal ajena = new FacturaLegal();
+        ajena.setUsuario(usuario(OTRO));
+        when(service.findByIdAndSucursalId(10L, 24L)).thenReturn(ajena);
+
+        assertThrows(GraphQLException.class, () -> graphQL.descargarPdfFacturaElectronica(10L, 24L));
+        assertThrows(GraphQLException.class, () -> graphQL.descargarXmlFacturaElectronica(10L, 24L));
+        verify(service, times(2)).findByIdAndSucursalId(10L, 24L);
+    }
 }

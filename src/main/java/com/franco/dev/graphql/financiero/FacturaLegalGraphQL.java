@@ -313,6 +313,13 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
      * Quienes pueden reimprimirla sin rol: quien la emitió y el dueño de su caja (o de la caja de su venta: el alta
      * del PDV casi nunca copia la caja). Solo ids, sin inicializar al usuario.
      */
+    /** Las descargas: el mismo acceso que reimprimir. Una factura inexistente sigue su camino de siempre. */
+    private void exigirAccesoAFactura(Long id, Long sucId) {
+        FacturaLegal facturaLegal = service.findByIdAndSucursalId(id, sucId);
+        seg.requireUsuarioORol(facturaLegal != null ? usuariosDe(facturaLegal) : java.util.Collections.emptyList(),
+                TesoreriaSecurityService.ANALISIS_DE_CAJA);
+    }
+
     public static List<Long> usuariosDe(FacturaLegal facturaLegal) {
         PdvCaja caja = facturaLegal.getCaja() != null ? facturaLegal.getCaja()
                 : facturaLegal.getVenta() != null ? facturaLegal.getVenta().getCaja() : null;
@@ -1575,6 +1582,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public String descargarXmlFacturaElectronica(Long id, Long sucId) {
+        exigirAccesoAFactura(id, sucId);
         try {
             // Obtener factura legal
             FacturaLegal factura = service.findByIdAndSucursalId(id, sucId);
@@ -1632,6 +1640,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public String descargarPdfFacturaElectronica(Long id, Long sucId) {
+        exigirAccesoAFactura(id, sucId);
         return Base64.getEncoder().encodeToString(generarPdfFacturaElectronica(id, sucId));
     }
 

@@ -13,6 +13,7 @@ import com.franco.dev.graphql.financiero.input.PdvCajaInput;
 import com.franco.dev.service.financiero.ConteoService;
 import com.franco.dev.service.financiero.FilialCajaProxyService;
 import com.franco.dev.service.financiero.MaletinService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.financiero.PdvCajaService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
@@ -216,6 +217,8 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public PdvCaja imprimirBalance(Long id, String printerName, String local, Long sucId) {
+        PdvCaja caja = sucId != null ? service.getRepository().findByIdAndSucursalId(id, sucId) : null;
+        seg.requireUsuarioORol(duenio(caja), TesoreriaSecurityService.ANALISIS_DE_CAJA);
         // Ruteo a la filial SOLO cuando el caller no especifica impresora (frc-mobile envia
         // printerName=null y la filial resuelve su propia config). El desktop siempre envia
         // su printerName local y debe imprimir con esa config, igual que reimprimirVenta.
@@ -227,6 +230,13 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             }
         }
         return service.imprimirBalance(new EmbebedPrimaryKey(id, sucId), printerName, local);
+    }
+
+    /** El dueño de la caja como lista para {@code requireUsuarioORol}; vacía si no hay caja. */
+    public static List<Long> duenio(PdvCaja caja) {
+        return caja != null && caja.getUsuario() != null
+                ? java.util.Collections.singletonList(caja.getUsuario().getId())
+                : java.util.Collections.emptyList();
     }
 
     public List<PdvCaja> cajasPorUsuarioId(Long id, Integer page, Integer size) {

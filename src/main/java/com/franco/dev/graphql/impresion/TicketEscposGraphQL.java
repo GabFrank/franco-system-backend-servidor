@@ -6,7 +6,9 @@ import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.graphql.financiero.FacturaLegalGraphQL;
 import com.franco.dev.service.financiero.FacturaLegalItemService;
 import com.franco.dev.service.financiero.FacturaLegalService;
+import com.franco.dev.graphql.financiero.PdvCajaGraphQL;
 import com.franco.dev.service.financiero.PdvCajaService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.impresion.ImpresionService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -37,6 +39,7 @@ public class TicketEscposGraphQL implements GraphQLQueryResolver {
     @Autowired private FacturaLegalGraphQL facturaLegalGraphQL;
     @Autowired private PdvCajaService pdvCajaService;
     @Autowired private ImpresionService impresionService;
+    @Autowired private TesoreriaSecurityService seg;
 
     public String ticketEscpos(TicketEscposTipo tipo, Long id, Long sucId, String local) throws Exception {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -46,6 +49,7 @@ public class TicketEscposGraphQL implements GraphQLQueryResolver {
                 if (facturaLegal == null) {
                     throw noExiste("La factura", id, sucId);
                 }
+                seg.requireUsuarioORol(FacturaLegalGraphQL.usuariosDe(facturaLegal), TesoreriaSecurityService.ANALISIS_DE_CAJA);
                 List<FacturaLegalItem> items = facturaLegalItemService.findByFacturaLegalId(id, sucId);
                 facturaLegalGraphQL.printTicket58mmFactura(facturaLegal.getVenta(), facturaLegal, items, null, out);
                 break;
@@ -55,6 +59,7 @@ public class TicketEscposGraphQL implements GraphQLQueryResolver {
                 if (caja == null) {
                     throw noExiste("La caja", id, sucId);
                 }
+                seg.requireUsuarioORol(PdvCajaGraphQL.duenio(caja), TesoreriaSecurityService.ANALISIS_DE_CAJA);
                 impresionService.printBalance(pdvCajaService.generarBalance(caja), null, local, out);
                 break;
             }

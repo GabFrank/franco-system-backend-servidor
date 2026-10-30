@@ -40,6 +40,7 @@ class TicketEscposGraphQLTest {
     @Mock private PdvCajaService pdvCajaService;
     @Mock private PdvCajaRepository pdvCajaRepository;
     @Mock private ImpresionService impresionService;
+    @Mock private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
     @InjectMocks private TicketEscposGraphQL resolver;
 
     private static final byte[] TICKET = {0x1b, 0x40, 'O', 'K', 0x0a};
@@ -99,5 +100,55 @@ class TicketEscposGraphQLTest {
         when(pdvCajaRepository.findByIdAndSucursalId(7166L, 1L)).thenReturn(caja);
         when(pdvCajaService.generarBalance(caja)).thenReturn(new PdvCajaBalanceDto());
         assertNull(resolver.ticketEscpos(TicketEscposTipo.BALANCE, 7166L, 1L, null));
+    }
+
+    @Test
+    void facturaYBalanceDeOtroSinAccesoSeRechazanSinArmarlos() throws Exception {
+        FacturaLegal factura = new FacturaLegal();
+        when(facturaLegalService.findByIdAndSucursalId(1L, 24L)).thenReturn(factura);
+        when(pdvCajaRepository.findByIdAndSucursalId(2L, 24L)).thenReturn(new PdvCaja());
+        doThrow(new GraphQLException("No autorizado")).when(seg).requireUsuarioORol(any(), any());
+
+        assertThrows(GraphQLException.class, () -> resolver.ticketEscpos(TicketEscposTipo.FACTURA, 1L, 24L, null));
+        assertThrows(GraphQLException.class, () -> resolver.ticketEscpos(TicketEscposTipo.BALANCE, 2L, 24L, null));
+        verifyNoInteractions(facturaLegalItemService, facturaLegalGraphQL, impresionService);
+        verify(pdvCajaService, never()).generarBalance(any());
+    }
+
+    @Test
+    void facturaPideElAccesoPorElEmisorYElDuenioDeLaCajaDeSuVenta() throws Exception {
+        com.franco.dev.domain.personas.Usuario emisor = new com.franco.dev.domain.personas.Usuario();
+        emisor.setId(3L);
+        com.franco.dev.domain.personas.Usuario duenio = new com.franco.dev.domain.personas.Usuario();
+        duenio.setId(6L);
+        PdvCaja caja = new PdvCaja();
+        caja.setUsuario(duenio);
+        com.franco.dev.domain.operaciones.Venta venta = new com.franco.dev.domain.operaciones.Venta();
+        venta.setCaja(caja);
+        FacturaLegal factura = new FacturaLegal();
+        factura.setUsuario(emisor);
+        factura.setVenta(venta);
+        when(facturaLegalService.findByIdAndSucursalId(1L, 24L)).thenReturn(factura);
+        doAnswer(escribeEnArgumento(4)).when(facturaLegalGraphQL).printTicket58mmFactura(any(), any(), any(), any(),
+                any(OutputStream.class));
+
+        assertEquals(TICKET_B64, resolver.ticketEscpos(TicketEscposTipo.FACTURA, 1L, 24L, null));
+        verify(seg).requireUsuarioORol(eq(java.util.Arrays.asList(3L, 6L)),
+                eq(com.franco.dev.service.financiero.TesoreriaSecurityService.ANALISIS_DE_CAJA));
+    }
+
+    @Test
+    void balancePideElAccesoPorElDuenioDeLaCaja() throws Exception {
+        com.franco.dev.domain.personas.Usuario duenio = new com.franco.dev.domain.personas.Usuario();
+        duenio.setId(8L);
+        PdvCaja caja = new PdvCaja();
+        caja.setUsuario(duenio);
+        when(pdvCajaRepository.findByIdAndSucursalId(2L, 24L)).thenReturn(caja);
+        when(pdvCajaService.generarBalance(caja)).thenReturn(new PdvCajaBalanceDto());
+        doAnswer(escribeEnArgumento(3)).when(impresionService).printBalance(any(), any(), any(), any(OutputStream.class));
+
+        assertEquals(TICKET_B64, resolver.ticketEscpos(TicketEscposTipo.BALANCE, 2L, 24L, null));
+        verify(seg).requireUsuarioORol(eq(Collections.singletonList(8L)),
+                eq(com.franco.dev.service.financiero.TesoreriaSecurityService.ANALISIS_DE_CAJA));
     }
 }

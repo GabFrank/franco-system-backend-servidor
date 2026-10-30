@@ -59,7 +59,9 @@ public class OpenAiVisionService {
             "de timbrado (null si es nota común). fechaEmision en formato YYYY-MM-DD. condicion: 'CONTADO' o " +
             "'CREDITO' (null si no se ve). moneda: PYG o USD. Ítems: codigoProveedor, codigoBarras, descripcion, " +
             "unidadMedida, cantidad, precioUnitario, descuento (0 si no hay), totalItem y tasaIva (0, 5 o 10, " +
-            "según la columna de IVA donde figura el monto). NÚMEROS: en Paraguay el papel usa el PUNTO como " +
+            "según la columna de IVA donde figura el monto). descripcion: copiá SOLO el texto de la columna de " +
+            "descripción del producto, tal como está; no le agregues vencimientos, lotes, pesos ni otras " +
+            "anotaciones escritas a mano en otras columnas. NÚMEROS: en Paraguay el papel usa el PUNTO como " +
             "separador de miles y la COMA como decimal (ej '264.408' = doscientos sesenta y cuatro mil " +
             "cuatrocientos ocho; '11.017,50' = once mil diecisiete con 50). En el JSON devolvé los números " +
             "CRUDOS sin separador de miles y con PUNTO como decimal: 264408, 11017, 11017.5. CANTIDADES: la " +

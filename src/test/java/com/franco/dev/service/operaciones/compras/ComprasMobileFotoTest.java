@@ -32,7 +32,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * Las guardas de la factura en papel dentro del flujo de siempre y lo aprendido por descripción: se guarda siempre
- * (con o sin código) y vuelve como sugerencia preseleccionada, nunca asignada sola.
+ * (con o sin código) y, si apunta a un solo producto, se asigna sola; si apunta a varios, van como sugerencias.
  */
 class ComprasMobileFotoTest {
 
@@ -120,14 +120,46 @@ class ComprasMobileFotoTest {
     }
 
     @Test
-    void loAprendidoPorDescripcionNoSeAsignaSolo() {
+    void loAprendidoPorDescripcionSeAsignaSolo() {
+        when(aprendizajeRepository.findByProveedorIdAndDescripcionNormalizada(5L, "PALMITO ENTERO 12X1"))
+                .thenReturn(Collections.singletonList(aprendido(presentacion(), null, 12.0, 1)));
+        DocumentoRecibidoItem r = renglon(null, "Palmito entero 12x1");
+        service.resolverProducto(r, proveedor(), Collections.emptySet());
+        assertEquals(3L, r.getProducto().getId());
+        assertEquals(30L, r.getPresentacion().getId());
+        assertEquals(12.0, r.getFactor());
+        assertEquals("APRENDIDO_DESCRIPCION", r.getTipoMatch());
+        assertNull(r.getNotaReconocimiento());
+    }
+
+    @Test
+    void unaDescripcionParecidaTambienSeAsignaYLoDice() {
+        // Canindeyú: se aprendió «Palmito entero 12x1» y la IA ahora leyó otra cosa más
+        ProveedorCodigoProducto a = aprendido(presentacion(), null, 12.0, 1);
+        a.setDescripcionProveedor("Palmito entero 12x1");
+        a.setDescripcionNormalizada("PALMITO ENTERO 12X1");
+        ProveedorCodigoProducto otro = aprendido(presentacion(31, 4), null, 15.0, 1);
+        otro.setDescripcionProveedor("Palmito entero 15x1");
+        otro.setDescripcionNormalizada("PALMITO ENTERO 15X1");
+        when(aprendizajeRepository.findByProveedorIdAndDescripcionNormalizadaIsNotNull(5L))
+                .thenReturn(Arrays.asList(a, otro));
+        DocumentoRecibidoItem r = renglon(null, "Palmito entero 12x1 800g (venc. 09/29)");
+        service.resolverProducto(r, proveedor(), Collections.emptySet());
+        assertEquals(30L, r.getPresentacion().getId());
+        assertEquals(12.0, r.getFactor());
+        assertEquals("APRENDIDO_DESCRIPCION", r.getTipoMatch());
+        assertTrue(r.getNotaReconocimiento().contains("«Palmito entero 12x1»"));
+    }
+
+    @Test
+    void variosProductosConLaMismaDescripcionNoSeAsignan() {
         when(aprendizajeRepository.findByProveedorIdAndDescripcionNormalizada(5L, "GALLETA DULCE"))
-                .thenReturn(Collections.singletonList(aprendido(presentacion(), null, 1.0, 1)));
+                .thenReturn(Arrays.asList(aprendido(presentacion(30, 3), "A1", 1.0, 1),
+                        aprendido(presentacion(31, 4), "A2", 1.0, 5)));
         DocumentoRecibidoItem r = renglon(null, "Galleta dulce");
         service.resolverProducto(r, proveedor(), Collections.emptySet());
         assertNull(r.getProducto());
         assertNull(r.getTipoMatch());
-        assertNull(r.getNotaReconocimiento());
     }
 
     @Test
@@ -145,15 +177,15 @@ class ComprasMobileFotoTest {
     }
 
     @Test
-    void conCodigoSinVinculoTambienSugierePorDescripcion() {
+    void conCodigoSinVinculoTambienReconocePorDescripcion() {
         when(aprendizajeRepository.findByProveedorIdAndDescripcionNormalizada(5L, "GALLETA DULCE"))
                 .thenReturn(Collections.singletonList(aprendido(presentacion(), null, 1.0, 1)));
         // La IA leyó mal el código: no hay vínculo para «ABX», pero la descripción sí está
         DocumentoRecibidoItem r = renglon("ABX", "Galleta dulce");
         service.resolverProducto(r, proveedor(), Collections.emptySet());
-        assertNull(r.getProducto());
         verify(aprendizajeRepository).findByProveedorIdAndCodigoProveedor(5L, "ABX");
-        assertTrue(service.aprendidosPorDescripcion(r, proveedor()).get(0).getPreseleccionada());
+        assertEquals(30L, r.getPresentacion().getId());
+        assertEquals("APRENDIDO_DESCRIPCION", r.getTipoMatch());
     }
 
     @Test

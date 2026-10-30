@@ -30,7 +30,8 @@ import java.util.stream.Collectors;
 
 /**
  * Vuelto de un egreso de la caja mayor: el responsable devuelve lo que sobró de un egreso de efectivo,
- * egreso vario, egreso de maletín o pago de gasto.
+ * egreso vario o pago de gasto. El egreso de maletín no tiene vuelto: lo que vuelve llega con el ingreso
+ * del maletín.
  *
  * <ul>
  *   <li>Se registra como INGRESO en la misma caja, con origen VUELTO y {@code vueltoDeId} = el egreso.</li>
@@ -185,12 +186,11 @@ public class VueltoEgresoService {
 
     // ─────────────── Reglas ───────────────
 
-    /** Los cuatro egresos que se rinden con vuelto: efectivo, vario, maletín y pago de gasto. */
+    /** Los egresos que se rinden con vuelto: efectivo, vario y pago de gasto (el maletín no). */
     static boolean admiteVuelto(MovimientoCajaVirtual m) {
         OrigenMovimientoTipo o = m.getOrigenTipo();
         if (m.getTipoMovimiento() == CajaVirtualTipoMovimiento.EGRESO) {
-            return o == null || o == OrigenMovimientoTipo.MANUAL || o == OrigenMovimientoTipo.ENTRADA_VARIA
-                    || o == OrigenMovimientoTipo.MALETIN;
+            return o == null || o == OrigenMovimientoTipo.MANUAL || o == OrigenMovimientoTipo.ENTRADA_VARIA;
         }
         return m.getTipoMovimiento() == CajaVirtualTipoMovimiento.PAGO_PROVEEDOR && o == OrigenMovimientoTipo.GASTO;
     }

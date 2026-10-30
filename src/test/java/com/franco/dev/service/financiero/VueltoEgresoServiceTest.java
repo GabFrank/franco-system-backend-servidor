@@ -127,12 +127,16 @@ class VueltoEgresoServiceTest {
     }
 
     @Test
-    void egreso_anulado_o_de_otro_tipo_no_admite_vuelto() {
+    void egreso_anulado_de_maletin_o_de_otro_tipo_no_admite_vuelto() {
         when(movimientos.findActivoById(100L)).thenReturn(Optional.of(false));
         assertThrows(GraphQLException.class, () -> service.registrarVuelto(100L, 1L, 1.0, null, usuario, null));
 
         when(movimientos.findActivoById(100L)).thenReturn(Optional.of(true));
         egreso.setOrigenTipo(OrigenMovimientoTipo.RRHH_VALE);
+        assertThrows(GraphQLException.class, () -> service.registrarVuelto(100L, 1L, 1.0, null, usuario, null));
+
+        egreso.setOrigenTipo(OrigenMovimientoTipo.MALETIN);
+        assertFalse(VueltoEgresoService.admiteVuelto(egreso));
         assertThrows(GraphQLException.class, () -> service.registrarVuelto(100L, 1L, 1.0, null, usuario, null));
 
         egreso.setTipoMovimiento(CajaVirtualTipoMovimiento.PAGO_PROVEEDOR);

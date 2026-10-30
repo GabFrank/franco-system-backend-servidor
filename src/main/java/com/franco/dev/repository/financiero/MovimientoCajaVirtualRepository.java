@@ -139,9 +139,10 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
             + "LEFT JOIN personas.funcionario f ON f.id = m.responsable_id "
             + "LEFT JOIN personas.persona p ON p.id = f.persona_id "
             + "WHERE m.caja_virtual_id = :cajaId AND m.activo IS NOT FALSE "
-            // Los cuatro egresos que se rinden: efectivo (MANUAL o de antes de origen_tipo), vario, maletín y gasto.
+            // Los egresos que se rinden: efectivo (MANUAL o de antes de origen_tipo), vario y gasto. El maletín no:
+            // la plata viaja adentro y vuelve con el ingreso del maletín, no como vuelto.
             + "  AND ((CAST(m.tipo_movimiento AS text) = 'EGRESO' "
-            + "        AND (m.origen_tipo IS NULL OR m.origen_tipo IN ('MANUAL', 'ENTRADA_VARIA', 'MALETIN'))) "
+            + "        AND (m.origen_tipo IS NULL OR m.origen_tipo IN ('MANUAL', 'ENTRADA_VARIA'))) "
             + "    OR (CAST(m.tipo_movimiento AS text) = 'PAGO_PROVEEDOR' AND m.origen_tipo = 'GASTO')) "
             + "  AND m.cantidad - COALESCE(v.devuelto, 0) > 0.005 "
             + "  AND (CAST(:texto AS text) IS NULL OR UPPER(m.descripcion) LIKE CAST(:texto AS text) "

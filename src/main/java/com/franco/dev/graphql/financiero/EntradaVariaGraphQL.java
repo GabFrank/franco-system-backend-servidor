@@ -30,6 +30,7 @@ public class EntradaVariaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private final com.franco.dev.repository.financiero.FormaPagoRepository formaPagoRepository;
     private final TesoreriaSecurityService seg;
     private final com.franco.dev.service.financiero.AltaIdempotenteService altaIdempotente;
+    private final com.franco.dev.service.personas.FuncionarioService funcionarioService;
 
     public List<EntradaVariaCategoria> entradaVariaCategorias() {
         seg.requireVerCaja();
@@ -59,10 +60,12 @@ public class EntradaVariaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     /** Con {@code claveIdempotencia}, el mismo pedido repetido devuelve la entrada ya registrada (issue #376). */
     public EntradaVaria registrarEntradaVaria(EntradaVariaInput input, String claveIdempotencia) {
         seg.requireOperarCaja();
-        String huella = new com.franco.dev.service.financiero.HuellaPedido()
+        com.franco.dev.service.financiero.HuellaPedido huella = new com.franco.dev.service.financiero.HuellaPedido()
                 .id(input.getCajaVirtualId()).id(input.getMonedaId()).numero(com.franco.dev.service.financiero.AltaIdempotenteService.monto(input.getMonto()))
                 .bandera(input.getEsIngreso()).texto(input.getDescripcion()).id(input.getCategoriaId())
-                .id(input.getFormaPagoId()).texto(input.getNumeroComprobante()).calcular();
+                .id(input.getFormaPagoId()).texto(input.getNumeroComprobante());
+        // Solo si viene: el pedido sin responsable conserva la huella de antes.
+        if (input.getResponsableId() != null) huella.id(input.getResponsableId());
         EntradaVaria e = new EntradaVaria();
         e.setDescripcion(input.getDescripcion());
         e.setMonto(input.getMonto() != null ? BigDecimal.valueOf(input.getMonto()) : null);
@@ -73,8 +76,12 @@ public class EntradaVariaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (input.getMonedaId() != null) e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
         if (input.getCategoriaId() != null) e.setCategoria(categoriaRepository.findById(input.getCategoriaId()).orElse(null));
         if (input.getFormaPagoId() != null) e.setFormaPago(formaPagoRepository.findById(input.getFormaPagoId()).orElse(null));
+        // El responsable es de quien retira la plata: un ingreso no lo lleva.
+        com.franco.dev.domain.personas.Funcionario responsable = Boolean.TRUE.equals(input.getEsIngreso())
+                ? null : funcionarioService.responsableOpcional(input.getResponsableId());
         com.franco.dev.domain.personas.Usuario usuario = seg.currentUsuario();
-        return altaIdempotente.entradaVaria(claveIdempotencia, huella, usuario, () -> service.registrar(e, usuario));
+        return altaIdempotente.entradaVaria(claveIdempotencia, huella.calcular(), usuario,
+                () -> service.registrar(e, usuario, responsable));
     }
 
     public EntradaVaria anularEntradaVaria(Long id, String motivo) {

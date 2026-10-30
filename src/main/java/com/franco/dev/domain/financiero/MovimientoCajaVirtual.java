@@ -87,6 +87,22 @@ public class MovimientoCajaVirtual implements Serializable {
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 
+    /**
+     * Quien retira o rinde la plata del egreso, elegido al registrarlo. Opcional: sin él, el
+     * responsable a mostrar es {@code usuario} (quien lo cargo).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "responsable_id", nullable = true)
+    private com.franco.dev.domain.personas.Funcionario responsable;
+
+    /** En un vuelto: el egreso que rinde (otro movimiento de la misma caja). */
+    @Column(name = "vuelto_de_id")
+    private Long vueltoDeId;
+
+    /** En un vuelto: lo devuelto expresado en la moneda del egreso; es lo que descuenta de su pendiente. */
+    @Column(name = "vuelto_equivalente")
+    private java.math.BigDecimal vueltoEquivalente;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "caja_origen_id", nullable = true)
     private CajaVirtual cajaOrigen;

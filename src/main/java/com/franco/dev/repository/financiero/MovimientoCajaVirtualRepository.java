@@ -113,4 +113,46 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
                                            @Param("tipo") String tipo,
                                            @Param("monedaId") Long monedaId,
                                            @Param("soloActivos") boolean soloActivos);
+
+    // ─────────────── Vueltos de egresos ───────────────
+
+    /** Lo ya devuelto de un egreso, en su moneda: suma de sus vueltos activos (un activo nulo cuenta como activo). */
+    @Query("select coalesce(sum(m.vueltoEquivalente), 0) from MovimientoCajaVirtual m "
+            + "where m.vueltoDeId = :egresoId and (m.activo is null or m.activo = true)")
+    java.math.BigDecimal sumVueltoActivo(@Param("egresoId") Long egresoId);
+
+    @Query("select count(m) > 0 from MovimientoCajaVirtual m "
+            + "where m.vueltoDeId = :egresoId and (m.activo is null or m.activo = true)")
+    boolean existsVueltoActivo(@Param("egresoId") Long egresoId);
+
+    /** Fila de la lista de egresos con vuelto pendiente: el egreso y lo ya devuelto (en su moneda). */
+    interface EgresoParaVueltoFila {
+        Long getId();
+        java.math.BigDecimal getDevuelto();
+    }
+
+    String EGRESOS_PARA_VUELTO_FROM = " FROM financiero.movimiento_caja_virtual m "
+            + "LEFT JOIN (SELECT vuelto_de_id, SUM(vuelto_equivalente) AS devuelto "
+            + "           FROM financiero.movimiento_caja_virtual "
+            + "           WHERE vuelto_de_id IS NOT NULL AND activo IS NOT FALSE GROUP BY vuelto_de_id) v "
+            + "       ON v.vuelto_de_id = m.id "
+            + "LEFT JOIN personas.funcionario f ON f.id = m.responsable_id "
+            + "LEFT JOIN personas.persona p ON p.id = f.persona_id "
+            + "WHERE m.caja_virtual_id = :cajaId AND m.activo IS NOT FALSE "
+            // Los cuatro egresos que se rinden: efectivo (MANUAL o de antes de origen_tipo), vario, maletín y gasto.
+            + "  AND ((CAST(m.tipo_movimiento AS text) = 'EGRESO' "
+            + "        AND (m.origen_tipo IS NULL OR m.origen_tipo IN ('MANUAL', 'ENTRADA_VARIA', 'MALETIN'))) "
+            + "    OR (CAST(m.tipo_movimiento AS text) = 'PAGO_PROVEEDOR' AND m.origen_tipo = 'GASTO')) "
+            + "  AND m.cantidad - COALESCE(v.devuelto, 0) > 0.005 "
+            + "  AND (CAST(:texto AS text) IS NULL OR UPPER(m.descripcion) LIKE CAST(:texto AS text) "
+            + "       OR UPPER(p.nombre) LIKE CAST(:texto AS text)) ";
+
+    /** Egresos de la caja con algo pendiente de devolver, del más nuevo al más viejo. {@code texto}: patrón LIKE o null. */
+    @Query(value = "SELECT m.id AS id, COALESCE(v.devuelto, 0) AS devuelto" + EGRESOS_PARA_VUELTO_FROM
+            + "ORDER BY m.creado_en DESC, m.id DESC",
+            countQuery = "SELECT COUNT(*)" + EGRESOS_PARA_VUELTO_FROM,
+            nativeQuery = true)
+    org.springframework.data.domain.Page<EgresoParaVueltoFila> findEgresosParaVuelto(
+            @Param("cajaId") Long cajaId, @Param("texto") String texto,
+            org.springframework.data.domain.Pageable pageable);
 }

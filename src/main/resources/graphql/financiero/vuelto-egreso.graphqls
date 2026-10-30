@@ -1,0 +1,31 @@
+# Vuelto de un egreso de la caja mayor (efectivo, vario, maletin o pago de gasto): el responsable devuelve
+# lo que sobro. devuelto y pendiente van en la moneda del egreso.
+type EgresoParaVuelto {
+    movimiento: MovimientoCajaVirtual
+    devuelto: Float
+    pendiente: Float
+}
+
+type EgresoParaVueltoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [EgresoParaVuelto]
+}
+
+extend type Query {
+    """Egresos de la caja con algo pendiente de devolver, del mas nuevo al mas viejo. texto busca en la descripcion y en el responsable."""
+    egresosParaVuelto(cajaVirtualId: ID!, texto: String, page: Int = 0, size: Int = 10): EgresoParaVueltoPage
+}
+
+extend type Mutation {
+    """
+    Registra el vuelto de un egreso, en cualquier moneda (se convierte con la ultima cotizacion) y sin pasar lo
+    pendiente. Con claveIdempotencia, el mismo pedido repetido no se registra de nuevo.
+    """
+    registrarVueltoEgreso(egresoId: ID!, monedaId: ID!, monto: Float!, descripcion: String, claveIdempotencia: String): MovimientoCajaVirtual!
+}

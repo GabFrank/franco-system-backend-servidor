@@ -52,6 +52,19 @@ public class GastoTesoreriaService {
     public SolicitudPago crearGastoParaPago(Long tipoGastoId, String descripcion, Long monedaId, Double monto,
                                             Long beneficiarioProveedorId, Long beneficiarioPersonaId,
                                             LocalDateTime fechaVencimiento, Long sucursalId, Usuario usuario) {
+        return crearGastoParaPago(tipoGastoId, descripcion, monedaId, monto, beneficiarioProveedorId,
+                beneficiarioPersonaId, fechaVencimiento, sucursalId, usuario, null);
+    }
+
+    /**
+     * @param responsable funcionario responsable del gasto (opcional). Queda en la solicitud y, al pagarse,
+     *                    en el movimiento de la caja y en el gasto materializado.
+     */
+    @Transactional
+    public SolicitudPago crearGastoParaPago(Long tipoGastoId, String descripcion, Long monedaId, Double monto,
+                                            Long beneficiarioProveedorId, Long beneficiarioPersonaId,
+                                            LocalDateTime fechaVencimiento, Long sucursalId, Usuario usuario,
+                                            com.franco.dev.domain.personas.Funcionario responsable) {
         if (monto == null || monto <= 0) {
             throw new GraphQLException("El monto del gasto debe ser positivo");
         }
@@ -68,8 +81,11 @@ public class GastoTesoreriaService {
         Proveedor beneficiario = beneficiarioProveedorId != null
                 ? proveedorService.findById(beneficiarioProveedorId).orElse(null) : null;
 
-        return solicitudPagoService.crearSolicitudGasto(
+        SolicitudPago solicitud = solicitudPagoService.crearSolicitudGasto(
                 beneficiario, categoria, moneda, monto, descripcion.trim(), fechaVencimiento, usuario);
+        if (responsable == null) return solicitud;
+        solicitud.setResponsable(responsable);
+        return solicitudPagoService.getRepository().save(solicitud);
     }
 
     /**
@@ -77,8 +93,8 @@ public class GastoTesoreriaService {
      * que el gasto pagado desde la caja mayor aparezca en el grafico "Gastos por Categoria" y en
      * la lista de gastos: las dos leen esa tabla, no {@code operaciones.solicitud_pago}.
      *
-     * <p>El gasto materializado vive en la <b>sucursal 0</b> (SERVIDOR), sin caja ni
-     * responsable, y queda vinculado a su solicitud por {@code solicitud_pago_id} (unico). Es un
+     * <p>El gasto materializado vive en la <b>sucursal 0</b> (SERVIDOR), sin caja, con el
+     * responsable de la solicitud (si se eligio al crearla), y queda vinculado a su solicitud por {@code solicitud_pago_id} (unico). Es un
      * espejo de solo lectura: la fuente de verdad de la deuda sigue siendo la solicitud.</p>
      *
      * <p>Lo invoca el motor de pago en los dos sentidos, igual que
@@ -115,6 +131,7 @@ public class GastoTesoreriaService {
         gasto.setCancelado(false);
         gasto.setTipoGasto(sp.getTipoGasto());
         gasto.setUsuario(sp.getUsuario());
+        gasto.setResponsable(sp.getResponsable());
         gasto.setObservacion(observacionDe(sp));
         aplicarMonto(gasto, sp, pagado.doubleValue());
 
@@ -142,9 +159,11 @@ public class GastoTesoreriaService {
         gasto.setRetiroGs(MONEDA_GUARANI.equals(monedaId) ? monto : 0.0);
         gasto.setRetiroRs(MONEDA_REAL.equals(monedaId) ? monto : 0.0);
         gasto.setRetiroDs(MONEDA_DOLAR.equals(monedaId) ? monto : 0.0);
-        gasto.setVueltoGs(0.0);
-        gasto.setVueltoRs(0.0);
-        gasto.setVueltoDs(0.0);
+        // El vuelto lo lleva VueltoEgresoService (lo que el responsable devolvió a la caja): un pago
+        // parcial posterior no lo borra.
+        if (gasto.getVueltoGs() == null) gasto.setVueltoGs(0.0);
+        if (gasto.getVueltoRs() == null) gasto.setVueltoRs(0.0);
+        if (gasto.getVueltoDs() == null) gasto.setVueltoDs(0.0);
     }
 
     /**

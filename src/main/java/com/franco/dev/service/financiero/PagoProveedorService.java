@@ -209,6 +209,22 @@ public class PagoProveedorService {
         return ConceptoEvento.VALE;   // obligacion RRHH huerfana: se etiqueta como vale
     }
 
+    /**
+     * Responsable del movimiento del pago: el de las solicitudes, si todas tienen el mismo. Con
+     * responsables distintos (o alguna sin él) el movimiento queda sin responsable: nombrar a uno
+     * solo seria falso para los demas documentos del evento.
+     */
+    private static com.franco.dev.domain.personas.Funcionario responsableComun(List<SolicitudPago> sols) {
+        com.franco.dev.domain.personas.Funcionario comun = null;
+        for (SolicitudPago sp : sols) {
+            com.franco.dev.domain.personas.Funcionario r = sp.getResponsable();
+            if (r == null || r.getId() == null) return null;
+            if (comun == null) comun = r;
+            else if (!comun.getId().equals(r.getId())) return null;
+        }
+        return comun;
+    }
+
     /** Origen del movimiento, para que el historial de caja diga el concepto real y no "Compra". */
     private OrigenMovimientoTipo origenDe(ConceptoEvento c) {
         switch (c) {
@@ -644,6 +660,7 @@ public class PagoProveedorService {
         ConceptoEvento concepto = clasificar(sols);
         String etiquetaPago = etiquetaDe(concepto, sols, tieneProveedor, provNombre);
         OrigenMovimientoTipo origenPago = origenDe(concepto);
+        com.franco.dev.domain.personas.Funcionario responsablePago = responsableComun(sols);
         LinkedHashMap<String, GrupoMov> grupos = new LinkedHashMap<>();
         for (SolicitudConLineas p : pagos) {
             for (LineaPago l : p.getLineas()) {
@@ -687,6 +704,7 @@ public class PagoProveedorService {
                 m.setCantidad(g.suma.doubleValue());
                 m.setMoneda(moneda);
                 m.setUsuario(usuario);
+                m.setResponsable(responsablePago);
                 m.setDescripcion(etiquetaPago);
                 m.setReferenciaId(pago.getId());
                 m.setOrigenTipo(origenPago);

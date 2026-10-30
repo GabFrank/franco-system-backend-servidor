@@ -302,13 +302,16 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
                         && retiroDetalle.getRetiro().getEstado() == EstadoRetiro.CANCELADO) {
                     continue;
                 }
-                if (retiroDetalle.getMoneda().getDenominacion().contains("GUARANI")) {
-                    totalRetiroGs += retiroDetalle.getCantidad();
-                } else if (retiroDetalle.getMoneda().getDenominacion().contains("REAL")) {
-                    totalRetiroRs += retiroDetalle.getCantidad();
-
-                } else if (retiroDetalle.getMoneda().getDenominacion().contains("DOLAR")) {
-                    totalRetiroDs += retiroDetalle.getCantidad();
+                String moneda = retiroDetalle.getMoneda() != null ? retiroDetalle.getMoneda().getDenominacion() : null;
+                if (moneda == null) {
+                    continue;
+                }
+                if (moneda.contains("GUARANI")) {
+                    totalRetiroGs += cero(retiroDetalle.getCantidad());
+                } else if (moneda.contains("REAL")) {
+                    totalRetiroRs += cero(retiroDetalle.getCantidad());
+                } else if (moneda.contains("DOLAR")) {
+                    totalRetiroDs += cero(retiroDetalle.getCantidad());
                 }
             }
             for (Gasto gasto : gastoList) {
@@ -320,9 +323,10 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
                 if (Boolean.TRUE.equals(gasto.getCancelado())) {
                     continue;
                 }
-                totalGastoGs += (gasto.getRetiroGs() - gasto.getVueltoGs());
-                totalGastoRs += (gasto.getRetiroRs() - gasto.getVueltoRs());
-                totalGastoDs += (gasto.getRetiroDs() - gasto.getVueltoDs());
+                // Un monto nulo cuenta como 0.
+                totalGastoGs += (cero(gasto.getRetiroGs()) - cero(gasto.getVueltoGs()));
+                totalGastoRs += (cero(gasto.getRetiroRs()) - cero(gasto.getVueltoRs()));
+                totalGastoDs += (cero(gasto.getRetiroDs()) - cero(gasto.getVueltoDs()));
             }
 
 //            for (Venta venta : ventaList) {
@@ -804,5 +808,9 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
         List<PdvCaja> cajas = repository.findAll(spec);
         return cajas;
     }
-}
 
+    /** Un monto nulo cuenta como 0. */
+    static double cero(Double valor) {
+        return valor != null ? valor : 0.0;
+    }
+}

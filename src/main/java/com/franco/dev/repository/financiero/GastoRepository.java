@@ -55,7 +55,7 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
 
         @Query(value = "SELECT " +
                         "COALESCE(tg.descripcion, 'Sin Categoría'), " +
-                        "SUM(g.retiro_gs - COALESCE(g.vuelto_gs, 0)), COUNT(g.id) " +
+                        "SUM(COALESCE(g.retiro_gs, 0) - COALESCE(g.vuelto_gs, 0)), COUNT(g.id) " +
                         "FROM financiero.gasto g " +
                         "LEFT JOIN financiero.tipo_gasto tg ON g.tipo_gasto_id = tg.id " +
                         "WHERE g.creado_en BETWEEN :inicio AND :fin " +
@@ -63,26 +63,26 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
                         "AND g.activo = true " +
                         "AND (g.cancelado IS NOT TRUE) " +
                         "GROUP BY tg.descripcion " +
-                        "ORDER BY SUM(g.retiro_gs) DESC", nativeQuery = true)
+                        "ORDER BY SUM(COALESCE(g.retiro_gs, 0)) DESC", nativeQuery = true)
         List<Object[]> gastosPorCategoria(
                         @Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId);
 
         @Query(value = "SELECT " +
                         "COALESCE(tg.descripcion, 'Sin Categoría'), " +
-                        "SUM(g.retiro_gs - COALESCE(g.vuelto_gs, 0)), COUNT(g.id) " +
+                        "SUM(COALESCE(g.retiro_gs, 0) - COALESCE(g.vuelto_gs, 0)), COUNT(g.id) " +
                         "FROM financiero.gasto g " +
                         "LEFT JOIN financiero.tipo_gasto tg ON g.tipo_gasto_id = tg.id " +
                         "WHERE g.creado_en BETWEEN :inicio AND :fin " +
                         "AND g.activo = true " +
                         "AND (g.cancelado IS NOT TRUE) " +
                         "GROUP BY tg.descripcion " +
-                        "ORDER BY SUM(g.retiro_gs) DESC", nativeQuery = true)
+                        "ORDER BY SUM(COALESCE(g.retiro_gs, 0)) DESC", nativeQuery = true)
         List<Object[]> gastosPorCategoriaSinSucursal(
                         @Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin);
 
-        @Query(value = "SELECT CAST(extract(month from g.creado_en) as integer), SUM(g.retiro_gs - g.vuelto_gs), COUNT(g.id) "
+        @Query(value = "SELECT CAST(extract(month from g.creado_en) as integer), SUM(COALESCE(g.retiro_gs, 0) - COALESCE(g.vuelto_gs, 0)), COUNT(g.id) "
                         +
                         "FROM financiero.gasto g " +
                         "WHERE g.creado_en BETWEEN :inicio AND :fin " +
@@ -94,7 +94,7 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
         List<Object[]> gastosPorMes(@Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId);
 
-        @Query(value = "SELECT CAST(extract(month from g.creado_en) as integer), SUM(g.retiro_gs - g.vuelto_gs), COUNT(g.id) "
+        @Query(value = "SELECT CAST(extract(month from g.creado_en) as integer), SUM(COALESCE(g.retiro_gs, 0) - COALESCE(g.vuelto_gs, 0)), COUNT(g.id) "
                         +
                         "FROM financiero.gasto g " +
                         "WHERE g.creado_en BETWEEN :inicio AND :fin " +

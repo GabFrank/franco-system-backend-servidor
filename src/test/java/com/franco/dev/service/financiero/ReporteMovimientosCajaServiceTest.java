@@ -10,6 +10,7 @@ import com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento;
 import com.franco.dev.domain.financiero.enums.MovimientoBancarioTipo;
 import com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo;
 import com.franco.dev.domain.personas.Persona;
+import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
 import net.sf.jasperreports.engine.JRPrintPage;
 import net.sf.jasperreports.engine.JRPrintText;
@@ -71,6 +72,24 @@ class ReporteMovimientosCajaServiceTest {
         assertEquals("01/09/2026", c.parametros.get("desdeFiltro"));
         assertEquals("14/09/2026", c.parametros.get("hastaFiltro"));
         assertEquals("6", c.parametros.get("cantidad"));
+        assertEquals(Boolean.TRUE, c.parametros.get("conEntregadoA"));
+    }
+
+    /** Quien operó la caja y a quien se le entregó la plata van en columnas separadas, sin reemplazarse. */
+    @Test
+    void cajaSeparaUsuarioDeEntregadoA() {
+        Moneda gs = moneda(1L, "GUARANIES", "Gs.", 0);
+        MovimientoCajaVirtual conEntrega = movCaja(CajaVirtualTipoMovimiento.EGRESO, 30000d, gs, OrigenMovimientoTipo.MANUAL, true);
+        conEntrega.setResponsable(funcionario("ANGEL SANABRIA"));
+        MovimientoCajaVirtual sinEntrega = movCaja(CajaVirtualTipoMovimiento.EGRESO, 10000d, gs, OrigenMovimientoTipo.MANUAL, true);
+
+        ReporteMovimientosCajaService.Contenido c = service.armarCaja(caja(), Arrays.asList(conEntrega, sinEntrega),
+                null, null, null, null, true, usuario());
+
+        assertEquals(NOMBRE_LARGO, c.filas.get(0).getUsuario());
+        assertEquals("ANGEL SANABRIA", c.filas.get(0).getEntregadoA());
+        assertEquals(NOMBRE_LARGO, c.filas.get(1).getUsuario());
+        assertEquals("-", c.filas.get(1).getEntregadoA());
     }
 
     @Test
@@ -96,6 +115,7 @@ class ReporteMovimientosCajaServiceTest {
         assertEquals("Sin límite", c.parametros.get("desdeFiltro"));
         assertEquals("No incluidos", c.parametros.get("anuladosFiltro"));
         assertEquals("Ajuste −", c.filas.get(3).getTipo());
+        assertEquals(Boolean.FALSE, c.parametros.get("conEntregadoA"), "el banco no tiene a quién se entregó");
         assertTrue(((String) c.parametros.get("totales")).contains("Ingresos: 5.000 Gs. - Egresos: 1.000 Gs. - Total: 4.000 Gs."));
     }
 
@@ -125,6 +145,7 @@ class ReporteMovimientosCajaServiceTest {
         List<MovimientoCajaVirtual> movs = Arrays.asList(
                 movCaja(CajaVirtualTipoMovimiento.INGRESO, 250000d, gs, OrigenMovimientoTipo.RETIRO_CAJA, true),
                 movCaja(CajaVirtualTipoMovimiento.AJUSTE, -12345678d, gs, OrigenMovimientoTipo.MANUAL, true));
+        movs.get(0).setResponsable(funcionario("ANGEL DE JESUS SANABRIA SILGUERO"));
         ReporteMovimientosCajaService.Contenido c = service.armarCaja(caja(), movs,
                 "2026-09-01 00:00", null, CajaVirtualTipoMovimiento.INGRESO, gs, false, usuario());
 
@@ -137,14 +158,14 @@ class ReporteMovimientosCajaServiceTest {
                 "Movimientos de CAJA MAYOR CENTRAL", "Fuente: Caja Mayor", "Filtros aplicados", "01/09/2026",
                 "Sin límite", "Ingreso", "GUARANIES (Gs.)", "Incluidos (tachados)", "Resumen", "| JUAN PEREZ ",
                 "Generado el:", "Total por moneda (sin anulados)", "Total: -12.095.678 Gs.", "| -12.345.678 Gs. ",
-                "Fecha", "Responsable", "Tipo", "Descripción", "Monto", "Saldo",
+                "Fecha", "Usuario", "Entregado a", "| ANGEL DE JESUS SANABRIA SILGUERO |", "Tipo", "Descripción", "Monto", "Saldo",
                 "10/09/26 14:30", "Retiro de PDV", "DESCRIPCION DE PRUEBA", "250.000 Gs.", "1.000.000 Gs.",
                 "Página 1 de"}) {
             assertTrue(textos.contains(esperado), "Falta '" + esperado + "' en el reporte. Textos: " + textos);
         }
-        // Nombre largo: tiene que salir completo en la columna Responsable, no cortado a lo que entra
+        // Nombre largo: tiene que salir completo en la columna Usuario, no cortado a lo que entra
         // en una línea (Jasper recorta sin avisar).
-        assertTrue(textos.contains("| " + NOMBRE_LARGO + " |"), "El responsable salió cortado. Textos: " + textos);
+        assertTrue(textos.contains("| " + NOMBRE_LARGO + " |"), "El usuario salió cortado. Textos: " + textos);
     }
 
     @Test
@@ -197,6 +218,31 @@ class ReporteMovimientosCajaServiceTest {
         Usuario u = new Usuario();
         u.setPersona(p);
         return u;
+    }
+
+    private static Funcionario funcionario(String nombre) {
+        Persona p = new Persona();
+        p.setNombre(nombre);
+        Funcionario f = new Funcionario();
+        f.setPersona(p);
+        return f;
+    }
+
+    /** El banco no tiene "Entregado a": Usuario usa el ancho de las dos columnas y no sale el encabezado. */
+    @Test
+    void plantillaBancoSinColumnaEntregadoA() throws Exception {
+        Moneda gs = moneda(1L, "GUARANIES", "Gs.", 0);
+        CuentaBancaria cuenta = new CuentaBancaria();
+        cuenta.setNumero("123-456");
+        cuenta.setMoneda(gs);
+        MovimientoBancario m = movBanco(MovimientoBancarioTipo.ENTRADA_MANUAL, "5000", null, false);
+        m.setUsuario(usuario(NOMBRE_LARGO));
+        ReporteMovimientosCajaService.Contenido c = service.armarBanco(caja(), cuenta, Arrays.asList(m),
+                null, null, null, true, usuario());
+        String textos = textos(service.llenar(c));
+        assertTrue(textos.contains("| Usuario |"), textos);
+        assertTrue(!textos.contains("Entregado a"), textos);
+        assertTrue(textos.contains("| " + NOMBRE_LARGO + " |"), textos);
     }
 
     private static Moneda moneda(Long id, String denominacion, String simbolo, int decimales) {

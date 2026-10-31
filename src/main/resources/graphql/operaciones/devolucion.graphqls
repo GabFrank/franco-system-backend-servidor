@@ -105,5 +105,6 @@ enum TipoDevolucion {
 
 enum TipoResolucionDevolucion {
     NOTA_CREDITO,
-    CANJE
+    CANJE,
+    DESCARTE
 }

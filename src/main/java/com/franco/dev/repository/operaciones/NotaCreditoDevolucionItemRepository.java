@@ -12,6 +12,4 @@ public interface NotaCreditoDevolucionItemRepository extends HelperRepository<No
     }
 
     List<NotaCreditoDevolucionItem> findByNotaCreditoId(Long notaCreditoId);
-
-    void deleteByNotaCreditoId(Long notaCreditoId);
 }

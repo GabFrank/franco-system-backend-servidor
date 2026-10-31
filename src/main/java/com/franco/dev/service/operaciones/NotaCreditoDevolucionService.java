@@ -60,8 +60,16 @@ public class NotaCreditoDevolucionService {
         return repository.findById(id);
     }
 
+    /** Nota vigente del retiro (las ANULADAS no cuentan). */
     public Optional<NotaCreditoDevolucion> findByRetiroId(Long retiroId) {
-        return repository.findByRetiroId(retiroId);
+        return repository.findFirstByRetiroIdAndEstadoNotOrderByIdDesc(retiroId,
+                NotaCreditoDevolucion.ESTADO_ANULADA);
+    }
+
+    /** Notas revertidas del retiro, la mas reciente primero. */
+    public List<NotaCreditoDevolucion> findAnuladasByRetiroId(Long retiroId) {
+        return repository.findByRetiroIdAndEstadoOrderByIdDesc(retiroId,
+                NotaCreditoDevolucion.ESTADO_ANULADA);
     }
 
     public List<NotaCreditoDevolucionItem> itemsByNotaCredito(Long notaCreditoId) {
@@ -228,7 +236,7 @@ public class NotaCreditoDevolucionService {
         if (!RetiroDevolucion.ESTADO_CONFIRMADO.equals(retiro.getEstado())) {
             throw new GraphQLException("Solo se puede acreditar un retiro CONFIRMADO");
         }
-        if (repository.findByRetiroId(retiroId).isPresent()) {
+        if (findByRetiroId(retiroId).isPresent()) {
             throw new GraphQLException("El retiro ya tiene una nota de credito registrada");
         }
         if (items == null || items.isEmpty()) {
@@ -293,12 +301,17 @@ public class NotaCreditoDevolucionService {
 
     /**
      * Revierte la acreditacion: solo si la nota no fue usada (saldo == montoTotal).
-     * Devuelve las devoluciones a RETIRADO y elimina la nota.
+     * Devuelve las devoluciones a RETIRADO y deja la nota ANULADA (sin saldo, con
+     * quien y cuando), sin borrarla: el numero lo emite el proveedor y tiene que
+     * quedar para auditar (issue #207). El retiro se puede volver a acreditar.
      */
     @Transactional
     public Boolean revertir(Long notaCreditoId, Usuario usuario) {
         NotaCreditoDevolucion nota = repository.findById(notaCreditoId)
                 .orElseThrow(() -> new GraphQLException("Nota de credito no encontrada: " + notaCreditoId));
+        if (NotaCreditoDevolucion.ESTADO_ANULADA.equals(nota.getEstado())) {
+            throw new GraphQLException("La nota de credito ya fue revertida");
+        }
         double montoTotal = nota.getMontoTotal() != null ? nota.getMontoTotal() : 0.0;
         double saldo = nota.getSaldo() != null ? nota.getSaldo() : 0.0;
         if (Math.abs(saldo - montoTotal) > 0.001) {
@@ -317,8 +330,11 @@ public class NotaCreditoDevolucionService {
             }
         }
 
-        itemRepository.deleteByNotaCreditoId(notaCreditoId);
-        repository.deleteById(notaCreditoId);
+        nota.setEstado(NotaCreditoDevolucion.ESTADO_ANULADA);
+        nota.setSaldo(0.0);
+        nota.setAnuladoPor(usuario);
+        nota.setAnuladoEn(LocalDateTime.now());
+        repository.save(nota);
         return true;
     }
 }

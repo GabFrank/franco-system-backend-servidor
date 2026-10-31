@@ -24,8 +24,13 @@ public class RetiroDevolucionResolver implements GraphQLResolver<RetiroDevolucio
         return devolucionService.findByRetiroId(r.getId());
     }
 
-    /** Nota de credito consolidada del retiro (null si aun no fue acreditado). */
+    /** Nota de credito vigente del retiro (null si no fue acreditado o se revirtio). */
     public NotaCreditoDevolucion notaCredito(RetiroDevolucion r) {
         return notaCreditoDevolucionService.findByRetiroId(r.getId()).orElse(null);
+    }
+
+    /** Notas de credito revertidas del retiro, la mas reciente primero. */
+    public List<NotaCreditoDevolucion> notasCreditoAnuladas(RetiroDevolucion r) {
+        return notaCreditoDevolucionService.findAnuladasByRetiroId(r.getId());
     }
 }

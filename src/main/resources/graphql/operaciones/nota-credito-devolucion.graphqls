@@ -8,9 +8,12 @@ type NotaCreditoDevolucion {
     fecha: Date
     montoTotal: Float
     saldo: Float
+    # DISPONIBLE | PARCIAL | USADO | ANULADA
     estado: String
     usuario: Usuario
     creadoEn: Date
+    anuladoPor: Usuario
+    anuladoEn: Date
     items: [NotaCreditoDevolucionItem]
 }
 

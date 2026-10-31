@@ -242,6 +242,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             case DESCARTADO:
                 // El stock ya bajo al separar; aca solo se confirma la perdida (gasto).
                 generarGastoMerma(d, ejecutor);
+                d.setResolucion(TipoResolucionDevolucion.DESCARTE);
                 d.setFinalizado(true);
                 break;
             case CANJEADO:

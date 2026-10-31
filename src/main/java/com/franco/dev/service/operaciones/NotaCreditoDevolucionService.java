@@ -90,7 +90,69 @@ public class NotaCreditoDevolucionService {
         return valorDeclarado / cantidadBase;
     }
 
-    private double factor(DevolucionItem item) {
+    /**
+     * Reparte el monto de la nota entre las devoluciones del retiro. Cada una pesa
+     * lo que valen sus items al costo por unidad base que la nota le dio a cada
+     * producto; la ultima se lleva el resto, asi la suma da exacto el total de la
+     * nota. Si ningun producto de las devoluciones esta en la nota, se reparte por
+     * cantidad base, y si tampoco hay cantidades, en partes iguales.
+     */
+    static Map<Long, Double> repartirMonto(Map<Long, List<DevolucionItem>> itemsPorDevolucion,
+                                           List<NotaCreditoDevolucionItemInput> lineasNota,
+                                           double montoTotal) {
+        Map<Long, Double> totalPorProducto = new LinkedHashMap<>();
+        Map<Long, Double> cantidadPorProducto = new LinkedHashMap<>();
+        for (NotaCreditoDevolucionItemInput l : lineasNota) {
+            if (l.getProductoId() == null) continue;
+            totalPorProducto.merge(l.getProductoId(), l.getTotal() != null ? l.getTotal() : 0.0, Double::sum);
+            cantidadPorProducto.merge(l.getProductoId(), l.getCantidadBase() != null ? l.getCantidadBase() : 0.0, Double::sum);
+        }
+
+        Map<Long, Double> pesoValor = new LinkedHashMap<>();
+        Map<Long, Double> pesoCantidad = new LinkedHashMap<>();
+        for (Map.Entry<Long, List<DevolucionItem>> e : itemsPorDevolucion.entrySet()) {
+            double valor = 0.0;
+            double cantidad = 0.0;
+            for (DevolucionItem item : e.getValue()) {
+                double cantidadBase = (item.getCantidad() != null ? item.getCantidad() : 0.0) * factor(item);
+                cantidad += cantidadBase;
+                Long prodId = item.getProducto() != null ? item.getProducto().getId() : null;
+                Double cantNota = prodId != null ? cantidadPorProducto.get(prodId) : null;
+                if (cantNota != null && cantNota > 0.0) {
+                    valor += cantidadBase * (totalPorProducto.get(prodId) / cantNota);
+                }
+            }
+            pesoValor.put(e.getKey(), valor);
+            pesoCantidad.put(e.getKey(), cantidad);
+        }
+
+        Map<Long, Double> pesos = pesoValor;
+        if (suma(pesos) <= 0.0) pesos = pesoCantidad;
+        double total = suma(pesos);
+
+        Map<Long, Double> montos = new LinkedHashMap<>();
+        int n = pesos.size();
+        int i = 0;
+        double asignado = 0.0;
+        for (Map.Entry<Long, Double> e : pesos.entrySet()) {
+            i++;
+            double monto;
+            if (i == n) {
+                monto = montoTotal - asignado;
+            } else {
+                monto = total > 0.0 ? montoTotal * e.getValue() / total : montoTotal / n;
+            }
+            asignado += monto;
+            montos.put(e.getKey(), monto);
+        }
+        return montos;
+    }
+
+    private static double suma(Map<Long, Double> valores) {
+        return valores.values().stream().mapToDouble(Double::doubleValue).sum();
+    }
+
+    private static double factor(DevolucionItem item) {
         if (item.getPresentacion() != null && item.getPresentacion().getCantidad() != null) {
             return item.getPresentacion().getCantidad();
         }
@@ -215,9 +277,15 @@ public class NotaCreditoDevolucionService {
         }
 
         // Cada devolucion del retiro pasa a ACREDITADO (reusa la maquina de estados
-        // y copia el nro de nota para compatibilidad de lectura del cliente).
+        // y copia el nro de nota para compatibilidad de lectura del cliente), con su
+        // parte del monto de la nota.
+        Map<Long, List<DevolucionItem>> itemsPorDevolucion = new LinkedHashMap<>();
         for (Devolucion d : devoluciones) {
-            devolucionService.acreditar(d.getId(), nroNotaCredito, null, usuario);
+            itemsPorDevolucion.put(d.getId(), devolucionItemService.findByDevolucionId(d.getId()));
+        }
+        Map<Long, Double> montos = repartirMonto(itemsPorDevolucion, items, montoTotal);
+        for (Devolucion d : devoluciones) {
+            devolucionService.acreditar(d.getId(), nroNotaCredito, montos.get(d.getId()), usuario);
         }
 
         return guardada;

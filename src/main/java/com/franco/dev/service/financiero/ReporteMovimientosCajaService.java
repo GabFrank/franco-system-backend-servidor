@@ -8,6 +8,7 @@ import com.franco.dev.domain.financiero.MovimientoCajaVirtual;
 import com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento;
 import com.franco.dev.domain.financiero.enums.MovimientoBancarioTipo;
 import com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo;
+import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.repository.financiero.CuentaBancariaRepository;
 import graphql.GraphQLException;
@@ -111,7 +112,10 @@ public class ReporteMovimientosCajaService {
     @AllArgsConstructor
     public static class Fila {
         private String fecha;
-        private String responsable;
+        /** Quien registró el movimiento (el usuario logueado que operó la caja). */
+        private String usuario;
+        /** Funcionario al que se le entregó la plata, elegido al registrar el egreso. Solo caja mayor. */
+        private String entregadoA;
         private String tipo;
         private String descripcion;
         private String monto;
@@ -162,7 +166,8 @@ public class ReporteMovimientosCajaService {
             boolean anulado = Boolean.FALSE.equals(m.getActivo());
             filas.add(new Fila(
                     fechaFila(m.getCreadoEn()),
-                    responsable(m.getUsuario()),
+                    nombre(m.getUsuario()),
+                    nombre(m.getResponsable()),
                     etiquetaCaja(m.getOrigenTipo(), m.getTipoMovimiento()),
                     m.getDescripcion(),
                     conSimbolo(monto(cantidad, mon), mon),
@@ -177,6 +182,7 @@ public class ReporteMovimientosCajaService {
 
         Map<String, Object> p = parametrosComunes(caja, usuario, desde, fin, soloActivos, filas.size(), totales);
         p.put("fuente", "Caja Mayor");
+        p.put("conEntregadoA", Boolean.TRUE);
         p.put("tipoFiltro", tipo != null ? TIPO_CAJA_LABELS.getOrDefault(tipo.name(), tipo.name()) : "Todos");
         p.put("monedaFiltro", moneda != null ? etiquetaMoneda(moneda) : "Todas");
         return new Contenido(p, filas);
@@ -193,7 +199,8 @@ public class ReporteMovimientosCajaService {
             String tipoName = m.getTipoMovimiento() != null ? m.getTipoMovimiento().name() : "";
             filas.add(new Fila(
                     fechaFila(m.getCreadoEn()),
-                    responsable(m.getUsuario()),
+                    nombre(m.getUsuario()),
+                    null,
                     TIPO_BANCO_LABELS.getOrDefault(tipoName, tipoName),
                     m.getDescripcion(),
                     conSimbolo(monto(monto, mon), mon),
@@ -207,6 +214,7 @@ public class ReporteMovimientosCajaService {
 
         Map<String, Object> p = parametrosComunes(caja, usuario, desde, fin, soloActivos, filas.size(), totales);
         String banco = cuenta.getBanco() != null && cuenta.getBanco().getNombre() != null ? cuenta.getBanco().getNombre() : "Banco";
+        p.put("conEntregadoA", Boolean.FALSE);
         p.put("fuente", banco + " - " + (cuenta.getNumero() != null ? cuenta.getNumero() : ""));
         p.put("tipoFiltro", tipo != null ? TIPO_BANCO_LABELS.getOrDefault(tipo, tipo) : "Todos");
         p.put("monedaFiltro", mon != null ? etiquetaMoneda(mon) : "-");
@@ -254,7 +262,7 @@ public class ReporteMovimientosCajaService {
         p.put("desdeFiltro", inicio != null ? FMT_DIA.format(inicio) : "Sin límite");
         p.put("hastaFiltro", finRango != null ? FMT_DIA.format(finRango) : "Sin límite");
         p.put("anuladosFiltro", soloActivos ? "No incluidos" : "Incluidos (tachados)");
-        p.put("usuario", responsable(usuario));
+        p.put("usuario", nombre(usuario));
         p.put("fechaGeneracion", FMT_GENERADO.format(LocalDateTime.now()));
         p.put("cantidad", String.valueOf(cantidad));
         p.put("totales", totales.isEmpty()
@@ -273,10 +281,15 @@ public class ReporteMovimientosCajaService {
         return fecha != null ? FMT_FILA.format(fecha) : "";
     }
 
-    private static String responsable(Usuario usuario) {
+    private static String nombre(Usuario usuario) {
         if (usuario == null) return "-";
         if (usuario.getPersona() != null && usuario.getPersona().getNombre() != null) return usuario.getPersona().getNombre();
         return usuario.getNickname() != null ? usuario.getNickname() : "-";
+    }
+
+    private static String nombre(Funcionario funcionario) {
+        if (funcionario == null || funcionario.getPersona() == null || funcionario.getPersona().getNombre() == null) return "-";
+        return funcionario.getPersona().getNombre();
     }
 
     private static String etiquetaMoneda(Moneda moneda) {

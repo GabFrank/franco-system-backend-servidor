@@ -189,6 +189,35 @@ public class FilialCajaProxyService {
     }
 
     /**
+     * Reenvia a la filial la reapertura de una caja cerrada. Las reglas (ADMIN, motivo, no verificada,
+     * mismo dia, maletin libre...) las valida la filial; su mensaje de rechazo se propaga tal cual.
+     * El central recibe la caja reabierta y el registro de la reapertura por replicacion.
+     *
+     * @return id de la caja reabierta
+     */
+    public Long reabrirCajaEnFilial(Long cajaId, Long sucursalId, String motivo) throws Exception {
+        Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+        if (sucursal == null || sucursal.getIp() == null || sucursal.getIp().isBlank()) {
+            log.error("[REABRIR CAJA FILIAL] Sucursal id={} inexistente o sin IP configurada", sucursalId);
+            throw new Exception("La sucursal no tiene IP configurada, no se puede reabrir la caja");
+        }
+        String url = buildFilialUrl(sucursal);
+        String query = "mutation($cajaId: ID!, $motivo: String!) { reabrirCaja(cajaId: $cajaId, motivo: $motivo) { id activo } }";
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("cajaId", cajaId);
+        variables.put("motivo", motivo);
+
+        log.info("[REABRIR CAJA FILIAL] >>> Enviando reabrirCaja a {} -> cajaId={}", url, cajaId);
+        Map<String, Object> data = executeGraphQLOrThrow(url, buildAuthHeaders(), query, variables);
+        Map<String, Object> caja = data != null ? (Map<String, Object>) data.get("reabrirCaja") : null;
+        if (caja == null || caja.get("id") == null) {
+            throw new Exception("La filial no devolvio la caja reabierta");
+        }
+        log.info("[REABRIR CAJA FILIAL] <<< Caja reabierta en filial -> cajaId={}", caja.get("id"));
+        return Long.valueOf(caja.get("id").toString());
+    }
+
+    /**
      * Reenvia a la filial la carga del conteo de apertura o cierre de una caja. La filial es la
      * duena de la caja: ahi se guarda el conteo, se enlaza a la caja y se crean los movimientos,
      * y el central lo recibe por replicacion.

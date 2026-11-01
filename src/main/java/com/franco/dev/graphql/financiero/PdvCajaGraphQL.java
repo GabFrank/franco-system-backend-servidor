@@ -457,6 +457,49 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         }
     }
 
+    /**
+     * Reabre una caja cerrada por equivocacion (issue desktop #662). Solo para rol ADMIN, con motivo.
+     * <p>
+     * Igual que la edicion del conteo: la filial es la duena de la caja y valida todas las reglas;
+     * aca solo se hace un chequeo temprano contra la copia replicada para no salir a la red.
+     */
+    public CajaFilialOperacionResult reabrirCajaDesdeServidor(Long cajaId, Long sucursalId, String motivo) {
+        String logPrefix = "REABRIR CAJA";
+        log.info("====== [{}] INICIO -> cajaId={}, sucursalId={} ======", logPrefix, cajaId, sucursalId);
+        if (cajaId == null || sucursalId == null) {
+            throw new GraphQLException("No se recibio la caja o su sucursal");
+        }
+        if (motivo == null || motivo.isBlank()) {
+            throw new GraphQLException("Indique el motivo para reabrir la caja");
+        }
+        Long usuarioId = seg.requireUsuarioDeSesion().getId();
+        if (!usuarioService.tieneRol(usuarioId, "ADMIN")) {
+            log.warn("[{}] Usuario id={} sin rol ADMIN intento reabrir la caja id={}", logPrefix, usuarioId, cajaId);
+            throw new GraphQLException("Solo un usuario ADMIN puede reabrir una caja");
+        }
+        PdvCaja cajaLocal = service.findById(cajaId, sucursalId);
+        if (cajaLocal != null && Boolean.TRUE.equals(cajaLocal.getVerificado())) {
+            throw new GraphQLException("La caja ya fue verificada, no se puede reabrir");
+        }
+
+        try {
+            Long id = filialCajaProxyService.reabrirCajaEnFilial(cajaId, sucursalId, motivo.trim());
+            log.info("[{}] ====== EXITO. cajaId={} ======", logPrefix, id);
+            return CajaFilialOperacionResult.ok(id);
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            log.error("[{}] FALLO DE CONEXION con la filial (sucursalId={}). Detalle: {}", logPrefix, sucursalId, e.getMessage(), e);
+            // Un timeout de lectura puede llegar con la caja ya reabierta en la filial.
+            throw new GraphQLException("No se pudo confirmar la reapertura con la sucursal. Vuelva a abrir la caja para ver su estado.");
+        } catch (org.springframework.web.client.RestClientException e) {
+            log.error("[{}] Error de cliente REST con la filial (sucursalId={}). Detalle: {}", logPrefix, sucursalId, e.getMessage(), e);
+            throw new GraphQLException("Error de comunicacion con la sucursal. Vuelva a abrir la caja para ver su estado.");
+        } catch (Exception e) {
+            log.error("[{}] No se pudo reabrir la caja (cajaId={}, sucursalId={}). Detalle: {}",
+                    logPrefix, cajaId, sucursalId, e.getMessage(), e);
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
     public Boolean verificarCaja(Long cajaId, Long sucursalId, Long usuarioId, Boolean verificado){
         try {
             PdvCaja caja = service.findById(cajaId, sucursalId);

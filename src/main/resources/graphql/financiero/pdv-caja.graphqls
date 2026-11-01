@@ -86,6 +86,8 @@ extend type Mutation {
     savePdvCajaPorSucursal(pdvCaja:PdvCajaInput!):PdvCaja!
     abrirCajaDesdeServidor(input:PdvCajaInput!, conteoInput: ConteoInput!, conteoMonedaInputList: [ConteoMonedaInput], cajaId: ID):CajaFilialOperacionResult
     editarConteoCajaDesdeServidor(cajaId: Int!, sucursalId: Int!, conteoAnteriorId: ID!, apertura: Boolean!, conteoInput: ConteoInput!, conteoMonedaInputList: [ConteoMonedaInput]):CajaFilialOperacionResult
+    "Reabre en la filial una caja cerrada por equivocacion. Solo ADMIN, con motivo (issue desktop #662)."
+    reabrirCajaDesdeServidor(cajaId: Int!, sucursalId: Int!, motivo: String!):CajaFilialOperacionResult
 }
 
 enum PdvCajaEstado {

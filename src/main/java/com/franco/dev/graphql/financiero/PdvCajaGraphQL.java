@@ -83,6 +83,9 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     private FilialCajaProxyService filialCajaProxyService;
 
     @Autowired
+    private com.franco.dev.service.financiero.PdvCajaReaperturaConsulta reaperturaConsulta;
+
+    @Autowired
     private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
 
     private static final Logger log = LoggerFactory.getLogger(PdvCajaGraphQL.class);
@@ -121,6 +124,11 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         CajaBalance cajaBalance = new CajaBalance();
         cajaBalance.setTotalGeneral(totalGeneral);
         return cajaBalance;
+    }
+
+    /** Reaperturas de la caja (issue desktop #662), para el resumen del dialogo de la caja. */
+    public List<com.franco.dev.service.financiero.PdvCajaReaperturaConsulta.Fila> reaperturasPorCaja(Long cajaId, Long sucursalId) {
+        return reaperturaConsulta.porCaja(cajaId, sucursalId);
     }
 
     public CajaBalance balancePorCajaIdAndSucursalId(Long id, Long sucId){

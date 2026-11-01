@@ -47,6 +47,18 @@ input PdvCajaInput {
     verificadoPorId: Int
 }
 
+"Reapertura de una caja cerrada por equivocacion (issue desktop #662). La escribe la filial."
+type PdvCajaReapertura {
+    id: ID!
+    pdvCajaId: Int
+    sucursalId: Int
+    motivo: String
+    usuarioId: Int
+    usuarioNombre: String
+    fechaCierreAnterior: Date
+    creadoEn: Date
+}
+
 type PdvCajaPage {
     getTotalPages: Int
     getTotalElements: Int
@@ -79,6 +91,7 @@ extend type Query {
     cajasAnalisisDiferencias(cajaId:ID, cajaAnteriorId: ID, estado: PdvCajaEstado , maletinId: ID, maletinDescripcion: String, cajeroId: ID, fechaInicio:String , fechaFin:String, sucId: ID, verificado: Boolean, difEstado:String, page:Int, size:Int):PdvCajaPage
     verificarCaja(cajaId:ID!, sucursalId: ID!, usuarioId:ID!, verificado: Boolean): Boolean
     findCajasWithVentaObservaciones:[PdvCaja]!
+    reaperturasPorCaja(cajaId: ID!, sucursalId: ID!): [PdvCajaReapertura]
 }
 
 extend type Mutation {

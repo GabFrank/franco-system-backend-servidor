@@ -112,3 +112,15 @@ Restaurar los datos de prueba al final.
 
 - La mensual (`LiquidacionSueldoService.eliminarItem`) tiene la misma regla y no se toca: fuera del pedido.
 - El programado #25 de producción sigue PENDIENTE: se anula por pantalla (ya no está en ningún finiquito).
+
+## Implementación y pruebas (2026-11-02)
+
+- Fase 1 central y Fase 2 desktop implementadas. Batería `./mvnw clean verify -B -DskipFlyway=true`: 3181 tests,
+  0 fallas. `npm run check`: verde (el primero falló porque el modelo del desktop no declaraba `referenciaTipo`).
+- Pruebas por pantalla contra la base local, las 6 del plan: eliminar con ADMIN (ítem fuera, total +60.000,
+  programado ANULADO), regenerar no lo trae, cancelar no llama, ítem común sin confirmación, rechazo forzado
+  con rollback real, rol acotado sin botón y rechazado por API, APROBADA sin botón y rechazada por API.
+  Datos de prueba borrados y roles de MR restaurados.
+- Auditoría del diff (paso 8): sin hallazgos altos. Media: `lockById` no refresca un finiquito ya cargado;
+  hoy es la primera carga del request (`liquidacionFinal` es LAZY), quedó comentado en el código. Baja: la
+  excepción re-lanzada ahora conserva la causa.

@@ -131,7 +131,9 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         Usuario u = seg.currentUsuario();
         if (u == null) return false;
         for (PdvCaja propia : service.findByUsuarioIdAndAbierto(u.getId())) {
-            if (propia.getMaletin() == null || propia.getFechaApertura() == null) continue;
+            // Una apertura en el futuro no es una caja real: correría la "anterior" a cualquier cierre del maletín.
+            if (propia.getMaletin() == null || propia.getFechaApertura() == null
+                    || propia.getFechaApertura().isAfter(java.time.LocalDateTime.now())) continue;
             List<PdvCaja> anteriores = service.getRepository().findPreviousCajaByMaletinAndFecha(
                     propia.getMaletin().getId(), propia.getFechaApertura(), PageRequest.of(0, 1));
             if (!anteriores.isEmpty() && caja.getId().equals(anteriores.get(0).getId())
@@ -160,13 +162,13 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     /**
-     * Con una caja puntual (el cajero mira la suya al abrir) alcanza con ser su dueño: la consulta filtra por
+     * Con una caja puntual (el cajero mira la suya al abrir) vale la lectura de esa caja: la consulta filtra por
      * ese id. Con cajaAnteriorId el servicio toma un atajo que ignora cajaId, así que ahí y en el resto, el rol.
      */
     public Page<PdvCaja> cajasAnalisisDiferencias(Long cajaId, Long cajaAnteriorId, PdvCajaEstado estado, Long maletinId, String maletinDescripcion, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, String difEstado, int page, int size) {
         if (cajaId != null && sucId != null && cajaAnteriorId == null) {
-            PdvCaja caja = service.findById(cajaId, sucId);
-            if (caja != null) seg.requireUsuarioORol(duenio(caja), TesoreriaSecurityService.ANALISIS_DE_CAJA);
+            // Misma regla que pdvCaja: tesorería abre el diálogo de la caja desde Control de retiros y este poll corre ahí.
+            exigirLectura(service.findById(cajaId, sucId));
         } else {
             seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         }
@@ -209,8 +211,31 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.getBalanceActiveCajasBySucursalId(sucursalId);
     }
 
+    /**
+     * Sin ANALISIS DE CAJA: una caja existente solo la guarda su dueño, y nadie se la pasa a otro, crea una a
+     * nombre de otro ni toca la verificación (eso es de verificarCaja). Mismo criterio que el filial.
+     */
+    private void exigirGuardado(PdvCajaInput input) {
+        if (seg.hasAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA)) return;
+        Usuario sesion = seg.requireUsuarioDeSesion();
+        PdvCaja existente = input.getId() != null ? service.findById(input.getId(), input.getSucursalId()) : null;
+        if (existente != null) seg.requireUsuarioORol(duenio(existente), TesoreriaSecurityService.ANALISIS_DE_CAJA);
+        Long duenioEsperado = existente == null ? sesion.getId()
+                : existente.getUsuario() != null ? existente.getUsuario().getId() : null;
+        boolean cambiaDuenio = input.getUsuarioId() != null && !input.getUsuarioId().equals(duenioEsperado);
+        boolean verificadaAntes = existente != null && Boolean.TRUE.equals(existente.getVerificado());
+        Long verificadorAntes = existente != null && existente.getVerificadoPor() != null ? existente.getVerificadoPor().getId() : null;
+        boolean cambiaVerificacion = Boolean.TRUE.equals(input.getVerificado()) != verificadaAntes
+                || (input.getVerificadoPorId() != null && !input.getVerificadoPorId().equals(verificadorAntes));
+        if (cambiaDuenio || cambiaVerificacion) {
+            throw new GraphQLException("No autorizado: cambiar el dueño o la verificación de una caja requiere el rol "
+                    + TesoreriaSecurityService.ANALISIS_DE_CAJA + ".");
+        }
+    }
+
     public PdvCaja savePdvCaja(PdvCajaInput input) {
         seg.requireAnyRole("ANALISIS DE CAJA", "VENTA TOUCH");
+        exigirGuardado(input);
         ModelMapper m = new ModelMapper();
         PdvCaja e = m.map(input, PdvCaja.class);
         if (input.getUsuarioId() != null) {
@@ -230,6 +255,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     public PdvCaja savePdvCajaPorSucursal(PdvCajaInput input) {
         seg.requireAnyRole("VENTA TOUCH");
+        exigirGuardado(input);
         ModelMapper m = new ModelMapper();
         PdvCaja e = m.map(input, PdvCaja.class);
         if (input.getUsuarioId() != null) {

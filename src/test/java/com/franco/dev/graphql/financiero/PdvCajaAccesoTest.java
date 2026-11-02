@@ -172,6 +172,11 @@ class PdvCajaAccesoTest {
         // con cajaAnteriorId el servicio ignora cajaId: rol
         noAutorizado(() -> resolver.cajasAnalisisDiferencias(41L, CAJA_AJENA, null, null, null, null, null, null, SUC, null, null, 0, 1));
         noAutorizado(() -> resolver.cajasAnalisisDiferencias(null, null, null, null, null, null, null, null, SUC, null, null, 0, 1));
+
+        // Tesorería abre el diálogo de la caja desde Control de retiros: el poll sobre esa caja pasa, el listado no.
+        rol.autenticar("TESORERO", "TESORERIA VER");
+        resolver.cajasAnalisisDiferencias(CAJA_AJENA, null, null, null, null, null, null, null, SUC, null, null, 0, 1);
+        noAutorizado(() -> resolver.cajasAnalisisDiferencias(null, null, null, null, null, null, null, null, SUC, null, null, 0, 1));
     }
 
     @Test
@@ -187,6 +192,78 @@ class PdvCajaAccesoTest {
         assertTrue(resolver.verificarCaja(CAJA_AJENA, SUC, OTRO_USUARIO, true));
         assertTrue(ajena.getVerificado());
         assertEquals(sesion.getId(), ajena.getVerificadoPor().getId());
+    }
+
+    @Test
+    void sinAnalisisNoSeGuardaLaCajaDeOtroNiSeCambiaDuenioNiVerificacion() {
+        rol.autenticar("CAJERO", "VENTA TOUCH");
+        com.franco.dev.graphql.financiero.input.PdvCajaInput ajena = new com.franco.dev.graphql.financiero.input.PdvCajaInput();
+        ajena.setId(CAJA_AJENA);
+        ajena.setSucursalId(SUC);
+        ajena.setUsuarioId(USUARIO_ID);
+        noAutorizado(() -> resolver.savePdvCaja(ajena));
+        noAutorizado(() -> resolver.savePdvCajaPorSucursal(ajena));
+
+        com.franco.dev.graphql.financiero.input.PdvCajaInput aNombreDeOtro = new com.franco.dev.graphql.financiero.input.PdvCajaInput();
+        aNombreDeOtro.setUsuarioId(OTRO_USUARIO);
+        noAutorizado(() -> resolver.savePdvCajaPorSucursal(aNombreDeOtro));
+
+        when(service.findById(41L, SUC)).thenReturn(caja(41L, USUARIO_ID));
+        com.franco.dev.graphql.financiero.input.PdvCajaInput propiaVerificada = new com.franco.dev.graphql.financiero.input.PdvCajaInput();
+        propiaVerificada.setId(41L);
+        propiaVerificada.setSucursalId(SUC);
+        propiaVerificada.setVerificado(true);
+        noAutorizado(() -> resolver.savePdvCaja(propiaVerificada));
+    }
+
+    @Test
+    void sinAnalisisGuardaSuCajaYCreaLaPropia() {
+        rol.autenticar("CAJERO", "VENTA TOUCH");
+        when(service.findById(41L, SUC)).thenReturn(caja(41L, USUARIO_ID));
+        com.franco.dev.graphql.financiero.input.PdvCajaInput propia = new com.franco.dev.graphql.financiero.input.PdvCajaInput();
+        propia.setId(41L);
+        propia.setSucursalId(SUC);
+        propia.setUsuarioId(USUARIO_ID);
+        assertFalse(RolCajaSoporte.esNoAutorizado(llamarGuardar(() -> resolver.savePdvCaja(propia))));
+
+        com.franco.dev.graphql.financiero.input.PdvCajaInput nueva = new com.franco.dev.graphql.financiero.input.PdvCajaInput();
+        nueva.setActivo(true);   // como el Android: sin id ni usuario
+        assertFalse(RolCajaSoporte.esNoAutorizado(llamarGuardar(() -> resolver.savePdvCajaPorSucursal(nueva))));
+
+        rol.autenticar("X", "ANALISIS DE CAJA");
+        assertFalse(RolCajaSoporte.esNoAutorizado(llamarGuardar(() -> resolver.savePdvCaja(propiaConDuenio(OTRO_USUARIO)))));
+    }
+
+    private static com.franco.dev.graphql.financiero.input.PdvCajaInput propiaConDuenio(Long usuarioId) {
+        com.franco.dev.graphql.financiero.input.PdvCajaInput i = new com.franco.dev.graphql.financiero.input.PdvCajaInput();
+        i.setId(41L);
+        i.setSucursalId(SUC);
+        i.setUsuarioId(usuarioId);
+        return i;
+    }
+
+    /** Pasar el control alcanza: lo que viene después usa dependencias que acá están en null. */
+    private static Throwable llamarGuardar(Runnable r) {
+        try {
+            r.run();
+            return null;
+        } catch (Throwable t) {
+            return t;
+        }
+    }
+
+    @Test
+    void laCajaAnteriorNoSeAbreConUnaAperturaEnElFuturo() {
+        rol.autenticar("CAJERO", "VENTA TOUCH");
+        PdvCaja futura = caja(41L, USUARIO_ID);
+        Maletin m = new Maletin();
+        m.setId(9L);
+        futura.setMaletin(m);
+        futura.setFechaApertura(LocalDateTime.now().plusDays(30));
+        when(service.findByUsuarioIdAndAbierto(USUARIO_ID)).thenReturn(Collections.singletonList(futura));
+        when(repository.findPreviousCajaByMaletinAndFecha(eq9(), any(), any()))
+                .thenReturn(Collections.singletonList(caja(CAJA_AJENA, OTRO_USUARIO)));
+        noAutorizado(() -> resolver.pdvCaja(CAJA_AJENA, SUC));
     }
 
     @Test

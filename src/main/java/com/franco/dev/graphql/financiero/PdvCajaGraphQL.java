@@ -143,25 +143,39 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public List<PdvCaja> pdvCajas(int page, int size, Long sucId) {
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
     public List<PdvCaja> cajasPorFecha(String inicio, String fin, Long sucId) {
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         return service.findByDate(inicio, fin, sucId);
     }
 
     public Page<PdvCaja> cajasWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, Boolean activo, int page, int size) {
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         Pageable pageable = PageRequest.of(page, size);
         return service.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio, fechaFin, sucId, verificado, activo, pageable);
     }
 
+    /**
+     * Con una caja puntual (el cajero mira la suya al abrir) alcanza con ser su dueño: la consulta filtra por
+     * ese id. Con cajaAnteriorId el servicio toma un atajo que ignora cajaId, así que ahí y en el resto, el rol.
+     */
     public Page<PdvCaja> cajasAnalisisDiferencias(Long cajaId, Long cajaAnteriorId, PdvCajaEstado estado, Long maletinId, String maletinDescripcion, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, String difEstado, int page, int size) {
+        if (cajaId != null && sucId != null && cajaAnteriorId == null) {
+            PdvCaja caja = service.findById(cajaId, sucId);
+            if (caja != null) seg.requireUsuarioORol(duenio(caja), TesoreriaSecurityService.ANALISIS_DE_CAJA);
+        } else {
+            seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
+        }
         Pageable pageable = PageRequest.of(page, size);
         return service.findAllForAnalisisDiferencias(cajaId, cajaAnteriorId, estado, maletinId, maletinDescripcion, cajeroId, fechaInicio, fechaFin, sucId, verificado, difEstado, pageable);
     }
 
     public CajaBalance balancePorFecha(String inicio, String fin, Long sucId) {
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         List<PdvCaja> pdvCajaList = service.findByDate(inicio, fin, sucId);
         Double totalGeneral = 0.0;
         for (PdvCaja c : pdvCajaList) {
@@ -191,6 +205,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
      * @return A list of CajaBalance objects, one for each active caja
      */
     public List<CajaBalance> balanceActiveCajasBySucursalId(Long sucursalId) {
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         return service.getBalanceActiveCajasBySucursalId(sucursalId);
     }
 
@@ -234,6 +249,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     //    }
 
     public Long countPdvCaja() {
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         return service.count();
     }
 
@@ -265,6 +281,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
      * @return A list of active PdvCaja objects for the specified sucursal
      */
     public List<PdvCaja> cajaAbiertoPorSucursal(Long sucursalId) {
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         return service.findActiveBySucursalId(sucursalId);
     }
 
@@ -564,10 +581,12 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         }
     }
 
+    /** usuarioId queda en la firma para los clientes viejos; el que verifica es el de la sesión. */
     public Boolean verificarCaja(Long cajaId, Long sucursalId, Long usuarioId, Boolean verificado){
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
+        Usuario usuario = seg.requireUsuarioDeSesion();
         try {
             PdvCaja caja = service.findById(cajaId, sucursalId);
-            Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
             caja.setVerificado(verificado);
             caja.setVerificadoPor(usuario);
             service.save(caja);
@@ -578,6 +597,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public List<PdvCaja> findCajasWithVentaObservaciones () {
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         return service.findCajasWithVentaObservaciones();
     }
 

@@ -160,6 +160,35 @@ class PdvCajaAccesoTest {
         assertNull(resolver.pdvCajaDesdeFilial(CAJA_AJENA, SUC));
     }
 
+    /** El poll de apertura del desktop mira la caja propia del cajero, que puede no haber replicado todavía. */
+    @Test
+    void analisisDiferenciasDeLaCajaPropiaSinRol() {
+        rol.autenticar("CAJERO", "VENTA TOUCH");
+        when(service.findById(41L, SUC)).thenReturn(caja(41L, USUARIO_ID));
+        resolver.cajasAnalisisDiferencias(41L, null, null, null, null, null, null, null, SUC, null, null, 0, 1);
+        resolver.cajasAnalisisDiferencias(99L, null, null, null, null, null, null, null, SUC, null, null, 0, 1);
+
+        noAutorizado(() -> resolver.cajasAnalisisDiferencias(CAJA_AJENA, null, null, null, null, null, null, null, SUC, null, null, 0, 1));
+        // con cajaAnteriorId el servicio ignora cajaId: rol
+        noAutorizado(() -> resolver.cajasAnalisisDiferencias(41L, CAJA_AJENA, null, null, null, null, null, null, SUC, null, null, 0, 1));
+        noAutorizado(() -> resolver.cajasAnalisisDiferencias(null, null, null, null, null, null, null, null, SUC, null, null, 0, 1));
+    }
+
+    @Test
+    void verificarCajaExigeAnalisisYGuardaAlDeLaSesion() {
+        PdvCaja ajena = caja(CAJA_AJENA, OTRO_USUARIO);
+        when(service.findById(CAJA_AJENA, SUC)).thenReturn(ajena);
+
+        rol.autenticar("TESORERO", "TESORERIA GESTIONAR");
+        noAutorizado(() -> resolver.verificarCaja(CAJA_AJENA, SUC, OTRO_USUARIO, true));
+        assertNull(ajena.getVerificado());
+
+        Usuario sesion = rol.autenticar("ANALISTA", "ANALISIS DE CAJA");
+        assertTrue(resolver.verificarCaja(CAJA_AJENA, SUC, OTRO_USUARIO, true));
+        assertTrue(ajena.getVerificado());
+        assertEquals(sesion.getId(), ajena.getVerificadoPor().getId());
+    }
+
     @Test
     void elCampoBalanceEsNullParaElQueNoPuedeLeer() {
         CajaResolver campo = rol.resolver(CajaResolver.class);

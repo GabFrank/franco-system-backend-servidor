@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.franco.dev.service.financiero.FacturaCorreoService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -17,6 +18,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class FacturaCorreoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
+    @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
     private final FacturaCorreoService facturaCorreoService;
 
     public FacturaCorreoGraphQL(FacturaCorreoService facturaCorreoService) {
@@ -24,6 +28,7 @@ public class FacturaCorreoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public Boolean enviarFacturaLegalPorCorreo(Long id, Long sucId, String email) {
+        seg.requireAnyRole("ANALISIS DE CAJA");
         return facturaCorreoService.enviarManual(id, sucId, email);
     }
 }

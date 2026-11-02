@@ -56,6 +56,7 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
     private final ValeCuotaRepository cuotaRepository;
     private final LiquidacionItemRepository liquidacionItemRepository;
     private final LiquidacionFinalItemRepository liquidacionFinalItemRepository;
+    private final com.franco.dev.repository.operaciones.SolicitudPagoRepository solicitudPagoRepository;
 
     /** referenciaTipo de los items de liquidacion/finiquito que descuentan una cuota de vale. */
     public static final String REFERENCIA_CUOTA = "VALE_CUOTA";
@@ -195,6 +196,12 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
         if (vale.getEstado() != ValeEstado.SOLICITADO) {
             throw new GraphQLException("Solo se puede confirmar un vale en estado SOLICITADO");
         }
+        // Un vale con obligacion de pago se paga desde tesoreria: confirmarlo por caja dejaba
+        // la solicitud abierta para siempre (bodega, vale #140 / SP-000062).
+        if (vale.getSolicitudPagoId() != null) {
+            throw new GraphQLException("El vale #" + vale.getId() + " tiene su pago pendiente en tesoreria:"
+                    + " pagalo desde tesoreria (Pagar vales)");
+        }
         registrarEgresoCaja(vale, cajaVirtualId);
         vale.setEstado(ValeEstado.CONFIRMADO);
         vale.setCajaVirtualId(cajaVirtualId);
@@ -241,7 +248,7 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
         // dinero fuera de la caja (revertirEgresoCaja hace return si no hay cajaVirtualId) o
         // duplicaria la reversion. Se anula el pago, y el hook de sincronizacion devuelve el
         // vale a SOLICITADO.
-        if (vale.getEstado() == ValeEstado.CONFIRMADO && vale.getSolicitudPagoId() != null) {
+        if (pagadoDesdeTesoreria(vale)) {
             throw new GraphQLException("Este vale se pago desde tesoreria: anula el pago desde el "
                     + "movimiento de caja (Anular pago) y el vale vuelve a quedar pendiente");
         }
@@ -254,6 +261,7 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
                 cuotaRepository.save(c);
             }
         }
+        if (vale.getEstado() == ValeEstado.SOLICITADO) cancelarSolicitudSinPago(vale);
         vale.setEstado(ValeEstado.ANULADO);
         return repository.save(vale);
     }
@@ -395,6 +403,33 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
         // cuando el monto es positivo, y deja el movimiento original sin tachar.
         movimientoCajaVirtualService.revertirMovimiento(vale.getMovimientoCajaVirtualId(),
                 "ANULACION VALE #" + vale.getId(), vale.getUsuario());
+    }
+
+    /**
+     * true si la plata del vale salio por un pago de tesoreria todavia vivo. Un vale con solicitud
+     * pero sin pago (confirmado por caja antes de este fix) se revierte por su egreso directo.
+     */
+    private boolean pagadoDesdeTesoreria(Vale vale) {
+        return vale.getSolicitudPagoId() != null && pagoSolicitudDetalleRepository
+                .findBySolicitudPagoIdOrderByCreadoEnAsc(vale.getSolicitudPagoId()).stream()
+                .anyMatch(d -> !Boolean.TRUE.equals(d.getAnulado()));
+    }
+
+    /**
+     * Un vale anulado antes de pagarse no debe dejar su obligacion abierta en tesoreria.
+     * SolicitudPagoService.cancelar solo acepta compras: por eso se cancela aca.
+     */
+    private void cancelarSolicitudSinPago(Vale vale) {
+        if (vale.getSolicitudPagoId() == null) return;
+        solicitudPagoRepository.findById(vale.getSolicitudPagoId())
+                .filter(sp -> sp.getEstado() == com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado.SOLICITADO)
+                .ifPresent(sp -> {
+                    sp.setEstado(com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado.CANCELADO);
+                    String nota = "CANCELADA: se anulo el vale #" + vale.getId();
+                    String obs = sp.getObservaciones();
+                    sp.setObservaciones(obs != null && !obs.trim().isEmpty() ? obs.trim() + " | " + nota : nota);
+                    solicitudPagoRepository.save(sp);
+                });
     }
 
     /** Sufijo " - NOMBRE" para las descripciones de los movimientos (vacio si no hay). */

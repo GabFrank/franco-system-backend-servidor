@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.config.multitenant.CustomPage;
 import com.franco.dev.config.multitenant.CustomPageImpl;
 import com.franco.dev.domain.financiero.EnteFinanciero;
@@ -23,6 +24,9 @@ import java.util.Optional;
 
 @Component
 public class EnteFinancieroGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private EnteFinancieroService service;
@@ -66,6 +70,7 @@ public class EnteFinancieroGraphQL implements GraphQLQueryResolver, GraphQLMutat
     }
 
     public EnteFinanciero saveEnteFinanciero(EnteFinancieroInput input) {
+        seg.requireSuperusuario();
         EnteFinanciero e = new EnteFinanciero();
         if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new EnteFinanciero());
@@ -99,6 +104,7 @@ public class EnteFinancieroGraphQL implements GraphQLQueryResolver, GraphQLMutat
     }
 
     public Boolean deleteEnteFinanciero(Long id) {
+        seg.requireSuperusuario();
         try {
             return service.deleteById(id);
         } catch (Exception err) {

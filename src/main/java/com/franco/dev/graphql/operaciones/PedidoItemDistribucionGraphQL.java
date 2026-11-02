@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.service.operaciones.PedidoItemDistribucionService;
 import com.franco.dev.service.operaciones.PedidoItemService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -20,6 +21,9 @@ import java.util.ArrayList;
 
 @Component
 public class PedidoItemDistribucionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private ComprasSecurityService seg;
 
     @Autowired
     private PedidoItemDistribucionService service;
@@ -78,6 +82,7 @@ public class PedidoItemDistribucionGraphQL implements GraphQLQueryResolver, Grap
      */
     @Transactional
     public PedidoItemDistribucion savePedidoItemDistribucion(PedidoItemDistribucionInput input) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         PedidoItemDistribucion distribucion;
 
         // Si tiene ID, buscar la existente para actualizar
@@ -124,6 +129,7 @@ public class PedidoItemDistribucionGraphQL implements GraphQLQueryResolver, Grap
      */
     @Transactional
     public Boolean deletePedidoItemDistribucion(Long id) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         try {
             Optional<PedidoItemDistribucion> distribucion = service.findById(id);
             if (distribucion.isPresent()) {
@@ -143,6 +149,7 @@ public class PedidoItemDistribucionGraphQL implements GraphQLQueryResolver, Grap
      */
     @Transactional
     public List<PedidoItemDistribucion> savePedidoItemDistribuciones(List<PedidoItemDistribucionInput> inputs) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         List<PedidoItemDistribucion> distribuciones = new ArrayList<>();
 
         for (PedidoItemDistribucionInput input : inputs) {
@@ -159,6 +166,7 @@ public class PedidoItemDistribucionGraphQL implements GraphQLQueryResolver, Grap
     @Transactional
     public List<PedidoItemDistribucion> replacePedidoItemDistribuciones(Long pedidoItemId,
             List<PedidoItemDistribucionInput> inputs) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         // Eliminar distribuciones existentes
         deletePedidoItemDistribucionesByPedidoItemId(pedidoItemId);
 
@@ -171,6 +179,7 @@ public class PedidoItemDistribucionGraphQL implements GraphQLQueryResolver, Grap
      */
     @Transactional
     public Boolean deletePedidoItemDistribucionesByPedidoItemId(Long pedidoItemId) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         try {
             // Use the repository method that handles the deletion in a single query
             service.deleteByPedidoItemId(pedidoItemId);
@@ -186,6 +195,7 @@ public class PedidoItemDistribucionGraphQL implements GraphQLQueryResolver, Grap
      */
     @Transactional
     public Boolean deletePedidoItemDistribucionesByIds(List<Long> ids) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         try {
             int deletedCount = service.deleteByIds(ids);
             return deletedCount > 0 || ids.isEmpty();
@@ -199,6 +209,7 @@ public class PedidoItemDistribucionGraphQL implements GraphQLQueryResolver, Grap
     @Transactional
     public List<PedidoItemDistribucion> savePedidoItemDistribuciones(Long pedidoItemId,
             List<PedidoItemDistribucionInput> distribucionesInput) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         // Step 1: Find the PedidoItem
         PedidoItem pedidoItem = pedidoItemService.findById(pedidoItemId)
                 .orElseThrow(() -> new GraphQLException("PedidoItem no encontrado con ID: " + pedidoItemId));
@@ -238,6 +249,7 @@ public class PedidoItemDistribucionGraphQL implements GraphQLQueryResolver, Grap
     @Transactional
     public List<PedidoItemDistribucion> mergePedidoItemDistribuciones(Long pedidoItemId,
             List<PedidoItemDistribucionInput> inputs) {
+        seg.exigirCompras();
         // Step 1: Find the PedidoItem
         PedidoItem pedidoItem = pedidoItemService.findById(pedidoItemId)
                 .orElseThrow(() -> new GraphQLException("PedidoItem no encontrado con ID: " + pedidoItemId));

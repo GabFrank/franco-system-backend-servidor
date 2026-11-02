@@ -21,6 +21,9 @@ import java.util.Optional;
 public class TipoCombustibleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private TipoCombustibleService service;
 
     @Autowired
@@ -65,6 +68,7 @@ public class TipoCombustibleGraphQL implements GraphQLQueryResolver, GraphQLMuta
     }
 
     public TipoCombustible saveTipoCombustible(TipoCombustibleInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         TipoCombustible e = MAPPER.map(input, TipoCombustible.class);
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -79,6 +83,7 @@ public class TipoCombustibleGraphQL implements GraphQLQueryResolver, GraphQLMuta
     }
 
     public Boolean deleteTipoCombustible(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         try {
             return service.deleteById(id);
         } catch (Exception err) {

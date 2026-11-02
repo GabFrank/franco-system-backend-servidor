@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItem;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItemVariacion;
 import com.franco.dev.service.operaciones.RecepcionMercaderiaItemVariacionService;
@@ -17,6 +18,9 @@ import java.util.List;
 public class RecepcionMercaderiaItemVariacionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private ComprasSecurityService seg;
+
+    @Autowired
     private RecepcionMercaderiaItemVariacionService recepcionMercaderiaItemVariacionService;
 
     /**
@@ -25,6 +29,7 @@ public class RecepcionMercaderiaItemVariacionGraphQL implements GraphQLQueryReso
      * @return true si se eliminó correctamente, false en caso contrario
      */
     public Boolean deleteRecepcionMercaderiaItemVariacion(Long id) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         try {
             if (id == null) {
                 return false;

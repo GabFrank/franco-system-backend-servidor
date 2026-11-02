@@ -14,6 +14,7 @@ import com.franco.dev.domain.operaciones.dto.TopProductoDevueltoDto;
 import com.franco.dev.domain.operaciones.dto.TopProveedorDevolucionDto;
 import com.franco.dev.domain.operaciones.dto.RetiroBloqueResultadoDto;
 import com.franco.dev.domain.operaciones.dto.RetiroCajaDto;
+import com.franco.dev.domain.operaciones.dto.RetiroDevolucionResumenDto;
 import com.franco.dev.domain.operaciones.dto.RetiroDevolucionResultadoDto;
 import com.franco.dev.domain.operaciones.dto.RetiroLineaConsolidadaDto;
 import com.franco.dev.domain.operaciones.dto.RetiroProveedorConsolidadoDto;
@@ -865,9 +866,13 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             Map<String, RetiroLineaConsolidadaDto> lineasMap = new LinkedHashMap<>();
             List<RetiroCajaDto> cajas = new ArrayList<>();
             List<Long> devolucionIds = new ArrayList<>();
+            List<RetiroDevolucionResumenDto> resumenes = new ArrayList<>();
 
             for (Devolucion d : devsSucursal) {
                 devolucionIds.add(d.getId());
+                List<RetiroCajaDto> productosDev = new ArrayList<>();
+                resumenes.add(new RetiroDevolucionResumenDto(d.getId(), d.getIdentificador(),
+                        d.getEstado() != null ? d.getEstado().name() : null, productosDev));
                 List<DevolucionItem> items = devolucionItemService.findByDevolucionId(d.getId());
                 for (DevolucionItem item : items) {
                     Long productoId = item.getProducto() != null ? item.getProducto().getId() : null;
@@ -892,19 +897,22 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                     }
                     linea.setCantidadTotal(linea.getCantidadTotal() + cantidad);
 
-                    cajas.add(new RetiroCajaDto(
+                    RetiroCajaDto producto = new RetiroCajaDto(
                             d.getIdentificador(),
                             d.getId(),
                             productoId,
                             descripcion,
                             cantidad,
                             item.getLote(),
-                            item.getVencimiento()));
+                            item.getVencimiento(),
+                            presDesc);
+                    cajas.add(producto);
+                    productosDev.add(producto);
                 }
             }
 
             grupos.add(new RetiroSucursalGrupoDto(sucId, sucNombre,
-                    new ArrayList<>(lineasMap.values()), cajas, devolucionIds));
+                    new ArrayList<>(lineasMap.values()), cajas, devolucionIds, resumenes));
         }
 
         return new RetiroProveedorConsolidadoDto(proveedorId, proveedorNombre, LocalDateTime.now(), grupos);

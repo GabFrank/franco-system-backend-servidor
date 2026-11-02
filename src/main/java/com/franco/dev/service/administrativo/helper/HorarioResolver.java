@@ -2,17 +2,16 @@ package com.franco.dev.service.administrativo.helper;
 
 import com.franco.dev.domain.administrativo.Horario;
 import com.franco.dev.domain.administrativo.Marcacion;
-import com.franco.dev.domain.administrativo.enums.Dia;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.repository.administrativo.HorarioRepository;
 import com.franco.dev.service.personas.FuncionarioService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.time.DayOfWeek;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -21,69 +20,43 @@ public class HorarioResolver {
     private final FuncionarioService funcionarioService;
     private final HorarioRepository horarioRepository;
 
+    /**
+     * Horario de la jornada (#523): entre los que rigen el dia de {@code fechaReferencia}, el
+     * de entrada mas cercana a su hora. Si no rige ninguno devuelve null y la jornada se mide
+     * contra la estandar de 8 h. Ver {@link HorarioSemanal}.
+     */
     public Horario resolver(Marcacion marcacion, LocalDateTime fechaReferencia) {
-        Dia diaSemana = mapToDia(fechaReferencia.getDayOfWeek());
-
-        return getFuncionario(marcacion)
-                .map(f -> {
-                    Horario horario = f.getHorario();
-                    if (horario == null) return null;
-                    if (cumpleCondiciones(horario, diaSemana)) {
-                        return horario;
-                    }
-                    return buscarAlternativo(marcacion.getUsuario().getId(), diaSemana);
-                })
-                .orElseGet(() -> buscarPorUsuarioYDia(marcacion, diaSemana));
-    }
-
-    private Dia mapToDia(DayOfWeek dayOfWeek) {
-        switch (dayOfWeek) {
-            case MONDAY: return Dia.LUNES;
-            case TUESDAY: return Dia.MARTES;
-            case WEDNESDAY: return Dia.MIERCOLES;
-            case THURSDAY: return Dia.JUEVES;
-            case FRIDAY: return Dia.VIERNES;
-            case SATURDAY: return Dia.SABADO;
-            case SUNDAY: return Dia.DOMINGO;
-            default: return null;
-        }
-    }
-
-    private Optional<Funcionario> getFuncionario(Marcacion marcacion) {
-        if (marcacion.getUsuario() == null) return Optional.empty();
-        if (marcacion.getUsuario().getPersona() != null) {
-            return Optional.ofNullable(funcionarioService.findByPersonaId(marcacion.getUsuario().getPersona().getId()));
-        }
-        return Optional.ofNullable(funcionarioService.findByUsuarioId(marcacion.getUsuario().getId()));
-    }
-
-    /** Un horario sin dias cargados no discrimina: rige todos los dias. */
-    private boolean cumpleCondiciones(Horario horario, Dia diaSemana) {
-        if (horario.getDias() == null || horario.getDias().isEmpty()) return true;
-        return horario.getDias().contains(diaSemana) || horario.getDias().contains(Dia.TODOS);
+        if (marcacion.getUsuario() == null || marcacion.getUsuario().getId() == null) return null;
+        List<Horario> horarios = horariosVigentes(marcacion.getUsuario().getId(), getFuncionario(marcacion));
+        return HorarioSemanal.elegir(horarios, HorarioSemanal.dia(fechaReferencia.getDayOfWeek()),
+                fechaReferencia.toLocalTime());
     }
 
     /**
-     * Otro horario del usuario que si rija ese dia. Si ninguno rige, devuelve null a
-     * proposito: la jornada queda sin horario y se evalua contra la jornada estandar de
-     * 8 h. Antes se devolvia "cualquier horario del usuario", y eso le encajaba el turno
-     * nocturno a quien trabajaba un fin de semana en horario de dia, inventando horas
-     * extras que nadie hizo.
+     * Los horarios de la cuenta que marca. Desde #523 la fuente es una sola: los horarios
+     * propios del usuario (horario.usuario_id). funcionario.horario_id queda solo como
+     * respaldo de quien todavia no tiene ninguno propio; antes ganaba siempre y, como casi
+     * todos eran de TODOS, tapaba los horarios de un dia puntual.
      */
-    private Horario buscarAlternativo(Long usuarioId, Dia diaSemana) {
-        List<Horario> horariosUsuario = horarioRepository.findByUsuarioIdOrderByIdDesc(usuarioId);
-        if (horariosUsuario == null || horariosUsuario.isEmpty()) return null;
-
-        return horariosUsuario.stream()
-                .filter(h -> h.getHoraEntrada() != null && cumpleCondiciones(h, diaSemana))
-                .findFirst()
-                .orElse(null);
+    public List<Horario> horariosVigentes(Long usuarioId, Funcionario funcionario) {
+        List<Horario> propios = usuarioId == null ? Collections.emptyList()
+                : horarioRepository.findByUsuarioIdOrderByIdDesc(usuarioId).stream()
+                        .filter(h -> h.getHoraEntrada() != null)
+                        .collect(Collectors.toList());
+        if (!propios.isEmpty()) return propios;
+        if (funcionario != null && funcionario.getHorario() != null
+                && funcionario.getHorario().getHoraEntrada() != null) {
+            return Collections.singletonList(funcionario.getHorario());
+        }
+        return Collections.emptyList();
     }
 
-    private Horario buscarPorUsuarioYDia(Marcacion marcacion, Dia diaSemana) {
-        if (marcacion.getUsuario() != null && diaSemana != null) {
-            return horarioRepository.findByUsuarioIdAndDia(marcacion.getUsuario().getId(), diaSemana);
-        }
-        return null;
+    /**
+     * Por la persona de la cuenta. No por funcionario.usuario_id: esa columna es "creado por"
+     * y devolvia el funcionario de otro.
+     */
+    private Funcionario getFuncionario(Marcacion marcacion) {
+        if (marcacion.getUsuario().getPersona() == null) return null;
+        return funcionarioService.findByPersonaId(marcacion.getUsuario().getPersona().getId());
     }
 }

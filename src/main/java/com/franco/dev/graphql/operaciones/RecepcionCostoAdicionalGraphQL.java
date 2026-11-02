@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.domain.operaciones.RecepcionCostoAdicional;
 import com.franco.dev.graphql.operaciones.input.RecepcionCostoAdicionalInput;
 import com.franco.dev.service.financiero.MonedaService;
@@ -18,6 +19,9 @@ import java.util.Optional;
 
 @Component
 public class RecepcionCostoAdicionalGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private ComprasSecurityService seg;
 
     private static final Logger logger = LoggerFactory.getLogger(RecepcionCostoAdicionalGraphQL.class);
 
@@ -53,6 +57,7 @@ public class RecepcionCostoAdicionalGraphQL implements GraphQLQueryResolver, Gra
     // ===== MUTATION OPERATIONS =====
 
     public RecepcionCostoAdicional saveRecepcionCostoAdicional(RecepcionCostoAdicionalInput input) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         logger.info("=== Starting RecepcionCostoAdicional save operation ===");
         
         try {
@@ -90,6 +95,7 @@ public class RecepcionCostoAdicionalGraphQL implements GraphQLQueryResolver, Gra
     }
 
     public Boolean deleteRecepcionCostoAdicional(Long id) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         logger.info("Eliminando RecepcionCostoAdicional con ID: {}", id);
         try {
             return service.deleteById(id);

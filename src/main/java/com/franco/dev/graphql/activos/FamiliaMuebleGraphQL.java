@@ -22,6 +22,9 @@ import java.util.Optional;
 public class FamiliaMuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private FamiliaMuebleService service;
 
     @Autowired
@@ -54,6 +57,7 @@ public class FamiliaMuebleGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public FamiliaMueble saveFamiliaMueble(FamiliaMuebleInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         FamiliaMueble e = new FamiliaMueble();
         if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new FamiliaMueble());
@@ -72,6 +76,7 @@ public class FamiliaMuebleGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public Boolean deleteFamiliaMueble(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         try {
             return service.deleteById(id);
         } catch (Exception err) {

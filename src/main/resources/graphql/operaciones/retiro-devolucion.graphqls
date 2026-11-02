@@ -17,6 +17,17 @@ type RetiroCaja {
     cantidad: Float
     lote: String
     vencimiento: Date
+    # Factor de la presentacion ("x1", "x12").
+    presentacion: String
+}
+
+# Una devolucion lista para retirar con sus productos. Es lo que se escanea:
+# su etiqueta lleva un solo QR con el identificador.
+type RetiroDevolucionResumen {
+    devolucionId: ID
+    identificador: String
+    estado: String
+    productos: [RetiroCaja]
 }
 
 type RetiroSucursalGrupo {
@@ -25,6 +36,7 @@ type RetiroSucursalGrupo {
     lineas: [RetiroLineaConsolidada]
     cajas: [RetiroCaja]
     devolucionIds: [ID]
+    devoluciones: [RetiroDevolucionResumen]
 }
 
 type RetiroProveedorConsolidado {
@@ -47,7 +59,8 @@ type RetiroBloqueResultado {
 extend type Query {
     retiroProveedorConsolidado(proveedorId: ID!, sucursalId: ID): RetiroProveedorConsolidado
     remitoRetiroProveedor(devolucionIds: [ID!]!): String
-    # PDF A4 (Base64) con las etiquetas de separado de una devolucion.
+    # PDF A4 (Base64) con la etiqueta de separado de una devolucion: una sola, con un QR
+    # y la lista de productos.
     etiquetasSeparadoPdf(devolucionId: ID!): String
 }
 
@@ -58,6 +71,6 @@ extend type Mutation {
     colectarDevolucionesEnBloque(devolucionIds: [ID!]!, sucursalDestinoId: ID!, usuarioId: ID): RetiroBloqueResultado
     # anchoMm: ancho del papel termico (58 u 80). Null asume 58.
     imprimirTicketRetiroProveedor(devolucionIds: [ID!]!, printerName: String, anchoMm: Int): Boolean
-    # Etiquetas de separado (una por item, con QR del identificador).
+    # Etiqueta de separado en ticket termico: una por devolucion, con un QR y la lista de productos.
     imprimirEtiquetasSeparado(devolucionId: ID!, printerName: String, anchoMm: Int): Boolean
 }

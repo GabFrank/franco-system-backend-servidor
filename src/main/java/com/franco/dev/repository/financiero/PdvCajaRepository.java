@@ -56,9 +56,10 @@ public interface PdvCajaRepository extends HelperRepository<PdvCaja, Long>, JpaS
             "(:maletinId is null or m.id = :maletinId) and " +
             "(:cajeroId is null or u.id = :cajeroId) and " +
             "(:verificado is null or c.verificado = :verificado) and " +
+            "(:activo is null or c.activo = :activo) and " +
             "((:cajaId is not null) or (cast(:fechaInicio as timestamp) is null or cast(:fechaFin as timestamp) is null) or c.creadoEn between :fechaInicio and :fechaFin) and " +
             "(c.estado = :estado or cast(:estado as com.franco.dev.domain.financiero.enums.PdvCajaEstado) is null) order by c.creadoEn desc")
-    public Page<PdvCaja> findAllWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, LocalDateTime fechaInicio, LocalDateTime fechaFin, Long sucId, Boolean verificado, Pageable pageable);
+    public Page<PdvCaja> findAllWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, LocalDateTime fechaInicio, LocalDateTime fechaFin, Long sucId, Boolean verificado, Boolean activo, Pageable pageable);
 
     List<PdvCaja> findBySucursalIdAndActivo(Long sucursalId, Boolean activo);
 

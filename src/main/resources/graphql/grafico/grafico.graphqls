@@ -70,6 +70,31 @@ type VentaPorCiudad {
     desgloseAnhos: [DesgloseAnhoGrafico!]
 }
 
+type ConvenioConteo {
+    total: Int!
+    abiertas: Int!
+    finalizadas: Int!
+    canceladas: Int!
+    otras: Int!
+}
+
+type ConvenioSucursalIntegridad {
+    sucursalId: ID!
+    sucursalNombre: String
+    central: ConvenioConteo!
+    filial: ConvenioConteo
+    estadoIntegridad: String!
+    error: String
+    faltanEnCentral: Int!
+    sobranEnCentral: Int!
+    estadoDistinto: Int!
+    idsFaltanEnCentral: [ID!]!
+    idsSobranEnCentral: [ID!]!
+    idsEstadoDistinto: [ID!]!
+    ultimoCentral: String
+    ultimoFilial: String
+}
+
 extend type Query {
     ventasPorFuncionarioMulti(
         periodos: [PeriodoGraficoInput!]!
@@ -123,4 +148,12 @@ extend type Query {
         periodos: [PeriodoGraficoInput!]!
         sucIds: [ID]
     ): [VentasPorHoraSerieGrafico!]!
+
+    "Convenios (ventas a crédito) por sucursal y comparación contra la base de cada filial. Fechas yyyy-MM-dd, ambas inclusive."
+    convenioIntegridadPorSucursal(
+        fechaInicio: String!
+        fechaFin: String!
+        estado: EstadoVentaCredito
+        sucIds: [ID]
+    ): [ConvenioSucursalIntegridad!]!
 }

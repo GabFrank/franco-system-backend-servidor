@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItem;
 import com.franco.dev.domain.operaciones.NotaRecepcionItemDistribucion;
 import com.franco.dev.graphql.operaciones.input.RecepcionMercaderiaItemInput;
@@ -61,6 +62,9 @@ import com.franco.dev.graphql.operaciones.input.RecepcionMercaderiaItemVariacion
 
 @Component
 public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private ComprasSecurityService seg;
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RecepcionMercaderiaItemGraphQL.class);
 
@@ -188,6 +192,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      */
     @Transactional
     public RecepcionMercaderiaItem saveRecepcionMercaderiaItem(RecepcionMercaderiaItemInput input) {
+        seg.exigirCompras();
         if (input == null) {
             throw new GraphQLException("Input es requerido");
         }
@@ -278,16 +283,19 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
             for (RecepcionMercaderiaItemVariacionInput variacion : input.getVariaciones()) {
                 boolean rechazada = variacion.getRechazado() != null && variacion.getRechazado();
                 if (!rechazada && normalizarLote(variacion.getLote()) == null) {
-                    throw new GraphQLException("El producto '" + producto.getDescripcion()
-                            + "' requiere control de lote: falta el número de lote en una de las variaciones recibidas.");
+                    // Lotes flexibles (#429): advertencia, no error. Queda como SIN LOTE.
+                    System.out.println("Aviso: '" + producto.getDescripcion()
+                            + "' con control de lote recibido sin número en una variación: queda como SIN LOTE.");
                 }
             }
             return;
         }
 
         if (normalizarLote(input.getLote()) == null) {
-            throw new GraphQLException("El producto '" + producto.getDescripcion()
-                    + "' requiere control de lote: el número de lote es obligatorio.");
+            // Lotes flexibles (#429): ya no bloquea. Se recibe y lo recibido queda "pendiente de
+            // lote" (SIN LOTE en el libro de lotes) hasta que se atribuya.
+            System.out.println("Aviso: '" + producto.getDescripcion()
+                    + "' con control de lote recibido sin número: queda pendiente de lote (SIN LOTE).");
         }
     }
 
@@ -514,6 +522,12 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
         Double cantidadRechazadaTotal = input.getCantidadRechazada() != null ? input.getCantidadRechazada() : 0.0;
 
         if (input.getVariaciones() != null && !input.getVariaciones().isEmpty()) {
+            // El ítem tiene que existir antes que sus variaciones (si no, Hibernate
+            // rechaza la variación por referenciar un ítem sin guardar).
+            item.setCantidadRecibida(cantidadRecibidaTotal);
+            item.setCantidadRechazada(cantidadRechazadaTotal);
+            actualizarEstadoVerificacion(item);
+            item = service.save(item);
             // Si hay variaciones, recalcular totales desde las variaciones
             cantidadRecibidaTotal = 0.0;
             cantidadRechazadaTotal = 0.0;
@@ -672,6 +686,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      * Cancela la verificación de un ítem de recepción
      */
     public Boolean cancelarVerificacion(Long notaRecepcionItemId, Long sucursalId) {
+        seg.exigirCompras();
         System.out.println("=== CANCELAR VERIFICACIÓN ===");
         System.out.println("NotaRecepcionItemId: " + notaRecepcionItemId);
         System.out.println("SucursalId: " + sucursalId);
@@ -696,6 +711,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      * resetea estado)
      */
     public Boolean resetearVerificacion(Long recepcionMercaderiaItemId) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         System.out.println("=== RESETEAR VERIFICACIÓN ===");
         System.out.println("RecepcionMercaderiaItemId: " + recepcionMercaderiaItemId);
 
@@ -726,6 +742,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      * - Mobile: Sí (deshacer verificación de productos con múltiples notas)
      */
     public Boolean deshacerVerificacionPorProducto(Long recepcionMercaderiaId, Long productoId) {
+        seg.exigirCompras();
         System.out.println("=== DESHACER VERIFICACIÓN POR PRODUCTO ===");
         System.out.println("RecepcionMercaderiaId: " + recepcionMercaderiaId);
         System.out.println("ProductoId: " + productoId);
@@ -773,6 +790,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
             String fechaRetiro,
             Long usuarioId
     ) {
+        seg.exigirCompras();
         if (recepcionMercaderiaId == null || productoId == null || usuarioId == null) {
             throw new GraphQLException("recepcionMercaderiaId, productoId y usuarioId son requeridos");
         }
@@ -797,6 +815,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      * Cancela el rechazo de un ítem de recepción
      */
     public Boolean cancelarRechazo(Long notaRecepcionItemId, Long sucursalId) {
+        seg.exigirCompras();
         System.out.println("=== CANCELAR RECHAZO ===");
         System.out.println("NotaRecepcionItemId: " + notaRecepcionItemId);
         System.out.println("SucursalId: " + sucursalId);
@@ -822,6 +841,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
     @Transactional
     public Boolean rechazarItem(Long notaRecepcionItemId, Long presentacionId, List<RechazoInput> rechazos,
             Long usuarioId) {
+        seg.exigirCompras();
         System.out.println("=== RECHAZAR ÍTEM ===");
         System.out.println("NotaRecepcionItemId: " + notaRecepcionItemId);
         System.out.println("PresentacionId: " + presentacionId);
@@ -1046,6 +1066,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      */
     @Transactional
     public Boolean recepcionarTodoPorNota(Long notaId, List<Long> sucursalesIds, Long usuarioId, List<Long> itemIds) {
+        seg.exigirCompras();
         System.out.println("=== RECEPCIONAR TODO POR NOTA ===");
         System.out.println("NotaId: " + notaId);
         System.out.println("SucursalesIds: " + sucursalesIds);
@@ -1076,14 +1097,9 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
                 return true; // Nada que recepcionar, pero no es un error
             }
 
-            // 2.1. Regla de negocio: una nota que contiene productos con control de lote NO se
-            // recepciona de forma masiva. Es todo o nada: la recepción masiva no captura número
-            // de lote, así que se rechaza la operación completa en vez de recibir una parte y
-            // dejar el resto pendiente sin que quede claro por qué.
-            //
-            // IMPORTANTE: solo cuentan las distribuciones que todavía tienen cantidad PENDIENTE.
-            // Un producto con lote que ya fue verificado en detalle no debe seguir bloqueando la
-            // recepción masiva del resto de la nota.
+            // 2.1. Productos con control de lote en la masiva: no capturan número de lote, así que
+            // se reciben igual y quedan pendientes de lote (SIN LOTE). Solo cuentan las
+            // distribuciones con cantidad pendiente.
             List<String> productosConLote = distribucionesFiltradas.stream()
                     .filter(dist -> calcularCantidadPendiente(dist) > 0.001)
                     .map(dist -> dist.getNotaRecepcionItem().getProducto())
@@ -1093,11 +1109,11 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
                     .collect(Collectors.toList());
 
             if (!productosConLote.isEmpty()) {
-                throw new GraphQLException(
-                        "Esta nota contiene " + productosConLote.size() + " producto(s) con control de lote ("
-                                + String.join(", ", productosConLote)
-                                + "). La recepción masiva no captura el número de lote: verifique los ítems "
-                                + "de esta nota con la Verificación Detallada.");
+                // Lotes flexibles (#429): la masiva ya no rechaza la nota. Recibe todo; los
+                // productos con lote quedan pendientes de lote (SIN LOTE) para cargarlo después.
+                System.out.println("Recepción masiva con " + productosConLote.size()
+                        + " producto(s) con control de lote que quedan pendientes de lote: "
+                        + String.join(", ", productosConLote));
             }
 
             int itemsProcesados = 0;
@@ -1159,6 +1175,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      */
     @Transactional
     public Boolean deshacerVerificacionTodoPorNota(Long notaId, List<Long> sucursalesIds, Long usuarioId, List<Long> itemIds) {
+        seg.exigirCompras();
         System.out.println("=== DESHACER VERIFICACIÓN TODO POR NOTA ===");
         System.out.println("NotaId: " + notaId);
         System.out.println("SucursalesIds: " + sucursalesIds);
@@ -1241,6 +1258,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
 
     public ValidacionFinalizacionRecepcion validarFinalizacionRecepcionPorPedido(Long pedidoId,
             List<Long> sucursalesIds) {
+        seg.exigirCompras();
         log.debug("=== VALIDACIÓN FINALIZACIÓN RECEPCIÓN POR PEDIDO === pedidoId={} sucursalesIds={}",
                 pedidoId, sucursalesIds);
 
@@ -1367,6 +1385,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      */
     @Transactional
     public Boolean finalizarRecepcionFisicaPorPedido(Long pedidoId, List<Long> sucursalesIds) {
+        seg.exigirCompras();
         System.out.println("=== FINALIZAR RECEPCIÓN FÍSICA POR PEDIDO ===");
         System.out.println("PedidoId: " + pedidoId);
         System.out.println("SucursalesIds: " + sucursalesIds);

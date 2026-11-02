@@ -23,6 +23,9 @@ import java.util.Optional;
 public class SectorGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private SectorService service;
 
     @Autowired
@@ -49,6 +52,7 @@ public class SectorGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Sector saveSector(SectorInput input){
+        seg.requireAnyRole(com.franco.dev.service.operaciones.InventarioSecurityService.ROLES_INVENTARIO);
         ModelMapper m = new ModelMapper();
         Sector e = m.map(input, Sector.class);
         e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
@@ -58,6 +62,7 @@ public class SectorGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Boolean deleteSector(Long id){
+        seg.requireAnyRole(com.franco.dev.service.operaciones.InventarioSecurityService.ROLES_INVENTARIO);
         Sector sector = service.findById(id).orElse(null);
         Boolean ok = service.deleteById(id);
         return ok;

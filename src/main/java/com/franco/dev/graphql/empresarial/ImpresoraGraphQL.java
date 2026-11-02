@@ -26,6 +26,9 @@ import java.util.Optional;
 public class ImpresoraGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private ImpresoraService service;
 
     @Autowired
@@ -88,6 +91,7 @@ public class ImpresoraGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public Impresora saveImpresora(ImpresoraInput input) {
+        seg.requireAnyRole("CONFIGURACION");
         Impresora e = MAPPER.map(input, Impresora.class);
         if (input.getSucursalId() != null) {
             e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
@@ -99,6 +103,7 @@ public class ImpresoraGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public Boolean deleteImpresora(Long id) {
+        seg.requireAnyRole("CONFIGURACION");
         return service.deleteById(id);
     }
 

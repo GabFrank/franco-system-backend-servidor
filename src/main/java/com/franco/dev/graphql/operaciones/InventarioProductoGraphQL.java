@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.InventarioSecurityService;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.operaciones.Inventario;
 import com.franco.dev.domain.operaciones.InventarioProducto;
@@ -25,6 +26,9 @@ import java.util.Optional;
 
 @Component
 public class InventarioProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private InventarioSecurityService seg;
 
     @Autowired
     private InventarioProductoService service;
@@ -55,6 +59,7 @@ public class InventarioProductoGraphQL implements GraphQLQueryResolver, GraphQLM
     }
 
     public InventarioProducto saveInventarioProducto(InventarioProductoInput input) throws GraphqlErrorException {
+        seg.requireAnyRole(InventarioSecurityService.ROLES_INVENTARIO);
         ModelMapper m = new ModelMapper();
         InventarioProducto e = m.map(input, InventarioProducto.class);
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -73,6 +78,7 @@ public class InventarioProductoGraphQL implements GraphQLQueryResolver, GraphQLM
     }
 
     public Boolean deleteInventarioProducto(Long id) {
+        seg.requireAnyRole();
         Boolean ok = false;
         InventarioProducto i = service.findById(id).orElse(null);
         if(i!=null) {

@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.NotaPedido;
 import com.franco.dev.domain.operaciones.Vuelto;
@@ -26,6 +27,9 @@ import java.util.Optional;
 public class VueltoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private TesoreriaSecurityService seg;
+
+    @Autowired
     private VueltoService service;
 
     @Autowired
@@ -46,6 +50,7 @@ public class VueltoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 //    }
 
     public Vuelto saveVuelto(VueltoInput input){
+        seg.requireSuperusuario();
         ModelMapper m = new ModelMapper();
         Vuelto e = m.map(input, Vuelto.class);
         if(input.getUsuarioId()!=null){
@@ -61,6 +66,7 @@ public class VueltoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Boolean deleteVuelto(Long id, Long sucId){
+        seg.requireSuperusuario();
         return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 

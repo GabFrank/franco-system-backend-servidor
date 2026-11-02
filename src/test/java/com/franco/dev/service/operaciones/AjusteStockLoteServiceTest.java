@@ -79,6 +79,10 @@ class AjusteStockLoteServiceTest {
         };
         for (ModoAjusteLote modo : ModoAjusteLote.values()) {
             for (double[] caso : casos) {
+                // LIBERAR solo baja y nunca a negativo: esos casos se rechazan (GestionLotesTest).
+                if (modo == ModoAjusteLote.LIBERAR && (caso[1] > caso[0] || caso[1] < 0)) {
+                    continue;
+                }
                 AjusteStockLoteService.PlanAjuste plan =
                         AjusteStockLoteService.calcular(modo, caso[0], caso[1]);
                 assertEquals(plan.getCantidadMovimiento(),

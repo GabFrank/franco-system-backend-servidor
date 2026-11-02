@@ -30,6 +30,9 @@ import java.util.Optional;
 public class MuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private MuebleService service;
 
     @Autowired
@@ -87,6 +90,7 @@ public class MuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Mueble saveMueble(MuebleInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         Mueble e = new Mueble();
         if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new Mueble());
@@ -175,6 +179,7 @@ public class MuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Boolean deleteMueble(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         try {
             return service.deleteById(id);
         } catch (Exception err) {

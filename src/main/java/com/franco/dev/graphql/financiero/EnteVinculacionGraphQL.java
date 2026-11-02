@@ -27,6 +27,9 @@ import java.util.Optional;
 public class EnteVinculacionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private EnteVinculacionService service;
 
     @Autowired
@@ -72,6 +75,7 @@ public class EnteVinculacionGraphQL implements GraphQLQueryResolver, GraphQLMuta
     }
 
     public EnteVinculacion saveEnteVinculacion(EnteVinculacionInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         EnteVinculacion e = new EnteVinculacion();
         if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new EnteVinculacion());
@@ -106,6 +110,7 @@ public class EnteVinculacionGraphQL implements GraphQLQueryResolver, GraphQLMuta
     }
 
     public Boolean deleteEnteVinculacion(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         try {
             return service.deleteById(id);
         } catch (Exception err) {

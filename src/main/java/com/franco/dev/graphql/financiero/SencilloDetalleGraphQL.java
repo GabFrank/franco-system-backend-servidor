@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.SencilloDetalle;
@@ -25,6 +26,9 @@ import java.util.Optional;
 public class SencilloDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private TesoreriaSecurityService seg;
+
+    @Autowired
     private SencilloDetalleService service;
 
     @Autowired
@@ -42,6 +46,7 @@ public class SencilloDetalleGraphQL implements GraphQLQueryResolver, GraphQLMuta
 
 
     public SencilloDetalle saveSencilloDetalle(SencilloDetalleInput input){
+        seg.requireSuperusuario();
         ModelMapper m = new ModelMapper();
         SencilloDetalle e = m.map(input, SencilloDetalle.class);
         if(input.getUsuarioId()!=null){
@@ -56,6 +61,7 @@ public class SencilloDetalleGraphQL implements GraphQLQueryResolver, GraphQLMuta
     }
 
     public Boolean deleteSencilloDetalle(Long id, Long sucId){
+        seg.requireSuperusuario();
         return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 

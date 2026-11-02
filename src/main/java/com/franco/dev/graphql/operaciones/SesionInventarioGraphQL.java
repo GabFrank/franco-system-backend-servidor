@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.InventarioSecurityService;
 import com.franco.dev.domain.operaciones.SesionInventario;
 import com.franco.dev.graphql.operaciones.input.SesionInventarioInput;
 import com.franco.dev.service.empresarial.SucursalService;
@@ -18,6 +19,9 @@ import java.util.Optional;
 
 @Component
 public class SesionInventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private InventarioSecurityService seg;
 
     @Autowired
     private SesionInventarioService service;
@@ -49,6 +53,7 @@ public class SesionInventarioGraphQL implements GraphQLQueryResolver, GraphQLMut
 
 
     public SesionInventario saveSesionInventario(SesionInventarioInput input) {
+        seg.requireAnyRole();
         ModelMapper m = new ModelMapper();
         SesionInventario e = m.map(input, SesionInventario.class);
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -59,6 +64,7 @@ public class SesionInventarioGraphQL implements GraphQLQueryResolver, GraphQLMut
     }
 
     public Boolean deleteSesionInventario(Long id) {
+        seg.requireAnyRole();
         Boolean ok = false;
         SesionInventario i = service.findById(id).orElse(null);
         if (i != null) {

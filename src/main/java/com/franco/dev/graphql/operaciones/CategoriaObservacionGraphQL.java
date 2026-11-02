@@ -19,6 +19,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class CategoriaObservacionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
     @Autowired
     private CategoriaObservacionService service;
 
@@ -33,6 +36,7 @@ public class CategoriaObservacionGraphQL implements GraphQLQueryResolver, GraphQ
 
 
     public CategoriaObservacion saveCategoriaObservacion(CategoriaObservacionInput input){
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         CategoriaObservacion e = m.map(input, CategoriaObservacion.class);
         if(input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -53,6 +57,7 @@ public class CategoriaObservacionGraphQL implements GraphQLQueryResolver, GraphQ
     }
 
     public Boolean deleteCategoriaObservacion(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

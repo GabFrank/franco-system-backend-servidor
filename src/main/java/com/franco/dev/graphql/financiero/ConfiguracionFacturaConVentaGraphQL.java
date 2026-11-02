@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import com.franco.dev.domain.financiero.ConfiguracionFacturaConVenta;
 import com.franco.dev.graphql.financiero.input.ConfiguracionFacturaConVentaInput;
 import com.franco.dev.service.financiero.ConfiguracionFacturaConVentaService;
@@ -15,6 +16,9 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class ConfiguracionFacturaConVentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
+    @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
     private final ConfiguracionFacturaConVentaService service;
     private final UsuarioService usuarioService;
 
@@ -23,6 +27,7 @@ public class ConfiguracionFacturaConVentaGraphQL implements GraphQLQueryResolver
     }
 
     public ConfiguracionFacturaConVenta saveConfiguracionFacturaConVenta(ConfiguracionFacturaConVentaInput input) {
+        seg.requireAnyRole("ANALISIS DE CAJA");
         ConfiguracionFacturaConVenta config = service.findOrCreate();
         if (input.getHabilitado() != null) {
             config.setHabilitado(input.getHabilitado());

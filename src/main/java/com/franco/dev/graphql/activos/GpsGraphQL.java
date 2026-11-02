@@ -19,6 +19,9 @@ import java.util.Optional;
 public class GpsGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private GpsService service;
 
     @Autowired
@@ -57,6 +60,7 @@ public class GpsGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver
     }
 
     public Gps saveGps(GpsInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         Gps e = m.map(input, Gps.class);
         if (input.getVehiculoId() != null) {
@@ -66,15 +70,18 @@ public class GpsGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver
     }
 
     public Boolean deleteGps(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         return service.deleteById(id);
     }
 
     public Boolean enviarComandoGps(Long id, String tipo, String valor) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         return service.enviarComando(id, tipo, valor);
     }
 
     public Gps guardarConfigAlertasGps(Long id, Boolean alertaVelocidad, Integer velocidadLimite,
             Boolean alertaVibracion, Boolean alertaBateriaBaja, Boolean alertaAcc) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         return service.updateConfigAlertas(id, alertaVelocidad, velocidadLimite, alertaVibracion,
                 alertaBateriaBaja, alertaAcc);
     }

@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.service.productos.PrecioSecurityService;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.graphql.productos.input.CodigoInput;
@@ -16,6 +17,9 @@ import java.util.Optional;
 
 @Component
 public class CodigoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private PrecioSecurityService seg;
 
     @Autowired
     private CodigoService service;
@@ -39,6 +43,7 @@ public class CodigoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Codigo saveCodigo(CodigoInput input) {
+        seg.requireAnyRole(PrecioSecurityService.EDITAR_PRODUCTOS);
         Codigo e = service.save(input);
         return e;
     }
@@ -53,6 +58,7 @@ public class CodigoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Boolean deleteCodigo(Long id) {
+        seg.requireAnyRole(PrecioSecurityService.EDITAR_PRODUCTOS);
         Boolean ok = service.deleteById(id);
         return ok;
     }

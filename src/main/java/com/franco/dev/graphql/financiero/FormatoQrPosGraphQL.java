@@ -24,6 +24,9 @@ import java.util.Optional;
 public class FormatoQrPosGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private FormatoQrPosService service;
 
     @Autowired
@@ -45,6 +48,7 @@ public class FormatoQrPosGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public FormatoQrPos saveFormatoQrPos(FormatoQrPosInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         FormatoQrPos e = input.getId() != null
                 ? service.findById(input.getId()).orElse(new FormatoQrPos())
                 : new FormatoQrPos();
@@ -64,6 +68,7 @@ public class FormatoQrPosGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean desactivarFormatoQrPos(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         return service.findById(id).map(e -> {
             e.setActivo(false);
             service.save(e);

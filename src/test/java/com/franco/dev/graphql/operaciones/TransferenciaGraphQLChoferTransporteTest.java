@@ -77,6 +77,7 @@ class TransferenciaGraphQLChoferTransporteTest {
 
         resolver = new TransferenciaGraphQL();
         ReflectionTestUtils.setField(resolver, "service", service);
+        ReflectionTestUtils.setField(resolver, "seg", new com.franco.dev.service.financiero.TesoreriaSecurityFalso(1L, "VER TRANSFERENCIA"));
         ReflectionTestUtils.setField(resolver, "usuarioService", usuarioService);
         ReflectionTestUtils.setField(resolver, "personaService", personaService);
         ReflectionTestUtils.setField(resolver, "vehiculoService", vehiculoService);

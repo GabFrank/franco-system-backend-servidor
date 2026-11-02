@@ -40,8 +40,19 @@ class RecepcionCompartidaIT {
     @Autowired private ProcesoEtapaService procesoEtapaService;
     @PersistenceContext private EntityManager em;
 
+    private Object segReal;
+
+    @org.junit.jupiter.api.AfterEach
+    void restaurarSeguridad() {
+        org.springframework.test.util.ReflectionTestUtils.setField(graphQL, "seg", segReal);
+    }
+
     @BeforeEach
     void autenticar() {
+        // el control de rol del resolver lee roles de la base; el usuario de este IT no existe
+        segReal = org.springframework.test.util.ReflectionTestUtils.getField(graphQL, "seg");
+        org.springframework.test.util.ReflectionTestUtils.setField(graphQL, "seg",
+                new com.franco.dev.service.operaciones.compras.ComprasSecurityFalso("ADMIN"));
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("recepcion-compartida-it", null,
                         Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN"))));

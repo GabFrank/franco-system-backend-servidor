@@ -25,6 +25,9 @@ import java.util.stream.Collectors;
 public class TipoEquipoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private TipoEquipoService service;
 
     @Autowired
@@ -62,6 +65,7 @@ public class TipoEquipoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public TipoEquipoOutput saveTipoEquipo(TipoEquipoInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         TipoEquipo entity = new TipoEquipo();
         if (input.getId() != null) {
             entity = service.findById(input.getId()).orElse(new TipoEquipo());
@@ -83,6 +87,7 @@ public class TipoEquipoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public Boolean deleteTipoEquipo(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         try {
             return service.deleteById(id);
         } catch (Exception err) {

@@ -25,6 +25,9 @@ import java.util.Optional;
 public class ProveedorServicioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private ProveedorServicioService service;
 
     @Autowired
@@ -58,6 +61,7 @@ public class ProveedorServicioGraphQL implements GraphQLQueryResolver, GraphQLMu
     }
 
     public ProveedorServicio saveProveedorServicio(ProveedorServicioInput input) throws GraphQLException {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         ProveedorServicio e = m.map(input, ProveedorServicio.class);
         e.setUsuario(input.getUsuarioId() != null
@@ -79,6 +83,7 @@ public class ProveedorServicioGraphQL implements GraphQLQueryResolver, GraphQLMu
      * de FK llegaria al desktop como un "eliminado con exito" mentiroso. Chequeamos antes.
      */
     public Boolean deleteProveedorServicio(Long id) throws GraphQLException {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         Long terminales = terminalPosService.countByProveedorServicioId(id);
         if (terminales != null && terminales > 0) {
             throw new GraphQLException(

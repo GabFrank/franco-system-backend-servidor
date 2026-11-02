@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.financiero.TerminalPos;
@@ -30,6 +31,9 @@ import java.util.List;
 
 @Component
 public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private VentaTarjetaService service;
@@ -76,6 +80,7 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private static final long VENTA_LOOKUP_ESPERA_MS = 300;
 
     public VentaTarjeta saveVentaTarjeta(VentaTarjetaInput input) {
+        seg.requireAnyRole("VENTA TOUCH", "VENTA TARJETA COMPLETAR");
         ModelMapper m = new ModelMapper();
         m.getConfiguration().setAmbiguityIgnored(true);
         VentaTarjeta entity = m.map(input, VentaTarjeta.class);
@@ -119,6 +124,7 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public VentaTarjeta updateVentaTarjeta(VentaTarjetaInput input) {
+        seg.requireAnyRole("VENTA TOUCH", "VENTA TARJETA COMPLETAR");
         VentaTarjeta entity = service.findByIdAndSucursalId(input.getId(), input.getSucursalId());
         if (entity == null) return null;
 
@@ -143,6 +149,7 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean deleteVentaTarjeta(Long id, Long sucId) {
+        seg.requireSuperusuario();
         VentaTarjeta entity = service.findByIdAndSucursalId(id, sucId);
         if (entity == null) return false;
         return service.delete(entity);
@@ -159,6 +166,7 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean cancelarVentaTarjetaPorVentaId(Long ventaId, Long sucId) {
+        seg.requireCancelarVenta();
         List<VentaTarjeta> registros = service.findAllByVentaIdAndSucursalId(ventaId, sucId);
         if (registros == null || registros.isEmpty()) return false;
         registros.forEach(vt -> {

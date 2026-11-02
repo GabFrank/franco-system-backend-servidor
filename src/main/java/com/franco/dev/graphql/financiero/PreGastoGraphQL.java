@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.financiero.PreGasto;
 import com.franco.dev.domain.financiero.enums.EstadoPreGasto;
 import com.franco.dev.graphql.financiero.input.PreGastoInput;
@@ -47,6 +48,9 @@ import java.util.stream.Collectors;
 
 @Component
 public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private PreGastoService service;
@@ -275,27 +279,33 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public PreGasto autorizarPreGasto(Long id, Long autorizadorId, Long usuarioId, Long sucId) {
+        seg.requireAnyRole("ANALISIS DE CAJA");
         return service.autorizar(id, autorizadorId, usuarioId, sucId);
     }
 
     public PreGasto rechazarPreGasto(Long id, String motivo, Long rechazadorId, Long usuarioId, Long sucId) {
+        seg.requireAnyRole("ANALISIS DE CAJA");
         return service.rechazar(id, motivo, rechazadorId, usuarioId, sucId);
     }
 
     public PreGasto tramitarPreGasto(Long id, Long sucId) {
+        seg.requireSuperusuario();
         return service.enviarATramite(id, sucId);
     }
 
     public PreGasto completarPreGasto(Long id, Long sucId, Boolean rindioGasto, Double montoGastado,
             Double montoGastadoGs, Double montoGastadoRs, Double montoGastadoDs) {
+        seg.requireAnyRole("ANALISIS DE CAJA");
         return service.completar(id, sucId, rindioGasto, montoGastado, montoGastadoGs, montoGastadoRs, montoGastadoDs);
     }
 
     public PreGasto enviarPreGastoATesoreria(Long id, Long sucId, Long usuarioId) {
+        seg.requireAnyRole("ANALISIS DE CAJA");
         return service.enviarATesoreria(id, sucId, usuarioId);
     }
 
     public Boolean deletePreGasto(Long id, Long sucId) {
+        seg.requireSuperusuario();
         PreGasto e = service.findByIdAndSucursalId(id, sucId);
         return service.delete(e);
     }
@@ -325,10 +335,12 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public PreGasto ejecutarRetiroPreGasto(EjecutarRetiroPreGastoInput input) {
+        seg.requireAnyRole("VENTA TOUCH");
         return service.ejecutarRetiro(input);
     }
 
     public PreGasto registrarDevolucionSaldoPreGasto(DevolucionSaldoPreGastoInput input) {
+        seg.requireAnyRole("ANALISIS DE CAJA");
         return service.registrarDevolucionSaldo(input);
     }
 

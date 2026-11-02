@@ -23,6 +23,9 @@ import java.util.Optional;
 
 @Component
 public class CajaObservacionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
     @Autowired
     private CajaObservacionService service;
 
@@ -51,9 +54,9 @@ public class CajaObservacionGraphQL implements GraphQLQueryResolver, GraphQLMuta
     }
 
     public CajaObservacion saveCajaObservacion(CajaObservacionInput input) {
+        seg.requireAnyRole("ANALISIS DE CAJA");
         ModelMapper m = new  ModelMapper();
         CajaObservacion e = m.map(input, CajaObservacion.class);
-        CajaObservacion cajaObservacion = null;
         if (input.getCajaMotivoObservacionId() != null) {
             e.setCajaMotivoObservacion(cajaMotivoObservacionService.findById(input.getCajaMotivoObservacionId()).orElse(null));
         }
@@ -69,14 +72,14 @@ public class CajaObservacionGraphQL implements GraphQLQueryResolver, GraphQLMuta
             }
         if (input.getSucursalId() != null)
             e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
-        if(input.getUsuarioId() != null)
-            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        if(input.getId() != null)
-            cajaObservacion = service.findById(input.getId()).orElse(null);
+        // el autor es el usuario de la sesion; al editar se conserva el original
+        CajaObservacion previa = input.getId() != null ? service.findById(input.getId()).orElse(null) : null;
+        e.setUsuario(previa != null ? previa.getUsuario() : seg.requireUsuarioDeSesion());
         return service.save(e);
     }
 
     public Boolean deleteCajaObservacion(Long id) {
+        seg.requireSuperusuario(); // sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

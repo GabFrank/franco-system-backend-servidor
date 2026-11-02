@@ -43,7 +43,8 @@ class ValeServiceSincronizacionTest {
         service = new ValeService(repository, mock(CajaVirtualService.class),
                 mock(MovimientoCajaVirtualService.class), mock(UsuarioService.class), detalleRepository,
                 mock(ValeCuotaRepository.class), mock(LiquidacionItemRepository.class),
-                mock(LiquidacionFinalItemRepository.class));
+                mock(LiquidacionFinalItemRepository.class),
+                mock(com.franco.dev.repository.operaciones.SolicitudPagoRepository.class));
         when(repository.save(any(Vale.class))).thenAnswer(i -> i.getArgument(0));
         when(detalleRepository.findBySolicitudPagoIdOrderByCreadoEnAsc(anyLong())).thenReturn(List.of());
     }
@@ -116,6 +117,9 @@ class ValeServiceSincronizacionTest {
         // Anularlo acá no devolvería la plata: el egreso salió por un evento de pago consolidado.
         Vale v = vale(ValeEstado.CONFIRMADO);
         when(repository.findById(1L)).thenReturn(Optional.of(v));
+        PagoSolicitudDetalle pago = new PagoSolicitudDetalle();
+        pago.setAnulado(false);
+        when(detalleRepository.findBySolicitudPagoIdOrderByCreadoEnAsc(88L)).thenReturn(List.of(pago));
 
         GraphQLException ex = assertThrows(GraphQLException.class, () -> service.anular(1L));
 

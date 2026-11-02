@@ -12,6 +12,13 @@ type Horario {
     turno: Turno
 }
 
+"Resultado de copiar un horario a varios funcionarios (#523)."
+type CopiaHorarioResultado {
+    copiados: Int!
+    "Uno por funcionario al que no se le pudo copiar, con el motivo."
+    errores: [String]!
+}
+
 enum Turno {
     DIA
     NOCHE
@@ -35,9 +42,19 @@ extend type Query {
     horario(id: ID!): Horario
     horarios(page: Int = 0, size: Int = 10): [Horario]!
     horariosPorUsuario(usuarioId: Int): [Horario]!
+    "Los horarios que rigen para el funcionario, los mismos que usa la marcacion (#523)."
+    horariosPorFuncionario(funcionarioId: Int!): [Horario]!
 }
 
 extend type Mutation {
     saveHorario(horario: HorarioInput!): Horario!
     deleteHorario(id: ID!): Boolean!
+    "Guarda la tabla de horarios del usuario entera (#523): los que no vienen se quitan."
+    saveHorariosUsuario(usuarioId: Int!, horarios: [HorarioInput]!): [Horario]!
+    "Copia el horario a cada funcionario como horario propio (#523)."
+    copiarHorario(horarioId: ID!, funcionarioIds: [Int]!): CopiaHorarioResultado!
+    "Crea un horario y se lo deja asignado al funcionario (#523)."
+    agregarHorarioFuncionario(funcionarioId: Int!, horario: HorarioInput!): Funcionario
+    "Le quita un horario al funcionario: borra el propio, desvincula el compartido (#523)."
+    quitarHorarioFuncionario(funcionarioId: Int!, horarioId: ID!): Funcionario
 }

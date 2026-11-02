@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.domain.operaciones.RecepcionMercaderia;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItem;
 import com.franco.dev.graphql.operaciones.input.RechazoPendientesInput;
@@ -46,6 +47,9 @@ import java.util.Comparator;
 
 @Component
 public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private ComprasSecurityService seg;
 
     @Autowired
     private RecepcionMercaderiaService service;
@@ -157,6 +161,7 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
      */
     @Transactional
     public RecepcionMercaderia saveRecepcionMercaderia(RecepcionMercaderiaInput input) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         ModelMapper mapper = new ModelMapper();
         RecepcionMercaderia entity = mapper.map(input, RecepcionMercaderia.class);
 
@@ -207,6 +212,7 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
      */
     @Transactional
     public RecepcionMercaderia finalizarRecepcionMercaderia(Long recepcionId, RechazoPendientesInput rechazoPendientes) {
+        seg.exigirCompras();
         if (recepcionId == null) {
             throw new GraphQLException("ID de la recepción es requerido");
         }
@@ -243,6 +249,7 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
      */
     @Transactional
     public RecepcionMercaderia iniciarRecepcion(Long sucursalId, List<Long> notaRecepcionIds, Long proveedorId, Long monedaId, Long usuarioId, Double cotizacion) {
+        seg.exigirCompras();
         if (sucursalId == null || proveedorId == null || monedaId == null || usuarioId == null || notaRecepcionIds == null || notaRecepcionIds.isEmpty()) {
             throw new GraphQLException("Parámetros inválidos para iniciar recepción");
         }
@@ -295,6 +302,7 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
             Long monedaId,
             Double cotizacion,
             Long usuarioId) {
+        seg.exigirCompras();
 
         if (proveedorId == null || sucursalId == null || usuarioId == null) {
             throw new GraphQLException("Proveedor, sucursal y usuario son requeridos");
@@ -326,6 +334,7 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
      */
     @Transactional
     public Boolean asociarNotasARecepcion(Long recepcionId, List<Long> notaRecepcionIds) {
+        seg.exigirCompras();
         if (recepcionId == null || notaRecepcionIds == null || notaRecepcionIds.isEmpty()) {
             throw new GraphQLException("ID de recepción y lista de notas son requeridos");
         }
@@ -819,6 +828,7 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
      */
     @Transactional
     public RecepcionMercaderia reabrirRecepcionMercaderia(Long recepcionId) {
+        seg.exigirCompras();
         if (recepcionId == null) {
             throw new GraphQLException("ID de recepción es requerido");
         }

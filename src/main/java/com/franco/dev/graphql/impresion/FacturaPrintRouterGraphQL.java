@@ -24,6 +24,9 @@ import java.util.List;
 @Component
 public class FacturaPrintRouterGraphQL implements GraphQLMutationResolver {
 
+    @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
     private static final Logger log = LoggerFactory.getLogger(FacturaPrintRouterGraphQL.class);
 
     @Autowired
@@ -40,6 +43,7 @@ public class FacturaPrintRouterGraphQL implements GraphQLMutationResolver {
 
     /** Genera el mismo PDF A4 que "Descargar PDF"/"Abrir PDF" y lo rutea a la impresora elegida. */
     public Boolean imprimirPdfFacturaEnImpresora(Long facturaId, Long sucId, Long impresoraId) {
+        seg.requireAnyRole("ANALISIS DE CAJA");
         String base64 = facturaLegalGraphQL.descargarPdfFacturaElectronica(facturaId, sucId);
         if (base64 == null || base64.isBlank()) {
             log.warn("[PRINT] No se pudo generar el PDF de la factura id={} sucId={}", facturaId, sucId);
@@ -51,6 +55,7 @@ public class FacturaPrintRouterGraphQL implements GraphQLMutationResolver {
 
     /** Genera el mismo ticket ESC/POS que "Reimprimir" (en memoria) y lo rutea a la impresora elegida. */
     public Boolean imprimirTicketFacturaEnImpresora(Long facturaId, Long sucId, Long impresoraId) {
+        seg.requireAnyRole("ANALISIS DE CAJA");
         FacturaLegal facturaLegal = facturaLegalService.findByIdAndSucursalId(facturaId, sucId);
         if (facturaLegal == null) {
             log.warn("[PRINT] Factura id={} sucId={} no encontrada", facturaId, sucId);

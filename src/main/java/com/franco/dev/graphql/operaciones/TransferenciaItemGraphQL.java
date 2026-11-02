@@ -1,5 +1,7 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
+import com.franco.dev.service.operaciones.TransferenciaRoles;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.financiero.MovimientoCaja;
@@ -50,6 +52,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TransferenciaItemGraphQL.class);
 
@@ -174,6 +179,7 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
      * Ahora espera al avance, relee y {@link #validarEtapasCerradas} rechaza lo que pisaria.
      */
     public TransferenciaItem saveTransferenciaItem(TransferenciaItemInput input, Double precioCosto) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         // usuario_id es NOT NULL en la base. Sin este chequeo, un input sin usuarioId reventaba con
         // NullPointerException porque CrudService.findById devuelve null crudo cuando el id es null.
         if (input.getUsuarioId() == null) {
@@ -407,6 +413,7 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
     }
 
     public Boolean deleteTransferenciaItem(Long id) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         TransferenciaItem ti = service.findById(id).orElse(null);
         Boolean ok = service.deleteById(id);
         return ok;
@@ -427,6 +434,7 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
      * el movimiento no queda desactivado si falla el save del item.
      */
     public TransferenciaItem desconfirmarTransferenciaItem(Long id, EtapaTransferencia etapa) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         if (id == null) {
             throw new GraphQLException("No existe el item de transferencia " + id);
         }
@@ -523,6 +531,7 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
     }
 
     public TransferenciaItem verificarProducto(Long id, Boolean vencimientoVerificado) {
+        seg.requireSuperusuario(); // configuracion o sin pantalla que la llame
         System.out.println(
                 "Received request to verify product: ID=" + id + ", vencimientoVerificado=" + vencimientoVerificado);
         return service.verificarProducto(id, vencimientoVerificado);

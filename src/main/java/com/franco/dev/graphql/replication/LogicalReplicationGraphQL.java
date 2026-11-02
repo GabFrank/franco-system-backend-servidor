@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.replication;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.graphql.replication.input.LogicalReplicationInput;
 import com.franco.dev.graphql.replication.types.LogicalReplication;
@@ -28,6 +29,9 @@ import java.util.stream.Collectors;
 
 @Component
 public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private LogicalReplicationService replicationService;
@@ -199,6 +203,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
     // Mutation resolvers
     
     public ReplicationStatus setupReplication(LogicalReplicationInput input) {
+        seg.requireSuperusuario();
         Long sucursalId = Long.parseLong(input.getSucursalId());
         LogicalReplicationService.SetupFullReplicationResult result = replicationService.setupFullReplication(sucursalId);
         ReplicationStatus status = new ReplicationStatus();
@@ -208,6 +213,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
     }
     
     public ReplicationStatus setupReplicationAdvanced(String sucursalId, RemoveTarget target, RemoveScope scope) {
+        seg.requireSuperusuario();
         LogicalReplicationService.SetupFullReplicationResult result = replicationService.setupReplicationAdvanced(
             Long.parseLong(sucursalId), target.name(), scope.name());
         ReplicationStatus status = new ReplicationStatus();
@@ -217,6 +223,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
     }
     
     public ReplicationStatus setupBranchReplication(String sucursalId) {
+        seg.requireSuperusuario();
         ReplicationStatus status = new ReplicationStatus();
         
         try {
@@ -237,6 +244,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
     }
     
     public ReplicationStatus removeFullReplication(String sucursalId) {
+        seg.requireSuperusuario();
         LogicalReplicationService.SetupFullReplicationResult result =
             replicationService.removeFullReplication(Long.parseLong(sucursalId));
         ReplicationStatus status = new ReplicationStatus();
@@ -246,6 +254,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
     }
 
     public ReplicationStatus removeReplication(String sucursalId) {
+        seg.requireSuperusuario();
         ReplicationStatus status = new ReplicationStatus();
         
         try {
@@ -266,6 +275,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
     }
     
     public ReplicationStatus removeReplicationAdvanced(String sucursalId, RemoveTarget target, RemoveScope scope) {
+        seg.requireSuperusuario();
         LogicalReplicationService.SetupFullReplicationResult result = replicationService.removeReplicationAdvanced(
             Long.parseLong(sucursalId), target.name(), scope.name());
         ReplicationStatus status = new ReplicationStatus();
@@ -275,6 +285,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
     }
     
     public ReplicationStatus removeBranchReplication(String sucursalId) {
+        seg.requireSuperusuario();
         ReplicationStatus status = new ReplicationStatus();
         
         try {
@@ -295,6 +306,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
     }
     
     public ReplicationStatus toggleReplication(String sucursalId, boolean enabled, boolean isSubscription) {
+        seg.requireSuperusuario();
         ReplicationStatus status = new ReplicationStatus();
         
         try {
@@ -351,6 +363,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
      */
     public ReplicationStatus toggleRemoteSubscription(
             String branchSucursalId, String subscriptionName, boolean enabled) {
+        seg.requireSuperusuario();
         ReplicationStatus status = new ReplicationStatus();
         
         try {
@@ -377,6 +390,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
      * Drop a publication on a remote branch
      */
     public ReplicationStatus dropRemotePublication(String branchSucursalId, String publicationName) {
+        seg.requireSuperusuario();
         ReplicationStatus status = new ReplicationStatus();
         
         try {
@@ -403,6 +417,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
      * Create a publication on a remote branch
      */
     public ReplicationStatus createRemotePublication(String branchSucursalId, String publicationName, List<String> tables) {
+        seg.requireSuperusuario();
         ReplicationStatus status = new ReplicationStatus();
         
         try {
@@ -431,6 +446,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
     public ReplicationStatus createRemoteSubscription(
             String branchSucursalId, String subscriptionName, 
             String connectionString, String publicationName) {
+        seg.requireSuperusuario();
         ReplicationStatus status = new ReplicationStatus();
         
         try {
@@ -462,6 +478,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
      */
     public ReplicationStatus editRemotePublication(
             String branchSucursalId, String publicationName, List<String> tables) {
+        seg.requireSuperusuario();
         ReplicationStatus status = new ReplicationStatus();
         
         try {
@@ -493,6 +510,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
     public ReplicationStatus editRemoteSubscription(
             String branchSucursalId, String subscriptionName, 
             String connectionString, String publicationName) {
+        seg.requireSuperusuario();
         ReplicationStatus status = new ReplicationStatus();
         
         try {
@@ -565,6 +583,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
      * Refresh a specific subscription to sync with its publication
      */
     public ReplicationStatus refreshSubscription(String subscriptionName) {
+        seg.requireSuperusuario();
         ReplicationStatus status = new ReplicationStatus();
         
         try {
@@ -588,6 +607,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
      * Refresh all subscriptions in the database
      */
     public ReplicationStatus refreshAllSubscriptions() {
+        seg.requireSuperusuario();
         ReplicationStatus status = new ReplicationStatus();
         
         try {
@@ -611,6 +631,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
      * Refresh a specific subscription on a remote branch
      */
     public ReplicationStatus refreshRemoteSubscription(String branchSucursalId, String subscriptionName) {
+        seg.requireSuperusuario();
         ReplicationStatus status = new ReplicationStatus();
         
         try {
@@ -637,6 +658,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
      * Refresh all subscriptions on a remote branch
      */
     public ReplicationStatus refreshAllRemoteSubscriptions(String branchSucursalId) {
+        seg.requireSuperusuario();
         ReplicationStatus status = new ReplicationStatus();
         
         try {
@@ -660,6 +682,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
     }
 
     public ReplicationStatus syncPublicationsWithReplicationTable() {
+        seg.requireSuperusuario();
         LogicalReplicationService.SetupFullReplicationResult result =
             replicationService.syncPublicationsWithReplicationTable();
         ReplicationStatus status = new ReplicationStatus();
@@ -669,6 +692,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
     }
 
     public ReplicationStatus alinearSecuenciasFiliales() {
+        seg.requireSuperusuario();
         AlineacionIdsFilialService.Resultado result = alineacionIdsFilialService.alinearTodas();
         ReplicationStatus status = new ReplicationStatus();
         status.setSuccess(result.isSuccess());

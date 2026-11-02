@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.NotaRecepcionItem;
 import com.franco.dev.domain.operaciones.Pedido;
@@ -37,6 +38,9 @@ enum FiltroVerificacion {
 
 @Component
 public class NotaRecepcionItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private ComprasSecurityService seg;
 
     @Autowired
     private NotaRecepcionItemService service;
@@ -93,10 +97,12 @@ public class NotaRecepcionItemGraphQL implements GraphQLQueryResolver, GraphQLMu
     }
 
     public NotaRecepcionItem saveNotaRecepcionItem(NotaRecepcionItemInput input){
+        seg.exigirCompras();
         return recepcionDocumentalService.guardarItem(input);
     }
 
     public Boolean deleteNotaRecepcionItem(Long id){
+        seg.exigirCompras();
         Optional<NotaRecepcionItem> itemOpt = service.findById(id);
         Long notaRecepcionId = itemOpt.map(NotaRecepcionItem::getNotaRecepcion).map(NotaRecepcion::getId).orElse(null);
         boolean deleted = service.deleteById(id);
@@ -111,6 +117,7 @@ public class NotaRecepcionItemGraphQL implements GraphQLQueryResolver, GraphQLMu
     }
 
     public List<NotaRecepcionItem> adicionarItens(Long id, List<NotaRecepcionItemInput> inputList){
+        seg.exigirAdmin(); // sin pantalla que la llame
         List<NotaRecepcionItem> notaRecepcionItemList = new ArrayList<>();
         for(NotaRecepcionItemInput input: inputList){
             notaRecepcionItemList.add(saveNotaRecepcionItem(input));
@@ -122,6 +129,7 @@ public class NotaRecepcionItemGraphQL implements GraphQLQueryResolver, GraphQLMu
     }
 
     public Boolean removerItens(Long id, List<NotaRecepcionItemInput> inputList){
+        seg.exigirAdmin(); // sin pantalla que la llame
         Boolean res = false;
         for(NotaRecepcionItemInput input: inputList){
             if(input.getId()!=null){

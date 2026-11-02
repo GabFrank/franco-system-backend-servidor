@@ -23,6 +23,9 @@ import java.util.Optional;
 public class ModeloEquipoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private ModeloEquipoService service;
 
     @Autowired
@@ -45,6 +48,7 @@ public class ModeloEquipoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public ModeloEquipoOutput saveModeloEquipo(ModeloEquipoInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModeloEquipo entity = new ModeloEquipo();
         if (input.getId() != null) {
             entity = service.findById(input.getId()).orElse(new ModeloEquipo());
@@ -66,6 +70,7 @@ public class ModeloEquipoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean deleteModeloEquipo(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         try {
             return service.deleteById(id);
         } catch (Exception err) {

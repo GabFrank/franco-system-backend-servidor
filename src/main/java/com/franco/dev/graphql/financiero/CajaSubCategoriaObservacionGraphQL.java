@@ -19,6 +19,9 @@ import java.util.Optional;
 
 @Component
 public class CajaSubCategoriaObservacionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
     @Autowired
     private CajaSubCategoriaObservacionService service;
 
@@ -35,6 +38,7 @@ public class CajaSubCategoriaObservacionGraphQL implements GraphQLQueryResolver,
     public List<CajaSubCategoriaObservacion> findByCajaSubCategoriaIdOrDesc(Long id, String texto) { return service.findByCajaSubCategoriaIdOrDesc(id, texto); }
 
     public CajaSubCategoriaObservacion saveCajaSubCategoriaObservacion(CajaSubCategoriaObservacionInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         CajaSubCategoriaObservacion e = m.map(input, CajaSubCategoriaObservacion.class);
         if (input.getUsuarioId() != null) {
@@ -59,6 +63,7 @@ public class CajaSubCategoriaObservacionGraphQL implements GraphQLQueryResolver,
     }
 
     public Boolean deleteCajaSubCategoriaObservacion(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

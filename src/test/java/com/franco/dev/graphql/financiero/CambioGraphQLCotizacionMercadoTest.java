@@ -36,6 +36,7 @@ class CambioGraphQLCotizacionMercadoTest {
         ReflectionTestUtils.setField(resolver, "service", cambioService);
         ReflectionTestUtils.setField(resolver, "monedaService", monedaService);
         ReflectionTestUtils.setField(resolver, "cotizacionMercadoHabilitada", true);
+        ReflectionTestUtils.setField(resolver, "seg", new com.franco.dev.service.financiero.TesoreriaSecurityFalso(1L, "CAMBIAR COTIZACION"));
     }
 
     @Test

@@ -31,6 +31,9 @@ import java.util.Optional;
 public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private EnteService service;
 
     @Autowired
@@ -155,9 +158,23 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     }
 
     public Ente saveEnte(EnteInput input) {
+        // sin rol: las solicitudes de gasto de la PWA y Android crean el ente del activo; editar uno es de ADMIN
+        if (input.getId() != null) seg.requireSuperusuario();
         Ente e = MAPPER.map(input, Ente.class);
         if (input.getTipoEnte() != null) {
-            e.setTipoEnte(TipoEnte.valueOf(input.getTipoEnte()));
+            try {
+                e.setTipoEnte(TipoEnte.valueOf(input.getTipoEnte()));
+            } catch (IllegalArgumentException err) {
+                throw new GraphQLException("Tipo de ente invalido: " + input.getTipoEnte());
+            }
+            if (input.getId() == null && input.getReferenciaId() != null) {
+                // idempotente: un duplicado de (tipo, referencia) rompe ensureEnteForReferencia
+                Optional<Ente> existente = service.findByTipoEnteAndReferenciaId(e.getTipoEnte(), input.getReferenciaId());
+                if (existente.isPresent()) {
+                    service.populateTransientFields(existente.get());
+                    return existente.get();
+                }
+            }
         }
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -173,6 +190,7 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     }
 
     public EnteSucursal saveEnteSucursal(EnteSucursalInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         EnteSucursal e;
         if (input.getId() != null) {
             e = enteSucursalService.findById(input.getId()).orElse(new EnteSucursal());
@@ -205,6 +223,7 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     }
 
     public Boolean deleteEnte(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         try {
             return service.deleteById(id);
         } catch (Exception err) {
@@ -214,6 +233,7 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     }
 
     public Boolean deleteEnteSucursal(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         try {
             return enteSucursalService.deleteById(id);
         } catch (Exception err) {

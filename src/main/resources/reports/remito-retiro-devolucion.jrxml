@@ -103,7 +103,7 @@
     </columnHeader>
     <detail>
         <band height="12">
-            <textField>
+            <textField isStretchWithOverflow="true" isBlankWhenNull="true">
                 <reportElement x="0" y="0" width="55" height="12" uuid="a0000003-0000-0000-0000-000000000001"/>
                 <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
                 <textFieldExpression><![CDATA[$F{sucursal}]]></textFieldExpression>
@@ -128,7 +128,7 @@
                 <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
                 <textFieldExpression><![CDATA[$F{cantidad}]]></textFieldExpression>
             </textField>
-            <textField>
+            <textField isBlankWhenNull="true">
                 <reportElement x="405" y="0" width="55" height="12" uuid="a0000003-0000-0000-0000-000000000006"/>
                 <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
                 <textFieldExpression><![CDATA[$F{lote}]]></textFieldExpression>

@@ -20,6 +20,9 @@ import java.util.Optional;
 public class TipoPresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private TipoPresentacionService service;
 
 
@@ -40,6 +43,7 @@ public class TipoPresentacionGraphQL implements GraphQLQueryResolver, GraphQLMut
     }
 
     public TipoPresentacion saveTipoPresentacion(TipoPresentacionInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         TipoPresentacion e = m.map(input, TipoPresentacion.class);
         e = service.save(e);
@@ -54,6 +58,7 @@ public class TipoPresentacionGraphQL implements GraphQLQueryResolver, GraphQLMut
     }
 
     public Boolean deleteTipoPresentacion(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

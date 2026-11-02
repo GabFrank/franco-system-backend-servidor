@@ -7,8 +7,10 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 
 /**
- * Desglose por caja fisica: una entrada por cada DevolucionItem, con el
- * identificador de la devolucion a la que pertenece.
+ * Un producto de una devolucion lista para retirar: una entrada por cada
+ * DevolucionItem, con el identificador de la devolucion a la que pertenece.
+ * El nombre viene de cuando se pensaba en una etiqueta por item; la unidad
+ * fisica es la devolucion (ver RetiroDevolucionResumenDto).
  */
 @Data
 @AllArgsConstructor
@@ -22,4 +24,6 @@ public class RetiroCajaDto {
     private Double cantidad;
     private String lote;
     private LocalDate vencimiento;
+    /** Factor de la presentacion ("x1", "x12"): cuantas unidades base trae cada una. */
+    private String presentacion;
 }

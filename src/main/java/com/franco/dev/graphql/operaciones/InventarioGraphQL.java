@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.InventarioSecurityService;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.operaciones.Inventario;
 import com.franco.dev.domain.operaciones.InventarioProducto;
@@ -41,6 +42,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 @Log
 @Component
 public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private InventarioSecurityService seg;
 
     @Autowired
     private InventarioService service;
@@ -113,6 +117,7 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     private org.springframework.context.ApplicationEventPublisher publisher;
 
     public Inventario saveInventario(InventarioInput input) {
+        seg.requireAnyRole(InventarioSecurityService.ROLES_INVENTARIO);
         ModelMapper m = new ModelMapper();
         Inventario e = m.map(input, Inventario.class);
         boolean esNuevo = input.getId() == null;
@@ -135,6 +140,7 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public Boolean deleteInventario(Long id) {
+        seg.requireAnyRole();
         Boolean ok = false;
         Inventario i = service.findById(id).orElse(null);
         if (i != null) {
@@ -149,6 +155,7 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
      * al primero, lo ve CONCLUIDO y no escribe ajustes duplicados.
      */
     public Inventario finalizarInventario(Long id) throws GraphQLException {
+        seg.requireAnyRole(InventarioSecurityService.ROLES_GESTION_INVENTARIO);
         return new TransactionTemplate(transactionManager).execute(status -> finalizarBloqueado(id));
     }
 
@@ -164,6 +171,7 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public Boolean cancelarInventario(Long id) {
+        seg.requireAnyRole(InventarioSecurityService.ROLES_GESTION_INVENTARIO);
         try {
             Inventario inventario = service.findById(id).orElse(null);
             if (inventario.getId() != null) {
@@ -188,6 +196,7 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public Boolean reabrirInventario(Long id) {
+        seg.requireAnyRole(InventarioSecurityService.ROLES_GESTION_INVENTARIO);
         try {
             Inventario inventario = service.findById(id).orElse(null);
             if (inventario.getId() != null) {

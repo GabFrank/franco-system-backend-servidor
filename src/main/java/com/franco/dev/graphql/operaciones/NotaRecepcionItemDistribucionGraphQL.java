@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.domain.operaciones.NotaRecepcionItemDistribucion;
 import com.franco.dev.graphql.operaciones.input.NotaRecepcionItemDistribucionInput;
 import com.franco.dev.service.operaciones.NotaRecepcionItemDistribucionService;
@@ -19,6 +20,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class NotaRecepcionItemDistribucionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private ComprasSecurityService seg;
 
     @Autowired
     private NotaRecepcionItemDistribucionService service;
@@ -68,11 +72,13 @@ public class NotaRecepcionItemDistribucionGraphQL implements GraphQLQueryResolve
     // ===============================================
 
     public NotaRecepcionItemDistribucion saveNotaRecepcionItemDistribucion(NotaRecepcionItemDistribucionInput input) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         NotaRecepcionItemDistribucion entity = inputToEntity(input);
         return service.save(entity);
     }
 
     public List<NotaRecepcionItemDistribucion> saveNotaRecepcionItemDistribuciones(List<NotaRecepcionItemDistribucionInput> inputs) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         List<NotaRecepcionItemDistribucion> entities = inputs.stream()
                 .map(this::inputToEntity)
                 .collect(Collectors.toList());
@@ -80,6 +86,7 @@ public class NotaRecepcionItemDistribucionGraphQL implements GraphQLQueryResolve
     }
 
     public List<NotaRecepcionItemDistribucion> replaceNotaRecepcionItemDistribuciones(Long notaRecepcionItemId, List<NotaRecepcionItemDistribucionInput> inputs) {
+        seg.exigirCompras();
         List<NotaRecepcionItemDistribucion> entities = inputs.stream()
                 .map(this::inputToEntity)
                 .collect(Collectors.toList());
@@ -107,10 +114,12 @@ public class NotaRecepcionItemDistribucionGraphQL implements GraphQLQueryResolve
     }
 
     public Boolean deleteNotaRecepcionItemDistribucion(Long id) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         return service.deleteById(id);
     }
 
     public Boolean deleteNotaRecepcionItemDistribucionesByNotaRecepcionItemId(Long notaRecepcionItemId) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         try {
             service.deleteByNotaRecepcionItemId(notaRecepcionItemId);
             return true;

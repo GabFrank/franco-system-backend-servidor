@@ -28,6 +28,9 @@ import java.util.stream.Collectors;
 public class DeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private DeliveryService service;
 
     @Autowired
@@ -74,6 +77,7 @@ public class DeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
 
     public Delivery saveDelivery(DeliveryInput input){
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         Delivery e = m.map(input, Delivery.class);
         if(input.getUsuarioId()!=null){
@@ -96,6 +100,7 @@ public class DeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Boolean deleteDelivery(Long id, Long sucId){
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 

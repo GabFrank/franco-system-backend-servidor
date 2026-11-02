@@ -22,6 +22,9 @@ import java.util.Optional;
 public class PuntoDeVentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private PuntoDeVentaService service;
 
     @Autowired
@@ -49,6 +52,7 @@ public class PuntoDeVentaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
 
     public PuntoDeVenta savePuntoDeVenta(PuntoDeVentaInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         PuntoDeVenta e = m.map(input, PuntoDeVenta.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -58,6 +62,7 @@ public class PuntoDeVentaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean deletePuntoDeVenta(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

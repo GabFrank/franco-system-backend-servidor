@@ -35,6 +35,9 @@ import java.util.Optional;
 public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private ClienteService service;
 
     @Autowired
@@ -92,10 +95,17 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         }
     }
 
+    /** Los roles con los que el desktop abre Clientes (VER USUARIOS) y Personas (VER PERSONAS). */
+    static final String[] ROLES_CLIENTES = {"VER USUARIOS", "VER PERSONAS"};
+
     public Cliente saveCliente(ClienteInput input) {
+        seg.requireAnyRole(ROLES_CLIENTES);
+        Cliente previo = protegerCredito(input);
         Boolean modifPersona = false;
         ModelMapper m = new ModelMapper();
         Cliente e = m.map(input, Cliente.class);
+        // el input no trae el saldo de la cuenta corriente: sin esto cada edicion lo dejaba en null
+        if (previo != null) e.setSaldoActual(previo.getSaldoActual());
         if (input.getActivo() == null) {
             // caller no envió 'activo': preservar el valor actual (o true si es nuevo)
             e.setActivo(input.getId() != null
@@ -133,14 +143,45 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         }
         e = service.save(e);
         Funcionario funcionario = funcionarioService.findByPersonaId(e.getPersona().getId());
-        if (funcionario != null && e.getCredito() != funcionario.getCredito()) {
+        if (funcionario != null && credito(e.getCredito()) != credito(funcionario.getCredito())) {
             funcionario.setCredito(e.getCredito());
             funcionario = funcionarioService.save(funcionario);
         }
         return e;
     }
 
+    /**
+     * El credito de un cliente es plata: cambiarlo exige ADMIN, o RRHH GESTIONAR / CONFIG si la persona es
+     * funcionario (el save se lo copia al legajo). Va antes de cualquier save. Null es "sin credito" (la X del
+     * desktop lo borra asi), y pasar el cliente a otra persona exige ADMIN (la copia caeria sobre el legajo de
+     * esa persona). En un alta se compara contra 0, o contra el credito del funcionario.
+     */
+    private Cliente protegerCredito(ClienteInput in) {
+        Cliente previo = null;
+        if (in.getId() != null) {
+            previo = service.findById(in.getId())
+                    .orElseThrow(() -> new graphql.GraphQLException("No existe el cliente " + in.getId()));
+            Long personaGuardada = previo.getPersona() != null ? previo.getPersona().getId() : null;
+            if (in.getPersonaId() != null && !in.getPersonaId().equals(personaGuardada)) seg.requireSuperusuario();
+        }
+        Long personaId = in.getPersonaId() != null ? in.getPersonaId()
+                : previo != null && previo.getPersona() != null ? previo.getPersona().getId() : null;
+        Funcionario funcionario = personaId != null ? funcionarioService.findByPersonaId(personaId) : null;
+        float pedido = credito(in.getCredito());
+        boolean cambia = previo != null && pedido != credito(previo.getCredito())
+                || funcionario != null && pedido != credito(funcionario.getCredito())
+                || previo == null && funcionario == null && pedido != 0f;
+        if (cambia) {
+            if (funcionario != null) seg.requireAnyRole("RRHH GESTIONAR", "RRHH CONFIG");
+            else seg.requireSuperusuario();
+        }
+        return previo;
+    }
+
+    private static float credito(Float c) { return c == null ? 0f : c; }
+
     public Boolean deleteCliente(Long id) {
+        seg.requireSuperusuario(); // sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

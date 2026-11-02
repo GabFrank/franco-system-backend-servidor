@@ -21,6 +21,9 @@ import java.util.List;
 public class VentaObservacionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private VentaObservacionService service;
 
     @Autowired
@@ -47,9 +50,9 @@ public class VentaObservacionGraphQL implements GraphQLQueryResolver, GraphQLMut
     public List<VentaObservacion> ventaObservaciones() { return service.findAll2();}
 
     public VentaObservacion saveVentaObservacion(VentaObservacionInput input) {
+        seg.requireAnyRole("ANALISIS DE CAJA", "ANALISIS DE VENTA");
         ModelMapper m = new ModelMapper();
         VentaObservacion e = m.map(input, VentaObservacion.class);
-        VentaObservacion ventaObservacion = null;
         if (input.getMotivoObservacionId() != null)
             e.setMotivoObservacion(motivoObservacionService.findById(input.getMotivoObservacionId()).orElse(null));
         if (input.getVentaId() != null && input.getSucursalId() != null) {
@@ -64,14 +67,14 @@ public class VentaObservacionGraphQL implements GraphQLQueryResolver, GraphQLMut
         }
         if (input.getSucursalId() != null)
             e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
-        if(input.getUsuarioId() != null)
-            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        if(input.getId() != null)
-            ventaObservacion = service.findById(input.getId()).orElse(null);
+        // el autor es el usuario de la sesion; al editar se conserva el original
+        VentaObservacion previa = input.getId() != null ? service.findById(input.getId()).orElse(null) : null;
+        e.setUsuario(previa != null ? previa.getUsuario() : seg.requireUsuarioDeSesion());
         return service.save(e);
     }
 
     public Boolean deleteVentaObservacion(Long id) {
+        seg.requireSuperusuario(); // sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

@@ -43,6 +43,18 @@ public class PersonaService extends CrudService<Persona, PersonaRepository, Long
         return repository.findByDocumento(texto);
     }
 
+    /**
+     * {@code imagenes} guarda nombres de archivo de la carpeta de fotos (separados por coma), nunca una ruta:
+     * quien lo lee arma la ruta con ese nombre.
+     */
+    public static boolean imagenesValidas(String imagenes) {
+        if (imagenes == null) return true;
+        for (String parte : imagenes.split(",")) {
+            if (parte.contains("/") || parte.contains("\\") || parte.contains("..")) return false;
+        }
+        return true;
+    }
+
     @Override
     public Persona save(Persona entity) {
         if (entity.getId() == null) {

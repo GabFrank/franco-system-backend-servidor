@@ -16,6 +16,9 @@ import org.springframework.stereotype.Component;
 public class NotificacionPushGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private UsuarioService usuarioService;
     @Autowired
     private PushNotificationService pushNotificationService;
@@ -52,6 +55,7 @@ public class NotificacionPushGraphQL implements GraphQLQueryResolver, GraphQLMut
      */
     public Boolean enviarNotificacionPersonalizada(String titulo, String mensaje, String tipoEnvio,
             java.util.List<Integer> usuariosIds) {
+        seg.requireSuperusuario(); // push libre a toda la empresa
         try {
             java.util.List<Long> usuariosIdsLong = null;
             if (usuariosIds != null) {

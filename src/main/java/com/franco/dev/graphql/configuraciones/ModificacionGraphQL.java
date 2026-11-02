@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 
 @Component
@@ -53,6 +54,40 @@ public class ModificacionGraphQL implements GraphQLQueryResolver {
         result.setTotalElements((int) pageResult.getTotalElements());
         result.setTotalPages(pageResult.getTotalPages());
         
+        return result;
+    }
+
+    /**
+     * Pagina juntos los registros de varios esquemas (desktop: Modificaciones del sistema, que con
+     * PRODUCTOS muestra también OPERACIONES).
+     */
+    public ModificacionRegistroPage modificacionesPorSchemas(
+            List<String> schemaNombres,
+            LocalDateTime inicio,
+            LocalDateTime fin,
+            Integer page,
+            Integer size
+    ) {
+        if (page == null) page = 0;
+        if (size == null) size = 15;
+
+        ModificacionRegistroPage result = new ModificacionRegistroPage();
+        result.setPageNumber(page);
+        result.setPageSize(size);
+        // IN () vacío es un error de sintaxis en Postgres: sin esquemas no hay nada que buscar.
+        if (schemaNombres == null || schemaNombres.isEmpty()) {
+            result.setContent(Collections.emptyList());
+            result.setTotalElements(0);
+            result.setTotalPages(0);
+            return result;
+        }
+
+        Page<ModificacionRegistro> pageResult = registroRepository.findBySchemaNombreInAndFechaBetween(
+                schemaNombres, inicio, fin, PageRequest.of(page, size)
+        );
+        result.setContent(pageResult.getContent());
+        result.setTotalElements((int) pageResult.getTotalElements());
+        result.setTotalPages(pageResult.getTotalPages());
         return result;
     }
 

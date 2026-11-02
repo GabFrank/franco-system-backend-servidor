@@ -96,14 +96,17 @@ public class MovimientoStockLoteService
 
         if (variaciones != null && !variaciones.isEmpty()) {
             creados.addAll(desglosarVariaciones(item, movimiento, variaciones));
+            completarSinLoteCompra(item, movimiento, creados);
             verificarInvariante(creados, movimiento, item);
             return creados;
         }
 
         String numeroLote = LoteService.normalizarNumeroLote(item.getLote());
         if (numeroLote == null) {
-            log.warning("Producto con control de lote sin numero de lote en recepcion item "
-                    + item.getId() + ": no se genera desglose por lote.");
+            // Lotes flexibles (#429): un producto con control de lote recibido sin número ya no
+            // bloquea la recepción. Lo recibido queda como "SIN LOTE" para que el libro de lotes
+            // siga sumando la existencia; el lote se puede atribuir después.
+            completarSinLoteCompra(item, movimiento, creados);
             return creados;
         }
         Double cantidad = item.getCantidadRecibida();
@@ -114,6 +117,42 @@ public class MovimientoStockLoteService
                 item.getFechaRetiro(), cantidad, item.getPresentacionRecibida()));
         verificarInvariante(creados, movimiento, item);
         return creados;
+    }
+
+    /**
+     * Si el producto lleva control de lote y el desglose no cubre toda la cantidad del
+     * movimiento (ítem sin lote, variaciones sin número o que suman menos), la diferencia se
+     * registra como una fila "SIN LOTE" con lote nulo, igual que en transferencias y ventas.
+     * Productos sin control de lote no se tocan.
+     */
+    void completarSinLoteCompra(RecepcionMercaderiaItem item, MovimientoStock movimiento,
+                                List<MovimientoStockLote> creados) {
+        if (item.getProducto() == null || !Boolean.TRUE.equals(item.getProducto().getLote())) {
+            return;
+        }
+        double total = movimiento.getCantidad() != null ? movimiento.getCantidad() : 0.0;
+        double cubierto = creados.stream()
+                .mapToDouble(l -> l.getCantidad() != null ? l.getCantidad() : 0.0)
+                .sum();
+        double faltante = total - cubierto;
+        if (faltante <= 0.0001) {
+            return;
+        }
+        log.warning("Recepcion item " + item.getId() + ": " + faltante
+                + " unidad(es) recibidas sin lote, quedan como SIN LOTE.");
+        MovimientoStockLote sinLote = new MovimientoStockLote();
+        sinLote.setSucursalId(movimiento.getSucursalId());
+        sinLote.setMovimientoStockId(movimiento.getId());
+        sinLote.setLote(null);
+        sinLote.setProducto(item.getProducto());
+        sinLote.setPresentacion(item.getPresentacionRecibida());
+        sinLote.setNumeroLote(LoteFefoService.NUMERO_LOTE_SIN_TRAZAR);
+        sinLote.setCantidad(faltante);
+        sinLote.setReferencia(item.getId());
+        sinLote.setEstado(true);
+        sinLote.setUsuario(movimiento.getUsuario());
+        sinLote.setCreadoEn(movimiento.getCreadoEn() != null ? movimiento.getCreadoEn() : LocalDateTime.now());
+        creados.add(save(sinLote));
     }
 
     private List<MovimientoStockLote> desglosarVariaciones(RecepcionMercaderiaItem item,
@@ -313,6 +352,22 @@ public class MovimientoStockLoteService
 
         for (LoteFefoService.AsignacionLote asignacion : asignaciones) {
             if (asignacion.getCantidad() == null || asignacion.getCantidad() <= 0) {
+                continue;
+            }
+            if (asignacion.getLoteId() == null) {
+                // Parte sin trazar: fila "SIN LOTE" con lote nulo, como en la venta de la filial.
+                MovimientoStockLote sinLote = new MovimientoStockLote();
+                sinLote.setSucursalId(movimiento.getSucursalId());
+                sinLote.setMovimientoStockId(movimiento.getId());
+                sinLote.setLote(null);
+                sinLote.setProducto(producto);
+                sinLote.setNumeroLote(LoteFefoService.NUMERO_LOTE_SIN_TRAZAR);
+                sinLote.setCantidad(asignacion.getCantidad() * signo);
+                sinLote.setReferencia(referencia);
+                sinLote.setEstado(movimiento.getEstado() != null ? movimiento.getEstado() : true);
+                sinLote.setUsuario(movimiento.getUsuario());
+                sinLote.setCreadoEn(movimiento.getCreadoEn() != null ? movimiento.getCreadoEn() : LocalDateTime.now());
+                creados.add(save(sinLote));
                 continue;
             }
             Lote loteMaestro = loteService.findById(asignacion.getLoteId()).orElse(null);

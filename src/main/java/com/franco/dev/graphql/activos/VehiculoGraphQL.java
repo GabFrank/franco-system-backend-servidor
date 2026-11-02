@@ -32,6 +32,9 @@ import java.util.Optional;
 public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private VehiculoService service;
 
     @Autowired
@@ -109,6 +112,7 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Vehiculo saveVehiculo(VehiculoInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         Vehiculo e = input.getId() != null
                 ? service.findById(input.getId()).orElse(new Vehiculo())
                 : new Vehiculo();
@@ -208,6 +212,7 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Boolean deleteVehiculo(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         try {
             Boolean ok = service.deleteById(id);
             return ok;

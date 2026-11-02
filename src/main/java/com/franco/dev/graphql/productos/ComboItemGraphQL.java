@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.service.productos.PrecioSecurityService;
 import com.franco.dev.domain.productos.Combo;
 import com.franco.dev.domain.productos.ComboItem;
 import com.franco.dev.graphql.productos.input.ComboInput;
@@ -21,6 +22,9 @@ import java.util.Optional;
 
 @Component
 public class ComboItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private PrecioSecurityService seg;
 
     @Autowired
     private ComboItemService service;
@@ -49,6 +53,7 @@ public class ComboItemGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public ComboItem saveComboItem(ComboItemInput input){
+        seg.requireAnyRole(); // sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         ComboItem e = m.map(input, ComboItem.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -65,6 +70,7 @@ public class ComboItemGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public Boolean deleteComboItem(Long id){
+        seg.requireAnyRole(); // sin pantalla que la llame
         return service.deleteById(id);
     }
 

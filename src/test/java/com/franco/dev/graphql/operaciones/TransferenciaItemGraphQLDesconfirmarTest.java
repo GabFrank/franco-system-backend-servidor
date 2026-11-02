@@ -69,6 +69,7 @@ class TransferenciaItemGraphQLDesconfirmarTest {
 
         resolver = new TransferenciaItemGraphQL();
         ReflectionTestUtils.setField(resolver, "service", service);
+        ReflectionTestUtils.setField(resolver, "seg", new com.franco.dev.service.financiero.TesoreriaSecurityFalso(1L, "VER TRANSFERENCIA"));
         ReflectionTestUtils.setField(resolver, "movimientoStockService", movimientoStockService);
         ReflectionTestUtils.setField(resolver, "movimientoStockLoteService", movimientoStockLoteService);
         ReflectionTestUtils.setField(resolver, "transferenciaService", transferenciaService);

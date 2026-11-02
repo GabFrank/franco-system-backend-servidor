@@ -19,6 +19,9 @@ import java.util.Optional;
 public class PrecioDeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.productos.PrecioSecurityService seg;
+
+    @Autowired
     private PrecioDeliveryService service;
 
     @Autowired
@@ -36,6 +39,7 @@ public class PrecioDeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutat
 //    }
 
     public PrecioDelivery savePrecioDelivery(PrecioDeliveryInput input){
+        seg.requireAnyRole(); // sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         PrecioDelivery e = m.map(input, PrecioDelivery.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -43,6 +47,7 @@ public class PrecioDeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutat
     }
 
     public Boolean deletePrecioDelivery(Long id){
+        seg.requireAnyRole(); // sin pantalla que la llame
         return service.deleteById(id);
     }
 

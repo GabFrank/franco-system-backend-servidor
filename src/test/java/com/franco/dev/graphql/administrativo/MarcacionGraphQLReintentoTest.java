@@ -58,6 +58,8 @@ class MarcacionGraphQLReintentoTest {
         ReflectionTestUtils.setField(resolver, "service", service);
         ReflectionTestUtils.setField(resolver, "usuarioService", mock(UsuarioService.class));
         ReflectionTestUtils.setField(resolver, "sucursalService", mock(SucursalService.class));
+        // con RRHH GESTIONAR, como quien corrige una marcacion: las reglas sin rol estan en MarcacionRolTest
+        ReflectionTestUtils.setField(resolver, "seg", new com.franco.dev.service.rrhh.RrhhSecurityFalso("RRHH GESTIONAR"));
         idsAlEntrar = new ArrayList<>();
         recibidas = new ArrayList<>();
     }

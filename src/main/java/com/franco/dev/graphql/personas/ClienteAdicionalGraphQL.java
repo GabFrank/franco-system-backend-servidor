@@ -19,6 +19,9 @@ import java.util.Optional;
 public class ClienteAdicionalGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private ClienteAdicionalService service;
 
     @Autowired
@@ -36,6 +39,7 @@ public class ClienteAdicionalGraphQL implements GraphQLQueryResolver, GraphQLMut
     }
 
     public ClienteAdicional saveClienteAdicional(ClienteAdicionalInput input) {
+        seg.requireSuperusuario(); // sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         ClienteAdicional e = m.map(input, ClienteAdicional.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -47,6 +51,7 @@ public class ClienteAdicionalGraphQL implements GraphQLQueryResolver, GraphQLMut
     }
 
     public Boolean deleteClienteAdicional(Long id) {
+        seg.requireSuperusuario(); // sin pantalla que la llame
         Boolean ok = service.deleteById(id);
 //        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.CLIENTE_ADICIONAL);
         return ok;

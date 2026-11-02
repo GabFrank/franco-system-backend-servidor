@@ -24,6 +24,9 @@ import java.util.Optional;
 public class TipoGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private TipoGastoService service;
 
     @Autowired
@@ -50,6 +53,7 @@ public class TipoGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
 
 
     public TipoGasto saveTipoGasto(TipoGastoInput input) {
+        seg.requireAnyRole("ANALISIS DE CAJA");
         ModelMapper m = new ModelMapper();
         TipoGasto e = m.map(input, TipoGasto.class);
         if (input.getUsuarioId() != null) {
@@ -70,6 +74,7 @@ public class TipoGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public Boolean deleteTipoGasto(Long id) {
+        seg.requireAnyRole("ANALISIS DE CAJA");
         Boolean ok = service.deleteById(id);
         return ok;
     }

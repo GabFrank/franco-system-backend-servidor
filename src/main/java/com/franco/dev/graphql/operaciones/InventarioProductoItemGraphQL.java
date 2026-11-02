@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.InventarioSecurityService;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.productos.Producto;
@@ -53,6 +54,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private InventarioSecurityService seg;
 
     @Autowired
     private InventarioProductoItemService service;
@@ -139,6 +143,7 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
     }
 
     public InventarioProductoItem saveInventarioProductoItem(InventarioProductoItemInput input) {
+        seg.requireAnyRole(InventarioSecurityService.ROLES_INVENTARIO);
         ModelMapper modelMapper = new ModelMapper();
         modelMapper.getConfiguration()
                 .setMatchingStrategy(MatchingStrategies.STRICT)
@@ -183,6 +188,7 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
     }
 
     public Boolean deleteInventarioProductoItem(Long id) {
+        seg.requireAnyRole(InventarioSecurityService.ROLES_INVENTARIO);
         return service.findById(id)
                 .map(item -> service.deleteById(id))
                 .orElse(false);

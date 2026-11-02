@@ -6,6 +6,7 @@ import com.franco.dev.security.model.JwtAuthenticationToken;
 import com.franco.dev.security.model.JwtUserDetails;
 import com.franco.dev.service.personas.UsuarioService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.dao.AbstractUserDetailsAuthenticationProvider;
 import org.springframework.security.core.AuthenticationException;
@@ -45,8 +46,9 @@ public class JwtAuthenticationProvider extends AbstractUserDetailsAuthentication
 
         JwtUser jwtUser = validator.validate(token);
 
-        if (jwtUser == null && !jwtUser.getNickname().equals(username)) {
-            throw new RuntimeException("JWT Token is incorrect");
+        // AuthenticationException: el filtro responde 401. El username llega como NONE_PROVIDED, no se compara.
+        if (jwtUser == null) {
+            throw new BadCredentialsException("Token de sesion invalido");
         }
         List<GrantedAuthority> grantedAuthorities = AuthorityUtils
                 .commaSeparatedStringToAuthorityList(String.valueOf(jwtUser.getRoles()));

@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.service.productos.PrecioSecurityService;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.Presentacion;
@@ -29,6 +30,9 @@ import java.util.logging.Logger;
 @Component
 public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
+    @Autowired
+    private PrecioSecurityService seg;
+
     public static final Logger log = Logger.getLogger(String.valueOf(PresentacionGraphQL.class));
 
     @Autowired
@@ -51,6 +55,7 @@ public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Presentacion savePresentacion(PresentacionInput input) throws GraphQLException{
+        seg.requireAnyRole(PrecioSecurityService.EDITAR_PRODUCTOS);
         ModelMapper m = new ModelMapper();
         Boolean isPrincipalInUse = false;
         if(input.getPrincipal()){
@@ -81,6 +86,7 @@ public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean deletePresentacion(Long id){
+        seg.requireAnyRole(PrecioSecurityService.EDITAR_PRODUCTOS);
         Boolean ok = service.deleteById(id);
         return ok;
     }
@@ -90,6 +96,7 @@ public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean saveImagenPresentacion(String image, String filename) throws IOException {
+        seg.requireAnyRole(PrecioSecurityService.EDITAR_PRODUCTOS);
         Boolean ok = imageService.saveImageToPath(image, filename, imageService.getImagePresentaciones(), imageService.getImagePresentacionesThumb(), true);
         if(ok){
             imageService.guardarMedianaPresentacion(filename);
@@ -103,6 +110,7 @@ public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
      * las fotos nuevas ya la generan al subirse. Repetirla saltea lo que ya esta.
      */
     public ImageService.ResumenMedianas generarImagenesMedianas() {
+        seg.requireAnyRole(); // sin pantalla que la llame
         return imageService.generarMedianasFaltantes();
     }
 

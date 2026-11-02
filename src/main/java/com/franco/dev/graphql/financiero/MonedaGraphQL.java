@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.financiero.dto.PreciosEnMonedaDto;
@@ -19,6 +20,9 @@ import java.util.Optional;
 
 @Component
 public class MonedaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private MonedaService service;
@@ -51,6 +55,7 @@ public class MonedaGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
 
     public Moneda saveMoneda(MonedaInput input) {
+        seg.requireGestionar();
         ModelMapper m = new ModelMapper();
         Moneda e = m.map(input, Moneda.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -64,6 +69,7 @@ public class MonedaGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Boolean deleteMoneda(Long id) {
+        seg.requireGestionar();
         Boolean ok = service.deleteById(id);
         return ok;
     }

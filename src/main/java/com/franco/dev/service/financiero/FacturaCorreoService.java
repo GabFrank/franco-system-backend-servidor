@@ -43,8 +43,10 @@ import java.util.regex.Pattern;
  * <p>Cada factura se envia sola una unica vez: {@code financiero.factura_legal_correo} (V240.1).
  *
  * <p>El envio manual ({@link #enviarManual}) es aparte: lo pide un usuario para una factura
- * puntual, a la direccion que escriba, las veces que haga falta, y tambien sirve para facturas
- * no electronicas.
+ * puntual, a la direccion que escriba, y tambien sirve para facturas no electronicas. Cada intento
+ * queda en {@code financiero.factura_legal_correo_manual} (V257.1) con quien lo pidio, y de ahi sale
+ * el limite por factura y por usuario. Solo marca la factura como enviada para el automatico si
+ * salio bien y fue al correo guardado del cliente: una copia a otra direccion no le quita la suya.
  */
 @Service
 public class FacturaCorreoService {
@@ -82,12 +84,27 @@ public class FacturaCorreoService {
             + "enviado_en = EXCLUDED.enviado_en, ultimo_intento_en = now(), "
             + "intentos = financiero.factura_legal_correo.intentos + 1";
 
+    private static final String SQL_MANUALES_FACTURA =
+            "SELECT count(*) FROM financiero.factura_legal_correo_manual "
+            + "WHERE factura_legal_id = ? AND sucursal_id = ? AND estado <> 'ERROR' "
+            + "AND creado_en > now() - interval '24 hours'";
+    private static final String SQL_MANUALES_USUARIO =
+            "SELECT count(*) FROM financiero.factura_legal_correo_manual "
+            + "WHERE usuario_id = ? AND estado <> 'ERROR' AND creado_en > now() - interval '1 hour'";
+    private static final String SQL_MANUAL_INTENTO =
+            "INSERT INTO financiero.factura_legal_correo_manual "
+            + "(factura_legal_id, sucursal_id, email, usuario_id, estado) VALUES (?, ?, ?, ?, 'ENVIANDO') RETURNING id";
+    private static final String SQL_MANUAL_RESULTADO =
+            "UPDATE financiero.factura_legal_correo_manual SET estado = ?, error = ? WHERE id = ?";
+
     private final JdbcTemplate jdbc;
     private final FacturaLegalService facturaLegalService;
     private final DocumentoElectronicoService documentoElectronicoService;
     private final SucursalService sucursalService;
     private final FacturaLegalGraphQL facturaLegalGraphQL;
     private final ObjectProvider<JavaMailSender> mailSender;
+    private final TesoreriaSecurityService seg;
+    private final Object limiteManual = new Object();
     /** El hilo del scheduler no tiene sesion abierta: las relaciones lazy de la factura la necesitan. */
     private final TransactionTemplate lectura;
 
@@ -103,6 +120,10 @@ public class FacturaCorreoService {
     private int reintentoMinutos;
     @Value("${factura.correo.lote:20}")
     private int lote;
+    @Value("${factura.correo.manual-por-factura-dia:5}")
+    private int manualPorFacturaDia;
+    @Value("${factura.correo.manual-por-usuario-hora:20}")
+    private int manualPorUsuarioHora;
 
     public FacturaCorreoService(JdbcTemplate jdbc,
                                 FacturaLegalService facturaLegalService,
@@ -110,13 +131,15 @@ public class FacturaCorreoService {
                                 SucursalService sucursalService,
                                 FacturaLegalGraphQL facturaLegalGraphQL,
                                 ObjectProvider<JavaMailSender> mailSender,
-                                PlatformTransactionManager transactionManager) {
+                                PlatformTransactionManager transactionManager,
+                                TesoreriaSecurityService seg) {
         this.jdbc = jdbc;
         this.facturaLegalService = facturaLegalService;
         this.documentoElectronicoService = documentoElectronicoService;
         this.sucursalService = sucursalService;
         this.facturaLegalGraphQL = facturaLegalGraphQL;
         this.mailSender = mailSender;
+        this.seg = seg;
         this.lectura = new TransactionTemplate(transactionManager);
         this.lectura.setReadOnly(true);
     }
@@ -168,23 +191,47 @@ public class FacturaCorreoService {
     }
 
     /**
-     * Envia ahora la factura a {@code email}, a pedido de un usuario. No mira si ya se envio.
+     * Envia ahora la factura a {@code email}, a pedido del usuario de la sesion, dentro del limite
+     * por factura y por usuario. No mira si el automatico ya la envio.
      *
      * @throws GraphQLException con el motivo, que es lo que ve el usuario en el desktop.
      */
     public boolean enviarManual(long facturaId, long sucursalId, String email) {
         String destino = email == null ? "" : email.trim().toLowerCase();
-        if (!EMAIL.matcher(destino).matches()) {
+        // 254 es el largo maximo de una direccion; ademas entra en la columna del historial.
+        if (destino.length() > 254 || !EMAIL.matcher(destino).matches()) {
             throw new GraphQLException("El correo no es una dirección válida");
         }
         JavaMailSender sender = mailSender.getIfAvailable();
         if (sender == null || esVacio(direccionRemitente())) {
             throw new GraphQLException("El servidor de correo no está configurado");
         }
+        long usuarioId = seg.requireUsuarioDeSesion().getId();
+        // Contar y anotar juntos: dos pedidos a la vez no pueden pasar los dos el limite (el central es una sola instancia).
+        // Los intentos que terminaron en ERROR no cuentan: no salio ningun correo.
+        Long intento;
+        synchronized (limiteManual) {
+            if (contar(SQL_MANUALES_FACTURA, facturaId, sucursalId) >= manualPorFacturaDia) {
+                throw new GraphQLException("Esta factura ya se envió " + manualPorFacturaDia
+                        + " veces por correo en las últimas 24 horas");
+            }
+            if (contar(SQL_MANUALES_USUARIO, usuarioId) >= manualPorUsuarioHora) {
+                throw new GraphQLException("Llegaste al límite de " + manualPorUsuarioHora
+                        + " facturas enviadas por correo en una hora");
+            }
+            try {
+                intento = jdbc.queryForObject(SQL_MANUAL_INTENTO, Long.class, facturaId, sucursalId, destino, usuarioId);
+            } catch (Exception e) {
+                log.error("Correo de facturas: no se pudo anotar el envio manual de la factura {} (sucursal {}): {}",
+                        facturaId, sucursalId, e.getMessage());
+                throw new GraphQLException("No se pudo registrar el envío; no se mandó el correo");
+            }
+        }
         Correo correo;
         try {
             correo = lectura.execute(status -> armar(facturaId, sucursalId, destino));
         } catch (NoEnviableException e) {
+            resultadoManual(intento, ERROR, e.getMessage());
             throw new GraphQLException(e.getMessage());
         }
         try {
@@ -192,11 +239,31 @@ public class FacturaCorreoService {
         } catch (Exception e) {
             log.error("Correo de facturas: fallo el envio manual de la factura {} de la sucursal {}: {}",
                     facturaId, sucursalId, e.getMessage());
-            registrar(facturaId, sucursalId, destino, ERROR, e.getMessage());
+            resultadoManual(intento, ERROR, e.getMessage());
             throw new GraphQLException("No se pudo enviar el correo: " + e.getMessage());
         }
-        registrar(facturaId, sucursalId, destino, ENVIADO, null);
+        log.info("Correo de facturas: el usuario {} envio la factura {} (sucursal {}) a {}",
+                usuarioId, facturaId, sucursalId, destino);
+        resultadoManual(intento, ENVIADO, null);
+        if (destino.equals(correo.emailCliente)) {
+            registrar(facturaId, sucursalId, destino, ENVIADO, null);
+        }
         return true;
+    }
+
+    private long contar(String sql, Object... args) {
+        Long n = jdbc.queryForObject(sql, Long.class, args);
+        return n == null ? 0 : n;
+    }
+
+    private void resultadoManual(Long intento, String estado, String error) {
+        try {
+            String detalle = error != null && error.length() > 500 ? error.substring(0, 500) : error;
+            jdbc.update(SQL_MANUAL_RESULTADO, estado, detalle, intento);
+        } catch (Exception e) {
+            log.error("Correo de facturas: no se pudo anotar el resultado {} del envio manual {}: {}",
+                    estado, intento, e.getMessage());
+        }
     }
 
     /**
@@ -210,10 +277,9 @@ public class FacturaCorreoService {
         if (factura == null) {
             throw new NoEnviableException("Factura no encontrada");
         }
-        String email = destino;
-        if (email == null && factura.getCliente() != null && factura.getCliente().getPersona() != null) {
-            email = factura.getCliente().getPersona().getEmail();
-        }
+        String emailCliente = factura.getCliente() != null && factura.getCliente().getPersona() != null
+                ? factura.getCliente().getPersona().getEmail() : null;
+        String email = destino != null ? destino : emailCliente;
         if (esVacio(email)) {
             throw new NoEnviableException("El cliente no tiene un correo guardado");
         }
@@ -227,6 +293,7 @@ public class FacturaCorreoService {
 
         Correo correo = new Correo();
         correo.email = email.trim().toLowerCase();
+        correo.emailCliente = esVacio(emailCliente) ? null : emailCliente.trim().toLowerCase();
         correo.electronica = de != null;
         correo.cliente = esVacio(factura.getNombre()) ? "cliente" : factura.getNombre().trim();
         correo.numero = numeroFormateado(factura, sucursalService.findById(sucursalId).orElse(null));
@@ -314,6 +381,8 @@ public class FacturaCorreoService {
 
     private static class Correo {
         String email;
+        /** El correo guardado del cliente, normalizado; null si no tiene. */
+        String emailCliente;
         boolean electronica;
         String cliente;
         String numero;

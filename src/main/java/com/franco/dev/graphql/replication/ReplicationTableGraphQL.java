@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.replication;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.configuraciones.ReplicationTable;
 import com.franco.dev.domain.configuraciones.ReplicationTable.ReplicationDirection;
 import com.franco.dev.graphql.replication.input.ReplicationTableInput;
@@ -18,6 +19,9 @@ import java.util.Optional;
 
 @Component
 public class ReplicationTableGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private ReplicationTableService service;
@@ -62,6 +66,7 @@ public class ReplicationTableGraphQL implements GraphQLQueryResolver, GraphQLMut
     // Mutation resolvers
     
     public ReplicationTable saveReplicationTable(ReplicationTableInput input) {
+        seg.requireSuperusuario();
         ModelMapper m = new ModelMapper();
         ReplicationTable table = m.map(input, ReplicationTable.class);
         table.setBranchIdsList(input.getBranchIds());
@@ -83,6 +88,7 @@ public class ReplicationTableGraphQL implements GraphQLQueryResolver, GraphQLMut
     }
     
     public boolean deleteReplicationTable(Long id) {
+        seg.requireSuperusuario();
         try {
             service.delete(id);
             return true;
@@ -92,10 +98,12 @@ public class ReplicationTableGraphQL implements GraphQLQueryResolver, GraphQLMut
     }
     
     public boolean toggleReplicationTableEnabled(Long id) {
+        seg.requireSuperusuario();
         return service.toggleEnabled(id);
     }
     
     public boolean updateReplicationServiceTables() {
+        seg.requireSuperusuario();
         try {
             service.updateReplicationServiceTables(replicationService);
             return true;

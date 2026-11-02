@@ -78,4 +78,17 @@ class InventarioSecurityServiceTest {
     void sinSesionNoPasa() {
         assertThrows(GraphQLException.class, () -> seg.requireVerInventario());
     }
+
+    @Test
+    void sinRolesPedidosSoloPasaAdmin() {
+        autenticado("PRUEBANR", "VER INVENTARIO", "EDITAR PRODUCTOS");
+        GraphQLException e = assertThrows(GraphQLException.class, () -> seg.requireAnyRole());
+        org.junit.jupiter.api.Assertions.assertEquals("No autorizado: esta acción es solo para un administrador.", e.getMessage());
+    }
+
+    @Test
+    void sinRolesPedidosElRolAdminPasa() {
+        autenticado("PRUEBANR", "ADMIN");
+        assertDoesNotThrow(() -> seg.requireAnyRole());
+    }
 }

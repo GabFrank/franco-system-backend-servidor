@@ -21,6 +21,9 @@ import java.util.Optional;
 public class CajaMotivoObservacionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private CajaMotivoObservacionService service;
 
     @Autowired
@@ -38,6 +41,7 @@ public class CajaMotivoObservacionGraphQL implements GraphQLQueryResolver, Graph
     }
 
     public CajaMotivoObservacion saveCajaMotivoObservacion(CajaMotivoObservacionInput input){
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         CajaMotivoObservacion e = m.map(input, CajaMotivoObservacion.class);
         if (input.getUsuarioId()!=null){
@@ -62,6 +66,7 @@ public class CajaMotivoObservacionGraphQL implements GraphQLQueryResolver, Graph
     }
 
     public Boolean deleteCajaMotivoObservacion(Long id){
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

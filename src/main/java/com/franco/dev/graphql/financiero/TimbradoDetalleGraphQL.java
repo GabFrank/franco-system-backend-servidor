@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
@@ -23,6 +24,9 @@ import java.util.Optional;
 
 @Component
 public class TimbradoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private TimbradoDetalleService service;
@@ -51,6 +55,7 @@ public class TimbradoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMuta
 
 
     public TimbradoDetalle saveTimbradoDetalle(TimbradoDetalleInput input) {
+        seg.requireSuperusuario();
         ModelMapper m = new ModelMapper();
         TimbradoDetalle e = m.map(input, TimbradoDetalle.class);
         if (input.getUsuarioId() != null) {
@@ -64,6 +69,7 @@ public class TimbradoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMuta
     }
 
     public Boolean deleteTimbradoDetalle(Long id, Long sucId) {
+        seg.requireSuperusuario();
         Boolean ok = service.deleteByIdAndSucursalId(id, sucId);
         return ok;
     }

@@ -13,6 +13,10 @@ INSTANCE="${2:?Usage: deploy.sh <version> <instance> [firebase_json_path] [fireb
 FIREBASE_JSON_SOURCE="${3:-}"
 FIREBASE_TARGET_OVERRIDE="${4:-}"
 MAIL_ENV_SOURCE="${5:-}"
+TOKEN_ENV_SOURCE="${6:-}"
+CONFIG_ENV_SOURCE="${7:-}"
+# Los archivos traen claves: se borran al salir aunque el deploy se corte antes de usarlos.
+trap '[[ -n "${TOKEN_ENV_SOURCE}" ]] && rm -f "${TOKEN_ENV_SOURCE}"; [[ -n "${CONFIG_ENV_SOURCE}" ]] && rm -f "${CONFIG_ENV_SOURCE}"; true' EXIT
 
 BASE_DIR="/opt/frc-backend-central"
 INSTANCE_DIR="${BASE_DIR}/${INSTANCE}"
@@ -89,6 +93,46 @@ if [[ -n "${MAIL_ENV_SOURCE}" && -f "${MAIL_ENV_SOURCE}" ]]; then
   done < "${MAIL_ENV_SOURCE}"
   rm -f "${MAIL_ENV_SOURCE}"
   echo "Mail settings written to ${INSTANCE_DIR}/.env"
+fi
+
+# --- Clave del token de sesion ---
+# El workflow sube solo las claves definidas en el environment; se pisan en el .env y se conserva el
+# resto. El valor se lee con ${linea#*=} (un IFS='=' read recortaria un '=' final del base64).
+if [[ -n "${TOKEN_ENV_SOURCE}" && -f "${TOKEN_ENV_SOURCE}" ]]; then
+  while IFS= read -r LINEA || [[ -n "${LINEA}" ]]; do
+    TOKEN_KEY="${LINEA%%=*}"
+    case "${TOKEN_KEY}" in
+      APP_JWT_SECRET|APP_JWT_ACEPTAR) ;;
+      *) continue ;;
+    esac
+    ENV_TMP=$(mktemp)
+    grep -v "^${TOKEN_KEY}=" "${INSTANCE_DIR}/.env" > "${ENV_TMP}" || true
+    printf '%s=%s\n' "${TOKEN_KEY}" "${LINEA#*=}" >> "${ENV_TMP}"
+    cat "${ENV_TMP}" > "${INSTANCE_DIR}/.env"
+    rm -f "${ENV_TMP}"
+    echo "${TOKEN_KEY} escrita en ${INSTANCE_DIR}/.env"
+  done < "${TOKEN_ENV_SOURCE}"
+  rm -f "${TOKEN_ENV_SOURCE}"
+fi
+
+# --- Clave maestra de la configuracion cifrada (CONFIG_MASTER_KEY) ---
+# Cifra la clave de OpenAI guardada en configuracion_sistema. El workflow sube el archivo solo si el
+# secret existe; se pisa la clave en el .env y se conserva el resto. El valor nunca se imprime.
+if [[ -n "${CONFIG_ENV_SOURCE}" && -f "${CONFIG_ENV_SOURCE}" ]]; then
+  while IFS= read -r LINEA || [[ -n "${LINEA}" ]]; do
+    CONFIG_KEY="${LINEA%%=*}"
+    case "${CONFIG_KEY}" in
+      CONFIG_MASTER_KEY) ;;
+      *) continue ;;
+    esac
+    ENV_TMP=$(mktemp)
+    grep -v "^${CONFIG_KEY}=" "${INSTANCE_DIR}/.env" > "${ENV_TMP}" || true
+    printf '%s=%s\n' "${CONFIG_KEY}" "${LINEA#*=}" >> "${ENV_TMP}"
+    cat "${ENV_TMP}" > "${INSTANCE_DIR}/.env"
+    rm -f "${ENV_TMP}"
+    echo "${CONFIG_KEY} escrita en ${INSTANCE_DIR}/.env"
+  done < "${CONFIG_ENV_SOURCE}"
+  rm -f "${CONFIG_ENV_SOURCE}"
 fi
 
 # --- Save current version for rollback ---

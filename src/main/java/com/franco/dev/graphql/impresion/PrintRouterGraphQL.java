@@ -16,6 +16,9 @@ import java.util.Base64;
 public class PrintRouterGraphQL implements GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private PrintRouterService printRouterService;
 
     @Autowired
@@ -26,6 +29,7 @@ public class PrintRouterGraphQL implements GraphQLMutationResolver {
      * desde otro host; no vuelve a rutear (evita loops).
      */
     public Boolean imprimirEnDestino(Long impresoraId, String payloadBase64) {
+        seg.requireAnyRole("ANALISIS DE CAJA", "CONFIGURACION"); // la reenvian la impresion de facturas y la de prueba
         byte[] payload = Base64.getDecoder().decode(payloadBase64);
         return printRouterService.imprimirLocalPorId(impresoraId, payload);
     }
@@ -35,6 +39,7 @@ public class PrintRouterGraphQL implements GraphQLMutationResolver {
      * host dueño.
      */
     public Boolean imprimirEnImpresora(Long impresoraId, String payloadBase64) {
+        seg.requireSuperusuario(); // contenido libre; ningun cliente la llama
         byte[] payload = Base64.getDecoder().decode(payloadBase64);
         return printRouterService.imprimir(impresoraId, payload);
     }
@@ -44,6 +49,7 @@ public class PrintRouterGraphQL implements GraphQLMutationResolver {
      * impresora) y lo rutea al host correspondiente.
      */
     public Boolean imprimirPruebaEnImpresora(Long impresoraId) {
+        seg.requireAnyRole("CONFIGURACION");
         Impresora impresora = impresoraService.findById(impresoraId).orElse(null);
         if (impresora == null) {
             return false;

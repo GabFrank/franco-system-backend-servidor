@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.operaciones.compras.ComprasSecurityService;
 import com.franco.dev.domain.operaciones.PedidoSucursalEntrega;
 import com.franco.dev.domain.operaciones.PedidoSucursalInfluencia;
 import com.franco.dev.graphql.operaciones.input.PedidoSucursalEntregaInput;
@@ -21,6 +22,9 @@ import java.util.Optional;
 public class PedidoSucursalEntregaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private ComprasSecurityService seg;
+
+    @Autowired
     private PedidoSucursalEntregaService service;
 
     @Autowired
@@ -37,6 +41,7 @@ public class PedidoSucursalEntregaGraphQL implements GraphQLQueryResolver, Graph
     }
 
     public PedidoSucursalEntrega savePedidoSucursalEntrega(PedidoSucursalEntregaInput input) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         PedidoSucursalEntrega e = m.map(input, PedidoSucursalEntrega.class);
         if (input.getUsuarioId() != null) {
@@ -53,6 +58,7 @@ public class PedidoSucursalEntregaGraphQL implements GraphQLQueryResolver, Graph
     }
 
     public Boolean deletePedidoSucursalEntrega(Long id) {
+        seg.exigirAdmin(); // sin pantalla que la llame
         return service.deleteById(id);
     }
 

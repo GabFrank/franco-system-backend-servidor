@@ -143,7 +143,8 @@ class ContraAsientoRrhhTest {
                 mock(PagoSolicitudDetalleRepository.class),
                 mock(ValeCuotaRepository.class),
                 mock(LiquidacionItemRepository.class),
-                mock(LiquidacionFinalItemRepository.class));
+                mock(LiquidacionFinalItemRepository.class),
+                mock(com.franco.dev.repository.operaciones.SolicitudPagoRepository.class));
     }
 
     // ─────────────────────────────── finiquito ───────────────────────────────

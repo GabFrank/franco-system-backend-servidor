@@ -14,4 +14,8 @@ public interface LoteDeProductoProjection {
     String getEstado();
     Double getSaldo();
     Double getSaldoTotal();
+
+    Boolean getArchivado();
+
+    Boolean getEliminado();
 }

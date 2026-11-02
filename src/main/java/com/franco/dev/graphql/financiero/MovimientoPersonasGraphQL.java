@@ -25,6 +25,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 public class MovimientoPersonasGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private MovimientoPersonasService service;
 
     @Autowired
@@ -50,6 +53,7 @@ public class MovimientoPersonasGraphQL implements GraphQLQueryResolver, GraphQLM
     }
 
     public MovimientoPersonas saveMovimientoPersonas(MovimientoPersonasInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         MovimientoPersonas e = m.map(input, MovimientoPersonas.class);
         if(input.getVencimiento()!=null) e.setVencimiento(stringToDate(input.getVencimiento()));
@@ -64,6 +68,7 @@ public class MovimientoPersonasGraphQL implements GraphQLQueryResolver, GraphQLM
     }
 
     public Boolean deleteMovimientoPersonas(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

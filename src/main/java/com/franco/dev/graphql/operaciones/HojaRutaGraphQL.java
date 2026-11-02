@@ -1,5 +1,7 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
+import com.franco.dev.service.operaciones.TransferenciaRoles;
 import com.franco.dev.domain.operaciones.HojaRuta;
 import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.graphql.operaciones.input.HojaRutaInput;
@@ -33,6 +35,9 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDateEndOfDay;
 
 @Component
 public class HojaRutaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     @Autowired
     private HojaRutaService service;
@@ -70,6 +75,7 @@ public class HojaRutaGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public HojaRuta saveHojaRuta(HojaRutaInput input) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
         ModelMapper m = new ModelMapper();
         HojaRuta e = m.map(input, HojaRuta.class);
         // La entidad se persiste con merge: los campos ausentes en el input se guardarian
@@ -120,6 +126,7 @@ public class HojaRutaGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Boolean deleteHojaRuta(Long id) {
+        seg.requireSuperusuario(); // configuracion o sin pantalla que la llame
         return service.deleteById(id);
     }
 

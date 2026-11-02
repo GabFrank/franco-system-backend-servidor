@@ -1,0 +1,72 @@
+# Recepciones pendientes de lote (#429, fase 2, entrega 3).
+
+type PendienteLote {
+    mslId: ID
+    sucursalId: ID
+    sucursalNombre: String
+    productoId: ID
+    productoDescripcion: String
+    recepcionId: ID
+    recepcionItemId: ID
+    proveedorNombre: String
+    fecha: Date
+    cantidad: Float
+    resuelto: Float
+    remanente: Float
+}
+
+type PendienteLotePage {
+    content: [PendienteLote]
+    totalElements: Int
+    page: Int
+    size: Int
+}
+
+type InfoPendienteLote {
+    pendiente: PendienteLote
+    saldoSinLote: Float
+    atribuidoManualDespues: Float
+    cantidadSugerida: Float
+    ultimaSincronizacion: Date
+    sincronizacionVencida: Boolean
+    maxDesfaseMinutos: Int
+    lotesParecidos: [LoteEncontrado]
+}
+
+type ResolucionLotePendiente {
+    id: ID
+    mslId: ID
+    sucursalId: ID
+    productoId: ID
+    productoDescripcion: String
+    loteId: ID
+    numeroLote: String
+    cantidadAtribuida: Float
+    cantidadNoAtribuida: Float
+    accion: String
+    motivo: String
+    movimientoStockId: ID
+    usuarioId: ID
+    usuarioNickname: String
+    fecha: Date
+    anulada: Boolean
+}
+
+extend type Query {
+    # VER PRODUCTOS o EDITAR PRODUCTOS. Fechas yyyy-MM-dd (hasta inclusive). Hasta 100 por pagina.
+    recepcionesConLotePendiente(sucursalId: ID, desde: String, hasta: String, page: Int, size: Int): PendienteLotePage
+    contarRecepcionesConLotePendiente(sucursalId: ID): Int
+    # EDITAR PRODUCTOS. Con numeroLote trae los lotes del producto con numero igual o parecido.
+    infoLotePendiente(mslId: ID!, sucursalId: ID!, numeroLote: String): InfoPendienteLote
+    resolucionesLotePendiente(sucursalId: ID, page: Int, size: Int): [ResolucionLotePendiente]
+}
+
+extend type Mutation {
+    # EDITAR PRODUCTOS. El usuario sale de la sesion. saldoSinLoteEsperado = el SIN LOTE que se vio.
+    completarLotePendiente(mslId: ID!, sucursalId: ID!, numeroLote: String!, fechaVencimiento: String,
+                           cantidad: Float!, saldoSinLoteEsperado: Float!, cerrarRemanente: Boolean,
+                           motivoRemanente: String, confirmarVencimiento: Boolean): ResolucionLotePendiente
+    descartarLotePendiente(mslId: ID!, sucursalId: ID!, motivo: String!): ResolucionLotePendiente
+    # ADMIN. Devuelve a SIN LOTE lo atribuido (si el lote todavia lo tiene) y el pendiente vuelve.
+    reabrirLotePendiente(resolucionId: ID!, motivo: String!): ResolucionLotePendiente
+}

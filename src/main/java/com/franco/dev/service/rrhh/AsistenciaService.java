@@ -2,13 +2,13 @@ package com.franco.dev.service.rrhh;
 
 import com.franco.dev.domain.administrativo.Horario;
 import com.franco.dev.domain.administrativo.Jornada;
-import com.franco.dev.domain.administrativo.enums.Dia;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.rrhh.Feriado;
 import com.franco.dev.domain.rrhh.FuncionarioEgresoHistorico;
 import com.franco.dev.domain.rrhh.Justificativo;
-import com.franco.dev.repository.administrativo.HorarioRepository;
+import com.franco.dev.service.administrativo.helper.HorarioResolver;
+import com.franco.dev.service.administrativo.helper.HorarioSemanal;
 import com.franco.dev.repository.rrhh.FuncionarioEgresoHistoricoRepository;
 import com.franco.dev.service.administrativo.JornadaService;
 import com.franco.dev.service.personas.FuncionarioService;
@@ -42,7 +42,7 @@ public class AsistenciaService {
 
     private final FuncionarioService funcionarioService;
     private final UsuarioService usuarioService;
-    private final HorarioRepository horarioRepository;
+    private final HorarioResolver horarioResolver;
     private final FuncionarioEgresoHistoricoRepository egresoRepository;
     private final FeriadoService feriadoService;
     private final JornadaService jornadaService;
@@ -89,16 +89,10 @@ public class AsistenciaService {
         return AsistenciaCalculator.calcular(anho, mes, tieneHorario, dias, tolerancia, pesoFalta, pesoTardanza);
     }
 
-    /** El horario del funcionario mas los que tenga asignados su usuario (alternativos por dia). */
+    /** Los mismos horarios que mira la marcacion (#523): los propios del usuario o, sin ninguno, el del funcionario. */
     private List<Horario> horarios(Funcionario funcionario, Usuario usuario) {
-        List<Horario> horarios = new ArrayList<>();
-        if (funcionario.getHorario() != null) horarios.add(funcionario.getHorario());
-        if (usuario != null) {
-            for (Horario h : horarioRepository.findByUsuarioIdOrderByIdDesc(usuario.getId())) {
-                if (h.getHoraEntrada() != null) horarios.add(h);
-            }
-        }
-        return horarios;
+        if (usuario == null) return new ArrayList<>();
+        return horarioResolver.horariosVigentes(usuario.getId(), funcionario);
     }
 
     /**
@@ -176,14 +170,9 @@ public class AsistenciaService {
                 && jornada.getSucursalId() != null && jornada.getSucursalId().equals(x.getSucursalId());
     }
 
-    /** Mismo criterio que HorarioResolver: un horario sin dias cargados rige todos los dias. */
+    /** Mismo criterio que la marcacion: el dia espera al funcionario si algun horario lo rige. */
     private boolean rigeAlgunHorario(List<Horario> horarios, DayOfWeek dayOfWeek) {
-        Dia dia = Dia.values()[dayOfWeek.getValue()]; // Dia: TODOS, LUNES..DOMINGO; DayOfWeek: 1=MONDAY
-        for (Horario h : horarios) {
-            if (h.getDias() == null || h.getDias().isEmpty()) return true;
-            if (h.getDias().contains(dia) || h.getDias().contains(Dia.TODOS)) return true;
-        }
-        return false;
+        return !HorarioSemanal.candidatos(horarios, HorarioSemanal.dia(dayOfWeek)).isEmpty();
     }
 
     private long minutos(Long valor) {

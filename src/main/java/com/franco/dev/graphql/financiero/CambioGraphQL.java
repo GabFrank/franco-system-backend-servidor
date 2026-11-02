@@ -33,6 +33,12 @@ import java.util.stream.Collectors;
 @Component
 public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
+    /** Cotizaciones (CAMBIAR COTIZACION) y gestion de compras (roles de Compras) refrescan el mercado. */
+    static final String[] ROLES_COTIZACION_MERCADO = java.util.stream.Stream.concat(
+            java.util.stream.Stream.of(TesoreriaSecurityService.CAMBIAR_COTIZACION),
+            com.franco.dev.service.operaciones.compras.ComprasSecurityService.ROLES_COMPRAS.stream())
+            .toArray(String[]::new);
+
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CambioGraphQL.class);
 
     @Autowired
@@ -193,7 +199,7 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     /**
      * Refresca la cotizacion de mercado desde nortecambios.com.py.
      *
-     * <p>Devuelve {@code false} cuando no se pudo actualizar nada — no lanza. Es una
+     * <p>Devuelve {@code false} cuando no se pudo actualizar nada — no lanza, salvo el rechazo por rol. Es una
      * lectura best-effort de un sitio de terceros: que no responda no es un error del
      * sistema, y un error GraphQL aca aborta toda la operacion del cliente que lo pidio.
      * Los dos llamadores del desktop (lista de cambios y gestion de compras) ya tratan
@@ -203,6 +209,7 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
      * esta apagado.
      */
     public Boolean actualizarCotizacionesMercado() {
+        seg.requireAnyRole(ROLES_COTIZACION_MERCADO);
         if (!cotizacionMercadoHabilitada) {
             return false;
         }

@@ -237,6 +237,8 @@ extend type Query {
         texto: String
         page: Int = 0
         size: Int = 10
+        # Por defecto se ocultan los lotes archivados sin saldo.
+        incluirArchivados: Boolean = false
     ): LoteDeProductoPage
 
     # Desglose por lote de un movimiento de stock agregado.
@@ -340,6 +342,26 @@ extend type Mutation {
     # lote en la misma transaccion, con lo que la existencia total y el stock por lote nunca quedan
     # contando cosas distintas.
     ajustarStockLote(input: AjusteStockLoteInput!): AjusteStockLoteResultado
+
+    # Pasa unidades de un lote a otro del mismo producto en UNA sucursal, sin cambiar la existencia
+    # (venta, transferencia o recepcion que salio con el lote equivocado). Los dos lotes tienen que
+    # existir ya en la filial; rechaza si la sucursal no esta sincronizada (salvo forzar).
+    reasignarLote(input: ReasignarLoteInput!): AjusteStockLoteResultado
+
+    # Archiva un lote: lo saca de buscadores y selectores sin tocar stock ni estado. Exige saldo 0
+    # en TODAS las sucursales y motivo; con saldo, primero ajustarStockLote en modo LIBERAR o
+    # CORREGIR. No replica a las filiales (no les hace falta: sin saldo FEFO no lo elige).
+    archivarLote(loteId: ID!, motivo: String!, usuarioId: ID): Boolean
+
+    # Vuelve a mostrar un lote archivado.
+    desarchivarLote(loteId: ID!): Boolean
+    # Lotes fase 3: eliminar lote creado por error (baja logica, queda BLOQUEADO) y restaurarlo.
+    eliminarLote(loteId: ID!, motivo: String!, usuarioId: ID): Boolean
+    restaurarLote(loteId: ID!): Boolean
+
+    # Conteo rapido: varios ajustes por lote en UNA transaccion (todo o nada), hasta 50 renglones.
+    # Con saldoEsperado en cada renglon, se rechaza si el saldo cambio desde que se cargo la lista.
+    ajustarStockLoteLista(inputs: [AjusteStockLoteInput!]!): [AjusteStockLoteResultado]
 }
 
 # Que esta haciendo el operador. Decide si la existencia total cambia o no, y se elige de forma
@@ -350,6 +372,23 @@ enum ModoAjusteLote {
     ATRIBUIR
     # La existencia estaba mal (rotura, faltante, mercaderia encontrada). El total SI cambia.
     CORREGIR
+    # El lote tiene mas saldo del que hay con ese numero: baja el lote y la diferencia vuelve a
+    # SIN LOTE. El total NO cambia. Solo baja; motivo obligatorio.
+    LIBERAR
+}
+
+input ReasignarLoteInput {
+    productoId: ID!
+    sucursalId: ID!
+    loteOrigenId: ID!
+    loteDestinoId: ID!
+    # Unidades base que pasan del origen al destino.
+    cantidad: Float!
+    motivo: String!
+    referencia: String
+    saldoEsperado: Float
+    forzar: Boolean
+    usuarioId: ID
 }
 
 input AjusteStockLoteInput {
@@ -370,6 +409,8 @@ input AjusteStockLoteInput {
     fechaVencimiento: String
     # Solo al crear el lote. Sin esto se deriva de los dias de vencimiento del producto.
     fechaRetiro: String
+    # Conteo rapido: saldo que vio el operador al cargar. Si cambio, se rechaza para recargar.
+    saldoEsperado: Float
 }
 
 # Un lote de un producto con el saldo que tiene en una sucursal. saldo es 0 cuando el lote nunca
@@ -384,6 +425,9 @@ type LoteDeProducto {
     # Saldo del lote en toda la red. Distingue "aca no hay" de "no hay en ningun lado": con solo
     # saldo por sucursal los dos casos se ven iguales, en cero.
     saldoTotal: Float
+    # Archivado: oculto de buscadores y selectores. Si vuelve a tener saldo, se muestra marcado.
+    archivado: Boolean
+    eliminado: Boolean
 }
 
 type LoteDeProductoPage {

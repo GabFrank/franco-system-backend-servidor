@@ -6,13 +6,17 @@ import com.franco.dev.domain.grafico.VentasPorHoraSerieGrafico;
 import com.franco.dev.domain.operaciones.VentaPorFuncionario;
 import com.franco.dev.domain.operaciones.VentaPorCiudad;
 import com.franco.dev.domain.operaciones.VentaPorSucursal;
+import com.franco.dev.domain.financiero.enums.EstadoVentaCredito;
 import com.franco.dev.graphql.financiero.dto.FormaPagoEstadistica;
+import com.franco.dev.graphql.grafico.dto.ConvenioSucursalIntegridad;
 import com.franco.dev.graphql.grafico.input.GraficoExcelExportInput;
 import com.franco.dev.graphql.grafico.input.PeriodoGraficoInput;
 import com.franco.dev.graphql.operaciones.dto.ProductoVendidoEstadistica;
+import com.franco.dev.service.grafico.ConvenioIntegridadService;
 import com.franco.dev.service.grafico.GraficoAggregationService;
 import com.franco.dev.service.grafico.excel.GraficoExcelExportService;
 import com.franco.dev.service.grafico.excel.GraficoExcelTipo;
+import com.franco.dev.service.rrhh.RrhhSecurityService;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -26,6 +30,18 @@ public class GraficoGraphQL implements GraphQLQueryResolver {
 
     private final GraficoAggregationService graficoAggregationService;
     private final GraficoExcelExportService graficoExcelExportService;
+    private final ConvenioIntegridadService convenioIntegridadService;
+    private final RrhhSecurityService securityService;
+
+    /** Solo ADMIN, como el menú Gráficos: abre conexiones a la base de cada filial. */
+    public List<ConvenioSucursalIntegridad> convenioIntegridadPorSucursal(
+            String fechaInicio,
+            String fechaFin,
+            EstadoVentaCredito estado,
+            List<Long> sucIds) {
+        securityService.requireAnyRole("ADMIN");
+        return convenioIntegridadService.porSucursal(fechaInicio, fechaFin, estado, sucIds);
+    }
 
     public List<VentaPorFuncionario> ventasPorFuncionarioMulti(
             List<PeriodoGraficoInput> periodos,

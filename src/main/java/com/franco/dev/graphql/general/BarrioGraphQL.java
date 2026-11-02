@@ -23,6 +23,9 @@ import java.util.Optional;
 public class BarrioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private BarrioService service;
 
     @Autowired
@@ -57,6 +60,7 @@ public class BarrioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
 
     public Barrio saveBarrio(BarrioInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         Barrio e = m.map(input, Barrio.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -66,6 +70,7 @@ public class BarrioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         return e;    }
 
     public Boolean deleteBarrio(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

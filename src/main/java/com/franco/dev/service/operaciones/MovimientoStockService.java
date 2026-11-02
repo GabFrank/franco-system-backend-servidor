@@ -18,6 +18,7 @@ import com.franco.dev.repository.operaciones.MovimientoStockRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.configuraciones.ModificacionService;
 import com.franco.dev.service.empresarial.SucursalService;
+import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -354,8 +355,14 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
                 || e.getMotivoRechazoRecepcion() != null || e.getMotivoRechazoTransporte() != null;
         MovimientoStock ms = null;
 
+        // Un ítem rechazado sin cantidad o presentación en la etapa (des-verificado y rechazado después)
+        // no mueve stock: su movimiento queda inactivo y no se crea uno nuevo (#474).
         switch (e.getTransferencia().getEtapa()) {
             case PREPARACION_MERCADERIA:
+                if (e.getCantidadPreparacion() == null || e.getPresentacionPreparacion() == null) {
+                    movimientoStockSalida = sinCantidad(e, esRechazado, movimientoStockSalida, "preparacion");
+                    break;
+                }
                 ms = movimientoStockSalida != null ? movimientoStockSalida : new MovimientoStock();
                 ms.setEstado(!esRechazado);
                 ms.setSucursalId(e.getTransferencia().getSucursalOrigen().getId());
@@ -368,22 +375,33 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
                 movimientoStockSalida = save(ms);
                 break;
             case RECEPCION_EN_VERIFICACION:
-                ms = movimientoStockEntrada != null ? movimientoStockEntrada : new MovimientoStock();
-                ms.setEstado(!esRechazado);
-                ms.setSucursalId(e.getTransferencia().getSucursalDestino().getId());
-                ms.setCantidad(e.getCantidadRecepcion() * e.getPresentacionRecepcion().getCantidad());
-                ms.setProducto(e.getPresentacionRecepcion().getProducto());
-                ms.setReferencia(e.getId());
-                ms.setTipoMovimiento(TipoMovimiento.TRANSFERENCIA);
-                ms.setCreadoEn(LocalDateTime.now());
-                ms.setUsuario(e.getUsuario());
-                movimientoStockEntrada = save(ms);
-                ms = movimientoStockSalida;
-                ms.setEstado(!esRechazado);
-                movimientoStockSalida = save(ms);
+                if (e.getCantidadRecepcion() == null || e.getPresentacionRecepcion() == null) {
+                    movimientoStockEntrada = sinCantidad(e, esRechazado, movimientoStockEntrada, "recepcion");
+                } else {
+                    ms = movimientoStockEntrada != null ? movimientoStockEntrada : new MovimientoStock();
+                    ms.setEstado(!esRechazado);
+                    ms.setSucursalId(e.getTransferencia().getSucursalDestino().getId());
+                    ms.setCantidad(e.getCantidadRecepcion() * e.getPresentacionRecepcion().getCantidad());
+                    ms.setProducto(e.getPresentacionRecepcion().getProducto());
+                    ms.setReferencia(e.getId());
+                    ms.setTipoMovimiento(TipoMovimiento.TRANSFERENCIA);
+                    ms.setCreadoEn(LocalDateTime.now());
+                    ms.setUsuario(e.getUsuario());
+                    movimientoStockEntrada = save(ms);
+                }
+                if (movimientoStockSalida != null) {
+                    movimientoStockSalida.setEstado(!esRechazado);
+                    movimientoStockSalida = save(movimientoStockSalida);
+                }
                 break;
             case TRANSPORTE_VERIFICACION:
-                if (movimientoStockSalida != null) {
+                // Sin salida, transporte nunca generó movimiento: se sigue salteando como antes.
+                if (movimientoStockSalida == null) {
+                    break;
+                }
+                if (e.getCantidadTransporte() == null || e.getPresentacionTransporte() == null) {
+                    movimientoStockSalida = sinCantidad(e, esRechazado, movimientoStockSalida, "transporte");
+                } else {
                     ms = movimientoStockSalida;
                     ms.setCantidad(e.getCantidadTransporte() * e.getPresentacionTransporte().getCantidad() * -1);
                     ms.setProducto(e.getPresentacionTransporte().getProducto());
@@ -412,6 +430,20 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         res.add(movimientoStockSalida);
         res.add(movimientoStockEntrada);
         return res;
+    }
+
+    /**
+     * Sin rechazo, una etapa sin cantidad es un ítem sin verificar: se corta como antes cortaba la
+     * NullPointerException, para que un avance de etapa no lo deje pasar sin mover stock.
+     */
+    private MovimientoStock sinCantidad(TransferenciaItem e, boolean esRechazado, MovimientoStock ms, String etapa) {
+        if (!esRechazado) {
+            throw new GraphQLException("El item " + e.getId() + " no tiene cantidad verificada en " + etapa
+                    + ": verificalo o rechazalo antes de seguir.");
+        }
+        if (ms == null) return null;
+        ms.setEstado(false);
+        return save(ms);
     }
 
     /**
@@ -448,6 +480,7 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
                 List<LoteFefoService.AsignacionLote> asignaciones = loteFefoService.asignarConPreferencia(
                         producto.getId(), salida.getSucursalId(), cantidadSalida, preferencias);
                 advertirSiSeCompletoPorFefo(item, preferencias, asignaciones);
+                asignaciones = completarSinLote(asignaciones, cantidadSalida);
                 movimientoStockLoteService.reemplazarDesglose(
                         salida, producto, asignaciones, item.getId(), -1);
             } else {
@@ -469,6 +502,28 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
                 movimientoStockLoteService.sincronizarEstado(entrada);
             }
         }
+    }
+
+    /**
+     * Lo que FEFO no alcanzó a cubrir con lotes reales se registra como una fila "SIN LOTE"
+     * (lote nulo), igual que hace la venta en la filial. Así el desglose siempre suma la cantidad
+     * del movimiento y la parte sin trazar queda a la vista en origen y en destino, en vez de
+     * desaparecer del libro de lotes.
+     */
+    static List<LoteFefoService.AsignacionLote> completarSinLote(
+            List<LoteFefoService.AsignacionLote> asignaciones, double cantidad) {
+        List<LoteFefoService.AsignacionLote> resultado = asignaciones != null
+                ? new ArrayList<>(asignaciones) : new ArrayList<>();
+        double cubierto = 0;
+        for (LoteFefoService.AsignacionLote a : resultado) {
+            if (a != null && a.getCantidad() != null) cubierto += a.getCantidad();
+        }
+        double faltante = cantidad - cubierto;
+        if (faltante > 0.0001) {
+            resultado.add(new LoteFefoService.AsignacionLote(
+                    null, LoteFefoService.NUMERO_LOTE_SIN_TRAZAR, faltante));
+        }
+        return resultado;
     }
 
     /**
@@ -522,7 +577,7 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
      * orden FEFO en el que salió. Si en el camino se rechaza mercadería, lo que no llegó es lo
      * último de la lista: los lotes de vencimiento más lejano.
      */
-    private List<LoteFefoService.AsignacionLote> recortarAsignaciones(
+    static List<LoteFefoService.AsignacionLote> recortarAsignaciones(
             List<com.franco.dev.domain.operaciones.MovimientoStockLote> filasSalida,
             Double cantidadRecibida) {
         List<LoteFefoService.AsignacionLote> resultado = new ArrayList<>();
@@ -532,12 +587,15 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         double pendiente = cantidadRecibida;
         for (com.franco.dev.domain.operaciones.MovimientoStockLote fila : filasSalida) {
             if (pendiente <= 0.0001) break;
-            if (fila.getLote() == null || fila.getCantidad() == null) continue;
+            if (fila.getCantidad() == null) continue;
             double disponible = Math.abs(fila.getCantidad());
             if (disponible <= 0) continue;
             double aTomar = Math.min(disponible, pendiente);
+            // La fila "SIN LOTE" de la salida (lote nulo) viaja igual: llega como "SIN LOTE".
             resultado.add(new LoteFefoService.AsignacionLote(
-                    fila.getLote().getId(), fila.getNumeroLote(), aTomar));
+                    fila.getLote() != null ? fila.getLote().getId() : null,
+                    fila.getLote() != null ? fila.getNumeroLote() : LoteFefoService.NUMERO_LOTE_SIN_TRAZAR,
+                    aTomar));
             pendiente -= aTomar;
         }
         return resultado;

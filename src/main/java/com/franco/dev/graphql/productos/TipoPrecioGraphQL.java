@@ -23,6 +23,9 @@ import java.util.Optional;
 public class TipoPrecioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.productos.PrecioSecurityService seg;
+
+    @Autowired
     private TipoPrecioService service;
 
 
@@ -39,6 +42,7 @@ public class TipoPrecioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public TipoPrecio saveTipoPrecio(TipoPrecioInput input){
+        seg.requireAnyRole(); // sin pantalla que la llame
         ModelMapper m = new ModelMapper();
         TipoPrecio e = m.map(input, TipoPrecio.class);
         e = service.save(e);
@@ -53,6 +57,7 @@ public class TipoPrecioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public Boolean deleteTipoPrecio(Long id){
+        seg.requireAnyRole(); // sin pantalla que la llame
         Boolean ok = service.deleteById(id);
         return ok;
     }

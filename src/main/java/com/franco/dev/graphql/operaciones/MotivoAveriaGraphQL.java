@@ -15,6 +15,9 @@ import java.util.List;
 public class MotivoAveriaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private MotivoAveriaService service;
 
     public MotivoAveria motivoAveria(Long id) {
@@ -30,6 +33,7 @@ public class MotivoAveriaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public MotivoAveria saveMotivoAveria(MotivoAveriaInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         ModelMapper mapper = new ModelMapper();
         MotivoAveria entity = mapper.map(input, MotivoAveria.class);
         if (entity.getActivo() == null) entity.setActivo(true);
@@ -39,6 +43,7 @@ public class MotivoAveriaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean deleteMotivoAveria(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         return service.deleteById(id);
     }
 }

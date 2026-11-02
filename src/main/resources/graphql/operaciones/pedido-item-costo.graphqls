@@ -1,0 +1,23 @@
+# Ítems del pedido en el desktop: precio contra la última compra y vencimiento desde la tabla.
+
+type VariacionCostoPedidoItem {
+    pedidoItemId: ID!
+    precioActual: Float
+    ultimoPrecio: Float
+    # Fracción: 0.12 = +12 %
+    variacion: Float
+    # SUBIO | BAJO | IGUAL | SIN_HISTORIAL
+    direccion: String!
+    # Listo para el tooltip; null si IGUAL o SIN_HISTORIAL
+    texto: String
+}
+
+extend type Query {
+    # Un elemento por ítem del pedido. Cambio menor al 1 % = IGUAL. La última compra excluye las notas de este pedido.
+    variacionCostoPedidoItems(pedidoId: ID!): [VariacionCostoPedidoItem!]!
+}
+
+extend type Mutation {
+    # vencimiento "yyyy-MM-dd", o null para borrarlo
+    actualizarVencimientoPedidoItem(pedidoItemId: ID!, vencimiento: String): PedidoItem!
+}

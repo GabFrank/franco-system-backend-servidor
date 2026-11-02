@@ -23,6 +23,9 @@ import java.util.Optional;
 public class TipoMuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
+    private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
+
+    @Autowired
     private TipoMuebleService service;
 
     @Autowired
@@ -62,6 +65,7 @@ public class TipoMuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public TipoMueble saveTipoMueble(TipoMuebleInput input) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         TipoMueble e = new TipoMueble();
         if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new TipoMueble());
@@ -83,6 +87,7 @@ public class TipoMuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public Boolean deleteTipoMueble(Long id) {
+        seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame
         try {
             return service.deleteById(id);
         } catch (Exception err) {

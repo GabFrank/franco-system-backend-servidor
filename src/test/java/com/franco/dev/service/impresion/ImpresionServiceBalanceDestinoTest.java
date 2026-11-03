@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 /**
@@ -94,6 +95,35 @@ class ImpresionServiceBalanceDestinoTest {
 
         assertTrue(service.printBalance(abierta, "ticket", "CAJA 1", memoria));
         assertTrue(new String(memoria.toByteArray(), java.nio.charset.StandardCharsets.ISO_8859_1).contains("ABIERTA"));
+    }
+
+    @Test
+    void elCierreLlevaElQrDeLaCajaParaCajaMayor() throws Exception {
+        PdvCajaBalanceDto dto = balance();
+        com.franco.dev.domain.empresarial.Sucursal suc = new com.franco.dev.domain.empresarial.Sucursal();
+        suc.setId(24L);
+        suc.setNombre("CENTRO");
+        dto.setSucursal(suc);
+        ByteArrayOutputStream memoria = new ByteArrayOutputStream();
+
+        assertTrue(service.printBalance(dto, null, "CAJA 1", memoria));
+        assertTrue(new String(memoria.toByteArray(), java.nio.charset.StandardCharsets.ISO_8859_1)
+                .contains("frc-24-PDVCAJA-7166-24-IngresarRetiroCajaMayor-null-null"));
+    }
+
+    @Test
+    void elCierreSinSucursalSaleSinQr() throws Exception {
+        ByteArrayOutputStream memoria = new ByteArrayOutputStream();
+        assertTrue(service.printBalance(balance(), null, "CAJA 1", memoria));
+        assertFalse(new String(memoria.toByteArray(), java.nio.charset.StandardCharsets.ISO_8859_1).contains("frc-"));
+    }
+
+    @Test
+    void unQrQueFallaNoCortaElTicket() throws Exception {
+        com.franco.dev.utilitarios.print.escpos.EscPos escpos = mock(com.franco.dev.utilitarios.print.escpos.EscPos.class);
+        doThrow(new IllegalStateException("QR roto")).when(escpos)
+                .write(any(com.franco.dev.utilitarios.print.escpos.barcode.BarCodeWrapperInterface.class), anyString());
+        assertDoesNotThrow(() -> ImpresionService.escribirQr(escpos, "frc-24-PDVCAJA-7166-24-x-null-null"));
     }
 
     @Test

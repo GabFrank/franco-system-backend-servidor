@@ -64,6 +64,13 @@ class ControlRolMatrizTest {
                 f(MovimientoCajaGraphQL.class, "saveMovimientoCaja"), f(MovimientoCajaGraphQL.class, "deleteMovimientoCaja"),
                 f(PdvCajaGraphQL.class, "savePdvCaja", AC, VT), f(PdvCajaGraphQL.class, "savePdvCajaPorSucursal", VT),
                 f(PdvCajaGraphQL.class, "abrirCajaDesdeServidor", VT),
+                // issue #524: listados de cajas y verificar, solo ANALISIS DE CAJA
+                f(PdvCajaGraphQL.class, "verificarCaja", AC), f(PdvCajaGraphQL.class, "pdvCajas", AC),
+                f(PdvCajaGraphQL.class, "countPdvCaja", AC), f(PdvCajaGraphQL.class, "cajasPorFecha", AC),
+                f(PdvCajaGraphQL.class, "cajasWithFilters", AC), f(PdvCajaGraphQL.class, "cajasAnalisisDiferencias", AC),
+                f(PdvCajaGraphQL.class, "balancePorFecha", AC), f(PdvCajaGraphQL.class, "balanceActiveCajasBySucursalId", AC),
+                f(PdvCajaGraphQL.class, "cajaAbiertoPorSucursal", AC),
+                f(PdvCajaGraphQL.class, "findCajasWithVentaObservaciones", AC),
                 f(RetiroGraphQL.class, "saveRetiro"), f(RetiroGraphQL.class, "deleteRetiro"),
                 f(RetiroDetalleGraphQL.class, "saveRetiroDetalle"), f(RetiroDetalleGraphQL.class, "deleteRetiroDetalle"),
                 f(SencilloGraphQL.class, "saveSencillo"), f(SencilloGraphQL.class, "deleteSencillo"),

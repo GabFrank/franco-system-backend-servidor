@@ -98,6 +98,30 @@ class MonedaModuloLectorTest {
     }
 
     @Test
+    void facturacion_laSucursalPisaALaGlobal() {
+        filas(ModuloMoneda.FACTURACION,
+                fila(12L, real, 7L, AHORA.minusDays(1), true),
+                fila(11L, dolar, null, AHORA.minusDays(2), true));
+        assertSame(real, lector.resolver(ModuloMoneda.FACTURACION, 7L, AHORA));
+        assertSame(dolar, lector.resolver(ModuloMoneda.FACTURACION, 8L, AHORA));
+    }
+
+    @Test
+    void configurada_sinFilasEsVacio_noLaMonedaDeLaEmpresa() {
+        filas(ModuloMoneda.FACTURACION);
+        assertFalse(lector.configurada(ModuloMoneda.FACTURACION, 7L, AHORA).isPresent());
+        filas(ModuloMoneda.FACTURACION, fila(12L, real, 7L, AHORA.minusDays(1), true));
+        assertSame(real, lector.configurada(ModuloMoneda.FACTURACION, 7L, AHORA).get());
+        assertFalse(lector.configurada(ModuloMoneda.FACTURACION, 8L, AHORA).isPresent());
+    }
+
+    @Test
+    void configurada_unaFallaAlLeerEsVacioSinLanzar() {
+        when(repository.findByModuloOrderByVigenteDesdeDescIdDesc(any())).thenThrow(new RuntimeException("db caida"));
+        assertFalse(lector.configurada(ModuloMoneda.FACTURACION, 7L, AHORA).isPresent());
+    }
+
+    @Test
     void fueraDelPdv_laSucursalNoSeConsidera() {
         // El CHECK de V258.5 lo impide; si una fila asi llegara igual, no rige.
         filas(ModuloMoneda.COMPRAS, fila(12L, real, 7L, AHORA.minusDays(1), true));

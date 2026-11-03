@@ -1,9 +1,10 @@
-# Modulos que eligen su moneda (V258.5). Solo PDV admite una moneda por sucursal.
+# Modulos que eligen su moneda (V258.5, FACTURACION en V267.5). PDV y FACTURACION admiten una moneda por sucursal.
 enum ModuloMoneda {
     COMPRAS
     COSTOS
     PRECIOS
     PDV
+    FACTURACION
 }
 
 "Desde vigenteDesde, el modulo usa la moneda. Una fila nueva reemplaza a la anterior de su clave; ninguna se edita."

@@ -31,6 +31,7 @@ public class ConfiguracionMonedaModuloService {
     private final MonedaService monedaService;
     private final SucursalService sucursalService;
     private final CotizacionService cotizacionService;
+    private final ControlVersionMoneda controlVersionMoneda;
 
     public List<ConfiguracionMonedaModulo> listar(ModuloMoneda modulo) {
         return modulo != null
@@ -47,10 +48,10 @@ public class ConfiguracionMonedaModuloService {
 
         Sucursal sucursal = null;
         if (input.getSucursalId() != null) {
-            // Decision de negocio, tambien en el CHECK de V258.5: compras, costos y precios son de
-            // toda la empresa; solo el PDV puede tener una moneda distinta por sucursal.
-            if (input.getModulo() != ModuloMoneda.PDV) {
-                throw new GraphQLException("Solo el modulo PDV admite una moneda por sucursal.");
+            // Decision de negocio, tambien en el CHECK de V267.5: compras, costos y precios son de
+            // toda la empresa; solo el PDV y la facturacion pueden variar por sucursal.
+            if (!input.getModulo().porSucursal()) {
+                throw new GraphQLException("Solo los modulos PDV y FACTURACION admiten una moneda por sucursal.");
             }
             sucursal = sucursalService.findById(input.getSucursalId())
                     .orElseThrow(() -> new GraphQLException("La sucursal " + input.getSucursalId() + " no existe."));
@@ -72,6 +73,12 @@ public class ConfiguracionMonedaModuloService {
                     + " no tiene cotizacion cargada. Cargala antes de asignarla a un modulo.");
         }
 
+        // Un escritorio viejo cobra y factura todo en la moneda de la empresa: el PDV o la factura en
+        // otra moneda exigen la version minima (como un precio en otra moneda, fase 3).
+        if ((input.getModulo() == ModuloMoneda.PDV || input.getModulo() == ModuloMoneda.FACTURACION)
+                && !MonedaService.misma(moneda, monedaService.empresa())) {
+            controlVersionMoneda.exigirParaOtraMoneda("operar el " + input.getModulo() + " en " + moneda.getDenominacion());
+        }
         // COSTOS en otra moneda: la cotizacion de compras de hoy queda guardada como punto de partida
         // del costeo (CosteoMoneda). Sin ella las filas viejas no se pueden llevar a esa moneda.
         BigDecimal cotizacionPartida = null;

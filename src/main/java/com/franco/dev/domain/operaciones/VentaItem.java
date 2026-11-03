@@ -99,5 +99,9 @@ public class VentaItem implements Serializable {
     @Column(name = "precio_cotizacion")
     private BigDecimal precioCotizacion;
 
+    /** Precio unitario cobrado en la moneda de la venta (V267.5); precio es su equivalente en la de la empresa. */
+    @Column(name = "precio_en_moneda")
+    private BigDecimal precioEnMoneda;
+
 
 }

@@ -19,6 +19,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -32,6 +33,7 @@ class ConfiguracionMonedaModuloServiceTest {
     private MonedaService monedaService;
     private SucursalService sucursalService;
     private CambioRepository cambioRepository;
+    private ControlVersionMoneda controlVersion;
     private ConfiguracionMonedaModuloService service;
     private Moneda dolar;
     private Usuario autor;
@@ -42,8 +44,9 @@ class ConfiguracionMonedaModuloServiceTest {
         monedaService = mock(MonedaService.class);
         sucursalService = mock(SucursalService.class);
         cambioRepository = mock(CambioRepository.class);
+        controlVersion = mock(ControlVersionMoneda.class);
         service = new ConfiguracionMonedaModuloService(repository, monedaService, sucursalService,
-                new CotizacionService(cambioRepository));
+                new CotizacionService(cambioRepository), controlVersion);
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         dolar = new Moneda();
         dolar.setId(2L);
@@ -111,6 +114,36 @@ class ConfiguracionMonedaModuloServiceTest {
     void pdv_admiteSucursal() {
         ConfiguracionMonedaModulo e = service.crear(input(ModuloMoneda.PDV, 7L, 2L, null), autor);
         assertEquals(7L, e.getSucursal().getId());
+    }
+
+    @Test
+    void facturacion_admiteSucursal() {
+        ConfiguracionMonedaModulo e = service.crear(input(ModuloMoneda.FACTURACION, 7L, 2L, null), autor);
+        assertEquals(7L, e.getSucursal().getId());
+        assertEquals(ModuloMoneda.FACTURACION, e.getModulo());
+    }
+
+    @Test
+    void pdvYFacturacionEnOtraMoneda_exigenLaVersionMinima() {
+        service.crear(input(ModuloMoneda.PDV, 7L, 2L, null), autor);
+        service.crear(input(ModuloMoneda.FACTURACION, 7L, 2L, null), autor);
+        verify(controlVersion, times(2)).exigirParaOtraMoneda(anyString());
+    }
+
+    @Test
+    void sinVersionMinima_elPdvEnOtraMonedaNoSeGuarda() {
+        doThrow(new GraphQLException("VERSION_MINIMA: x")).when(controlVersion).exigirParaOtraMoneda(anyString());
+        assertThrows(GraphQLException.class, () -> service.crear(input(ModuloMoneda.PDV, 7L, 2L, null), autor));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void pdvEnLaMonedaDeLaEmpresa_yLosDemasModulos_noExigenVersion() {
+        when(monedaService.empresa()).thenReturn(dolar);
+        service.crear(input(ModuloMoneda.PDV, 7L, 2L, null), autor);
+        when(monedaService.empresa()).thenReturn(null);
+        service.crear(input(ModuloMoneda.COMPRAS, null, 2L, null), autor);
+        verify(controlVersion, never()).exigirParaOtraMoneda(anyString());
     }
 
     @Test

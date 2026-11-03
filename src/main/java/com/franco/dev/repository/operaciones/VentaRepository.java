@@ -130,7 +130,10 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
             "SUM(CASE WHEN fp.descripcion = 'TRANSFERENCIA' AND m.denominacion = 'REAL' THEN cd.valor ELSE 0 END) AS totalTransferenciaRs, \n" +
             "SUM(CASE WHEN fp.descripcion = 'TRANSFERENCIA' AND m.denominacion = 'DOLAR' THEN cd.valor ELSE 0 END) AS totalTransferenciaDs, \n" +
             "SUM(CASE WHEN fp.descripcion = 'CONVENIO' THEN cd.valor ELSE 0 END) AS totalConvenio, \n" +
-            "SUM(CASE WHEN cd.descuento THEN cd.valor ELSE 0 END) AS totalDescuento, \n" +
+            // Moneda por modulo (fase 4): un descuento en otra moneda que la de la empresa (PDV en USD)
+            // se lleva a la de la empresa; en la principal queda igual que siempre (valor tal cual).
+            "SUM(CASE WHEN cd.descuento THEN cd.valor * (CASE WHEN m.principal IS TRUE THEN 1 "
+                    + "ELSE COALESCE(cd.cotizacion, cd.cambio, 1) END) ELSE 0 END) AS totalDescuento, \n" +
             // #457: antes de 2024-10 el aumento se guardaba en negativo aunque el pago lo incluía.
             "SUM(CASE WHEN cd.aumento THEN ABS(cd.valor * COALESCE(cd.cambio, 1)) ELSE 0 END) AS totalAumento, \n" +
             "SUM(CASE WHEN cd.vuelto AND m.denominacion = 'GUARANI' THEN cd.valor ELSE 0 END) AS vueltoGs, \n" +

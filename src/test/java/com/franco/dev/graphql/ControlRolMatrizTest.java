@@ -72,7 +72,15 @@ class ControlRolMatrizTest {
                 f(PdvCajaGraphQL.class, "cajaAbiertoPorSucursal", AC),
                 f(PdvCajaGraphQL.class, "findCajasWithVentaObservaciones", AC),
                 f(RetiroGraphQL.class, "saveRetiro"), f(RetiroGraphQL.class, "deleteRetiro"),
+                // consultas de retiro: la lista para lectura de caja + ANALISIS FINANCIERO; las que ningún
+                // cliente usa, solo superusuario
+                f(RetiroGraphQL.class, "filterRetiros", AC, GEST, "TESORERIA VER", "TESORERIA CPC COBRAR",
+                        "TESORERIA CPP PAGAR", "ANALISIS FINANCIERO"),
+                f(RetiroGraphQL.class, "retiros"), f(RetiroGraphQL.class, "countRetiro"),
                 f(RetiroDetalleGraphQL.class, "saveRetiroDetalle"), f(RetiroDetalleGraphQL.class, "deleteRetiroDetalle"),
+                f(RetiroDetalleGraphQL.class, "retiroDetalle"), f(RetiroDetalleGraphQL.class, "retiroDetalles"),
+                f(RetiroDetalleGraphQL.class, "retiroDetalleListPorRetiroId"),
+                f(RetiroDetalleGraphQL.class, "countRetiroDetalle"),
                 f(SencilloGraphQL.class, "saveSencillo"), f(SencilloGraphQL.class, "deleteSencillo"),
                 f(SencilloDetalleGraphQL.class, "saveSencilloDetalle"), f(SencilloDetalleGraphQL.class, "deleteSencilloDetalle"),
                 f(VueltoGraphQL.class, "saveVuelto"), f(VueltoGraphQL.class, "deleteVuelto"),

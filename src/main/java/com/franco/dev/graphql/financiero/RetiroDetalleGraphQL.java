@@ -43,10 +43,12 @@ public class RetiroDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutati
     private MonedaService monedaService;
 
     public Optional<RetiroDetalle> retiroDetalle(Long id, Long sucId) {
+        seg.requireSuperusuario(); // ningún cliente la llama
         return service.findById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public List<RetiroDetalle> retiroDetalles(int page, int size, Long sucId) {
+        seg.requireSuperusuario(); // ningún cliente la llama
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
@@ -67,6 +69,7 @@ public class RetiroDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public List<RetiroDetalle> retiroDetalleListPorRetiroId(Long id, Long sucId) {
+        seg.requireSuperusuario(); // ningún cliente la llama
         return service.findByRetiroId(id, sucId);
     }
 
@@ -76,6 +79,7 @@ public class RetiroDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public Long countRetiroDetalle() {
+        seg.requireSuperusuario(); // ningún cliente la llama
         return service.count();
     }
 

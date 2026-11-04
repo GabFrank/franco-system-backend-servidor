@@ -41,6 +41,10 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
     // return repository.findByAll(texto);
     // }
 
+    public List<Retiro> findByCajaSalidaIdAndSucursalId(Long cajaId, Long sucId) {
+        return repository.findByCajaSalidaIdAndSucursalId(cajaId, sucId);
+    }
+
     public List<Retiro> findByCajaSalidaId(Long id) {
         return repository.findByCajaSalidaId(id);
     }

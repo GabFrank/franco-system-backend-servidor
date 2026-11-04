@@ -8,6 +8,7 @@ import com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo;
 import com.franco.dev.domain.financiero.enums.ResultadoVerificacionRetiro;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.repository.financiero.*;
+import com.franco.dev.domain.financiero.Moneda;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -126,11 +128,14 @@ public class RetiroVerificacionService {
         for (Long monedaId : monedas) {
             BigDecimal declarado = declaradoPorMoneda.getOrDefault(monedaId, BigDecimal.ZERO);
             ConteoMoneda c = contadoPorMoneda.get(monedaId);
-            BigDecimal contado = c != null && c.getContado() != null ? c.getContado() : BigDecimal.ZERO;
+            Moneda moneda = monedaService.findById(monedaId)
+                    .orElseThrow(() -> new GraphQLException("La moneda " + monedaId + " no existe."));
+            BigDecimal contado = contadoValido(
+                    c != null && c.getContado() != null ? c.getContado() : BigDecimal.ZERO, moneda, retiroId);
             BigDecimal diferencia = contado.subtract(declarado);
 
             RetiroVerificacionDetalle d = new RetiroVerificacionDetalle();
-            d.setMoneda(monedaService.findById(monedaId).orElse(null));
+            d.setMoneda(moneda);
             d.setDeclarado(declarado);
             d.setContado(contado);
             d.setDiferencia(diferencia);
@@ -163,6 +168,35 @@ public class RetiroVerificacionService {
         if (hayDiferencia) abrirCaso(guardada, usuario);
 
         return guardada;
+    }
+
+    /** Por debajo de esto, la diferencia con el monto redondeado es ruido de punto flotante del cliente. */
+    private static final BigDecimal TOLERANCIA_FLOTANTE = new BigDecimal("0.000001");
+
+    /**
+     * El contado de una moneda, validado y en los decimales de la moneda. Rechaza negativos y montos con
+     * más decimales de los que la moneda admite (1.000,5 Gs). El contado llega como Float: un cliente
+     * que suma doubles manda 30.299999999999997, y eso es ruido, no un monto, así que se normaliza.
+     */
+    static BigDecimal contadoValido(BigDecimal contado, Moneda moneda, Long retiroId) {
+        if (contado.signum() < 0) {
+            throw new GraphQLException("El conteo de " + moneda.getDenominacion() + " del retiro #" + retiroId
+                    + " no puede ser negativo.");
+        }
+        int decimales = decimalesDe(moneda);
+        BigDecimal redondeado = contado.setScale(decimales, RoundingMode.HALF_UP);
+        if (contado.subtract(redondeado).abs().compareTo(TOLERANCIA_FLOTANTE) >= 0) {
+            throw new GraphQLException("El conteo de " + moneda.getDenominacion() + " del retiro #" + retiroId
+                    + " admite hasta " + decimales + " decimales.");
+        }
+        return redondeado;
+    }
+
+    /** Decimales de la moneda; sin dato, el respaldo de siempre: el guaraní sin fracción, las demás con 2. */
+    static int decimalesDe(Moneda moneda) {
+        if (moneda.getDecimales() != null && moneda.getDecimales() >= 0) return moneda.getDecimales();
+        String d = moneda.getDenominacion();
+        return d != null && d.toUpperCase().contains("GUARAN") ? 0 : 2;
     }
 
     /** Lo que declaró el PDV, agrupado por moneda. Se lee del retiro_detalle, que es inmutable. */

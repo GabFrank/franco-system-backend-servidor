@@ -194,4 +194,16 @@ class ClienteCreditoRolTest {
         when(service.findById(1L)).thenReturn(Optional.of(c));
         assertEquals(0, new java.math.BigDecimal("250000").compareTo(resolver.saveCliente(edicion(null)).getSaldoActual()));
     }
+
+    @Test
+    void editarConservaLaFechaDeAlta() {
+        sesion("VER PERSONAS");
+        java.time.LocalDateTime alta = java.time.LocalDateTime.of(2024, 3, 15, 10, 30);
+        Cliente c = new Cliente();
+        c.setId(1L);
+        c.setPersona(persona);
+        c.setCreadoEn(alta);
+        when(service.findById(1L)).thenReturn(Optional.of(c));
+        assertEquals(alta, resolver.saveCliente(edicion(null)).getCreadoEn());
+    }
 }

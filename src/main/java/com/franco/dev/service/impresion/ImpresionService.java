@@ -33,6 +33,7 @@ import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.utils.PrintingService;
 import com.franco.dev.utilitarios.DateUtils;
 import com.google.zxing.WriterException;
+import com.franco.dev.utilitarios.print.QrTicket;
 import com.franco.dev.utilitarios.print.escpos.EscPos;
 import com.franco.dev.utilitarios.print.escpos.EscPosConst;
 import com.franco.dev.utilitarios.print.escpos.Style;
@@ -416,6 +417,8 @@ public class ImpresionService {
                 // }
                 // escpos.writeLF(valorDsVenta);
                 escpos.writeLF("--------------------------------");
+                escribirQr(escpos, QrTicket.caja(
+                        balanceDto.getSucursal() != null ? balanceDto.getSucursal().getId() : null, balanceDto.getIdCaja()));
                 escpos.feed(4);
                 escpos.writeLF(center, ".......................");
                 escpos.writeLF(center, "FIRMA");
@@ -433,6 +436,20 @@ public class ImpresionService {
             return false;
         }
         return false;
+    }
+
+    /**
+     * QR para el lector de caja mayor (ver {@link QrTicket}). Es un extra del ticket: si falla, el ticket
+     * sale sin QR en vez de quedarse sin cierre.
+     */
+    static void escribirQr(EscPos escpos, String codigo) {
+        if (codigo == null) return;
+        try {
+            escpos.feed(1);
+            escpos.write(new QRCode().setSize(6).setJustification(EscPosConst.Justification.Center), codigo);
+        } catch (Exception e) {
+            log.warn("No se pudo imprimir el QR {}: {}", codigo, e.getMessage());
+        }
     }
 
     public void printGasto(GastoDto gastoDto, String printerName, String local) {

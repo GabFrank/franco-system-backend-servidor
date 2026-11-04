@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -30,6 +31,7 @@ class RetiroVerificacionConteoValidoTest {
     private RetiroCasoRepository casoRepository;
     private TesoreriaService tesoreria;
     private MonedaService monedaService;
+    private RetiroDetalleService retiroDetalleService;
     private RetiroVerificacionService service;
 
     private static Moneda moneda(long id, String denominacion, Integer decimales) {
@@ -46,7 +48,7 @@ class RetiroVerificacionConteoValidoTest {
     @BeforeEach
     void setUp() {
         RetiroRepository retiroRepository = mock(RetiroRepository.class);
-        RetiroDetalleService retiroDetalleService = mock(RetiroDetalleService.class);
+        retiroDetalleService = mock(RetiroDetalleService.class);
         verificacionRepository = mock(RetiroVerificacionRepository.class);
         casoRepository = mock(RetiroCasoRepository.class);
         CajaVirtualService cajaVirtualService = mock(CajaVirtualService.class);
@@ -113,6 +115,27 @@ class RetiroVerificacionConteoValidoTest {
     void una_moneda_inexistente_se_rechaza_con_mensaje_claro() {
         GraphQLException e = rechazo(conteo(1, "1000000"), conteo(2, "100"), conteo(99, "5"));
         assertEquals("La moneda 99 no existe.", e.getMessage());
+    }
+
+    @Test
+    void el_detalle_guardado_lleva_el_contado_normalizado() {
+        RetiroDetalle rs = new RetiroDetalle();
+        rs.setMoneda(RS);
+        rs.setCantidad(30.3);
+        when(retiroDetalleService.findByRetiroId(1151L, 24L)).thenReturn(Collections.singletonList(rs));
+        when(verificacionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        com.franco.dev.domain.financiero.MovimientoCajaVirtual mov = new com.franco.dev.domain.financiero.MovimientoCajaVirtual();
+        mov.setId(77L);
+        when(tesoreria.registrar(any())).thenReturn(mov);
+
+        // 10.1 + 20.2 sumados como double por un desktop anterior.
+        String ruidoso = Double.valueOf(10.1 + 20.2).toString();
+        com.franco.dev.domain.financiero.RetiroVerificacion v =
+                service.verificar(1151L, 24L, 3L, Collections.singletonList(conteo(2, ruidoso)), false, null, null);
+
+        assertEquals(new BigDecimal("30.30"), v.getDetalles().get(0).getContado());
+        assertEquals(0, v.getDetalles().get(0).getDiferencia().signum());
+        verifyNoInteractions(casoRepository);
     }
 
     @Test

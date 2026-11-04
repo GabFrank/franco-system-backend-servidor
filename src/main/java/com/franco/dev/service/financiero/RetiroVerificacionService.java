@@ -105,6 +105,12 @@ public class RetiroVerificacionService {
             if (c.getMonedaId() == null) continue;
             contadoPorMoneda.put(c.getMonedaId(), c);
         }
+        // Sin ningún conteo no hay verificación: es un cliente que no pudo leer lo declarado (un desktop
+        // viejo que escanea un retiro sin su detalle). Acreditar 0 abriría un caso por todo el retiro.
+        if (contadoPorMoneda.isEmpty() && !declaradoPorMoneda.isEmpty()) {
+            throw new GraphQLException("No llegó el conteo del retiro #" + retiroId
+                    + ": cerrá la verificación, volvé a abrirla y contá de nuevo.");
+        }
 
         RetiroVerificacion verificacion = new RetiroVerificacion();
         verificacion.setRetiroId(retiroId);

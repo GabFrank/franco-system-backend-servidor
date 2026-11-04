@@ -116,4 +116,14 @@ public class MovimientoCajaVirtual implements Serializable {
     @CreationTimestamp
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
+
+    /**
+     * Si es el asiento de un evento de pago (lo lee {@code MovimientoCajaVirtualFieldResolver}). Sale en el mismo
+     * select: antes era una consulta aparte por fila de la tabla de movimientos (issue desktop #646). Null en una
+     * entidad recién guardada, que Hibernate no relee.
+     */
+    @org.hibernate.annotations.Formula("exists(select 1 from financiero.pago_solicitud_detalle d where d.movimiento_caja_virtual_id = id)")
+    @lombok.EqualsAndHashCode.Exclude
+    @lombok.ToString.Exclude
+    private Boolean esPagoConsolidado;
 }

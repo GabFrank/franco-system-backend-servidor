@@ -74,7 +74,8 @@ class ControlRolMatrizTest {
                 f(RetiroGraphQL.class, "saveRetiro"), f(RetiroGraphQL.class, "deleteRetiro"),
                 // consultas de retiro: la lista para lectura de caja + ANALISIS FINANCIERO; las que ningún
                 // cliente usa, solo superusuario
-                f(RetiroGraphQL.class, "filterRetiros", AC, GEST, "TESORERIA VER", "ANALISIS FINANCIERO"),
+                f(RetiroGraphQL.class, "filterRetiros", AC, GEST, "TESORERIA VER", "TESORERIA CPC COBRAR",
+                        "TESORERIA CPP PAGAR", "ANALISIS FINANCIERO"),
                 f(RetiroGraphQL.class, "retiros"), f(RetiroGraphQL.class, "countRetiro"),
                 f(RetiroDetalleGraphQL.class, "saveRetiroDetalle"), f(RetiroDetalleGraphQL.class, "deleteRetiroDetalle"),
                 f(RetiroDetalleGraphQL.class, "retiroDetalle"), f(RetiroDetalleGraphQL.class, "retiroDetalles"),

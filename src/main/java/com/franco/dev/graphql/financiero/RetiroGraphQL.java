@@ -83,8 +83,14 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     private void exigirLecturaDeCaja(PdvCaja caja) {
-        if (caja != null) seg.requireUsuarioORol(PdvCajaGraphQL.duenio(caja), PdvCajaGraphQL.LECTURA_CAJA);
-        else seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
+        java.util.List<Long> duenio;
+        try {
+            duenio = PdvCajaGraphQL.duenio(caja);
+        } catch (javax.persistence.EntityNotFoundException e) {
+            duenio = Collections.emptyList(); // caja todavía no replicada: no se sabe el dueño
+        }
+        if (duenio.isEmpty()) seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
+        else seg.requireUsuarioORol(duenio, PdvCajaGraphQL.LECTURA_CAJA);
     }
 
     public List<Retiro> retiros(Integer page, Integer size, Long sucId) {

@@ -78,6 +78,19 @@ class RetiroConsultasRolTest {
     }
 
     @Test
+    void un_retiro_de_una_caja_no_replicada_exige_la_lectura_de_caja() {
+        PdvCaja noReplicada = mock(PdvCaja.class);
+        when(noReplicada.getUsuario()).thenThrow(new javax.persistence.EntityNotFoundException("no existe"));
+        Retiro r = new Retiro();
+        r.setCajaSalida(noReplicada);
+        when(retiroService.findByIdAndSucursalId(1151L, 24L)).thenReturn(r);
+
+        assertSame(r, resolver.retiro(1151L, 24L));
+        verify(seg).requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
+        verify(seg, never()).requireUsuarioORol(anyCollection(), any());
+    }
+
+    @Test
     void un_retiro_inexistente_devuelve_null_sin_pedir_nada() { // no regresión: hoy ya devuelve null
         assertNull(resolver.retiro(9L, 24L));
         verifyNoInteractions(seg);

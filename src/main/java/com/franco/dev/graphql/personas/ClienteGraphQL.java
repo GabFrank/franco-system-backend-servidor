@@ -116,6 +116,9 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getSucursalId() != null)
             e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
+        else if (previo != null)
+            // el desktop no manda sucursalId: sin esto cada edicion la dejaba en null
+            e.setSucursal(previo.getSucursal());
         if (input.getPersonaId() != null)
             e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
         if (e.getPersona() == null) {

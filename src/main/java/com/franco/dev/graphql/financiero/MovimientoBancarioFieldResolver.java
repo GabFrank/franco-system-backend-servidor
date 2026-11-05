@@ -24,6 +24,8 @@ public class MovimientoBancarioFieldResolver implements GraphQLResolver<Movimien
 
     public Long pagoId(MovimientoBancario mov) {
         if (mov == null || mov.getId() == null) return null;
+        // La @Formula de la entidad ya lo trae (0 = sin pago); solo una entidad recién guardada llega sin él.
+        if (mov.getPagoIdLeido() != null) return mov.getPagoIdLeido() == 0 ? null : mov.getPagoIdLeido();
         return detalleRepository.findFirstByMovimientoBancarioId(mov.getId())
                 .map(PagoSolicitudDetalle::getPagoId)
                 .orElse(null);

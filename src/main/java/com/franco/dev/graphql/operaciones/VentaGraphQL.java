@@ -25,6 +25,7 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Familia;
 import com.franco.dev.domain.productos.Subfamilia;
 import com.franco.dev.graphql.financiero.FacturaLegalGraphQL;
+import com.franco.dev.graphql.financiero.PdvCajaGraphQL;
 import com.franco.dev.graphql.financiero.VentaCreditoGraphQL;
 import com.franco.dev.graphql.operaciones.input.LucroPorFuncionarioResponse;
 import com.franco.dev.graphql.operaciones.input.LucroPorFuncionarioSummary;
@@ -410,6 +411,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             Long monedaId,
             Boolean conDescuento,
             Boolean conAumento) {
+        PdvCajaGraphQL.exigirLecturaDeCaja(seg, pdvCajaService, idCaja, sucId);
 
         Pageable pageable;
         if (page != null) {

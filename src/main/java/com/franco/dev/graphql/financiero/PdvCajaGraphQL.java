@@ -105,6 +105,19 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return seg.hasAnyRole(LECTURA_CAJA);
     }
 
+    /**
+     * Consultas del detalle de una caja (ventas, gastos, tarjeta, delivery): el dueño o {@link #LECTURA_CAJA}.
+     * Sin sucursal no se sabe qué caja es: solo el rol. Una caja que el central todavía no tiene pasa (#562).
+     */
+    public static void exigirLecturaDeCaja(TesoreriaSecurityService seg, PdvCajaService service, Long cajaId, Long sucId) {
+        if (cajaId == null || sucId == null) {
+            seg.requireAnyRole(LECTURA_CAJA);
+            return;
+        }
+        PdvCaja caja = service.findById(cajaId, sucId);
+        if (caja != null) seg.requireUsuarioORol(duenio(caja), LECTURA_CAJA);
+    }
+
     /** Una caja que el central todavía no tiene pasa: se responde lo mismo que hoy (puede no haber replicado). */
     private void exigirLectura(PdvCaja caja) {
         if (caja != null) seg.requireUsuarioORol(duenio(caja), LECTURA_CAJA);

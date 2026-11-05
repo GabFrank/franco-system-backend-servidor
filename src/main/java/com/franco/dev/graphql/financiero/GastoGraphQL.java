@@ -67,6 +67,7 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public List<Gasto> gastosPorCajaId(Long id, Long sucId) {
+        PdvCajaGraphQL.exigirLecturaDeCaja(seg, pdvCajaService, id, sucId);
         return service.findByCajaId(id, sucId);
     }
 

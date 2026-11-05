@@ -48,9 +48,13 @@ public class MovimientoCajaGraphQL implements GraphQLQueryResolver, GraphQLMutat
     @Autowired
     private MultiTenantService multiTenantService;
 
-    public Optional<MovimientoCaja> movimientoCaja(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
+    public Optional<MovimientoCaja> movimientoCaja(Long id, Long sucId) {
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
+        return service.findById(new EmbebedPrimaryKey(id, sucId));
+    }
 
     public List<MovimientoCaja> movimientoCajas(int page, int size, Long sucId){
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
         Pageable pageable = PageRequest.of(page,size);
         return service.findAll(pageable);
     }

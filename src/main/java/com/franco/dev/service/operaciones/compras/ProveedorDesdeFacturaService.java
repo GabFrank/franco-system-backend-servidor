@@ -6,6 +6,7 @@ import com.franco.dev.domain.general.Ciudad;
 import com.franco.dev.domain.operaciones.DocumentoRecibido;
 import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.Proveedor;
+import com.franco.dev.graphql.operaciones.compras.DatoDePersonaMobile;
 import com.franco.dev.graphql.operaciones.compras.ProveedorDeFacturaMobile;
 import com.franco.dev.graphql.operaciones.compras.RegistrarProveedorFacturaInput;
 import com.franco.dev.repository.general.CiudadRepository;
@@ -112,6 +113,7 @@ public class ProveedorDesdeFacturaService {
         if (vacio(persona.getTelefono())) persona.setTelefono(limpio(primero(input.getTelefono(), datos.getTelefono())));
         if (vacio(persona.getEmail())) persona.setEmail(limpio(primero(input.getEmail(), datos.getEmail())));
         if (persona.getCiudad() == null) persona.setCiudad(ciudad(datos.getCiudad()));
+        if (datos.getPersonaId() != null) actualizarPersona(persona, input);
         persona = personaService.save(persona);
 
         Proveedor proveedor = new Proveedor();
@@ -132,6 +134,33 @@ public class ProveedorDesdeFacturaService {
     }
 
     // =================================================================================== Interno
+
+    /** Lo que el comprador pidió actualizar de la persona existente, con lo que mandó (vacío no borra). */
+    private static void actualizarPersona(Persona persona, RegistrarProveedorFacturaInput input) {
+        List<String> campos = input.getActualizarPersona();
+        if (campos == null) return;
+        for (String campo : campos) {
+            switch (campo == null ? "" : campo) {
+                case "nombre":
+                    if (!vacio(input.getNombre())) persona.setNombre(input.getNombre().trim());
+                    break;
+                case "nombreFantasia":
+                    if (!vacio(input.getNombreFantasia())) persona.setApodo(input.getNombreFantasia().trim());
+                    break;
+                case "direccion":
+                    if (!vacio(input.getDireccion())) persona.setDireccion(input.getDireccion().trim());
+                    break;
+                case "telefono":
+                    if (!vacio(input.getTelefono())) persona.setTelefono(input.getTelefono().trim());
+                    break;
+                case "email":
+                    if (!vacio(input.getEmail())) persona.setEmail(input.getEmail().trim());
+                    break;
+                default:
+                    throw new GraphQLException("No se puede actualizar el dato «" + campo + "» de la persona.");
+            }
+        }
+    }
 
     private DocumentoRecibido documento(String qr, Long documentoId) {
         if (documentoId == null && (qr == null || qr.trim().isEmpty())) {
@@ -238,16 +267,36 @@ public class ProveedorDesdeFacturaService {
      * factura) y se avisa qué campos son suyos para que no se editen. Lo que le falta queda con lo de la factura.
      */
     static void usarDatosDePersona(ProveedorDeFacturaMobile d, Map<String, Object> persona) {
-        List<String> suyos = new ArrayList<>();
-        String apodo = texto((String) persona.get("apodo"));
-        String direccion = texto((String) persona.get("direccion"));
-        String telefono = texto((String) persona.get("telefono"));
-        String email = texto((String) persona.get("email"));
-        if (apodo != null) { d.setNombreFantasia(apodo); suyos.add("nombreFantasia"); }
-        if (direccion != null) { d.setDireccion(direccion); suyos.add("direccion"); }
-        if (telefono != null) { d.setTelefono(telefono); suyos.add("telefono"); }
-        if (email != null) { d.setEmail(email); suyos.add("email"); }
+        List<DatoDePersonaMobile> suyos = new ArrayList<>();
+        String nombre = suyo(suyos, "nombre", persona.get("nombre"), d.getNombre());
+        if (nombre != null) d.setNombre(nombre);
+        String apodo = suyo(suyos, "nombreFantasia", persona.get("apodo"), d.getNombreFantasia());
+        if (apodo != null) d.setNombreFantasia(apodo);
+        String direccion = suyo(suyos, "direccion", persona.get("direccion"), d.getDireccion());
+        if (direccion != null) d.setDireccion(direccion);
+        String telefono = suyo(suyos, "telefono", persona.get("telefono"), d.getTelefono());
+        if (telefono != null) d.setTelefono(telefono);
+        String email = suyo(suyos, "email", persona.get("email"), d.getEmail());
+        if (email != null) d.setEmail(email);
         d.setDatosDePersona(suyos);
+    }
+
+    /** Anota el dato que la persona ya tiene (con el de la factura si es otro) y lo devuelve; null si no tiene. */
+    private static String suyo(List<DatoDePersonaMobile> suyos, String campo, Object valor, String deFactura) {
+        String actual = texto((String) valor);
+        if (actual == null) return null;
+        suyos.add(new DatoDePersonaMobile(campo, actual, mismoDato(campo, actual, deFactura) ? null : deFactura));
+        return actual;
+    }
+
+    /** Mismo dato escrito distinto: sin importar mayúsculas ni espacios; el teléfono, solo por sus dígitos. */
+    static boolean mismoDato(String campo, String a, String b) {
+        if (b == null) return true;
+        if ("telefono".equals(campo)) {
+            String da = a.replaceAll("\\D", ""), db = b.replaceAll("\\D", "");
+            return da.equals(db) || da.endsWith(db.replaceFirst("^0", "")) || db.endsWith(da.replaceFirst("^0", ""));
+        }
+        return a.trim().replaceAll("\\s+", " ").equalsIgnoreCase(b.trim().replaceAll("\\s+", " "));
     }
 
     /** La persona con ese documento, comparando sin DV, puntos, espacios ni ceros a la izquierda. */

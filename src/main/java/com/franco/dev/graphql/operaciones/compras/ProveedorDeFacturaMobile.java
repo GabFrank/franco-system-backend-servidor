@@ -34,10 +34,10 @@ public class ProveedorDeFacturaMobile {
     private Long personaId;
     private String personaNombre;
     /**
-     * Con persona existente: los campos que ya tiene cargados (nombreFantasia, direccion, telefono, email). Vienen
-     * con el dato de la persona y no con el de la factura, porque el alta no los pisa.
+     * Con persona existente: los datos que ya tiene cargados. Los campos de arriba vienen con el dato de la persona
+     * (el alta no lo pisa salvo que se pida actualizarlo); si la factura trae otro distinto, va en cada uno.
      */
-    private List<String> datosDePersona;
+    private List<DatoDePersonaMobile> datosDePersona;
     /** Se puede registrar: hay RUC válido y todavía no es proveedor. */
     private Boolean puedeRegistrar;
     /** Por qué no se puede registrar, si no se puede. */

@@ -4,6 +4,7 @@ import com.franco.dev.domain.general.Ciudad;
 import com.franco.dev.domain.operaciones.DocumentoRecibido;
 import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.Proveedor;
+import com.franco.dev.graphql.operaciones.compras.DatoDePersonaMobile;
 import com.franco.dev.graphql.operaciones.compras.ProveedorDeFacturaMobile;
 import com.franco.dev.graphql.operaciones.compras.RegistrarProveedorFacturaInput;
 import com.franco.dev.repository.general.CiudadRepository;
@@ -226,7 +227,63 @@ class ProveedorDesdeFacturaServiceTest {
         assertEquals("0991000000", d.getTelefono()); // el de la persona, que no se pisa
         assertEquals("AVDA. ESPAÑA 1234", d.getDireccion()); // le falta: queda el de la factura
         assertEquals("ventas@acme.com.py", d.getEmail());
-        assertEquals(List.of("telefono"), d.getDatosDePersona());
+        assertEquals(List.of(
+                new DatoDePersonaMobile("nombre", "CLIENTE ACME", "DISTRIBUIDORA ACME S.A."),
+                new DatoDePersonaMobile("telefono", "0991000000", "021555666")), d.getDatosDePersona());
+    }
+
+    @Test
+    void elMismoDatoEscritoDistintoNoSeOfreceActualizar() {
+        assertTrue(ProveedorDesdeFacturaService.mismoDato("telefono", "0981 123-456", "+595981123456"));
+        assertTrue(ProveedorDesdeFacturaService.mismoDato("direccion", "avda.  españa 1234", "AVDA. ESPAÑA 1234"));
+        assertFalse(ProveedorDesdeFacturaService.mismoDato("telefono", "0991000000", "021555666"));
+    }
+
+    @Test
+    void registrarActualizaDeLaPersonaSoloLoQueSePidio() {
+        when(documentos.findById(10L)).thenReturn(Optional.of(sifen()));
+        Map<String, Object> fila = new HashMap<>();
+        fila.put("id", 33L);
+        fila.put("nombre", "CLIENTE ACME");
+        fila.put("telefono", "0991000000");
+        fila.put("email", "viejo@acme.com");
+        when(jdbc.queryForList(contains("personas.persona"), eq(RUC))).thenReturn(List.of(fila));
+        Persona cliente = new Persona();
+        cliente.setId(33L);
+        cliente.setDocumento(RUC);
+        cliente.setNombre("CLIENTE ACME");
+        cliente.setTelefono("0991000000");
+        cliente.setEmail("viejo@acme.com");
+        when(personaService.findById(33L)).thenReturn(Optional.of(cliente));
+        RegistrarProveedorFacturaInput in = input(10L);
+        in.setNombre("DISTRIBUIDORA ACME S.A.");
+        in.setTelefono("021555666");
+        in.setEmail("ventas@acme.com.py");
+        in.setActualizarPersona(List.of("telefono", "nombre"));
+
+        service.registrar(in);
+
+        assertEquals("021555666", cliente.getTelefono());
+        assertEquals("DISTRIBUIDORA ACME S.A.", cliente.getNombre());
+        assertEquals("viejo@acme.com", cliente.getEmail()); // no se pidió: queda el suyo
+    }
+
+    @Test
+    void actualizarUnDatoQueNoExisteSeRechaza() {
+        when(documentos.findById(10L)).thenReturn(Optional.of(sifen()));
+        Map<String, Object> fila = new HashMap<>();
+        fila.put("id", 33L);
+        fila.put("nombre", "CLIENTE ACME");
+        when(jdbc.queryForList(contains("personas.persona"), eq(RUC))).thenReturn(List.of(fila));
+        Persona cliente = new Persona();
+        cliente.setId(33L);
+        cliente.setNombre("CLIENTE ACME");
+        when(personaService.findById(33L)).thenReturn(Optional.of(cliente));
+        RegistrarProveedorFacturaInput in = input(10L);
+        in.setActualizarPersona(List.of("documento"));
+
+        assertThrows(GraphQLException.class, () -> service.registrar(in));
+        verify(personaService, never()).save(any());
     }
 
     @Test

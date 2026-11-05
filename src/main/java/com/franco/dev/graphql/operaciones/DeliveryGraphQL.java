@@ -31,6 +31,9 @@ public class DeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
 
     @Autowired
+    private com.franco.dev.service.financiero.PdvCajaService pdvCajaService;
+
+    @Autowired
     private DeliveryService service;
 
     @Autowired
@@ -109,6 +112,7 @@ public class DeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public List<Delivery> deliveryPorCajaIdAndEstados(Long id, List<DeliveryEstado> estadoList, Long sucId){
+        com.franco.dev.graphql.financiero.PdvCajaGraphQL.exigirLecturaDeCaja(seg, pdvCajaService, id, sucId);
         List<Delivery> deliveryList = ventaService.getRepository().findAllByCajaIdAndSucursalIdAndDeliveryEstadoIn(id, sucId, estadoList).stream().map(v -> v.getDelivery()).collect(Collectors.toList());
         return deliveryList;
     }

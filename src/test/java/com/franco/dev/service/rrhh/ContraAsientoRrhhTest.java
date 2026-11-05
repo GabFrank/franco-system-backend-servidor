@@ -131,7 +131,8 @@ class ContraAsientoRrhhTest {
                 mock(AguinaldoRepository.class),
                 mock(BaseRemunerativaService.class),
                 descuento,
-                mock(ValeCuotaDescuentoService.class), mock(com.franco.dev.service.rrhh.ItemProgramadoAplicacionService.class));
+                mock(ValeCuotaDescuentoService.class), mock(com.franco.dev.service.rrhh.ItemProgramadoAplicacionService.class),
+                mock(LiquidacionItemProgramadoService.class));
 
         valeRepository = mock(ValeRepository.class);
         when(valeRepository.save(any())).thenAnswer(i -> i.getArgument(0));
@@ -274,6 +275,7 @@ class ContraAsientoRrhhTest {
         lf.setTotalLiquidado(total);
         lf.setMoneda(gs);
         when(finiquitoRepository.findById(77L)).thenReturn(Optional.of(lf));
+        when(finiquitoRepository.lockById(77L)).thenReturn(Optional.of(lf));
         return lf;
     }
 

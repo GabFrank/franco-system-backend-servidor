@@ -45,6 +45,8 @@ input GastoParaPagoInput {
     beneficiarioPersonaId: ID
     fechaVencimiento: String
     sucursalId: ID
+    # Funcionario responsable del gasto. Opcional.
+    responsableId: ID
 }
 
 # Una linea del desglose de un evento de pago. Existe porque el evento postea UN movimiento

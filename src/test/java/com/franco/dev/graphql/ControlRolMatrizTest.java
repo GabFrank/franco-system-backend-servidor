@@ -44,6 +44,9 @@ class ControlRolMatrizTest {
             "EDITAR PRODUCTOS", "CREAR PRECIOS", "EDITAR PRECIOS", "CREAR FUNCIONARIOS", "EDITAR FUNCIONARIOS",
             "VER INVENTARIO", "CREAR INVENTARIO", "PARTICIPAR DEL INVENTARIO");
 
+    /** Lectura de caja ({@code PdvCajaGraphQL.LECTURA_CAJA}). */
+    static final String[] LC = PdvCajaGraphQL.LECTURA_CAJA;
+
     static class Fila {
         final Class<?> clase; final String campo; final String metodo; final List<String> roles;
         Fila(Class<?> clase, String campo, String metodo, String... roles) {
@@ -64,8 +67,35 @@ class ControlRolMatrizTest {
                 f(MovimientoCajaGraphQL.class, "saveMovimientoCaja"), f(MovimientoCajaGraphQL.class, "deleteMovimientoCaja"),
                 f(PdvCajaGraphQL.class, "savePdvCaja", AC, VT), f(PdvCajaGraphQL.class, "savePdvCajaPorSucursal", VT),
                 f(PdvCajaGraphQL.class, "abrirCajaDesdeServidor", VT),
+                // issue #524: listados de cajas y verificar, solo ANALISIS DE CAJA
+                f(PdvCajaGraphQL.class, "verificarCaja", AC), f(PdvCajaGraphQL.class, "pdvCajas", AC),
+                f(PdvCajaGraphQL.class, "countPdvCaja", AC), f(PdvCajaGraphQL.class, "cajasPorFecha", AC),
+                f(PdvCajaGraphQL.class, "cajasWithFilters", AC), f(PdvCajaGraphQL.class, "cajasAnalisisDiferencias", AC),
+                f(PdvCajaGraphQL.class, "balancePorFecha", AC), f(PdvCajaGraphQL.class, "balanceActiveCajasBySucursalId", AC),
+                f(PdvCajaGraphQL.class, "cajaAbiertoPorSucursal", AC),
+                f(PdvCajaGraphQL.class, "findCajasWithVentaObservaciones", AC),
                 f(RetiroGraphQL.class, "saveRetiro"), f(RetiroGraphQL.class, "deleteRetiro"),
+                // consultas de retiro: la lista para lectura de caja + ANALISIS FINANCIERO; las que ningún
+                // cliente usa, solo superusuario
+                f(RetiroGraphQL.class, "filterRetiros", AC, GEST, "TESORERIA VER", "TESORERIA CPC COBRAR",
+                        "TESORERIA CPP PAGAR", "ANALISIS FINANCIERO"),
+                f(RetiroGraphQL.class, "retiros"), f(RetiroGraphQL.class, "countRetiro"),
+                // issue #562: detalle de caja sin cliente (o solo pantallas de análisis): lectura de caja
+                new Fila(ConteoGraphQL.class, "tesoreriaSecurityService", "conteo", LC),
+                new Fila(ConteoGraphQL.class, "tesoreriaSecurityService", "conteos", LC),
+                f(ConteoMonedaGraphQL.class, "conteoMoneda", LC), f(ConteoMonedaGraphQL.class, "conteoMonedas", LC),
+                f(ConteoMonedaGraphQL.class, "conteoMonedasPorConteoId", LC),
+                f(GastoGraphQL.class, "gasto", LC), f(GastoGraphQL.class, "gastos", LC),
+                f(GastoGraphQL.class, "gastosPorFecha", LC), f(GastoGraphQL.class, "filterGastos", LC),
+                f(MovimientoCajaGraphQL.class, "movimientoCaja", LC), f(MovimientoCajaGraphQL.class, "movimientoCajas", LC),
+                f(CajaObservacionGraphQL.class, "cajaObservacion", LC),
+                f(CajaObservacionGraphQL.class, "cajaObservaciones", LC),
+                f(GastoDetalleGraphQL.class, "gastoDetalle", LC), f(GastoDetalleGraphQL.class, "gastoDetalles", LC),
+                f(GastoDetalleGraphQL.class, "gastoDetalleListPorGastoId", LC),
                 f(RetiroDetalleGraphQL.class, "saveRetiroDetalle"), f(RetiroDetalleGraphQL.class, "deleteRetiroDetalle"),
+                f(RetiroDetalleGraphQL.class, "retiroDetalle"), f(RetiroDetalleGraphQL.class, "retiroDetalles"),
+                f(RetiroDetalleGraphQL.class, "retiroDetalleListPorRetiroId"),
+                f(RetiroDetalleGraphQL.class, "countRetiroDetalle"),
                 f(SencilloGraphQL.class, "saveSencillo"), f(SencilloGraphQL.class, "deleteSencillo"),
                 f(SencilloDetalleGraphQL.class, "saveSencilloDetalle"), f(SencilloDetalleGraphQL.class, "deleteSencilloDetalle"),
                 f(VueltoGraphQL.class, "saveVuelto"), f(VueltoGraphQL.class, "deleteVuelto"),

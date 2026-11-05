@@ -13,6 +13,7 @@ import com.franco.dev.graphql.financiero.input.PdvCajaInput;
 import com.franco.dev.service.financiero.ConteoService;
 import com.franco.dev.service.financiero.FilialCajaProxyService;
 import com.franco.dev.service.financiero.MaletinService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.financiero.PdvCajaService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
@@ -82,35 +83,124 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     private FilialCajaProxyService filialCajaProxyService;
 
     @Autowired
+    private com.franco.dev.service.financiero.PdvCajaReaperturaConsulta reaperturaConsulta;
+
+    @Autowired
     private com.franco.dev.service.financiero.TesoreriaSecurityService seg;
 
     private static final Logger log = LoggerFactory.getLogger(PdvCajaGraphQL.class);
 
+    /**
+     * Leen una caja ajena: análisis de caja y los roles de tesorería, que la abren desde Control de retiros.
+     * Al dueño le alcanza con serlo; ADMIN pasa siempre.
+     */
+    public static final String[] LECTURA_CAJA = {TesoreriaSecurityService.ANALISIS_DE_CAJA,
+            TesoreriaSecurityService.VER, TesoreriaSecurityService.GESTIONAR,
+            TesoreriaSecurityService.CPC_COBRAR, TesoreriaSecurityService.CPP_PAGAR};
+
+    /** true si el usuario de la sesión es el dueño de la caja o tiene {@link #LECTURA_CAJA}. */
+    public static boolean puedeLeer(TesoreriaSecurityService seg, PdvCaja caja) {
+        Usuario u = seg.currentUsuario();
+        if (u != null && duenio(caja).contains(u.getId())) return true;
+        return seg.hasAnyRole(LECTURA_CAJA);
+    }
+
+    /**
+     * Consultas del detalle de una caja (ventas, gastos, tarjeta, delivery): el dueño o {@link #LECTURA_CAJA}.
+     * Sin sucursal no se sabe qué caja es: solo el rol. Una caja que el central todavía no tiene pasa (#562).
+     */
+    public static void exigirLecturaDeCaja(TesoreriaSecurityService seg, PdvCajaService service, Long cajaId, Long sucId) {
+        if (cajaId == null || sucId == null) {
+            seg.requireAnyRole(LECTURA_CAJA);
+            return;
+        }
+        PdvCaja caja = service.findById(cajaId, sucId);
+        if (caja != null) seg.requireUsuarioORol(duenio(caja), LECTURA_CAJA);
+    }
+
+    /** Una caja que el central todavía no tiene pasa: se responde lo mismo que hoy (puede no haber replicado). */
+    private void exigirLectura(PdvCaja caja) {
+        if (caja != null) seg.requireUsuarioORol(duenio(caja), LECTURA_CAJA);
+    }
+
+    /** Las consultas por usuario: el de la sesión, o análisis de caja. */
+    private void exigirUsuarioDeSesionORol(Long usuarioId) {
+        seg.requireUsuarioORol(java.util.Collections.singletonList(usuarioId), TesoreriaSecurityService.ANALISIS_DE_CAJA);
+    }
+
     public PdvCaja pdvCaja(Long id, Long sucId) {
         PdvCaja aux = service.findById(id, sucId);
+        try {
+            exigirLectura(aux);
+        } catch (GraphQLException e) {
+            // El cajero que abre caja compara contra el cierre de la caja anterior de su maletín, que es de otro.
+            if (!esCajaAnteriorDeLaSesion(seg, service, aux)) throw e;
+        }
         return aux;
     }
 
+    /**
+     * true si la caja es la anterior, en su maletín, de alguna caja abierta del usuario de la sesión. La usa
+     * también el campo {@code conteoCierre} (#562): el cajero compara su apertura contra ese cierre.
+     */
+    public static boolean esCajaAnteriorDeLaSesion(TesoreriaSecurityService seg, PdvCajaService service, PdvCaja caja) {
+        if (caja == null || caja.getId() == null) return false;
+        Usuario u = seg.currentUsuario();
+        if (u == null) return false;
+        Long sucursalId;
+        try {
+            sucursalId = caja.getSucursalId();
+        } catch (javax.persistence.EntityNotFoundException e) {
+            return false; // caja anidada que el central todavía no tiene
+        }
+        for (PdvCaja propia : service.findByUsuarioIdAndAbierto(u.getId())) {
+            // Una apertura en el futuro no es una caja real: correría la "anterior" a cualquier cierre del maletín.
+            if (propia.getMaletin() == null || propia.getFechaApertura() == null
+                    || propia.getFechaApertura().isAfter(java.time.LocalDateTime.now())) continue;
+            List<PdvCaja> anteriores = service.getRepository().findPreviousCajaByMaletinAndFecha(
+                    propia.getMaletin().getId(), propia.getFechaApertura(), PageRequest.of(0, 1));
+            if (!anteriores.isEmpty() && caja.getId().equals(anteriores.get(0).getId())
+                    && java.util.Objects.equals(sucursalId, anteriores.get(0).getSucursalId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public List<PdvCaja> pdvCajas(int page, int size, Long sucId) {
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
     public List<PdvCaja> cajasPorFecha(String inicio, String fin, Long sucId) {
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         return service.findByDate(inicio, fin, sucId);
     }
 
     public Page<PdvCaja> cajasWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, Boolean activo, int page, int size) {
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         Pageable pageable = PageRequest.of(page, size);
         return service.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio, fechaFin, sucId, verificado, activo, pageable);
     }
 
+    /**
+     * Con una caja puntual (el cajero mira la suya al abrir) vale la lectura de esa caja: la consulta filtra por
+     * ese id. Con cajaAnteriorId el servicio toma un atajo que ignora cajaId, así que ahí y en el resto, el rol.
+     */
     public Page<PdvCaja> cajasAnalisisDiferencias(Long cajaId, Long cajaAnteriorId, PdvCajaEstado estado, Long maletinId, String maletinDescripcion, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, String difEstado, int page, int size) {
+        if (cajaId != null && sucId != null && cajaAnteriorId == null) {
+            // Misma regla que pdvCaja: tesorería abre el diálogo de la caja desde Control de retiros y este poll corre ahí.
+            exigirLectura(service.findById(cajaId, sucId));
+        } else {
+            seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
+        }
         Pageable pageable = PageRequest.of(page, size);
         return service.findAllForAnalisisDiferencias(cajaId, cajaAnteriorId, estado, maletinId, maletinDescripcion, cajeroId, fechaInicio, fechaFin, sucId, verificado, difEstado, pageable);
     }
 
     public CajaBalance balancePorFecha(String inicio, String fin, Long sucId) {
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         List<PdvCaja> pdvCajaList = service.findByDate(inicio, fin, sucId);
         Double totalGeneral = 0.0;
         for (PdvCaja c : pdvCajaList) {
@@ -122,7 +212,14 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return cajaBalance;
     }
 
+    /** Reaperturas de la caja (issue desktop #662), para el resumen del dialogo de la caja. */
+    public List<com.franco.dev.service.financiero.PdvCajaReaperturaConsulta.Fila> reaperturasPorCaja(Long cajaId, Long sucursalId) {
+        exigirLectura(service.findById(cajaId, sucursalId));
+        return reaperturaConsulta.porCaja(cajaId, sucursalId);
+    }
+
     public CajaBalance balancePorCajaIdAndSucursalId(Long id, Long sucId){
+        exigirLectura(service.findById(id, sucId));
         CajaBalance cajaBalance = service.getBalance(new EmbebedPrimaryKey(id, sucId));
         return cajaBalance;
     }
@@ -133,11 +230,35 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
      * @return A list of CajaBalance objects, one for each active caja
      */
     public List<CajaBalance> balanceActiveCajasBySucursalId(Long sucursalId) {
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         return service.getBalanceActiveCajasBySucursalId(sucursalId);
+    }
+
+    /**
+     * Sin ANALISIS DE CAJA: una caja existente solo la guarda su dueño, y nadie se la pasa a otro, crea una a
+     * nombre de otro ni toca la verificación (eso es de verificarCaja). Mismo criterio que el filial.
+     */
+    private void exigirGuardado(PdvCajaInput input) {
+        if (seg.hasAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA)) return;
+        Usuario sesion = seg.requireUsuarioDeSesion();
+        PdvCaja existente = input.getId() != null ? service.findById(input.getId(), input.getSucursalId()) : null;
+        if (existente != null) seg.requireUsuarioORol(duenio(existente), TesoreriaSecurityService.ANALISIS_DE_CAJA);
+        Long duenioEsperado = existente == null ? sesion.getId()
+                : existente.getUsuario() != null ? existente.getUsuario().getId() : null;
+        boolean cambiaDuenio = input.getUsuarioId() != null && !input.getUsuarioId().equals(duenioEsperado);
+        boolean verificadaAntes = existente != null && Boolean.TRUE.equals(existente.getVerificado());
+        Long verificadorAntes = existente != null && existente.getVerificadoPor() != null ? existente.getVerificadoPor().getId() : null;
+        boolean cambiaVerificacion = Boolean.TRUE.equals(input.getVerificado()) != verificadaAntes
+                || (input.getVerificadoPorId() != null && !input.getVerificadoPorId().equals(verificadorAntes));
+        if (cambiaDuenio || cambiaVerificacion) {
+            throw new GraphQLException("No autorizado: cambiar el dueño o la verificación de una caja requiere el rol "
+                    + TesoreriaSecurityService.ANALISIS_DE_CAJA + ".");
+        }
     }
 
     public PdvCaja savePdvCaja(PdvCajaInput input) {
         seg.requireAnyRole("ANALISIS DE CAJA", "VENTA TOUCH");
+        exigirGuardado(input);
         ModelMapper m = new ModelMapper();
         PdvCaja e = m.map(input, PdvCaja.class);
         if (input.getUsuarioId() != null) {
@@ -157,6 +278,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     public PdvCaja savePdvCajaPorSucursal(PdvCajaInput input) {
         seg.requireAnyRole("VENTA TOUCH");
+        exigirGuardado(input);
         ModelMapper m = new ModelMapper();
         PdvCaja e = m.map(input, PdvCaja.class);
         if (input.getUsuarioId() != null) {
@@ -176,23 +298,30 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     //    }
 
     public Long countPdvCaja() {
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         return service.count();
     }
 
     public List<PdvCaja> cajaAbiertoPorUsuarioId(Long id) {
+        exigirUsuarioDeSesionORol(id);
         return service.findByUsuarioIdAndAbierto(id);
     }
 
     public PdvCaja cajaAbiertoPorUsuarioIdPorSucursal(Long id, Long sucId) {
+        exigirUsuarioDeSesionORol(id);
         return filialCajaProxyService.cajaAbiertoPorUsuarioIdPorSucursal(id, sucId);
     }
 
     public List<PdvCaja> cajasAbiertasPorUsuarioDesdeFiliales(Long id) {
+        exigirUsuarioDeSesionORol(id);
         return filialCajaProxyService.cajasAbiertasPorUsuarioDesdeFiliales(id);
     }
 
+    /** El dueño solo se conoce con la caja que devuelve la filial; sin caja, null como hoy. */
     public PdvCaja pdvCajaDesdeFilial(Long id, Long sucursalId) {
-        return filialCajaProxyService.pdvCajaDesdeFilial(id, sucursalId);
+        PdvCaja caja = filialCajaProxyService.pdvCajaDesdeFilial(id, sucursalId);
+        exigirLectura(caja);
+        return caja;
     }
 
     /**
@@ -201,6 +330,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
      * @return A list of active PdvCaja objects for the specified sucursal
      */
     public List<PdvCaja> cajaAbiertoPorSucursal(Long sucursalId) {
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         return service.findActiveBySucursalId(sucursalId);
     }
 
@@ -216,6 +346,8 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public PdvCaja imprimirBalance(Long id, String printerName, String local, Long sucId) {
+        PdvCaja caja = sucId != null ? service.getRepository().findByIdAndSucursalId(id, sucId) : null;
+        seg.requireUsuarioORol(duenio(caja), TesoreriaSecurityService.ANALISIS_DE_CAJA);
         // Ruteo a la filial SOLO cuando el caller no especifica impresora (frc-mobile envia
         // printerName=null y la filial resuelve su propia config). El desktop siempre envia
         // su printerName local y debe imprimir con esa config, igual que reimprimirVenta.
@@ -229,7 +361,22 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.imprimirBalance(new EmbebedPrimaryKey(id, sucId), printerName, local);
     }
 
+    /**
+     * El dueño de la caja como lista para {@code requireUsuarioORol}; vacía si no hay caja o si es una caja
+     * anidada que el central todavía no tiene (#562): sin dueño conocido decide el rol.
+     */
+    public static List<Long> duenio(PdvCaja caja) {
+        try {
+            return caja != null && caja.getUsuario() != null
+                    ? java.util.Collections.singletonList(caja.getUsuario().getId())
+                    : java.util.Collections.emptyList();
+        } catch (javax.persistence.EntityNotFoundException e) {
+            return java.util.Collections.emptyList();
+        }
+    }
+
     public List<PdvCaja> cajasPorUsuarioId(Long id, Integer page, Integer size) {
+        exigirUsuarioDeSesionORol(id);
         return service.findByUsuarioId(id, page, size);
     }
 
@@ -447,10 +594,55 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         }
     }
 
+    /**
+     * Reabre una caja cerrada por equivocacion (issue desktop #662). Solo para rol ADMIN, con motivo.
+     * <p>
+     * Igual que la edicion del conteo: la filial es la duena de la caja y valida todas las reglas;
+     * aca solo se hace un chequeo temprano contra la copia replicada para no salir a la red.
+     */
+    public CajaFilialOperacionResult reabrirCajaDesdeServidor(Long cajaId, Long sucursalId, String motivo) {
+        String logPrefix = "REABRIR CAJA";
+        log.info("====== [{}] INICIO -> cajaId={}, sucursalId={} ======", logPrefix, cajaId, sucursalId);
+        if (cajaId == null || sucursalId == null) {
+            throw new GraphQLException("No se recibio la caja o su sucursal");
+        }
+        if (motivo == null || motivo.isBlank()) {
+            throw new GraphQLException("Indique el motivo para reabrir la caja");
+        }
+        Long usuarioId = seg.requireUsuarioDeSesion().getId();
+        if (!usuarioService.tieneRol(usuarioId, "ADMIN")) {
+            log.warn("[{}] Usuario id={} sin rol ADMIN intento reabrir la caja id={}", logPrefix, usuarioId, cajaId);
+            throw new GraphQLException("Solo un usuario ADMIN puede reabrir una caja");
+        }
+        PdvCaja cajaLocal = service.findById(cajaId, sucursalId);
+        if (cajaLocal != null && Boolean.TRUE.equals(cajaLocal.getVerificado())) {
+            throw new GraphQLException("La caja ya fue verificada, no se puede reabrir");
+        }
+
+        try {
+            Long id = filialCajaProxyService.reabrirCajaEnFilial(cajaId, sucursalId, motivo.trim());
+            log.info("[{}] ====== EXITO. cajaId={} ======", logPrefix, id);
+            return CajaFilialOperacionResult.ok(id);
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            log.error("[{}] FALLO DE CONEXION con la filial (sucursalId={}). Detalle: {}", logPrefix, sucursalId, e.getMessage(), e);
+            // Un timeout de lectura puede llegar con la caja ya reabierta en la filial.
+            throw new GraphQLException("No se pudo confirmar la reapertura con la sucursal. Vuelva a abrir la caja para ver su estado.");
+        } catch (org.springframework.web.client.RestClientException e) {
+            log.error("[{}] Error de cliente REST con la filial (sucursalId={}). Detalle: {}", logPrefix, sucursalId, e.getMessage(), e);
+            throw new GraphQLException("Error de comunicacion con la sucursal. Vuelva a abrir la caja para ver su estado.");
+        } catch (Exception e) {
+            log.error("[{}] No se pudo reabrir la caja (cajaId={}, sucursalId={}). Detalle: {}",
+                    logPrefix, cajaId, sucursalId, e.getMessage(), e);
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
+    /** usuarioId queda en la firma para los clientes viejos; el que verifica es el de la sesión. */
     public Boolean verificarCaja(Long cajaId, Long sucursalId, Long usuarioId, Boolean verificado){
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
+        Usuario usuario = seg.requireUsuarioDeSesion();
         try {
             PdvCaja caja = service.findById(cajaId, sucursalId);
-            Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
             caja.setVerificado(verificado);
             caja.setVerificadoPor(usuario);
             service.save(caja);
@@ -461,6 +653,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public List<PdvCaja> findCajasWithVentaObservaciones () {
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         return service.findCajasWithVentaObservaciones();
     }
 

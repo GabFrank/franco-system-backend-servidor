@@ -47,6 +47,18 @@ input PdvCajaInput {
     verificadoPorId: Int
 }
 
+"Reapertura de una caja cerrada por equivocacion (issue desktop #662). La escribe la filial."
+type PdvCajaReapertura {
+    id: ID!
+    pdvCajaId: Int
+    sucursalId: Int
+    motivo: String
+    usuarioId: Int
+    usuarioNombre: String
+    fechaCierreAnterior: Date
+    creadoEn: Date
+}
+
 type PdvCajaPage {
     getTotalPages: Int
     getTotalElements: Int
@@ -79,6 +91,7 @@ extend type Query {
     cajasAnalisisDiferencias(cajaId:ID, cajaAnteriorId: ID, estado: PdvCajaEstado , maletinId: ID, maletinDescripcion: String, cajeroId: ID, fechaInicio:String , fechaFin:String, sucId: ID, verificado: Boolean, difEstado:String, page:Int, size:Int):PdvCajaPage
     verificarCaja(cajaId:ID!, sucursalId: ID!, usuarioId:ID!, verificado: Boolean): Boolean
     findCajasWithVentaObservaciones:[PdvCaja]!
+    reaperturasPorCaja(cajaId: ID!, sucursalId: ID!): [PdvCajaReapertura]
 }
 
 extend type Mutation {
@@ -86,6 +99,8 @@ extend type Mutation {
     savePdvCajaPorSucursal(pdvCaja:PdvCajaInput!):PdvCaja!
     abrirCajaDesdeServidor(input:PdvCajaInput!, conteoInput: ConteoInput!, conteoMonedaInputList: [ConteoMonedaInput], cajaId: ID):CajaFilialOperacionResult
     editarConteoCajaDesdeServidor(cajaId: Int!, sucursalId: Int!, conteoAnteriorId: ID!, apertura: Boolean!, conteoInput: ConteoInput!, conteoMonedaInputList: [ConteoMonedaInput]):CajaFilialOperacionResult
+    "Reabre en la filial una caja cerrada por equivocacion. Solo ADMIN, con motivo (issue desktop #662)."
+    reabrirCajaDesdeServidor(cajaId: Int!, sucursalId: Int!, motivo: String!):CajaFilialOperacionResult
 }
 
 enum PdvCajaEstado {

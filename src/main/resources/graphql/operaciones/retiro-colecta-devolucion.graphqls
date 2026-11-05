@@ -10,7 +10,10 @@ type RetiroDevolucion {
     estado: String
     creadoEn: Date
     devoluciones: [Devolucion]
+    # Nota vigente (null si no esta acreditado o si se revirtio).
     notaCredito: NotaCreditoDevolucion
+    # Notas revertidas (ANULADA), la mas reciente primero.
+    notasCreditoAnuladas: [NotaCreditoDevolucion]
 }
 
 type ColectaDevolucion {

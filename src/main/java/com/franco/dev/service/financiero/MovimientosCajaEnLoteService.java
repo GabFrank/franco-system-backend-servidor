@@ -79,6 +79,16 @@ public class MovimientosCajaEnLoteService {
     @Transactional
     public Boolean registrarMovimientos(Long cajaVirtualId, CajaVirtualTipoMovimiento tipo, List<Monto> montos,
                                         String descripcion, Usuario usuario, String claveIdempotencia) {
+        return registrarMovimientos(cajaVirtualId, tipo, montos, descripcion, usuario, claveIdempotencia, null);
+    }
+
+    /**
+     * @param responsable funcionario que retira o rinde la plata (opcional); va en cada movimiento del pedido
+     */
+    @Transactional
+    public Boolean registrarMovimientos(Long cajaVirtualId, CajaVirtualTipoMovimiento tipo, List<Monto> montos,
+                                        String descripcion, Usuario usuario, String claveIdempotencia,
+                                        com.franco.dev.domain.personas.Funcionario responsable) {
         exigirUsuario(usuario);
         if (cajaVirtualId == null) throw new GraphQLException("Debe indicar la caja.");
         if (tipo != CajaVirtualTipoMovimiento.INGRESO && tipo != CajaVirtualTipoMovimiento.EGRESO
@@ -95,6 +105,7 @@ public class MovimientosCajaEnLoteService {
         HuellaPedido huella = new HuellaPedido().texto(tipo.name()).id(cajaVirtualId);
         porMoneda.forEach((monedaId, cantidad) -> huella.id(monedaId).numero(cantidad));
         huella.texto(descripcion);
+        if (responsable != null) huella.id(responsable.getId());
 
         idempotenciaService.ejecutar(claveIdempotencia, OPERACION_MOVIMIENTOS, huella.calcular(), usuario,
                 () -> {
@@ -113,6 +124,7 @@ public class MovimientosCajaEnLoteService {
                         m.setMoneda(monedas.get(e.getKey()));
                         m.setDescripcion(descripcion);
                         m.setUsuario(usuario);
+                        m.setResponsable(responsable);
                         m.setOrigenTipo(OrigenMovimientoTipo.MANUAL);
                         m.setActivo(true);
                         Long id = conMoneda(monedas.get(e.getKey()), () -> tesoreriaService.registrar(m)).getId();

@@ -221,6 +221,44 @@ type PedidosParaFacturaMobile {
     pedidos: [CompraPedidoResumenMobile!]!
 }
 
+# El emisor de una factura recibida, para darlo de alta como proveedor si todavía no lo es
+type ProveedorDeFacturaMobile {
+    documentoId: ID
+    # SIFEN o FOTO
+    origen: String
+    # RUC sin DV
+    ruc: String
+    dv: String
+    rucValido: Boolean
+    nombre: String
+    nombreFantasia: String
+    direccion: String
+    ciudad: String
+    telefono: String
+    email: String
+    # La factura es a crédito: sugerencia para el proveedor nuevo
+    credito: Boolean
+    # Ya es proveedor
+    proveedorId: ID
+    proveedorNombre: String
+    # Ya existe una persona con ese documento (por ejemplo, un cliente): el alta la reutiliza
+    personaId: ID
+    personaNombre: String
+    puedeRegistrar: Boolean!
+    motivo: String
+}
+
+input RegistrarProveedorFacturaInput {
+    documentoId: ID!
+    nombre: String
+    nombreFantasia: String
+    direccion: String
+    telefono: String
+    email: String
+    credito: Boolean
+    chequeDias: Int
+}
+
 type OpcionMobile {
     id: ID!
     descripcion: String
@@ -301,6 +339,11 @@ extend type Mutation {
     leerFacturaNuevaCompraMobile(qr: String!): FacturaProveedorMobile!
     # Escanear el KuDE y ver la factura del proveedor en PDF. Solo consulta: no crea nada
     kudeFacturaProveedorMobile(qr: String!): KudeProveedorMobile!
+    # Los datos del emisor para darlo de alta como proveedor. Con qr trae la factura de SIFEN (o de la caché): por
+    # eso es mutation. Con documentoId usa la ya guardada (la factura en papel)
+    proveedorDeFacturaMobile(qr: String, documentoId: ID): ProveedorDeFacturaMobile!
+    # Alta del proveedor con los datos de la factura: idempotente por RUC, reutiliza la persona si ya existe
+    registrarProveedorDeFacturaMobile(input: RegistrarProveedorFacturaInput!): ProveedorDeFacturaMobile!
     crearCompraDesdeFacturaMobile(
         documentoId: ID!
         formaPagoId: ID

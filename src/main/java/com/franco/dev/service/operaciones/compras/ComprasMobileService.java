@@ -690,12 +690,15 @@ public class ComprasMobileService {
             throw new GraphQLException("Ese documento es una " + KudeQr.descripcionTipo(kude.getTipoDocumento()).toLowerCase()
                     + ", no una factura.");
         }
+        // La factura se trae de SIFEN antes de buscar al proveedor: si no está cargado, queda guardada con los
+        // datos del emisor para darlo de alta desde la PWA (proveedorDeFacturaMobile).
+        DocumentoRecibido doc = documentoRecibidoService.obtener(kude.getCdc());
         Proveedor proveedor = proveedorPorRuc(kude.getRucEmisor());
         if (proveedor == null) {
             throw new GraphQLException("El RUC " + kude.getRucEmisor() + "-" + kude.getDvEmisor()
-                    + " de la factura no es de ningún proveedor cargado. Dalo de alta como proveedor en el desktop.");
+                    + " de la factura no es de ningún proveedor cargado. Registralo con los datos de la factura.");
         }
-        return abrirNuevaCompra(documentoRecibidoService.obtener(kude.getCdc()), proveedor);
+        return abrirNuevaCompra(doc, proveedor);
     }
 
     /**

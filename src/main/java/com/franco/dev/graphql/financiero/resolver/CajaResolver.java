@@ -14,6 +14,8 @@ import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.CajaObservacionService;
 import com.franco.dev.service.financiero.GastoDetalleService;
 import com.franco.dev.service.financiero.PdvCajaService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
+import com.franco.dev.graphql.financiero.PdvCajaGraphQL;
 import com.franco.dev.service.operaciones.VentaService;
 import graphql.kickstart.tools.GraphQLResolver;
 import org.slf4j.Logger;
@@ -43,6 +45,9 @@ public class CajaResolver implements GraphQLResolver<PdvCaja> {
     @Autowired
     private CajaObservacionService cajaObservacionService;
 
+    @Autowired
+    private TesoreriaSecurityService seg;
+
     private final Logger log = LoggerFactory.getLogger(CajaResolver.class);
 
     public List<CajaObservacion> cajaObservacionList(PdvCaja caja) {
@@ -65,7 +70,9 @@ public class CajaResolver implements GraphQLResolver<PdvCaja> {
 //    totalRetiro: Float
 //    totalGasto: Float
 
+    /** Al que no es dueño ni tiene rol, null y no error: un error descartaría la caja entera del resultado. */
     public CajaBalance balance(PdvCaja e){
+        if (!PdvCajaGraphQL.puedeLeer(seg, e)) return null;
         return pdvCajaService.getBalance(new EmbebedPrimaryKey(e.getId(), e.getSucursalId()));
     }
 

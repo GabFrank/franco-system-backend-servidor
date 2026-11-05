@@ -245,8 +245,10 @@ public class TesoreriaService {
             throw new GraphQLException("No se puede anular un contra-movimiento de anulación.");
         }
         // MALETIN se opera manualmente en tesorería (no tiene módulo dueño con reversa propia),
-        // así que es anulable directo desde la caja mayor igual que MANUAL.
-        if (origen != null && origen != OrigenMovimientoTipo.MANUAL && origen != OrigenMovimientoTipo.MALETIN) {
+        // así que es anulable directo desde la caja mayor igual que MANUAL. VUELTO también: es un
+        // ingreso de la caja, y al anularlo el egreso que rendía vuelve a tener pendiente.
+        if (origen != null && origen != OrigenMovimientoTipo.MANUAL && origen != OrigenMovimientoTipo.MALETIN
+                && origen != OrigenMovimientoTipo.VUELTO) {
             throw new GraphQLException("Este movimiento proviene de " + origen
                     + "; anúlelo desde su módulo de origen, no desde la caja mayor.");
         }
@@ -402,6 +404,12 @@ public class TesoreriaService {
         // contra-movimiento. Estaba solo en anular(), y un pago o una operación de la misma fecha que un
         // ingreso manual sí se podían anular (issue #370).
         limiteAnulacion.requireDentroDelLimite(orig.getCreadoEn(), "El movimiento de caja #" + orig.getId());
+        // Un egreso ya rendido con vuelto no se revierte solo: la plata del vuelto quedaría contada dos veces.
+        // Acá y no en cada módulo: todas las anulaciones (caja, entrada varia, pago de gasto) pasan por revertir().
+        if (movimientoRepository.existsVueltoActivo(orig.getId())) {
+            throw new GraphQLException("El egreso #" + orig.getId()
+                    + " tiene vueltos registrados: anule primero los vueltos y después el egreso.");
+        }
         // Recomputa el efecto con BigDecimal (no restando los snapshots Double, que arrastran
         // error de punto flotante en monedas con decimales). El contra-movimiento es el negado.
         BigDecimal cantidadOrig = orig.getCantidad() != null ? BigDecimal.valueOf(orig.getCantidad()) : BigDecimal.ZERO;
@@ -423,6 +431,10 @@ public class TesoreriaService {
         // tacha y el filtro "solo activos" lo oculta. No afecta el saldo (ya lo revirtió el contra).
         orig.setActivo(false);
         movimientoRepository.save(orig);
+        // El egreso que rendía este vuelto vuelve a tener pendiente: quien lleva la cuenta (el gasto) se entera.
+        if (orig.getVueltoDeId() != null) {
+            eventos.publishEvent(new VueltoRevertidoEvent(orig.getVueltoDeId()));
+        }
         return posteado;
     }
 

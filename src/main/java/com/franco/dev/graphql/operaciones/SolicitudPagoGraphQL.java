@@ -22,6 +22,7 @@ import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.rrhh.RrhhSecurityService;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import graphql.schema.DataFetchingEnvironment;
@@ -722,6 +723,8 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             impresionService.printSolicitudPagoTicket(
                     solicitudPago, proveedorNombre, usuario, printerName, notas, formasPago);
             return true;
+        } catch (GraphQLException e) {
+            throw e; // ya trae el motivo («No se pudo imprimir: ...» o la impresora que falta)
         } catch (Exception e) {
             throw new RuntimeException("Error al imprimir ticket de solicitud de pago: " + e.getMessage(), e);
         }

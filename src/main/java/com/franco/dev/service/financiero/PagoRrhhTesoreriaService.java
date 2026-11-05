@@ -83,6 +83,8 @@ public class PagoRrhhTesoreriaService {
     public List<PagoRrhhPendienteDto> listarLiquidacionesPendientes() {
         List<PagoRrhhPendienteDto> out = new ArrayList<>();
         for (LiquidacionSueldo l : liquidacionRepository.findByEstadoOrderByPeriodoDesc(LiquidacionSueldoEstado.APROBADA)) {
+            // Neto negativo: no hay nada que pagar (issue #515); RRHH la vuelve a borrador y la corrige.
+            if (l.getTotalNeto() != null && l.getTotalNeto().signum() < 0) continue;
             out.add(toDto(l));
         }
         return out;
@@ -93,6 +95,7 @@ public class PagoRrhhTesoreriaService {
     public List<PagoRrhhPendienteDto> listarFiniquitosPendientes() {
         List<PagoRrhhPendienteDto> out = new ArrayList<>();
         for (LiquidacionFinal f : finiquitoRepository.findByEstadoOrderByCreadoEnDesc(LiquidacionFinalEstado.APROBADA)) {
+            if (f.getTotalLiquidado() != null && f.getTotalLiquidado().signum() < 0) continue;
             out.add(toDto(f));
         }
         return out;
@@ -250,6 +253,7 @@ public class PagoRrhhTesoreriaService {
                     throw new GraphQLException("La liquidacion #" + id + " no esta pendiente de pago (esta "
                             + l.getEstado() + ")");
                 }
+                com.franco.dev.service.rrhh.LiquidacionSueldoService.exigirNetoNoNegativo(l);
                 // Antes de crear la obligacion y de que el motor postee: cuotas cobradas por caja despues del
                 // borrador se cobrarian dos veces (issue #300).
                 prestamoCuotaDescuentoService.validarLiquidacion(id);
@@ -264,6 +268,7 @@ public class PagoRrhhTesoreriaService {
                     throw new GraphQLException("El finiquito #" + id + " no esta pendiente de pago (esta "
                             + f.getEstado() + ")");
                 }
+                com.franco.dev.service.rrhh.LiquidacionFinalService.exigirTotalNoNegativo(f);
                 prestamoCuotaDescuentoService.validarFiniquito(id);
                 valeCuotaDescuentoService.validarFiniquito(id);
                 itemProgramadoAplicacionService.validarFiniquito(id);

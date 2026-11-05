@@ -36,6 +36,8 @@ public class NotaCreditoDevolucion implements Identifiable<Long> {
     public static final String ESTADO_DISPONIBLE = "DISPONIBLE";
     public static final String ESTADO_PARCIAL = "PARCIAL";
     public static final String ESTADO_USADO = "USADO";
+    /** Revertida: queda como registro, sin saldo y fuera de la unicidad por retiro. */
+    public static final String ESTADO_ANULADA = "ANULADA";
 
     @Id
     @GenericGenerator(
@@ -70,7 +72,7 @@ public class NotaCreditoDevolucion implements Identifiable<Long> {
     @Column(name = "saldo")
     private Double saldo;
 
-    /** DISPONIBLE | PARCIAL | USADO */
+    /** DISPONIBLE | PARCIAL | USADO | ANULADA */
     @Column(name = "estado", nullable = false)
     private String estado;
 
@@ -80,4 +82,12 @@ public class NotaCreditoDevolucion implements Identifiable<Long> {
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
+
+    /** Quien revirtio el credito (solo en ANULADA). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "anulado_por_id")
+    private Usuario anuladoPor;
+
+    @Column(name = "anulado_en")
+    private LocalDateTime anuladoEn;
 }

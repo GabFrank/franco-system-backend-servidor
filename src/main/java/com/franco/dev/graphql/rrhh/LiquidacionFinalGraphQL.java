@@ -103,6 +103,8 @@ public class LiquidacionFinalGraphQL implements GraphQLQueryResolver, GraphQLMut
     public Boolean eliminarItemLiquidacionFinal(Long itemId) {
         alcance.requireLiquidar();
         if (alcance.liquidaAcotado()) alcance.exigirItemDeFiniquito(itemId);
+        // Eliminar un ítem programado anula el programado: mismo rol que anularItemProgramado.
+        if (service.esItemProgramado(itemId)) seg.requireAnyRole(seg.LIQUIDAR);
         return service.eliminarItem(itemId);
     }
 

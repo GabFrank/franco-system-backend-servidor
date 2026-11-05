@@ -1,6 +1,7 @@
 package com.franco.dev.graphql.financiero;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.financiero.Retiro;
 import com.franco.dev.graphql.financiero.input.RetiroDetalleInput;
 import com.franco.dev.graphql.financiero.input.RetiroInput;
@@ -23,6 +24,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -62,11 +65,36 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private TesoreriaSecurityService seg;
 
+    /** La lista de retiros: lectura de caja (análisis y tesorería) y ANALISIS FINANCIERO. */
+    static final String[] LECTURA_RETIROS = lecturaRetiros();
+
+    private static String[] lecturaRetiros() {
+        String[] r = Arrays.copyOf(PdvCajaGraphQL.LECTURA_CAJA, PdvCajaGraphQL.LECTURA_CAJA.length + 1);
+        r[r.length - 1] = "ANALISIS FINANCIERO";
+        return r;
+    }
+
+    /** Como en el filial: el dueño de la caja del retiro o la lectura de caja. */
     public Retiro retiro(Long id, Long sucId) {
-        return service.findByIdAndSucursalId(id, sucId);
+        Retiro retiro = service.findByIdAndSucursalId(id, sucId);
+        if (retiro == null) return null;
+        exigirLecturaDeCaja(retiro.getCajaSalida());
+        return retiro;
+    }
+
+    private void exigirLecturaDeCaja(PdvCaja caja) {
+        java.util.List<Long> duenio;
+        try {
+            duenio = PdvCajaGraphQL.duenio(caja);
+        } catch (javax.persistence.EntityNotFoundException e) {
+            duenio = Collections.emptyList(); // caja todavía no replicada: no se sabe el dueño
+        }
+        if (duenio.isEmpty()) seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
+        else seg.requireUsuarioORol(duenio, PdvCajaGraphQL.LECTURA_CAJA);
     }
 
     public List<Retiro> retiros(Integer page, Integer size, Long sucId) {
+        seg.requireSuperusuario(); // ningún cliente la llama
         if (page == null)
             page = 0;
         if (size == null)
@@ -77,6 +105,7 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     public Page<Retiro> filterRetiros(Long id, Long cajaId, Long sucId, Long responsableId, Long cajeroId, Integer page,
             Integer size) {
+        seg.requireAnyRole(LECTURA_RETIROS);
         Pageable pageable = PageRequest.of(page, size);
         return service.filterRetirosPage(id, cajaId, sucId, responsableId, cajeroId, pageable);
     }
@@ -120,8 +149,20 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         return e;
     }
 
+    /**
+     * Retiros de una caja del PDV. Con sucursal, solo los de esa caja (los ids de caja se repiten entre
+     * sucursales) y para su dueño o la lectura de caja. Sin sucursal (así la pide el desktop, que la manda al
+     * filial), solo con la lectura de caja.
+     */
     public List<Retiro> retiroListPorCajaSalidaId(Long id, Long sucId) {
-        return service.findByCajaSalidaId(id);
+        if (sucId == null) {
+            seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
+            return service.findByCajaSalidaId(id);
+        }
+        PdvCaja caja = pdvCajaService.findById(id, sucId);
+        if (caja == null) return Collections.emptyList();
+        exigirLecturaDeCaja(caja);
+        return service.findByCajaSalidaIdAndSucursalId(id, sucId);
     }
 
     // public List<Retiro> retirosSearch(String texto){
@@ -149,6 +190,7 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Long countRetiro() {
+        seg.requireSuperusuario(); // ningún cliente la llama
         return service.count();
     }
 

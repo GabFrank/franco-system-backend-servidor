@@ -131,7 +131,8 @@ class ContraAsientoRrhhTest {
                 mock(AguinaldoRepository.class),
                 mock(BaseRemunerativaService.class),
                 descuento,
-                mock(ValeCuotaDescuentoService.class), mock(com.franco.dev.service.rrhh.ItemProgramadoAplicacionService.class));
+                mock(ValeCuotaDescuentoService.class), mock(com.franco.dev.service.rrhh.ItemProgramadoAplicacionService.class),
+                mock(LiquidacionItemProgramadoService.class));
 
         valeRepository = mock(ValeRepository.class);
         when(valeRepository.save(any())).thenAnswer(i -> i.getArgument(0));
@@ -160,6 +161,16 @@ class ContraAsientoRrhhTest {
         assertEquals(0, SALDO_INICIAL.compareTo(saldo.getSaldo()),
                 "no tenia que moverse plata, la caja quedo en " + saldo.getSaldo());
         assertEquals(LiquidacionFinalEstado.APROBADA, lf.getEstado());
+    }
+
+    /** Issue #515: aprobado con total negativo quedaba trabado en APROBADA; se corta al aprobar. */
+    @Test
+    void noSePuedeAprobarUnFiniquitoConTotalNegativo() {
+        LiquidacionFinal lf = finiquito(new BigDecimal("-800000"), LiquidacionFinalEstado.BORRADOR);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> finiquitoService.aprobar(77L, null));
+        assertTrue(e.getMessage().toLowerCase().contains("negativo"), e.getMessage());
+        assertEquals(LiquidacionFinalEstado.BORRADOR, lf.getEstado());
     }
 
     /** Issue #300: una cuota del finiquito cobrada por caja despues del borrador frena el pago sin mover la caja. */
@@ -264,6 +275,7 @@ class ContraAsientoRrhhTest {
         lf.setTotalLiquidado(total);
         lf.setMoneda(gs);
         when(finiquitoRepository.findById(77L)).thenReturn(Optional.of(lf));
+        when(finiquitoRepository.lockById(77L)).thenReturn(Optional.of(lf));
         return lf;
     }
 

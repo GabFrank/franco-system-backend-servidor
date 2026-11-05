@@ -40,6 +40,8 @@ input EntradaVariaInput {
     categoriaId: Int
     formaPagoId: Int
     numeroComprobante: String
+    # Solo en egresos: funcionario que retira la plata. Opcional.
+    responsableId: Int
 }
 
 type EntradaVariaPage {

@@ -106,6 +106,8 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         Cliente e = m.map(input, Cliente.class);
         // el input no trae el saldo de la cuenta corriente: sin esto cada edicion lo dejaba en null
         if (previo != null) e.setSaldoActual(previo.getSaldoActual());
+        // ClienteInput no trae creadoEn: sin esto cada edicion lo dejaba en null
+        if (previo != null) e.setCreadoEn(previo.getCreadoEn());
         if (input.getActivo() == null) {
             // caller no envió 'activo': preservar el valor actual (o true si es nuevo)
             e.setActivo(input.getId() != null
@@ -116,6 +118,9 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getSucursalId() != null)
             e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
+        else if (previo != null)
+            // el desktop no manda sucursalId: sin esto cada edicion la dejaba en null
+            e.setSucursal(previo.getSucursal());
         if (input.getPersonaId() != null)
             e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
         if (e.getPersona() == null) {

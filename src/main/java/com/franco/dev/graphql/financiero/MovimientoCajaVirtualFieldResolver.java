@@ -23,6 +23,8 @@ public class MovimientoCajaVirtualFieldResolver implements GraphQLResolver<Movim
 
     public Boolean esPagoConsolidado(MovimientoCajaVirtual mov) {
         if (mov == null || mov.getId() == null) return false;
+        // La @Formula de la entidad ya lo trae; solo una entidad recién guardada llega sin él.
+        if (mov.getEsPagoConsolidado() != null) return mov.getEsPagoConsolidado();
         return detalleRepository.existsByMovimientoCajaVirtualId(mov.getId());
     }
 }

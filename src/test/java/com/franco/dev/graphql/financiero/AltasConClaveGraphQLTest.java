@@ -38,6 +38,7 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -210,16 +211,16 @@ class AltasConClaveGraphQLTest {
 
         verifyNoInteractions(entradaVariaService);   // el alta corre solo si la clave es nueva
         alta.getAllValues().get(0).get();
-        verify(entradaVariaService).registrar(any(), same(sesion));
+        verify(entradaVariaService).registrar(any(), same(sesion), isNull());
     }
 
     @Test
     void maletin_el_ingreso_y_el_egreso_pasan_la_clave_y_no_comparten_operacion() {
-        maletinGraphQL.egresarMaletinCajaMayor(1L, 2L, 3L, 500.0, "DESPACHO", "clave-m");
-        maletinGraphQL.egresarMaletinCajaMayor(1L, 2L, 3L, 500.00, "DESPACHO", "clave-m");
-        maletinGraphQL.egresarMaletinCajaMayor(1L, 2L, 3L, 501.0, "DESPACHO", "clave-m");
-        maletinGraphQL.egresarMaletinCajaMayor(1L, 8L, 3L, 500.0, "DESPACHO", "clave-m");
-        maletinGraphQL.egresarMaletinCajaMayor(1L, 2L, 3L, 500.0, "OTRO", "clave-m");
+        maletinGraphQL.egresarMaletinCajaMayor(1L, 2L, 3L, 500.0, "DESPACHO", "clave-m", null);
+        maletinGraphQL.egresarMaletinCajaMayor(1L, 2L, 3L, 500.00, "DESPACHO", "clave-m", null);
+        maletinGraphQL.egresarMaletinCajaMayor(1L, 2L, 3L, 501.0, "DESPACHO", "clave-m", null);
+        maletinGraphQL.egresarMaletinCajaMayor(1L, 8L, 3L, 500.0, "DESPACHO", "clave-m", null);
+        maletinGraphQL.egresarMaletinCajaMayor(1L, 2L, 3L, 500.0, "OTRO", "clave-m", null);
         maletinGraphQL.ingresarMaletinCajaMayor(1L, 2L, 3L, 500.0, "DESPACHO", "clave-i");
 
         ArgumentCaptor<String> huellas = ArgumentCaptor.forClass(String.class);
@@ -231,7 +232,7 @@ class AltasConClaveGraphQLTest {
         assertEquals(4, new HashSet<>(h).size());
 
         alta.getAllValues().get(0).get();
-        verify(maletinService).egresarMaletin(eq(1L), eq(2L), eq(3L), eq(BigDecimal.valueOf(500.0)), eq("DESPACHO"), same(sesion));
+        verify(maletinService).egresarMaletin(eq(1L), eq(2L), eq(3L), eq(BigDecimal.valueOf(500.0)), eq("DESPACHO"), same(sesion), isNull());
         verify(maletinService, never()).ingresarMaletin(any(), any(), any(), any(), any(), any());
     }
 
@@ -256,6 +257,7 @@ class AltasConClaveGraphQLTest {
         cambios.add(in -> in.setBeneficiarioProveedorId(9L));
         cambios.add(in -> in.setBeneficiarioPersonaId(9L));
         cambios.add(in -> in.setSucursalId(9L));
+        cambios.add(in -> in.setResponsableId(9L));
         for (Consumer<GastoParaPagoWrapper> cambio : cambios) {
             GastoParaPagoWrapper in = gasto();
             cambio.accept(in);
@@ -264,12 +266,12 @@ class AltasConClaveGraphQLTest {
 
         ArgumentCaptor<String> huellas = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Supplier> alta = ArgumentCaptor.forClass(Supplier.class);
-        verify(altaIdempotente, times(8)).gastoParaPago(eq("clave-g"), huellas.capture(), same(sesion), alta.capture());
-        assertEquals(8, new HashSet<>(huellas.getAllValues()).size());
+        verify(altaIdempotente, times(9)).gastoParaPago(eq("clave-g"), huellas.capture(), same(sesion), alta.capture());
+        assertEquals(9, new HashSet<>(huellas.getAllValues()).size());
 
         alta.getAllValues().get(0).get();
         verify(gastoTesoreriaService).crearGastoParaPago(eq(1L), eq("FLETE"), eq(2L), eq(250000.0), eq(3L),
-                any(), any(), any(), same(sesion));
+                any(), any(), any(), same(sesion), isNull());
     }
 
     @Test

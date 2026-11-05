@@ -6,6 +6,7 @@ import com.franco.dev.domain.administrativo.Marcacion;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.graphql.administrativo.input.MarcacionInput;
 import com.franco.dev.service.administrativo.MarcacionService;
+import com.franco.dev.service.administrativo.helper.DistanciaMarcacion;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -108,6 +109,7 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
      */
     public Marcacion saveMarcacion(MarcacionInput marcacion) {
         protegerMarcacion(marcacion);
+        validarDistancia(marcacion);
         for (int intento = 1; ; intento++) {
             try {
                 return guardar(marcacion);
@@ -141,6 +143,54 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         if (m.getTipo() == null && m.getFechaSalida() != null) m.setTipo(TipoMarcacion.SALIDA);
         m.setFechaEntrada(null);
         m.setFechaSalida(null);
+    }
+
+    /**
+     * Mas de {@link DistanciaMarcacion#DISTANCIA_MAXIMA_M} metros de la sucursal no se marca.
+     *
+     * La distancia la calcula el servidor con la latitud y longitud recibidas, y es la que se
+     * guarda: el {@code distanciaSucursalMetros} del cliente no se cree.
+     *
+     * Fuera de la regla: la edicion de una marcacion existente (con id, solo RRHH GESTIONAR) y el
+     * desktop, que no manda GPS ni metodoRegistro. Una marcacion con metodoRegistro --todas las de
+     * la PWA-- sin ubicacion se rechaza: si no, alcanzaba con no mandarla.
+     */
+    void validarDistancia(MarcacionInput m) {
+        if (m == null || m.getId() != null) return;
+        boolean conPosicion = DistanciaMarcacion.tienePosicion(m.getLatitud(), m.getLongitud());
+        if (!conPosicion) {
+            if (m.getMetodoRegistro() != null) {
+                throw rechazo("No se recibió la ubicación del teléfono. Activá la ubicación y volvé a intentar.");
+            }
+            return;
+        }
+
+        Long sucursalId = m.getSucursalId() != null ? m.getSucursalId()
+                : m.getSucursalEntradaId() != null ? m.getSucursalEntradaId() : m.getSucursalSalidaId();
+        com.franco.dev.domain.empresarial.Sucursal sucursal =
+                sucursalId == null ? null : sucursalService.findById(sucursalId).orElse(null);
+        if (sucursal == null) {
+            throw rechazo("No se indicó en qué sucursal se marca.");
+        }
+        double[] coords = DistanciaMarcacion.coordenadas(sucursal.getLocalizacion());
+        if (coords == null) {
+            throw rechazo("La sucursal " + sucursal.getNombre()
+                    + " no tiene la ubicación cargada, así que no se puede verificar la distancia.");
+        }
+
+        int metros = DistanciaMarcacion.metros(coords[0], coords[1],
+                m.getLatitud().doubleValue(), m.getLongitud().doubleValue());
+        m.setDistanciaSucursalMetros(metros);
+        if (DistanciaMarcacion.estaLejos(metros)) {
+            log.info("Marcación rechazada por distancia: usuario={} sucursal={} metros={} precision={}",
+                    m.getUsuarioId(), sucursalId, metros, m.getPrecisionGps());
+            throw rechazo("Estás a " + metros + " m de " + sucursal.getNombre() + ". Solo se puede marcar a "
+                    + DistanciaMarcacion.DISTANCIA_MAXIMA_M + " m o menos.");
+        }
+    }
+
+    private static GraphqlErrorException rechazo(String mensaje) {
+        return GraphqlErrorException.newErrorException().message(mensaje).build();
     }
 
     /**

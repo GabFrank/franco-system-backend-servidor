@@ -87,6 +87,22 @@ public class MovimientoCajaVirtual implements Serializable {
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 
+    /**
+     * Quien retira o rinde la plata del egreso, elegido al registrarlo. Opcional: sin él, el
+     * responsable a mostrar es {@code usuario} (quien lo cargo).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "responsable_id", nullable = true)
+    private com.franco.dev.domain.personas.Funcionario responsable;
+
+    /** En un vuelto: el egreso que rinde (otro movimiento de la misma caja). */
+    @Column(name = "vuelto_de_id")
+    private Long vueltoDeId;
+
+    /** En un vuelto: lo devuelto expresado en la moneda del egreso; es lo que descuenta de su pendiente. */
+    @Column(name = "vuelto_equivalente")
+    private java.math.BigDecimal vueltoEquivalente;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "caja_origen_id", nullable = true)
     private CajaVirtual cajaOrigen;
@@ -100,4 +116,14 @@ public class MovimientoCajaVirtual implements Serializable {
     @CreationTimestamp
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
+
+    /**
+     * Si es el asiento de un evento de pago (lo lee {@code MovimientoCajaVirtualFieldResolver}). Sale en el mismo
+     * select: antes era una consulta aparte por fila de la tabla de movimientos (issue desktop #646). Null en una
+     * entidad recién guardada, que Hibernate no relee.
+     */
+    @org.hibernate.annotations.Formula("exists(select 1 from financiero.pago_solicitud_detalle d where d.movimiento_caja_virtual_id = id)")
+    @lombok.EqualsAndHashCode.Exclude
+    @lombok.ToString.Exclude
+    private Boolean esPagoConsolidado;
 }

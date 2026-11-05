@@ -134,15 +134,25 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             exigirLectura(aux);
         } catch (GraphQLException e) {
             // El cajero que abre caja compara contra el cierre de la caja anterior de su maletín, que es de otro.
-            if (!esCajaAnteriorDeLaSesion(aux)) throw e;
+            if (!esCajaAnteriorDeLaSesion(seg, service, aux)) throw e;
         }
         return aux;
     }
 
-    /** true si la caja es la anterior, en su maletín, de alguna caja abierta del usuario de la sesión. */
-    private boolean esCajaAnteriorDeLaSesion(PdvCaja caja) {
+    /**
+     * true si la caja es la anterior, en su maletín, de alguna caja abierta del usuario de la sesión. La usa
+     * también el campo {@code conteoCierre} (#562): el cajero compara su apertura contra ese cierre.
+     */
+    public static boolean esCajaAnteriorDeLaSesion(TesoreriaSecurityService seg, PdvCajaService service, PdvCaja caja) {
+        if (caja == null || caja.getId() == null) return false;
         Usuario u = seg.currentUsuario();
         if (u == null) return false;
+        Long sucursalId;
+        try {
+            sucursalId = caja.getSucursalId();
+        } catch (javax.persistence.EntityNotFoundException e) {
+            return false; // caja anidada que el central todavía no tiene
+        }
         for (PdvCaja propia : service.findByUsuarioIdAndAbierto(u.getId())) {
             // Una apertura en el futuro no es una caja real: correría la "anterior" a cualquier cierre del maletín.
             if (propia.getMaletin() == null || propia.getFechaApertura() == null
@@ -150,7 +160,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             List<PdvCaja> anteriores = service.getRepository().findPreviousCajaByMaletinAndFecha(
                     propia.getMaletin().getId(), propia.getFechaApertura(), PageRequest.of(0, 1));
             if (!anteriores.isEmpty() && caja.getId().equals(anteriores.get(0).getId())
-                    && java.util.Objects.equals(caja.getSucursalId(), anteriores.get(0).getSucursalId())) {
+                    && java.util.Objects.equals(sucursalId, anteriores.get(0).getSucursalId())) {
                 return true;
             }
         }
@@ -351,11 +361,18 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.imprimirBalance(new EmbebedPrimaryKey(id, sucId), printerName, local);
     }
 
-    /** El dueño de la caja como lista para {@code requireUsuarioORol}; vacía si no hay caja. */
+    /**
+     * El dueño de la caja como lista para {@code requireUsuarioORol}; vacía si no hay caja o si es una caja
+     * anidada que el central todavía no tiene (#562): sin dueño conocido decide el rol.
+     */
     public static List<Long> duenio(PdvCaja caja) {
-        return caja != null && caja.getUsuario() != null
-                ? java.util.Collections.singletonList(caja.getUsuario().getId())
-                : java.util.Collections.emptyList();
+        try {
+            return caja != null && caja.getUsuario() != null
+                    ? java.util.Collections.singletonList(caja.getUsuario().getId())
+                    : java.util.Collections.emptyList();
+        } catch (javax.persistence.EntityNotFoundException e) {
+            return java.util.Collections.emptyList();
+        }
     }
 
     public List<PdvCaja> cajasPorUsuarioId(Long id, Integer page, Integer size) {

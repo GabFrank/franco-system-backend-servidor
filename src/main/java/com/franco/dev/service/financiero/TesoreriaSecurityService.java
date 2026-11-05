@@ -115,12 +115,16 @@ public class TesoreriaSecurityService {
                 org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
         if (req == null) return leer.get();
         String k = TesoreriaSecurityService.class.getName() + "." + clave + ":" + nick;
-        Object v = req.getAttribute(k, org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
-        if (v == null) {
-            v = leer.get();
-            if (v != null) req.setAttribute(k, v, org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+        try {
+            Object v = req.getAttribute(k, org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+            if (v == null) {
+                v = leer.get();
+                if (v != null) req.setAttribute(k, v, org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+            }
+            return (T) v;
+        } catch (IllegalStateException e) {
+            return leer.get(); // request ya terminado (atributos heredados por otro hilo): sin caché
         }
-        return (T) v;
     }
 
     /** El usuario autenticado; si el nickname del token ya no existe, pide volver a entrar. */

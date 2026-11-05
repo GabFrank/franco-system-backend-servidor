@@ -90,6 +90,8 @@ class ControlRolMatrizTest {
                 f(MovimientoCajaGraphQL.class, "movimientoCaja", LC), f(MovimientoCajaGraphQL.class, "movimientoCajas", LC),
                 f(CajaObservacionGraphQL.class, "cajaObservacion", LC),
                 f(CajaObservacionGraphQL.class, "cajaObservaciones", LC),
+                f(GastoDetalleGraphQL.class, "gastoDetalle", LC), f(GastoDetalleGraphQL.class, "gastoDetalles", LC),
+                f(GastoDetalleGraphQL.class, "gastoDetalleListPorGastoId", LC),
                 f(RetiroDetalleGraphQL.class, "saveRetiroDetalle"), f(RetiroDetalleGraphQL.class, "deleteRetiroDetalle"),
                 f(RetiroDetalleGraphQL.class, "retiroDetalle"), f(RetiroDetalleGraphQL.class, "retiroDetalles"),
                 f(RetiroDetalleGraphQL.class, "retiroDetalleListPorRetiroId"),

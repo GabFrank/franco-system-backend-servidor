@@ -490,6 +490,8 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             Long clienteId,
             String fechaInicio,
             String fechaFin) {
+        // Con caja es el detalle de esa caja (#562): mismo control que ventasPorCajaId
+        if (idCaja != null) PdvCajaGraphQL.exigirLecturaDeCaja(seg, pdvCajaService, idCaja, sucId);
 
         Pageable pageable;
         if (page != null) {

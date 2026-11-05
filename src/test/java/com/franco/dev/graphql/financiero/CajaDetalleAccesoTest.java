@@ -127,6 +127,16 @@ class CajaDetalleAccesoTest {
         noAutorizado(() -> tarjetas.countVentasTarjetaSinRegistrar(CAJA_AJENA, SUC));
         noAutorizado(() -> deliverys.deliveryPorCajaIdAndEstados(CAJA_AJENA, Collections.emptyList(), SUC));
         noAutorizado(() -> observaciones.findByPdvCajaIdAndSucursalId(CAJA_AJENA, SUC));
+        // la lista general de ventas con una caja es el mismo detalle; sin caja, como hoy
+        noAutorizado(() -> ventas.ventasGenericFilter(null, CAJA_AJENA, 0, 15, true, SUC, null, null, null, null,
+                null, null, null, null, null, null));
+    }
+
+    @Test
+    void laLecturaDeCajaSonAnalisisYLosCuatroDeTesoreria() {
+        assertEquals(new java.util.HashSet<>(java.util.Arrays.asList("ANALISIS DE CAJA", "TESORERIA VER",
+                        "TESORERIA GESTIONAR", "TESORERIA CPC COBRAR", "TESORERIA CPP PAGAR")),
+                new java.util.HashSet<>(java.util.Arrays.asList(PdvCajaGraphQL.LECTURA_CAJA)));
     }
 
     // --- campos de la caja (fase 3) ---

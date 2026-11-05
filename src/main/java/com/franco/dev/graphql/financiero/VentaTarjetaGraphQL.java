@@ -99,12 +99,20 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         seg.requireAnyRole("VENTA TOUCH", VENTA_TARJETA_COMPLETAR);
         // La PWA y el mobile toman un rechazo de la lectura como «no hay registro» y guardan otro: un cobro ya
         // registrado solo lo vuelve a guardar su dueño o el rol, en vez de duplicarlo (#574)
+        if (input.getSucursalId() == null || input.getCajaId() == null) {
+            // Sin sucursal o sin caja no se sabe de quién es el cobro (la PWA y el mobile mandan las dos)
+            seg.requireAnyRole(COBRO_AJENO);
+        } else {
+            // La caja destino la elige el cliente: un cobro en la caja de otro, solo con el rol
+            PdvCaja destino = pdvCajaService.findById(input.getCajaId(), input.getSucursalId());
+            if (destino != null) seg.requireUsuarioORol(PdvCajaGraphQL.duenio(destino), COBRO_AJENO);
+        }
         if (input.getId() != null && input.getSucursalId() != null) {
             exigirCobroPropioORol(service.findByIdAndSucursalId(input.getId(), input.getSucursalId()));
         }
         if (input.getVentaId() != null && input.getSucursalId() != null) {
             List<VentaTarjeta> previos = service.findAllByVentaIdAndSucursalId(input.getVentaId(), input.getSucursalId());
-            if (previos != null && !previos.isEmpty()) exigirCobroPropioORol(previos.get(0));
+            if (previos != null) previos.forEach(this::exigirCobroPropioORol);
         }
         ModelMapper m = new ModelMapper();
         m.getConfiguration().setAmbiguityIgnored(true);

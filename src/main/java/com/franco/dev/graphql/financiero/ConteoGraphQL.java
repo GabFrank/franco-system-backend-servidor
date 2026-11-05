@@ -76,10 +76,12 @@ public class ConteoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     private static final Logger log = LoggerFactory.getLogger(ConteoGraphQL.class);
 
     public Optional<Conteo> conteo(Long id, Long sucId) {
+        tesoreriaSecurityService.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
         return service.findById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public List<Conteo> conteos(int page, int size, Long sucId){
+        tesoreriaSecurityService.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
         Pageable pageable = PageRequest.of(page,size);
         return service.findAll(pageable);
     }

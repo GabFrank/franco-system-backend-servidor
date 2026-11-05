@@ -84,10 +84,12 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public List<VentaTarjeta> ventasTarjetaPorCaja(Long cajaId, Long sucId) {
+        PdvCajaGraphQL.exigirLecturaDeCaja(seg, pdvCajaService, cajaId, sucId);
         return service.findByCajaIdAndSucursalId(cajaId, sucId);
     }
 
     public Long countVentasTarjetaSinRegistrar(Long cajaId, Long sucId) {
+        PdvCajaGraphQL.exigirLecturaDeCaja(seg, pdvCajaService, cajaId, sucId);
         Long count = service.countVentasTarjetaSinRegistrar(cajaId, sucId);
         return count != null ? count : 0L;
     }

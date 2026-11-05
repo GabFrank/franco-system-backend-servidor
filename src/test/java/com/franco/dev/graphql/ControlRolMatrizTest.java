@@ -44,6 +44,9 @@ class ControlRolMatrizTest {
             "EDITAR PRODUCTOS", "CREAR PRECIOS", "EDITAR PRECIOS", "CREAR FUNCIONARIOS", "EDITAR FUNCIONARIOS",
             "VER INVENTARIO", "CREAR INVENTARIO", "PARTICIPAR DEL INVENTARIO");
 
+    /** Lectura de caja ({@code PdvCajaGraphQL.LECTURA_CAJA}). */
+    static final String[] LC = PdvCajaGraphQL.LECTURA_CAJA;
+
     static class Fila {
         final Class<?> clase; final String campo; final String metodo; final List<String> roles;
         Fila(Class<?> clase, String campo, String metodo, String... roles) {
@@ -77,6 +80,18 @@ class ControlRolMatrizTest {
                 f(RetiroGraphQL.class, "filterRetiros", AC, GEST, "TESORERIA VER", "TESORERIA CPC COBRAR",
                         "TESORERIA CPP PAGAR", "ANALISIS FINANCIERO"),
                 f(RetiroGraphQL.class, "retiros"), f(RetiroGraphQL.class, "countRetiro"),
+                // issue #562: detalle de caja sin cliente (o solo pantallas de análisis): lectura de caja
+                new Fila(ConteoGraphQL.class, "tesoreriaSecurityService", "conteo", LC),
+                new Fila(ConteoGraphQL.class, "tesoreriaSecurityService", "conteos", LC),
+                f(ConteoMonedaGraphQL.class, "conteoMoneda", LC), f(ConteoMonedaGraphQL.class, "conteoMonedas", LC),
+                f(ConteoMonedaGraphQL.class, "conteoMonedasPorConteoId", LC),
+                f(GastoGraphQL.class, "gasto", LC), f(GastoGraphQL.class, "gastos", LC),
+                f(GastoGraphQL.class, "gastosPorFecha", LC), f(GastoGraphQL.class, "filterGastos", LC),
+                f(MovimientoCajaGraphQL.class, "movimientoCaja", LC), f(MovimientoCajaGraphQL.class, "movimientoCajas", LC),
+                f(CajaObservacionGraphQL.class, "cajaObservacion", LC),
+                f(CajaObservacionGraphQL.class, "cajaObservaciones", LC),
+                f(GastoDetalleGraphQL.class, "gastoDetalle", LC), f(GastoDetalleGraphQL.class, "gastoDetalles", LC),
+                f(GastoDetalleGraphQL.class, "gastoDetalleListPorGastoId", LC),
                 f(RetiroDetalleGraphQL.class, "saveRetiroDetalle"), f(RetiroDetalleGraphQL.class, "deleteRetiroDetalle"),
                 f(RetiroDetalleGraphQL.class, "retiroDetalle"), f(RetiroDetalleGraphQL.class, "retiroDetalles"),
                 f(RetiroDetalleGraphQL.class, "retiroDetalleListPorRetiroId"),

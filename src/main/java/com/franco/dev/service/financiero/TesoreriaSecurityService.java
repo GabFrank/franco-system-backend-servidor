@@ -102,7 +102,29 @@ public class TesoreriaSecurityService {
     public Usuario currentUsuario() {
         String nick = currentNickname();
         if (nick == null) return null;
-        return usuarioService.findByNickname(nick).orElse(null);
+        return delRequest("usuario", nick, () -> usuarioService.findByNickname(nick).orElse(null));
+    }
+
+    /**
+     * Lo ya leído en este request para este nickname (#562): un listado de cajas resuelve el usuario y los roles por
+     * cada campo de cada caja. Sin request (scheduler, test) no guarda nada.
+     */
+    @SuppressWarnings("unchecked")
+    private <T> T delRequest(String clave, String nick, java.util.function.Supplier<T> leer) {
+        org.springframework.web.context.request.RequestAttributes req =
+                org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+        if (req == null) return leer.get();
+        String k = TesoreriaSecurityService.class.getName() + "." + clave + ":" + nick;
+        try {
+            Object v = req.getAttribute(k, org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+            if (v == null) {
+                v = leer.get();
+                if (v != null) req.setAttribute(k, v, org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST);
+            }
+            return (T) v;
+        } catch (IllegalStateException e) {
+            return leer.get(); // request ya terminado (atributos heredados por otro hilo): sin caché
+        }
     }
 
     /** El usuario autenticado; si el nickname del token ya no existe, pide volver a entrar. */
@@ -119,11 +141,13 @@ public class TesoreriaSecurityService {
     public Set<String> currentRoles() {
         Usuario u = currentUsuario();
         if (u == null) return Collections.emptySet();
-        Set<String> names = new HashSet<>();
-        for (Role r : roleService.findByUsuarioId(u.getId())) {
-            if (r.getNombre() != null) names.add(r.getNombre().trim().toUpperCase());
-        }
-        return names;
+        return delRequest("roles", currentNickname(), () -> {
+            Set<String> names = new HashSet<>();
+            for (Role r : roleService.findByUsuarioId(u.getId())) {
+                if (r.getNombre() != null) names.add(r.getNombre().trim().toUpperCase());
+            }
+            return Collections.unmodifiableSet(names);
+        });
     }
 
     /** true si es superusuario (rol ADMIN o nickname ADMIN) o tiene alguno de los roles. */

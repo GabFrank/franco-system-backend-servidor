@@ -121,6 +121,9 @@ class ControlRolMatrizTest {
                 f(VentaTarjetaGraphQL.class, "saveVentaTarjeta", VT, VTC), f(VentaTarjetaGraphQL.class, "updateVentaTarjeta", VT, VTC),
                 f(VentaTarjetaGraphQL.class, "deleteVentaTarjeta"),
                 f(VentaTarjetaGraphQL.class, "cancelarVentaTarjetaPorVentaId", CANC),
+                // issue #574: la lista y el PDF de «Conciliación de cupones»
+                f(VentaTarjetaGraphQL.class, "filtrarVentasTarjeta", VTC),
+                f(VentaTarjetaGraphQL.class, "imprimirReporteVentaTarjeta", VTC),
                 f(CobroDetalleGraphQL.class, "deleteCobroDetalle"),
                 f(VentaGraphQL.class, "deleteVenta", CANC), f(VentaGraphQL.class, "saveVenta"),
                 // devoluciones y funcionarios

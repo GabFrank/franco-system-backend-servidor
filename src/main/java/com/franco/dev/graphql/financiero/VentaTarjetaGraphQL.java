@@ -59,12 +59,28 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private ImpresionService impresionService;
 
+    static final String VENTA_TARJETA_COMPLETAR = "VENTA TARJETA COMPLETAR";
+
+    /** Leen o tocan el cobro de una caja ajena: quien concilia cupones y la lectura de caja (#574). */
+    static final String[] COBRO_AJENO = java.util.stream.Stream.concat(
+            java.util.stream.Stream.of(VENTA_TARJETA_COMPLETAR),
+            java.util.Arrays.stream(PdvCajaGraphQL.LECTURA_CAJA)).toArray(String[]::new);
+
+    /** El dueño es el de la caja del cobro, que resuelve el servidor; `usuario` lo manda el cliente (#574). */
+    private void exigirCobroPropioORol(VentaTarjeta vt) {
+        if (vt != null) seg.requireUsuarioORol(PdvCajaGraphQL.duenio(vt.getCaja()), COBRO_AJENO);
+    }
+
     public VentaTarjeta ventaTarjetaPorId(Long id, Long sucId) {
-        return service.findByIdAndSucursalId(id, sucId);
+        VentaTarjeta vt = service.findByIdAndSucursalId(id, sucId);
+        exigirCobroPropioORol(vt);
+        return vt;
     }
 
     public VentaTarjeta ventaTarjetaPorVentaId(Long ventaId, Long sucId) {
-        return service.findByVentaIdAndSucursalId(ventaId, sucId);
+        VentaTarjeta vt = service.findByVentaIdAndSucursalId(ventaId, sucId);
+        exigirCobroPropioORol(vt);
+        return vt;
     }
 
     public List<VentaTarjeta> ventasTarjetaPorCaja(Long cajaId, Long sucId) {
@@ -80,7 +96,16 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private static final long VENTA_LOOKUP_ESPERA_MS = 300;
 
     public VentaTarjeta saveVentaTarjeta(VentaTarjetaInput input) {
-        seg.requireAnyRole("VENTA TOUCH", "VENTA TARJETA COMPLETAR");
+        seg.requireAnyRole("VENTA TOUCH", VENTA_TARJETA_COMPLETAR);
+        // La PWA y el mobile toman un rechazo de la lectura como «no hay registro» y guardan otro: un cobro ya
+        // registrado solo lo vuelve a guardar su dueño o el rol, en vez de duplicarlo (#574)
+        if (input.getId() != null && input.getSucursalId() != null) {
+            exigirCobroPropioORol(service.findByIdAndSucursalId(input.getId(), input.getSucursalId()));
+        }
+        if (input.getVentaId() != null && input.getSucursalId() != null) {
+            List<VentaTarjeta> previos = service.findAllByVentaIdAndSucursalId(input.getVentaId(), input.getSucursalId());
+            if (previos != null && !previos.isEmpty()) exigirCobroPropioORol(previos.get(0));
+        }
         ModelMapper m = new ModelMapper();
         m.getConfiguration().setAmbiguityIgnored(true);
         VentaTarjeta entity = m.map(input, VentaTarjeta.class);
@@ -124,9 +149,10 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public VentaTarjeta updateVentaTarjeta(VentaTarjetaInput input) {
-        seg.requireAnyRole("VENTA TOUCH", "VENTA TARJETA COMPLETAR");
+        seg.requireAnyRole("VENTA TOUCH", VENTA_TARJETA_COMPLETAR);
         VentaTarjeta entity = service.findByIdAndSucursalId(input.getId(), input.getSucursalId());
         if (entity == null) return null;
+        exigirCobroPropioORol(entity); // hoy cualquier cajero reescribía monto, autorización e imagen ajenos (#574)
 
         if (input.getCodigoAutorizacion() != null) entity.setCodigoAutorizacion(input.getCodigoAutorizacion());
         if (input.getNumeroBoleta() != null) entity.setNumeroBoleta(input.getNumeroBoleta());
@@ -159,6 +185,7 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                                                     String terminalDescripcion, String terminalCodigo,
                                                     String estado, String fechaDesde, String fechaHasta,
                                                     Integer page, Integer size) {
+        seg.requireAnyRole(VENTA_TARJETA_COMPLETAR); // el rol de «Conciliación de cupones» (#574)
         LocalDateTime desde = (fechaDesde != null && !fechaDesde.isEmpty()) ? LocalDateTime.parse(fechaDesde) : null;
         LocalDateTime hasta = (fechaHasta != null && !fechaHasta.isEmpty()) ? LocalDateTime.parse(fechaHasta) : null;
         return service.filter(id, ventaId, sucursalId, terminalDescripcion, terminalCodigo, estado, desde, hasta,
@@ -180,6 +207,7 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                                                String terminalCodigo, String estado,
                                                String fechaDesde, String fechaHasta,
                                                Long usuarioResponsableId) {
+        seg.requireAnyRole(VENTA_TARJETA_COMPLETAR);
         LocalDateTime desde = (fechaDesde != null && !fechaDesde.isEmpty()) ? LocalDateTime.parse(fechaDesde) : null;
         LocalDateTime hasta = (fechaHasta != null && !fechaHasta.isEmpty()) ? LocalDateTime.parse(fechaHasta) : null;
 

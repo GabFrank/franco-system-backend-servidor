@@ -104,7 +104,8 @@ class CajaDetalleAccesoTest {
         GastoGraphQL gastos = rol.resolver(GastoGraphQL.class);
         VentaTarjetaGraphQL tarjetas = rol.resolver(VentaTarjetaGraphQL.class);
         DeliveryGraphQL deliverys = rol.resolver(DeliveryGraphQL.class);
-        for (Object r : new Object[]{ventas, gastos, tarjetas, deliverys}) {
+        CajaObservacionGraphQL observaciones = rol.resolver(CajaObservacionGraphQL.class);
+        for (Object r : new Object[]{ventas, gastos, tarjetas, deliverys, observaciones}) {
             ReflectionTestUtils.setField(r, "pdvCajaService", cajas);
         }
         rol.autenticar("CAJERO", "VENTA TOUCH");
@@ -113,5 +114,6 @@ class CajaDetalleAccesoTest {
         noAutorizado(() -> tarjetas.ventasTarjetaPorCaja(CAJA_AJENA, SUC));
         noAutorizado(() -> tarjetas.countVentasTarjetaSinRegistrar(CAJA_AJENA, SUC));
         noAutorizado(() -> deliverys.deliveryPorCajaIdAndEstados(CAJA_AJENA, Collections.emptyList(), SUC));
+        noAutorizado(() -> observaciones.findByPdvCajaIdAndSucursalId(CAJA_AJENA, SUC));
     }
 }

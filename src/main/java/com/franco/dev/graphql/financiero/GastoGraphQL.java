@@ -58,10 +58,12 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     private PreGastoService preGastoService;
 
     public Gasto gasto(Long id, Long sucId) {
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
         return service.findByIdAndSucursalId(id, sucId);
     }
 
     public List<Gasto> gastos(int page, int size, Long sucId) {
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
@@ -72,6 +74,7 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public List<Gasto> gastosPorFecha(String inicio, String fin, Long sucId) {
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
         return service.findByDate(inicio, fin, sucId);
     }
 
@@ -115,6 +118,7 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
     public Page<Gasto> filterGastos(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion,
             Integer page, Integer size) {
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
         Pageable pageable = PageRequest.of(page, size);
         descripcion = StringUtils.convertToCustomFormat(descripcion);
         String finalDescripcion = descripcion;

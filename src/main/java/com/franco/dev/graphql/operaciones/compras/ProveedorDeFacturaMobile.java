@@ -2,6 +2,8 @@ package com.franco.dev.graphql.operaciones.compras;
 
 import lombok.Data;
 
+import java.util.List;
+
 /**
  * El emisor de una factura recibida, listo para darlo de alta como proveedor: los datos salen de la factura de
  * SIFEN (QR / CDC) o de lo que leyó la IA en la factura en papel.
@@ -31,6 +33,11 @@ public class ProveedorDeFacturaMobile {
     private String proveedorNombre;
     private Long personaId;
     private String personaNombre;
+    /**
+     * Con persona existente: los campos que ya tiene cargados (nombreFantasia, direccion, telefono, email). Vienen
+     * con el dato de la persona y no con el de la factura, porque el alta no los pisa.
+     */
+    private List<String> datosDePersona;
     /** Se puede registrar: hay RUC válido y todavía no es proveedor. */
     private Boolean puedeRegistrar;
     /** Por qué no se puede registrar, si no se puede. */

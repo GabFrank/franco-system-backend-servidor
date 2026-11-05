@@ -244,6 +244,8 @@ type ProveedorDeFacturaMobile {
     # Ya existe una persona con ese documento (por ejemplo, un cliente): el alta la reutiliza
     personaId: ID
     personaNombre: String
+    # Campos que la persona ya tiene cargados (no se pisan): vienen con su dato, no con el de la factura
+    datosDePersona: [String]
     puedeRegistrar: Boolean!
     motivo: String
 }

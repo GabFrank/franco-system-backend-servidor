@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -176,6 +177,7 @@ public class ProveedorDesdeFacturaService {
                 if (persona != null) {
                     d.setPersonaId(((Number) persona.get("id")).longValue());
                     d.setPersonaNombre((String) persona.get("nombre"));
+                    usarDatosDePersona(d, persona);
                 }
             }
         }
@@ -231,10 +233,27 @@ public class ProveedorDesdeFacturaService {
         }
     }
 
+    /**
+     * Con una persona que ya existe, el alta no pisa lo que ya tiene cargado: se muestra eso (y no lo de la
+     * factura) y se avisa qué campos son suyos para que no se editen. Lo que le falta queda con lo de la factura.
+     */
+    static void usarDatosDePersona(ProveedorDeFacturaMobile d, Map<String, Object> persona) {
+        List<String> suyos = new ArrayList<>();
+        String apodo = texto((String) persona.get("apodo"));
+        String direccion = texto((String) persona.get("direccion"));
+        String telefono = texto((String) persona.get("telefono"));
+        String email = texto((String) persona.get("email"));
+        if (apodo != null) { d.setNombreFantasia(apodo); suyos.add("nombreFantasia"); }
+        if (direccion != null) { d.setDireccion(direccion); suyos.add("direccion"); }
+        if (telefono != null) { d.setTelefono(telefono); suyos.add("telefono"); }
+        if (email != null) { d.setEmail(email); suyos.add("email"); }
+        d.setDatosDePersona(suyos);
+    }
+
     /** La persona con ese documento, comparando sin DV, puntos, espacios ni ceros a la izquierda. */
     private Map<String, Object> personaPorRuc(String ruc) {
         List<Map<String, Object>> filas = jdbc.queryForList(
-                "SELECT id, nombre FROM personas.persona WHERE documento IS NOT NULL AND "
+                "SELECT id, nombre, apodo, direccion, telefono, email FROM personas.persona WHERE documento IS NOT NULL AND "
                         + "regexp_replace(split_part(upper(replace(replace(documento, '.', ''), ' ', '')), '-', 1), '^0+(?=.)', '') = ? "
                         + "ORDER BY id LIMIT 1", ruc);
         return filas.isEmpty() ? null : filas.get(0);

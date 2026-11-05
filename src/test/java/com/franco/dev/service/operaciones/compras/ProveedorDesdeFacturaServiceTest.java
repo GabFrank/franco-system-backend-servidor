@@ -211,6 +211,25 @@ class ProveedorDesdeFacturaServiceTest {
     }
 
     @Test
+    void conPersonaExistenteMuestraSusDatosYNoLosDeLaFactura() {
+        when(documentos.findById(10L)).thenReturn(Optional.of(sifen()));
+        Map<String, Object> fila = new HashMap<>();
+        fila.put("id", 33L);
+        fila.put("nombre", "CLIENTE ACME");
+        fila.put("telefono", "0991000000");
+        fila.put("direccion", "  ");
+        when(jdbc.queryForList(contains("personas.persona"), eq(RUC))).thenReturn(List.of(fila));
+
+        ProveedorDeFacturaMobile d = service.datos(null, 10L);
+
+        assertEquals(33L, d.getPersonaId());
+        assertEquals("0991000000", d.getTelefono()); // el de la persona, que no se pisa
+        assertEquals("AVDA. ESPAÑA 1234", d.getDireccion()); // le falta: queda el de la factura
+        assertEquals("ventas@acme.com.py", d.getEmail());
+        assertEquals(List.of("telefono"), d.getDatosDePersona());
+    }
+
+    @Test
     void registrarDosVecesDevuelveElMismoProveedor() {
         when(documentos.findById(10L)).thenReturn(Optional.of(sifen()));
         Proveedor existente = new Proveedor();

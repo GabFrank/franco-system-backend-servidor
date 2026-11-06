@@ -1252,6 +1252,7 @@ public class ComprasMobileService {
         c.tasaIva = r.getTasaIva();
         c.ivaProducto = r.getProducto() != null ? r.getProducto().getIva() : null;
         c.observacion = r.getObservacion();
+        c.pedidoItemId = r.getPedidoItem() != null ? r.getPedidoItem().getId() : null;
         return c;
     }
 
@@ -1475,6 +1476,7 @@ public class ComprasMobileService {
             c.tasaIva = r.getTasaIva();
             c.ivaProducto = r.getProducto() != null ? r.getProducto().getIva() : null;
             c.observacion = r.getObservacion();
+            c.pedidoItemId = r.getPedidoItem() != null ? r.getPedidoItem().getId() : null;
             entrada.add(c);
         }
         List<CruceFactura.ItemPedido> items = new ArrayList<>();

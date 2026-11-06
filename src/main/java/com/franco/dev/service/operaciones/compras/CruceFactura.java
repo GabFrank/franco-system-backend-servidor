@@ -54,6 +54,8 @@ public final class CruceFactura {
         /** El IVA que tiene el producto en el sistema. */
         public Integer ivaProducto;
         public String observacion;
+        /** El ítem del pedido al que el renglón está vinculado de forma explícita (opcional). */
+        public Long pedidoItemId;
     }
 
     /** Un ítem del pedido, en unidades base. */
@@ -145,7 +147,8 @@ public final class CruceFactura {
         }
         avisoIvaDelProducto(r, res);
 
-        ItemPedido item = elegirItem(r, res.bonificacion, items, pendiente);
+        ItemPedido item = itemVinculado(r, items);
+        if (item == null) item = elegirItem(r, res.bonificacion, items, pendiente);
         if (item == null) {
             if (res.bonificacion && items.stream().anyMatch(i -> i.productoId == r.productoId)) {
                 // Bonificación de un producto del pedido que el pedido no esperaba: buena noticia, no discrepancia
@@ -342,6 +345,15 @@ public final class CruceFactura {
             if (p > 1 && p < 100000) productos.add((int) p);
         }
         return productos;
+    }
+
+    /** El ítem al que el renglón está vinculado, si existe y es del mismo producto; si no, null. */
+    private static ItemPedido itemVinculado(Renglon r, List<ItemPedido> items) {
+        if (r.pedidoItemId == null) return null;
+        for (ItemPedido i : items) {
+            if (i.id == r.pedidoItemId && r.productoId != null && i.productoId == r.productoId) return i;
+        }
+        return null;
     }
 
     /**

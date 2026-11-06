@@ -13,6 +13,7 @@ import com.franco.dev.graphql.operaciones.compras.FacturaPendientePedido;
 import com.franco.dev.graphql.operaciones.compras.RenglonPendienteFactura;
 import com.franco.dev.repository.operaciones.DocumentoRecibidoItemRepository;
 import com.franco.dev.repository.operaciones.DocumentoRecibidoRepository;
+import com.franco.dev.repository.operaciones.PedidoItemRepository;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.operaciones.ProcesoEtapaService;
 import graphql.GraphQLException;
@@ -23,7 +24,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * Los renglones de la factura que quedaron afuera al crear la compra con solo los reconocidos (#124): el desktop los
@@ -49,6 +53,7 @@ public class RenglonPendienteService {
     @Autowired private DocumentoRecibidoRepository documentoRepository;
     @Autowired private ProcesoEtapaService procesoEtapaService;
     @Autowired private MonedaService monedaService;
+    @Autowired private PedidoItemRepository pedidoItemRepository;
 
     /**
      * Vincula un renglón pendiente (sin producto, no descartado) con el ítem recién guardado, como «Vincular» +
@@ -177,6 +182,65 @@ public class RenglonPendienteService {
             facturas.add(f);
         }
         return facturas;
+    }
+
+    /**
+     * Antes de finalizar la planificación: ninguna factura que la espera puede tener renglones vigentes (no
+     * descartados) sin cargar, o sea sin producto o con un producto que no está en el pedido (ni vinculado a un ítem
+     * del pedido ni con un ítem del mismo producto). Las diferencias de cantidad o precio no bloquean. Si hay, se
+     * avisa de la primera factura con hasta tres descripciones.
+     */
+    @Transactional(readOnly = true)
+    public void exigirFacturaCompleta(Long pedidoId) {
+        if (pedidoId == null) return;
+        Set<Long> itemIds = null;
+        Set<Long> productoIds = null;
+        for (DocumentoRecibido doc : documentoRepository.findByPedidoIdOrderByIdAsc(pedidoId)) {
+            if (!esperaPlanificacion(doc)) continue;
+            if (itemIds == null) {
+                itemIds = new HashSet<>();
+                productoIds = new HashSet<>();
+                for (PedidoItem item : pedidoItemRepository.findByPedidoId(pedidoId)) {
+                    itemIds.add(item.getId());
+                    if (item.getProducto() != null) productoIds.add(item.getProducto().getId());
+                }
+            }
+            List<String> faltan = new ArrayList<>();
+            for (DocumentoRecibidoItem r : renglonRepository.findByDocumentoRecibidoIdOrderByOrdenAsc(doc.getId())) {
+                if (Boolean.TRUE.equals(r.getDescartado())) continue;
+                boolean cargado = r.getProducto() != null
+                        && ((r.getPedidoItem() != null && itemIds.contains(r.getPedidoItem().getId()))
+                        || productoIds.contains(r.getProducto().getId()));
+                if (!cargado) faltan.add(descripcion(r));
+            }
+            if (!faltan.isEmpty()) {
+                throw new GraphQLException(mensajeFaltanCargar(ComprasMobileService.numeroCompleto(doc), faltan));
+            }
+        }
+    }
+
+    static String mensajeFaltanCargar(String numero, List<String> descripciones) {
+        int n = descripciones.size();
+        List<String> nombrados = descripciones.subList(0, Math.min(3, n));
+        String lista;
+        if (n > 3) {
+            lista = String.join(", ", nombrados) + " y " + (n - 3) + " más";
+        } else if (n == 1) {
+            lista = nombrados.get(0);
+        } else {
+            lista = String.join(", ", nombrados.subList(0, n - 1)) + " y " + nombrados.get(n - 1);
+        }
+        return n == 1
+                ? "Falta cargar 1 renglón de la factura " + numero + ": " + lista
+                        + ". Cargalo o marcá “No cargar” con el motivo."
+                : "Faltan cargar " + n + " renglones de la factura " + numero + ": " + lista
+                        + ". Cargalos o marcá “No cargar” con el motivo.";
+    }
+
+    private static String descripcion(DocumentoRecibidoItem r) {
+        if (r.getDescripcion() != null && !r.getDescripcion().trim().isEmpty()) return r.getDescripcion().trim();
+        if (r.getCodigoProveedor() != null && !r.getCodigoProveedor().trim().isEmpty()) return r.getCodigoProveedor().trim();
+        return "renglón " + Objects.toString(r.getOrden(), "sin número");
     }
 
     private DocumentoRecibidoItem renglonDeFacturaEnEspera(Long renglonId) {

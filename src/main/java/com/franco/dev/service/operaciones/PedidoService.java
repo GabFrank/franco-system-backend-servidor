@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 
 import org.hibernate.Session;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -46,6 +47,7 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.enums.NotaRecepcionEstado;
 import com.franco.dev.service.operaciones.NotaRecepcionService;
+import com.franco.dev.service.operaciones.compras.RenglonPendienteService;
 
 @Service
 @AllArgsConstructor
@@ -69,6 +71,10 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
 
     @Autowired
     private ApplicationEventPublisher eventPublisher;
+
+    @Autowired
+    @Lazy
+    private RenglonPendienteService renglonPendienteService;
 
     @Override
     public PedidoRepository getRepository() {
@@ -193,6 +199,9 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
      */
     @Transactional
     public Pedido finalizarCreacion(Long pedidoId) {
+        // Compras en el celular: no se finaliza con renglones de la factura sin cargar ni descartar (#124)
+        renglonPendienteService.exigirFacturaCompleta(pedidoId);
+
         Pedido pedido = findById(pedidoId).orElseThrow(
             () -> new IllegalArgumentException("Pedido no encontrado: " + pedidoId)
         );

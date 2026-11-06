@@ -20,6 +20,7 @@ import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.repository.operaciones.DocumentoRecibidoItemRepository;
+import com.franco.dev.repository.operaciones.PedidoItemRepository;
 import graphql.GraphQLException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,6 +48,7 @@ class RenglonPendienteServiceTest {
     @Mock private DocumentoRecibidoRepository documentoRepository;
     @Mock private ProcesoEtapaService procesoEtapaService;
     @Mock private MonedaService monedaService;
+    @Mock private PedidoItemRepository pedidoItemRepository;
     @InjectMocks private RenglonPendienteService service;
     private AutoCloseable mocks;
 
@@ -426,5 +428,134 @@ class RenglonPendienteServiceTest {
         assertEquals("No vino", d.getMotivoDescarte());
         assertEquals("JUAN PEREZ", d.getDescartadoPor());
         assertEquals("2027-03-01", d.getVencimiento());
+    }
+
+    // --- Bloqueo al finalizar la planificación ---
+
+    private DocumentoRecibido facturaQueEspera(Pedido pedido) {
+        DocumentoRecibido doc = documento(pedido);
+        doc.setEstablecimiento("001");
+        doc.setPuntoExpedicion("002");
+        doc.setNumero("0000123");
+        when(documentoRepository.findByPedidoIdOrderByIdAsc(7L)).thenReturn(Arrays.asList(doc));
+        return doc;
+    }
+
+    private static DocumentoRecibidoItem renglon(long id, DocumentoRecibido doc, String descripcion, Long productoId) {
+        DocumentoRecibidoItem r = pendiente(id, doc);
+        r.setOrden((int) id);
+        r.setDescripcion(descripcion);
+        if (productoId != null) {
+            Producto p = new Producto();
+            p.setId(productoId);
+            r.setProducto(p);
+        }
+        return r;
+    }
+
+    @Test
+    void bloqueaConRenglonPendiente() {
+        Pedido pedido = pedido(7L);
+        DocumentoRecibido doc = facturaQueEspera(pedido);
+        PedidoItem item = item(pedido);
+        when(pedidoItemRepository.findByPedidoId(7L)).thenReturn(Arrays.asList(item));
+        DocumentoRecibidoItem cargado = renglon(1L, doc, "Galleta dulce", 3L);
+        DocumentoRecibidoItem falta = renglon(2L, doc, "Yerba 500 g", null);
+        when(renglonRepository.findByDocumentoRecibidoIdOrderByOrdenAsc(10L)).thenReturn(Arrays.asList(cargado, falta));
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.exigirFacturaCompleta(7L));
+        assertEquals("Falta cargar 1 renglón de la factura 001-002-0000123: Yerba 500 g. "
+                + "Cargalo o marcá “No cargar” con el motivo.", e.getMessage());
+    }
+
+    @Test
+    void bloqueaConRenglonSinItem() {
+        Pedido pedido = pedido(7L);
+        DocumentoRecibido doc = facturaQueEspera(pedido);
+        when(pedidoItemRepository.findByPedidoId(7L)).thenReturn(Arrays.asList(item(pedido)));
+        // Producto 7: reconocido, pero el ítem se borró del pedido y no hay otro del mismo producto
+        DocumentoRecibidoItem sinItem = renglon(1L, doc, "Arroz 1 kg", 7L);
+        PedidoItem borrado = new PedidoItem();
+        borrado.setId(999L);
+        sinItem.setPedidoItem(borrado);
+        when(renglonRepository.findByDocumentoRecibidoIdOrderByOrdenAsc(10L)).thenReturn(Arrays.asList(sinItem));
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.exigirFacturaCompleta(7L));
+        assertEquals("Falta cargar 1 renglón de la factura 001-002-0000123: Arroz 1 kg. "
+                + "Cargalo o marcá “No cargar” con el motivo.", e.getMessage());
+    }
+
+    @Test
+    void noBloqueaConTodoCargadoODescartado() {
+        Pedido pedido = pedido(7L);
+        DocumentoRecibido doc = facturaQueEspera(pedido);
+        PedidoItem item = item(pedido);
+        PedidoItem otro = new PedidoItem();
+        otro.setId(102L);
+        otro.setPedido(pedido);
+        Producto p9 = new Producto();
+        p9.setId(9L);
+        otro.setProducto(p9);
+        when(pedidoItemRepository.findByPedidoId(7L)).thenReturn(Arrays.asList(item, otro));
+        // Mismo producto que un ítem, sin vínculo explícito (o una DIFERENCIA de cantidad/precio): no bloquea
+        DocumentoRecibidoItem porProducto = renglon(1L, doc, "Galleta dulce", 3L);
+        porProducto.setCantidad(99.0);
+        // Vinculado explícitamente a un ítem del pedido
+        DocumentoRecibidoItem vinculado = renglon(2L, doc, "Galleta salada", 9L);
+        vinculado.setPedidoItem(otro);
+        DocumentoRecibidoItem descartado = renglon(3L, doc, "Bolsa", null);
+        descartado.setDescartado(true);
+        DocumentoRecibidoItem descartadoSinItem = renglon(4L, doc, "Flete", 50L);
+        descartadoSinItem.setDescartado(true);
+        when(renglonRepository.findByDocumentoRecibidoIdOrderByOrdenAsc(10L))
+                .thenReturn(Arrays.asList(porProducto, vinculado, descartado, descartadoSinItem));
+
+        assertDoesNotThrow(() -> service.exigirFacturaCompleta(7L));
+    }
+
+    @Test
+    void noBloqueaPedidosSinFacturaDelCelular() {
+        Pedido pedido = pedido(7L);
+        when(documentoRepository.findByPedidoIdOrderByIdAsc(7L)).thenReturn(Arrays.asList());
+        assertDoesNotThrow(() -> service.exigirFacturaCompleta(7L));
+
+        // Facturas que no esperan la planificación (ya con nota o sin cargar al finalizar) tampoco bloquean
+        DocumentoRecibido conNota = documento(pedido);
+        conNota.setNotaRecepcion(new NotaRecepcion());
+        DocumentoRecibido sinCargar = documento(pedido);
+        sinCargar.setId(12L);
+        sinCargar.setCargarAlFinalizar(false);
+        when(documentoRepository.findByPedidoIdOrderByIdAsc(7L)).thenReturn(Arrays.asList(conNota, sinCargar));
+        when(renglonRepository.findByDocumentoRecibidoIdOrderByOrdenAsc(anyLong()))
+                .thenReturn(Arrays.asList(renglon(1L, conNota, "Yerba", null)));
+        assertDoesNotThrow(() -> service.exigirFacturaCompleta(7L));
+        assertDoesNotThrow(() -> service.exigirFacturaCompleta(null));
+    }
+
+    @Test
+    void mensajeNombraHastaTresRenglones() {
+        Pedido pedido = pedido(7L);
+        DocumentoRecibido doc = facturaQueEspera(pedido);
+        when(pedidoItemRepository.findByPedidoId(7L)).thenReturn(Arrays.asList());
+        when(renglonRepository.findByDocumentoRecibidoIdOrderByOrdenAsc(10L)).thenReturn(Arrays.asList(
+                renglon(1L, doc, "Yerba", null), renglon(2L, doc, "Azúcar", null), renglon(3L, doc, "Arroz", 7L),
+                renglon(4L, doc, "Fideo", null), renglon(5L, doc, "Sal", null)));
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.exigirFacturaCompleta(7L));
+        assertEquals("Faltan cargar 5 renglones de la factura 001-002-0000123: Yerba, Azúcar, Arroz y 2 más. "
+                + "Cargalos o marcá “No cargar” con el motivo.", e.getMessage());
+
+        // Con dos o tres, se nombran todos
+        when(renglonRepository.findByDocumentoRecibidoIdOrderByOrdenAsc(10L)).thenReturn(Arrays.asList(
+                renglon(1L, doc, "Yerba", null), renglon(2L, doc, "Azúcar", null)));
+        e = assertThrows(GraphQLException.class, () -> service.exigirFacturaCompleta(7L));
+        assertEquals("Faltan cargar 2 renglones de la factura 001-002-0000123: Yerba y Azúcar. "
+                + "Cargalos o marcá “No cargar” con el motivo.", e.getMessage());
+
+        when(renglonRepository.findByDocumentoRecibidoIdOrderByOrdenAsc(10L)).thenReturn(Arrays.asList(
+                renglon(1L, doc, "Yerba", null), renglon(2L, doc, "Azúcar", null), renglon(3L, doc, "Sal", null)));
+        e = assertThrows(GraphQLException.class, () -> service.exigirFacturaCompleta(7L));
+        assertEquals("Faltan cargar 3 renglones de la factura 001-002-0000123: Yerba, Azúcar y Sal. "
+                + "Cargalos o marcá “No cargar” con el motivo.", e.getMessage());
     }
 }

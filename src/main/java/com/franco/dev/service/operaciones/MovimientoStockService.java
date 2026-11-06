@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -64,6 +65,17 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         if (stock == null)
             stock = Float.valueOf(0);
         return Double.valueOf(stock);
+    }
+
+    /** Stock de cada producto en la sucursal; los que no tienen movimientos quedan fuera (stock cero). */
+    public Map<Long, Double> stockPorProductosEnSucursal(List<Long> productoIds, Long sucursalId) {
+        Map<Long, Double> stock = new HashMap<>();
+        if (productoIds == null || productoIds.isEmpty() || sucursalId == null) return stock;
+        for (Object[] fila : repository.stockPorProductosEnSucursal(productoIds, sucursalId)) {
+            if (fila[0] == null || fila[1] == null) continue;
+            stock.put(((Number) fila[0]).longValue(), ((Number) fila[1]).doubleValue());
+        }
+        return stock;
     }
 
     /**

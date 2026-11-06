@@ -97,9 +97,20 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
 
     public List<Producto> findByAll(String texto, Integer offset, Long sucursalId, Boolean conStock, Boolean isEnvase,
             Boolean activo) {
+        return findByAll(texto, offset, sucursalId, conStock, isEnvase, activo, null, null);
+    }
+
+    /**
+     * Con {@code ordenStockSucursalId}, los productos salen ordenados por su stock en esa sucursal antes de paginar:
+     * de mayor a menor si {@code ordenStockMayor} no es {@code false}, si no de menor a mayor (#673, buscador de
+     * transferencias). Sin él, el orden de siempre.
+     */
+    public List<Producto> findByAll(String texto, Integer offset, Long sucursalId, Boolean conStock, Boolean isEnvase,
+            Boolean activo, Long ordenStockSucursalId, Boolean ordenStockMayor) {
         if (offset == null) {
             offset = 0;
         }
+        boolean mayor = !Boolean.FALSE.equals(ordenStockMayor);
 
         // Convertimos el Long a String para evitar el error 'bytea'
         String sucursalIdStr = (sucursalId != null) ? String.valueOf(sucursalId) : "0";
@@ -109,7 +120,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             if (isEnvase != null && isEnvase == true) {
                 return repository.findEnvases("", offset, true);
             } else {
-                return repository.findbyAll("%", offset, sucursalIdStr, conStockStr);
+                return buscarPorSql("%", offset, sucursalIdStr, conStockStr, ordenStockSucursalId, mayor);
             }
         }
 
@@ -120,11 +131,21 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
 
         if (productoSearchEnabled && productoSearchService.textoBusquedaValido(texto)) {
             Boolean activoFiltro = activo != null ? activo : true;
-            return buscarPorTextoLucene(texto, offset, sucursalIdStr, conStockStr, activoFiltro);
+            return buscarPorTextoLucene(texto, offset, sucursalIdStr, conStockStr, activoFiltro, ordenStockSucursalId,
+                    mayor);
         }
 
         String textoSql = texto.replace(' ', '%').toUpperCase();
-        return repository.findbyAll(textoSql, offset, sucursalIdStr, conStockStr);
+        return buscarPorSql(textoSql, offset, sucursalIdStr, conStockStr, ordenStockSucursalId, mayor);
+    }
+
+    private List<Producto> buscarPorSql(String textoSql, int offset, String sucursalIdStr, String conStockStr,
+            Long ordenStockSucursalId, boolean mayor) {
+        if (ordenStockSucursalId == null) {
+            return repository.findbyAll(textoSql, offset, sucursalIdStr, conStockStr);
+        }
+        return repository.findbyAllOrdenStock(textoSql, offset, sucursalIdStr, conStockStr,
+                String.valueOf(ordenStockSucursalId), String.valueOf(mayor));
     }
 
     private List<Producto> buscarPorTextoLucene(
@@ -132,8 +153,12 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             int offset,
             String sucursalIdStr,
             String conStockStr,
-            Boolean activo) {
-        int fetchSize = Math.min(Math.max(offset + 10, 50), 200);
+            Boolean activo,
+            Long ordenStockSucursalId,
+            boolean mayor) {
+        // Ordenando por stock se toman siempre los mismos candidatos (el tope): si crecieran con el offset,
+        // al pasar de página cambiaría el conjunto ordenado y se repetirían o saltearían productos.
+        int fetchSize = ordenStockSucursalId != null ? 200 : Math.min(Math.max(offset + 10, 50), 200);
         // Lucene solo indexa descripción: el código de barras se resuelve aparte y se antepone.
         List<Long> ids = unirIds(
                 codigoSearchService.buscarProductoIdsPorCoincidencia(texto, fetchSize),
@@ -170,6 +195,15 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 .map(porId::get)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+
+        if (ordenStockSucursalId != null && !ordenados.isEmpty()) {
+            Map<Long, Double> stock = movimientoStockService.stockPorProductosEnSucursal(
+                    ordenados.stream().map(Producto::getId).collect(Collectors.toList()), ordenStockSucursalId);
+            Comparator<Producto> porStock = Comparator.comparingDouble(p -> stock.getOrDefault(p.getId(), 0d));
+            // Estable: a igual stock queda el orden de relevancia de la búsqueda
+            ordenados = new ArrayList<>(ordenados);
+            ordenados.sort(mayor ? porStock.reversed() : porStock);
+        }
 
         int from = Math.min(offset, ordenados.size());
         int to = Math.min(from + 10, ordenados.size());

@@ -58,6 +58,41 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("sucursalId") String sucursalId,
                         @Param("conStock") String conStock);
 
+        /**
+         * Igual que {@link #findbyAll} pero ordenado por el stock en {@code ordenSucursalId}, de mayor a
+         * menor (#673, buscador de transferencias). El orden se hace acá para que la paginación lo respete.
+         */
+        @Query(value = "select p.* " +
+                        "from productos.producto p " +
+                        "left join ( " +
+                        "   select m.producto_id, sum(m.cantidad) as stock_actual " +
+                        "   from operaciones.movimiento_stock m " +
+                        "   where m.sucursal_id = CAST(:sucursalId AS bigint) and m.estado = true " +
+                        "   group by m.producto_id " +
+                        ") st on st.producto_id = p.id " +
+                        "left join ( " +
+                        "   select m.producto_id, sum(m.cantidad) as stock_orden " +
+                        "   from operaciones.movimiento_stock m " +
+                        "   where m.sucursal_id = CAST(:ordenSucursalId AS bigint) and m.estado = true " +
+                        "   group by m.producto_id " +
+                        ") so on so.producto_id = p.id " +
+                        "where (CAST(p.id as text) like CONCAT('%', :texto, '%') or UPPER(p.descripcion) like CONCAT('%', UPPER(:texto), '%') " +
+                        "or UPPER(p.descripcion_factura) like CONCAT('%', UPPER(:texto), '%') " +
+                        "or EXISTS (SELECT 1 FROM productos.presentacion p2 JOIN productos.codigo c ON c.presentacion_id = p2.id " +
+                        "           WHERE p2.producto_id = p.id AND c.codigo like CONCAT('%', :texto, '%'))) " +
+                        "and p.activo = true " +
+                        "and EXISTS (SELECT 1 FROM productos.presentacion p3 WHERE p3.producto_id = p.id AND p3.activo = true) " +
+                        "and (:conStock = 'false' OR (COALESCE(st.stock_actual, 0) > 0)) " +
+                        "ORDER BY COALESCE(so.stock_orden, 0) desc, p.descripcion asc, p.id asc " +
+                        "limit 10 " +
+                        "offset :offset", nativeQuery = true)
+        List<Producto> findbyAllOrdenStock(
+                        @Param("texto") String texto,
+                        @Param("offset") int offset,
+                        @Param("sucursalId") String sucursalId,
+                        @Param("conStock") String conStock,
+                        @Param("ordenSucursalId") String ordenSucursalId);
+
         @Query(value = "select distinct on (p.id, p.descripcion) p.* " +
                         "from productos.producto p  " +
                         "left outer join productos.presentacion p2 on p2.producto_id = p.id  " +

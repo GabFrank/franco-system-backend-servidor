@@ -370,6 +370,8 @@ extend type Mutation {
         repartos: [RepartoRenglonMobileInput!]
         # La moneda del pedido; sin ella, la de la factura. Con otra, los precios se convierten con la cotización
         monedaId: ID
+        # Crear la compra con los renglones reconocidos y dejar afuera los sin producto (si el borrador lo permite)
+        soloReconocidos: Boolean
     ): CompraPedidoMobile!
     leerFacturaProveedorMobile(pedidoId: ID!, qr: String!): FacturaProveedorMobile!
     vincularRenglonFacturaMobile(renglonId: ID!, presentacionId: ID!, factor: Float, recordar: Boolean): FacturaProveedorMobile!

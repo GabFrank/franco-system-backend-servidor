@@ -65,7 +65,7 @@ class ComprasMobileFotoTest {
     void crearCompraConCabeceraSinConfirmarSeRechaza() {
         when(documentoRepository.findById(10L)).thenReturn(Optional.of(sinConfirmar()));
         GraphQLException e = assertThrows(GraphQLException.class, () -> service.crearCompraDesdeFactura(
-                10L, null, null, 1L, null, null, null));
+                10L, null, null, 1L, null, null, null, null));
         assertEquals(ComprasMobileService.CABECERA_SIN_CONFIRMAR, e.getMessage());
     }
 

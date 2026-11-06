@@ -868,20 +868,24 @@ public class ComprasMobileService {
      * pago y plazo si vienen). Lo que no trae lo elige el comprador: la forma de pago si la factura no la dice, y las
      * sucursales. Con una sola sucursal recibe todo; con varias, {@code repartos} dice cuánto de cada renglón va a
      * cada una, en la unidad de la factura.
+     *
+     * Con {@code soloReconocidos} la compra se crea con los renglones que tienen producto y deja afuera los sin
+     * reconocer (si el borrador lo permite: {@code puedeCrearSoloReconocidos}). Cada renglón queda vinculado al ítem
+     * que se creó para él, así el cruce de la nota lo encuentra aunque falten otros.
      */
     @Transactional
     public CompraPedidoMobile crearCompraDesdeFactura(Long documentoId, Long formaPagoId, Integer plazoCredito,
                                                        Long sucursalId, List<Long> sucursalIds,
-                                                       List<RepartoRenglonMobileInput> repartos, Long monedaId) {
+                                                       List<RepartoRenglonMobileInput> repartos, Long monedaId,
+                                                       Boolean soloReconocidos) {
+        boolean solo = Boolean.TRUE.equals(soloReconocidos);
         seguridad.exigirCompras();
         DocumentoRecibido doc = documentoObligatorio(documentoId);
         exigirCabeceraConfirmada(doc);
         exigirSinNota(doc);
         exigirQueNoEspereOtroPedido(doc, null);
         FacturaProveedorMobile factura = armarBorrador(doc, true);
-        if (!Boolean.TRUE.equals(factura.getPuedeConfirmar())) {
-            throw new GraphQLException(factura.getMotivoNoConfirma());
-        }
+        exigirPuedeCrear(factura, solo);
         Long formaPago = formaPagoId != null ? formaPagoId : factura.getFormaPagoId();
         if (formaPago == null || !formaPagoService.findById(formaPago).isPresent()) {
             throw new GraphQLException("Elegí la forma de pago: la factura no la trae.");
@@ -890,7 +894,7 @@ public class ComprasMobileService {
             throw new GraphQLException("El plazo de crédito no puede ser negativo.");
         }
         List<Long> sucursales = sucursalesElegidas(sucursalId, sucursalIds);
-        List<DocumentoRecibidoItem> renglones = documentoRecibidoService.renglones(doc.getId());
+        List<DocumentoRecibidoItem> renglones = renglonesDeTrabajo(documentoRecibidoService.renglones(doc.getId()), solo);
         Map<Long, RenglonFacturaMobile> porId = factura.getRenglones().stream()
                 .collect(Collectors.toMap(RenglonFacturaMobile::getId, r -> r));
         Map<Long, double[]> repartoPorRenglon = repartoPorRenglon(renglones, porId, sucursales, repartos);
@@ -916,6 +920,21 @@ public class ComprasMobileService {
         pedido = pedidoService.save(pedido);
 
         // 2. Un ítem por renglón, con su reparto por sucursal: como «Agregar ítem» del desktop
+        crearItems(pedido, renglones, porId, sucursales, repartoPorRenglon, factor, usuarioId);
+        pedidoItemService.getRepository().flush();
+
+        // 3. La factura queda esperando la planificación: se carga como nota al finalizarla
+        doc.setPedido(pedido);
+        doc.setCargarAlFinalizar(true);
+        documentoRepository.save(doc);
+        return armarPedido(pedidoObligatorio(pedido.getId()));
+    }
+
+    /**
+     * Un ítem por renglón, con su reparto por sucursal, y cada renglón vinculado al ítem que se creó para él.
+     */
+    void crearItems(Pedido pedido, List<DocumentoRecibidoItem> renglones, Map<Long, RenglonFacturaMobile> porId,
+                    List<Long> sucursales, Map<Long, double[]> repartoPorRenglon, double factor, Long usuarioId) {
         // ⚠️ Al revés del orden de la factura, a propósito: el desktop lista los ítems del pedido por id descendente
         // (pedidoItemPorPedidoPage), así que creados del último al primero se ven en el orden de la factura y el
         // comprador los revisa con el papel en la mano. La nota se crea en el orden de la factura: esa se lista
@@ -946,15 +965,29 @@ public class ComprasMobileService {
                 d.setCantidadAsignada(partes[i]);
                 reparto.add(d);
             }
-            guardadoPedidoItemGraphQL.guardarPedidoItemConDistribuciones(item, reparto);
+            PedidoItem guardado = guardadoPedidoItemGraphQL.guardarPedidoItemConDistribuciones(item, reparto);
+            // El renglón apunta a su ítem: el cruce de la nota lo usa en vez de buscarlo por producto
+            renglon.setPedidoItem(guardado);
+            renglonRepository.save(renglon);
         }
-        pedidoItemService.getRepository().flush();
+    }
 
-        // 3. La factura queda esperando la planificación: se carga como nota al finalizarla
-        doc.setPedido(pedido);
-        doc.setCargarAlFinalizar(true);
-        documentoRepository.save(doc);
-        return armarPedido(pedidoObligatorio(pedido.getId()));
+    /**
+     * Si se puede crear la compra: con todo reconocido como siempre, o con {@code soloReconocidos} si el borrador
+     * permite dejar afuera los renglones sin producto. Si no, el motivo del borrador.
+     */
+    static void exigirPuedeCrear(FacturaProveedorMobile factura, boolean soloReconocidos) {
+        boolean puede = Boolean.TRUE.equals(factura.getPuedeConfirmar())
+                || (soloReconocidos && Boolean.TRUE.equals(factura.getPuedeCrearSoloReconocidos()));
+        if (!puede) {
+            throw new GraphQLException(factura.getMotivoNoConfirma());
+        }
+    }
+
+    /** Los renglones con los que se arma la compra: todos o, con {@code soloReconocidos}, los que tienen producto. */
+    static List<DocumentoRecibidoItem> renglonesDeTrabajo(List<DocumentoRecibidoItem> renglones, boolean soloReconocidos) {
+        if (!soloReconocidos) return renglones;
+        return renglones.stream().filter(r -> r.getProducto() != null).collect(Collectors.toList());
     }
 
     /** Las sucursales de la compra: las de la lista o, si no viene, la única del parámetro viejo. Sin repetir. */
@@ -978,6 +1011,8 @@ public class ComprasMobileService {
      * Cuánto de cada renglón va a cada sucursal, en unidades base y en el orden de {@code sucursales}. Con una sola
      * sucursal va todo a ella. Con varias, el reparto lo carga el comprador en la unidad de la factura y tiene que
      * sumar el renglón entero; se pasa a unidades base en proporción, así con cantidades enteras queda entero.
+     * Solo se reparten los {@code renglones} recibidos: lo cargado para otro renglón (uno que quedó afuera de la
+     * compra) se ignora.
      */
     static Map<Long, double[]> repartoPorRenglon(List<DocumentoRecibidoItem> renglones,
                                                          Map<Long, RenglonFacturaMobile> porId, List<Long> sucursales,

@@ -424,6 +424,17 @@ public final class CruceFactura {
         return vacio(s) ? "sin presentación" : s;
     }
 
+    /**
+     * Lo que multiplica un precio de la factura para llevarlo a la moneda del pedido: guaraníes por unidad de la
+     * moneda de la factura sobre guaraníes por unidad de la del pedido. Misma moneda → 1; sin alguna de las dos
+     * cotizaciones, null (no se inventa una).
+     */
+    static Double factorFacturaAPedido(boolean mismaMoneda, Double cotizacionFactura, Double cotizacionPedido) {
+        if (mismaMoneda) return 1.0;
+        if (cotizacionFactura == null || cotizacionPedido == null || cotizacionPedido <= 0) return null;
+        return cotizacionFactura / cotizacionPedido;
+    }
+
     static double redondear(double valor, int decimales) {
         double f = Math.pow(10, decimales);
         return Math.round(valor * f) / f;

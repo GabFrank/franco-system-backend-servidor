@@ -111,7 +111,7 @@ public class ComprasMobileService {
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     /** El formato que lee {@code DateUtils.stringToDate} en los inputs del pedido. */
     private static final DateTimeFormatter FECHA_HORA_SEG = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static final String GUARANI = "GUARANI";
+    static final String GUARANI = "GUARANI";
     private static final double TOLERANCIA_TOTAL = 1.0;
     static final String CABECERA_SIN_CONFIRMAR = "Confirmá los datos de la factura en papel antes de seguir.";
 
@@ -812,7 +812,7 @@ public class ComprasMobileService {
         }
         c.setCotizacionFactura(cotOrigen);
         c.setCotizacionPedido(cotDestino);
-        c.setFactor(misma ? 1.0 : cotOrigen / cotDestino);
+        c.setFactor(CruceFactura.factorFacturaAPedido(misma, cotOrigen, cotDestino));
         double total = 0;
         if (factura != null) {
             for (RenglonFacturaMobile r : factura.getRenglones()) {
@@ -2520,8 +2520,13 @@ public class ComprasMobileService {
         return p != null && p.getPersona() != null ? p.getPersona().getNombre() : "el proveedor";
     }
 
+    /** Denominación de financiero.moneda para el código de la factura (sin código, guaraní); null si no se conoce. */
+    static String denominacionMoneda(String codigo) {
+        return MONEDAS.get(codigo != null ? codigo.trim().toUpperCase() : "PYG");
+    }
+
     private Moneda monedaDeOrNull(String codigo) {
-        String denominacion = MONEDAS.get(codigo != null ? codigo.trim().toUpperCase() : "PYG");
+        String denominacion = denominacionMoneda(codigo);
         return denominacion != null ? monedaService.findByDescripcion(denominacion) : null;
     }
 
@@ -2567,7 +2572,7 @@ public class ComprasMobileService {
         return n;
     }
 
-    private static String numeroCompleto(DocumentoRecibido doc) {
+    static String numeroCompleto(DocumentoRecibido doc) {
         return texto(doc.getEstablecimiento()) + "-" + texto(doc.getPuntoExpedicion()) + "-" + texto(doc.getNumero());
     }
 

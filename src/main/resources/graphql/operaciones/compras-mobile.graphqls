@@ -183,6 +183,11 @@ type FacturaProveedorMobile {
     totalIva10: Float
     totalIva: Float
     totalNota: Float
+    # Solo en la factura nueva (null en modo pedido)
+    puedeCrearSoloReconocidos: Boolean
+    renglonesReconocidos: Int
+    montoReconocido: Float
+    montoSinCargar: Float
     consultadaEn: String
     proveedorId: ID
     proveedorNombre: String

@@ -1234,6 +1234,11 @@ public class ComprasMobileService {
                     : renglones.isEmpty() ? "La factura no trae renglones."
                     : sinProd == 1 ? "Falta vincular 1 producto." : "Faltan vincular " + sinProd + " productos.");
         }
+        f.setPuedeCrearSoloReconocidos(SoloReconocidos.puedeCrear(ok, sinProd, bloqueada, doc.getNotaRecepcion() != null));
+        f.setRenglonesReconocidos(ok);
+        double[] montos = SoloReconocidos.montos(resultados);
+        f.setMontoReconocido(montos[0]);
+        f.setMontoSinCargar(montos[1]);
         return f;
     }
 

@@ -100,21 +100,17 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         return findByAll(texto, offset, sucursalId, conStock, isEnvase, activo, null, null);
     }
 
-    /** Páginas de 10 que se recorren como máximo filtrando por stock en la búsqueda SQL (500 productos). */
-    private static final int MAX_PAGINAS_FILTRO_STOCK = 50;
-
     /**
-     * Con {@code stockPositivoSucursalIds} / {@code stockNegativoSucursalIds} solo vienen los productos con stock
-     * mayor / menor a cero en cada una de esas sucursales (#673, buscador de transferencias). El orden es el de
-     * siempre y el filtro se aplica antes de paginar. Sin ellos, la búsqueda de siempre.
+     * Con {@code ordenStockSucursalId}, los productos salen ordenados por su stock en esa sucursal antes de paginar:
+     * de mayor a menor si {@code ordenStockMayor} no es {@code false}, si no de menor a mayor (#673, buscador de
+     * transferencias). Sin él, el orden de siempre.
      */
     public List<Producto> findByAll(String texto, Integer offset, Long sucursalId, Boolean conStock, Boolean isEnvase,
-            Boolean activo, List<Long> stockPositivoSucursalIds, List<Long> stockNegativoSucursalIds) {
+            Boolean activo, Long ordenStockSucursalId, Boolean ordenStockMayor) {
         if (offset == null) {
             offset = 0;
         }
-        List<Long> positivo = stockPositivoSucursalIds != null ? stockPositivoSucursalIds : Collections.emptyList();
-        List<Long> negativo = stockNegativoSucursalIds != null ? stockNegativoSucursalIds : Collections.emptyList();
+        boolean mayor = !Boolean.FALSE.equals(ordenStockMayor);
 
         // Convertimos el Long a String para evitar el error 'bytea'
         String sucursalIdStr = (sucursalId != null) ? String.valueOf(sucursalId) : "0";
@@ -124,7 +120,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             if (isEnvase != null && isEnvase == true) {
                 return repository.findEnvases("", offset, true);
             } else {
-                return buscarPorSql("%", offset, sucursalIdStr, conStockStr, positivo, negativo);
+                return buscarPorSql("%", offset, sucursalIdStr, conStockStr, ordenStockSucursalId, mayor);
             }
         }
 
@@ -135,28 +131,21 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
 
         if (productoSearchEnabled && productoSearchService.textoBusquedaValido(texto)) {
             Boolean activoFiltro = activo != null ? activo : true;
-            return buscarPorTextoLucene(texto, offset, sucursalIdStr, conStockStr, activoFiltro, positivo, negativo);
+            return buscarPorTextoLucene(texto, offset, sucursalIdStr, conStockStr, activoFiltro, ordenStockSucursalId,
+                    mayor);
         }
 
         String textoSql = texto.replace(' ', '%').toUpperCase();
-        return buscarPorSql(textoSql, offset, sucursalIdStr, conStockStr, positivo, negativo);
+        return buscarPorSql(textoSql, offset, sucursalIdStr, conStockStr, ordenStockSucursalId, mayor);
     }
 
     private List<Producto> buscarPorSql(String textoSql, int offset, String sucursalIdStr, String conStockStr,
-            List<Long> positivo, List<Long> negativo) {
-        if (positivo.isEmpty() && negativo.isEmpty()) {
+            Long ordenStockSucursalId, boolean mayor) {
+        if (ordenStockSucursalId == null) {
             return repository.findbyAll(textoSql, offset, sucursalIdStr, conStockStr);
         }
-        // findbyAll pagina de a 10 en la base: se recorre página por página filtrando hasta juntar offset + 10
-        List<Producto> filtrados = new ArrayList<>();
-        for (int pagina = 0; pagina < MAX_PAGINAS_FILTRO_STOCK && filtrados.size() < offset + 10; pagina++) {
-            List<Producto> lote = repository.findbyAll(textoSql, pagina * 10, sucursalIdStr, conStockStr);
-            filtrados.addAll(filtrarPorStock(lote, positivo, negativo));
-            if (lote.size() < 10) {
-                break;
-            }
-        }
-        return paginar(filtrados, offset);
+        return repository.findbyAllOrdenStock(textoSql, offset, sucursalIdStr, conStockStr,
+                String.valueOf(ordenStockSucursalId), String.valueOf(mayor));
     }
 
     private List<Producto> buscarPorTextoLucene(
@@ -165,12 +154,11 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             String sucursalIdStr,
             String conStockStr,
             Boolean activo,
-            List<Long> positivo,
-            List<Long> negativo) {
-        boolean filtraStock = !positivo.isEmpty() || !negativo.isEmpty();
-        // Filtrando por stock se toman siempre los mismos candidatos (más, porque el filtro descarta): si crecieran
-        // con el offset, al pasar de página cambiaría el conjunto y se repetirían o saltearían productos.
-        int fetchSize = filtraStock ? 500 : Math.min(Math.max(offset + 10, 50), 200);
+            Long ordenStockSucursalId,
+            boolean mayor) {
+        // Ordenando por stock se toman siempre los mismos candidatos (el tope): si crecieran con el offset,
+        // al pasar de página cambiaría el conjunto ordenado y se repetirían o saltearían productos.
+        int fetchSize = ordenStockSucursalId != null ? 200 : Math.min(Math.max(offset + 10, 50), 200);
         // Lucene solo indexa descripción: el código de barras se resuelve aparte y se antepone.
         List<Long> ids = unirIds(
                 codigoSearchService.buscarProductoIdsPorCoincidencia(texto, fetchSize),
@@ -208,47 +196,22 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
-        if (filtraStock) {
-            ordenados = filtrarPorStock(ordenados, positivo, negativo);
+        if (ordenStockSucursalId != null && !ordenados.isEmpty()) {
+            Map<Long, Double> stock = movimientoStockService.stockPorProductosEnSucursal(
+                    ordenados.stream().map(Producto::getId).collect(Collectors.toList()), ordenStockSucursalId);
+            Comparator<Producto> porStock = Comparator.comparingDouble(p -> stock.getOrDefault(p.getId(), 0d));
+            // Estable: a igual stock queda el orden de relevancia de la búsqueda
+            ordenados = new ArrayList<>(ordenados);
+            ordenados.sort(mayor ? porStock.reversed() : porStock);
         }
-        return paginar(ordenados, offset);
-    }
 
-    private static List<Producto> paginar(List<Producto> productos, int offset) {
-        int from = Math.min(offset, productos.size());
-        int to = Math.min(from + 10, productos.size());
+        int from = Math.min(offset, ordenados.size());
+        int to = Math.min(from + 10, ordenados.size());
         if (from >= to) {
             return Collections.emptyList();
         }
-        return new ArrayList<>(productos.subList(from, to));
+        return ordenados.subList(from, to);
     }
-
-    /** Deja, en el mismo orden, los productos con stock > 0 en cada sucursal de {@code positivo} y < 0 en cada una de {@code negativo}. */
-    private List<Producto> filtrarPorStock(List<Producto> productos, List<Long> positivo, List<Long> negativo) {
-        List<Producto> quedan = productos;
-        for (Long sucursalId : positivo) {
-            quedan = filtrarPorStockEn(quedan, sucursalId, true);
-        }
-        for (Long sucursalId : negativo) {
-            quedan = filtrarPorStockEn(quedan, sucursalId, false);
-        }
-        return quedan;
-    }
-
-    private List<Producto> filtrarPorStockEn(List<Producto> productos, Long sucursalId, boolean positivo) {
-        if (productos.isEmpty() || sucursalId == null) {
-            return productos;
-        }
-        Map<Long, Double> stock = movimientoStockService.stockPorProductosEnSucursal(
-                productos.stream().map(Producto::getId).collect(Collectors.toList()), sucursalId);
-        return productos.stream()
-                .filter(p -> {
-                    double s = stock.getOrDefault(p.getId(), 0d);
-                    return positivo ? s > 0 : s < 0;
-                })
-                .collect(Collectors.toList());
-    }
-
 
     public boolean existsByDescripcion(String descripcion) {
         if (descripcion == null) {

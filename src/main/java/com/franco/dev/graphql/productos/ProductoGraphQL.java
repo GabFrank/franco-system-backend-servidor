@@ -113,9 +113,9 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public List<Producto> productoSearch(String texto, int offset, Long sucursalId, Boolean conStock, Boolean isEnvase,
-            Boolean activo, List<Long> stockPositivoSucursalIds, List<Long> stockNegativoSucursalIds) {
-        return service.findByAll(texto, offset, sucursalId, conStock, isEnvase, activo, stockPositivoSucursalIds,
-                stockNegativoSucursalIds);
+            Boolean activo, Long ordenStockSucursalId, Boolean ordenStockMayor) {
+        return service.findByAll(texto, offset, sucursalId, conStock, isEnvase, activo, ordenStockSucursalId,
+                ordenStockMayor);
     }
 
     public Page<Producto> searchProductoWithFilters(String texto, String codigo, Boolean activo, Boolean stock,

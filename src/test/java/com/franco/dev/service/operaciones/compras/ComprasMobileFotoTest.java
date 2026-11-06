@@ -244,7 +244,7 @@ class ComprasMobileFotoTest {
     @Test
     void conCodigoAprendeTambienLaDescripcion() {
         when(aprendizajeRepository.findByProveedorIdAndCodigoProveedor(5L, "1007167")).thenReturn(Optional.empty());
-        service.aprender(proveedor(), renglon(" 1007167 ", "Saladix jamón 6*100gr"), presentacion(), 30.0);
+        new AprendizajeProveedor(aprendizajeRepository, seguridad).aprender(proveedor(), renglon(" 1007167 ", "Saladix jamón 6*100gr"), presentacion(), 30.0);
         ArgumentCaptor<ProveedorCodigoProducto> guardado = ArgumentCaptor.forClass(ProveedorCodigoProducto.class);
         verify(aprendizajeRepository).save(guardado.capture());
         assertEquals("1007167", guardado.getValue().getCodigoProveedor());
@@ -256,7 +256,7 @@ class ComprasMobileFotoTest {
     void sinCodigoAprendePorDescripcion() {
         when(aprendizajeRepository.findByProveedorIdAndCodigoProveedorIsNullAndDescripcionNormalizada(5L, "GALLETA DULCE"))
                 .thenReturn(Optional.empty());
-        service.aprender(proveedor(), renglon(null, "Galleta dulce"), presentacion(), 1.0);
+        new AprendizajeProveedor(aprendizajeRepository, seguridad).aprender(proveedor(), renglon(null, "Galleta dulce"), presentacion(), 1.0);
         ArgumentCaptor<ProveedorCodigoProducto> guardado = ArgumentCaptor.forClass(ProveedorCodigoProducto.class);
         verify(aprendizajeRepository).save(guardado.capture());
         assertNull(guardado.getValue().getCodigoProveedor());

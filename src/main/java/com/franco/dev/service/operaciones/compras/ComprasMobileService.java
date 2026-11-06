@@ -130,6 +130,7 @@ public class ComprasMobileService {
     @Autowired private DocumentoRecibidoRepository documentoRepository;
     @Autowired private DocumentoRecibidoItemRepository renglonRepository;
     @Autowired private ProveedorCodigoProductoRepository aprendizajeRepository;
+    @Autowired private AprendizajeProveedor aprendizaje;
     @Autowired private PedidoService pedidoService;
     @Autowired private PedidoItemService pedidoItemService;
     @Autowired private PedidoItemDistribucionService pedidoItemDistribucionService;
@@ -392,8 +393,8 @@ public class ComprasMobileService {
         renglon.setFactor(f);
         renglon.setTipoMatch(TipoMatch.MANUAL.name());
         renglonRepository.save(renglon);
-        if (Boolean.TRUE.equals(recordar) && doc.getProveedor() != null && sePuedeAprender(renglon)) {
-            aprender(doc.getProveedor(), renglon, presentacion, f);
+        if (Boolean.TRUE.equals(recordar) && doc.getProveedor() != null && AprendizajeProveedor.sePuedeAprender(renglon)) {
+            aprendizaje.aprender(doc.getProveedor(), renglon, presentacion, f);
         }
         return armarSegunModo(doc);
     }
@@ -468,9 +469,9 @@ public class ComprasMobileService {
             distribuir(item, fuenteDeDistribucion(renglon, itemsPedido), pedido, usuario);
             renglon.setNotaRecepcionItem(item);
             renglonRepository.save(renglon);
-            if (renglon.getProducto() != null && sePuedeAprender(renglon) && doc.getProveedor() != null
+            if (renglon.getProducto() != null && AprendizajeProveedor.sePuedeAprender(renglon) && doc.getProveedor() != null
                     && renglon.getPresentacion() != null) {
-                aprender(doc.getProveedor(), renglon, renglon.getPresentacion(),
+                aprendizaje.aprender(doc.getProveedor(), renglon, renglon.getPresentacion(),
                         renglon.getFactor() != null ? renglon.getFactor() : 1.0);
             }
         }
@@ -965,7 +966,7 @@ public class ComprasMobileService {
                 d.setCantidadAsignada(partes[i]);
                 reparto.add(d);
             }
-            PedidoItem guardado = guardadoPedidoItemGraphQL.guardarPedidoItemConDistribuciones(item, reparto);
+            PedidoItem guardado = guardadoPedidoItemGraphQL.guardarPedidoItemConDistribuciones(item, reparto, null);
             // El renglón apunta a su ítem: el cruce de la nota lo usa en vez de buscarlo por producto
             renglon.setPedidoItem(guardado);
             renglonRepository.save(renglon);
@@ -2158,42 +2159,6 @@ public class ComprasMobileService {
         r.setPresentacion(p);
         r.setFactor(factor != null && factor > 0 ? factor : 1.0);
         r.setTipoMatch(tipo.name());
-    }
-
-    /** Hay con qué aprender: el código del proveedor o, si no trae, la descripción. */
-    private static boolean sePuedeAprender(DocumentoRecibidoItem r) {
-        return !vacio(r.getCodigoProveedor()) || DescripcionProveedor.normalizar(r.getDescripcion()) != null;
-    }
-
-    /**
-     * La llave es el código si el renglón lo trae y, si no, la descripción normalizada. La descripción se guarda
-     * <b>siempre</b>, también con código: así lo aprendido de una factura electrónica sirve para sugerir el producto
-     * en una de papel (o un renglón sin código) del mismo proveedor.
-     */
-    void aprender(Proveedor proveedor, DocumentoRecibidoItem r, Presentacion presentacion, double factor) {
-        String codigo = vacio(r.getCodigoProveedor()) ? null : r.getCodigoProveedor().trim();
-        String descripcion = DescripcionProveedor.normalizar(r.getDescripcion());
-        if (codigo == null && descripcion == null) return;
-        ProveedorCodigoProducto a = (codigo != null
-                ? aprendizajeRepository.findByProveedorIdAndCodigoProveedor(proveedor.getId(), codigo)
-                : aprendizajeRepository.findByProveedorIdAndCodigoProveedorIsNullAndDescripcionNormalizada(
-                        proveedor.getId(), descripcion))
-                .orElse(null);
-        if (a == null) {
-            a = new ProveedorCodigoProducto();
-            a.setProveedor(proveedor);
-            a.setCodigoProveedor(codigo);
-            a.setUsos(0);
-            a.setCreadoEn(LocalDateTime.now());
-            a.setUsuario(seguridad.usuarioActual());
-        }
-        a.setDescripcionProveedor(r.getDescripcion());
-        a.setDescripcionNormalizada(descripcion);
-        a.setPresentacion(presentacion);
-        a.setFactor(factor);
-        a.setUsos((a.getUsos() != null ? a.getUsos() : 0) + 1);
-        a.setUltimoUso(LocalDateTime.now());
-        aprendizajeRepository.save(a);
     }
 
     /**

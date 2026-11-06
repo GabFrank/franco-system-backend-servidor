@@ -141,7 +141,7 @@ class CrearSoloReconocidosTest {
         PedidoItem i102 = new PedidoItem();
         i102.setId(102L);
         // Se crean del último al primero: el renglón 3 primero (101), después el 1 (102)
-        when(guardadoPedidoItemGraphQL.guardarPedidoItemConDistribuciones(any(), any())).thenReturn(i101, i102);
+        when(guardadoPedidoItemGraphQL.guardarPedidoItemConDistribuciones(any(), any(), isNull())).thenReturn(i101, i102);
         when(renglonRepository.save(any(DocumentoRecibidoItem.class))).thenAnswer(inv -> inv.getArgument(0));
         Pedido pedido = new Pedido();
         pedido.setId(7L);
@@ -152,6 +152,6 @@ class CrearSoloReconocidosTest {
         assertSame(i102, a.getPedidoItem());
         verify(renglonRepository).save(a);
         verify(renglonRepository).save(c);
-        verify(guardadoPedidoItemGraphQL, times(2)).guardarPedidoItemConDistribuciones(any(), any());
+        verify(guardadoPedidoItemGraphQL, times(2)).guardarPedidoItemConDistribuciones(any(), any(), isNull());
     }
 }

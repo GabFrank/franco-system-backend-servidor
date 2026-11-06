@@ -450,7 +450,7 @@ public class ComprasMobileService {
         Map<Long, RenglonFacturaMobile> porId = factura.getRenglones().stream()
                 .collect(Collectors.toMap(RenglonFacturaMobile::getId, r -> r));
         List<PedidoItem> itemsPedido = pedidoItemService.findByPedidoId(pedido.getId());
-        for (DocumentoRecibidoItem renglon : documentoRecibidoService.renglones(doc.getId())) {
+        for (DocumentoRecibidoItem renglon : vigentes(documentoRecibidoService.renglones(doc.getId()))) {
             RenglonFacturaMobile cruce = porId.get(renglon.getId());
             NotaRecepcionItem item = new NotaRecepcionItem();
             item.setNotaRecepcion(nota);
@@ -895,7 +895,7 @@ public class ComprasMobileService {
             throw new GraphQLException("El plazo de crédito no puede ser negativo.");
         }
         List<Long> sucursales = sucursalesElegidas(sucursalId, sucursalIds);
-        List<DocumentoRecibidoItem> renglones = renglonesDeTrabajo(documentoRecibidoService.renglones(doc.getId()), solo);
+        List<DocumentoRecibidoItem> renglones = renglonesDeTrabajo(vigentes(documentoRecibidoService.renglones(doc.getId())), solo);
         Map<Long, RenglonFacturaMobile> porId = factura.getRenglones().stream()
                 .collect(Collectors.toMap(RenglonFacturaMobile::getId, r -> r));
         Map<Long, double[]> repartoPorRenglon = repartoPorRenglon(renglones, porId, sucursales, repartos);
@@ -983,6 +983,44 @@ public class ComprasMobileService {
         if (!puede) {
             throw new GraphQLException(factura.getMotivoNoConfirma());
         }
+    }
+
+    /** Los renglones que cuentan para el cruce, la compra y la nota: todos menos los descartados («No cargar»). */
+    static List<DocumentoRecibidoItem> vigentes(List<DocumentoRecibidoItem> renglones) {
+        return renglones.stream().filter(r -> !Boolean.TRUE.equals(r.getDescartado())).collect(Collectors.toList());
+    }
+
+    /** Los renglones marcados «No cargar»: no entran a la nota y la factura los nombra en un aviso. */
+    static List<DocumentoRecibidoItem> descartados(List<DocumentoRecibidoItem> renglones) {
+        return renglones.stream().filter(r -> Boolean.TRUE.equals(r.getDescartado())).collect(Collectors.toList());
+    }
+
+    /**
+     * La constancia de los descartes: «No incluye N renglones de la factura descartados por MONEDA MONTO: DESCRIPCIÓN
+     * (MOTIVO); …». {@code null} si no hay descartes.
+     */
+    static String observacionDescartes(List<DocumentoRecibidoItem> descartados, String monedaSimbolo) {
+        if (descartados == null || descartados.isEmpty()) return null;
+        int n = descartados.size();
+        double monto = descartados.stream().mapToDouble(ComprasMobileService::montoEnFactura).sum();
+        String detalle = descartados.stream()
+                .map(r -> texto(r.getDescripcion()) + " (" + texto(r.getMotivoDescarte()) + ")")
+                .collect(Collectors.joining("; "));
+        return "No incluye " + (n == 1 ? "1 renglón de la factura descartado" : n + " renglones de la factura descartados")
+                + " por " + (vacio(monedaSimbolo) ? "" : monedaSimbolo.trim() + " ") + CruceFactura.importe(monto)
+                + ": " + detalle;
+    }
+
+    /** Lo que el renglón cobra en la factura: su total o, si no lo trae, cantidad × (precio − descuento). */
+    private static double montoEnFactura(DocumentoRecibidoItem r) {
+        if (r.getTotal() != null && r.getTotal() > 0) return r.getTotal();
+        return nz(r.getCantidad()) * (nz(r.getPrecioUnitario()) - nz(r.getDescuentoUnitario()));
+    }
+
+    /** Si la factura de un pedido se puede cargar como nota: sin bloqueos, con renglones, todos con producto y observados. */
+    static boolean puedeConfirmarConPedido(boolean conNota, boolean bloqueada, List<CruceFactura.Resultado> resultados) {
+        return !conNota && !bloqueada && !resultados.isEmpty()
+                && resultados.stream().noneMatch(r -> r.estado == CruceFactura.Estado.SIN_PRODUCTO || r.observacionFaltante);
     }
 
     /** Los renglones con los que se arma la compra: todos o, con {@code soloReconocidos}, los que tienen producto. */
@@ -1147,7 +1185,9 @@ public class ComprasMobileService {
     /** La factura que va a crear la compra: productos reconocidos, avisos de IVA y lo que trae de forma de pago. */
     private FacturaProveedorMobile armarBorrador(DocumentoRecibido doc, boolean recalcular) {
         if (recalcular) documentoRecibidoService.completarCodigos(doc);
-        List<DocumentoRecibidoItem> renglones = documentoRecibidoService.renglones(doc.getId());
+        List<DocumentoRecibidoItem> todos = documentoRecibidoService.renglones(doc.getId());
+        List<DocumentoRecibidoItem> renglones = vigentes(todos);
+        List<DocumentoRecibidoItem> descartes = descartados(todos);
         Proveedor proveedor = doc.getProveedor();
         if (recalcular) {
             for (DocumentoRecibidoItem r : renglones) {
@@ -1209,6 +1249,8 @@ public class ComprasMobileService {
             if (!res.bonificacion) totalNota += res.cantidadBase * res.precioBase;
             totalRenglones += nz(r.getTotal());
         }
+        // El total de la factura sigue incluyendo los descartados: se suman para no avisar una diferencia que no es
+        for (DocumentoRecibidoItem r : descartes) totalRenglones += nz(r.getTotal());
         alertarProductoRepetido(f.getRenglones());
         f.setTotalNota(CruceFactura.redondear(totalNota, 2));
         f.setRenglonesOk(ok);
@@ -1252,8 +1294,10 @@ public class ComprasMobileService {
                     ? "1 renglón no se reconoció" : sinProd + " renglones no se reconocieron")
                     + ": el producto no está en el sistema con ese código. Vinculalo con uno parecido o dalo de alta."));
         }
+        String descarte = observacionDescartes(descartes, f.getMonedaSimbolo());
+        if (descarte != null) a.add(new AvisoFacturaMobile("DESCARTE", "INFO", descarte + "."));
         if (esFoto(doc)) {
-            a.addAll(avisosLecturaFoto(doc, renglones));
+            a.addAll(avisosLecturaFoto(doc, todos));
         } else if (doc.getTotalGeneral() != null && Math.abs(totalRenglones - doc.getTotalGeneral()) > TOLERANCIA_TOTAL) {
             a.add(new AvisoFacturaMobile("TOTAL", "ADVERTENCIA", "La suma de los renglones (" + CruceFactura.importe(totalRenglones)
                     + ") no da el total de la factura (" + CruceFactura.importe(doc.getTotalGeneral()) + "): puede haber un descuento global."));
@@ -1267,7 +1311,7 @@ public class ComprasMobileService {
         if (!f.getPuedeConfirmar()) {
             f.setMotivoNoConfirma(doc.getNotaRecepcion() != null ? "La factura ya está cargada."
                     : bloqueada ? a.stream().filter(x -> "BLOQUEO".equals(x.getNivel())).findFirst().get().getMensaje()
-                    : renglones.isEmpty() ? "La factura no trae renglones."
+                    : renglones.isEmpty() ? sinRenglones(descartes)
                     : sinProd == 1 ? "Falta vincular 1 producto." : "Faltan vincular " + sinProd + " productos.");
         }
         f.setPuedeCrearSoloReconocidos(SoloReconocidos.puedeCrear(ok, sinProd, bloqueada, doc.getNotaRecepcion() != null));
@@ -1278,7 +1322,7 @@ public class ComprasMobileService {
         return f;
     }
 
-    private CruceFactura.Renglon entradaDe(DocumentoRecibidoItem r) {
+    static CruceFactura.Renglon entradaDe(DocumentoRecibidoItem r) {
         CruceFactura.Renglon c = new CruceFactura.Renglon();
         c.id = r.getId();
         c.productoId = r.getProducto() != null ? r.getProducto().getId() : null;
@@ -1484,7 +1528,9 @@ public class ComprasMobileService {
      */
     private FacturaProveedorMobile armarFactura(DocumentoRecibido doc, Pedido pedido, boolean recalcular) {
         if (recalcular) documentoRecibidoService.completarCodigos(doc);
-        List<DocumentoRecibidoItem> renglones = documentoRecibidoService.renglones(doc.getId());
+        List<DocumentoRecibidoItem> todos = documentoRecibidoService.renglones(doc.getId());
+        List<DocumentoRecibidoItem> renglones = vigentes(todos);
+        List<DocumentoRecibidoItem> descartes = descartados(todos);
         Proveedor proveedor = pedido.getProveedor();
         Moneda moneda = monedaDeOrNull(doc.getMoneda());
         boolean mismaMoneda = moneda == null || pedido.getMoneda() == null || Objects.equals(moneda.getId(), pedido.getMoneda().getId());
@@ -1502,24 +1548,7 @@ public class ComprasMobileService {
         }
 
         List<CruceFactura.Renglon> entrada = new ArrayList<>();
-        for (DocumentoRecibidoItem r : renglones) {
-            CruceFactura.Renglon c = new CruceFactura.Renglon();
-            c.id = r.getId();
-            c.productoId = r.getProducto() != null ? r.getProducto().getId() : null;
-            c.presentacionId = r.getPresentacion() != null ? r.getPresentacion().getId() : null;
-            c.presentacionDescripcion = r.getPresentacion() != null ? r.getPresentacion().getDescripcion() : null;
-            c.factor = r.getFactor();
-            c.cantidad = nz(r.getCantidad());
-            c.precioUnitario = nz(r.getPrecioUnitario());
-            c.descuentoUnitario = nz(r.getDescuentoUnitario());
-            c.total = r.getTotal();
-            c.porcentajeDescuento = r.getPorcentajeDescuento();
-            c.tasaIva = r.getTasaIva();
-            c.ivaProducto = r.getProducto() != null ? r.getProducto().getIva() : null;
-            c.observacion = r.getObservacion();
-            c.pedidoItemId = r.getPedidoItem() != null ? r.getPedidoItem().getId() : null;
-            entrada.add(c);
-        }
+        for (DocumentoRecibidoItem r : renglones) entrada.add(entradaDe(r));
         List<CruceFactura.ItemPedido> items = new ArrayList<>();
         for (PedidoItem pi : itemsPedido) {
             if (pi.getProducto() == null) continue;
@@ -1574,6 +1603,8 @@ public class ComprasMobileService {
             if (!res.bonificacion) totalNota += res.cantidadBase * res.precioBase;
             totalRenglones += nz(r.getTotal());
         }
+        // El total de la factura sigue incluyendo los descartados: se suman para no avisar una diferencia que no es
+        for (DocumentoRecibidoItem r : descartes) totalRenglones += nz(r.getTotal());
         alertarProductoRepetido(f.getRenglones());
         f.setTotalNota(CruceFactura.redondear(totalNota, 2));
         f.setRenglonesOk(ok);
@@ -1589,18 +1620,24 @@ public class ComprasMobileService {
             }
         }
 
-        avisos(f, doc, pedido, moneda, mismaMoneda, sinProd, ivaPedido, ivaProducto, sinDistribucion, totalRenglones, renglones);
+        avisos(f, doc, pedido, moneda, mismaMoneda, sinProd, ivaPedido, ivaProducto, sinDistribucion, totalRenglones, todos);
+        String descarte = observacionDescartes(descartes, f.getMonedaSimbolo());
+        if (descarte != null) f.getAvisos().add(new AvisoFacturaMobile("DESCARTE", "INFO", descarte + "."));
         boolean bloqueada = f.getAvisos().stream().anyMatch(a -> "BLOQUEO".equals(a.getNivel()));
-        f.setPuedeConfirmar(doc.getNotaRecepcion() == null && !bloqueada && sinProd == 0 && sinObs == 0 && !renglones.isEmpty());
+        f.setPuedeConfirmar(puedeConfirmarConPedido(doc.getNotaRecepcion() != null, bloqueada, resultados));
         if (!f.getPuedeConfirmar()) {
             f.setMotivoNoConfirma(doc.getNotaRecepcion() != null ? "La factura ya está cargada."
                     : bloqueada ? f.getAvisos().stream().filter(a -> "BLOQUEO".equals(a.getNivel())).findFirst().get().getMensaje()
-                    : renglones.isEmpty() ? "La factura no trae renglones."
+                    : renglones.isEmpty() ? sinRenglones(descartes)
                     : sinProd > 0 ? (sinProd == 1 ? "Falta vincular 1 producto." : "Faltan vincular " + sinProd + " productos.")
                     : (sinObs == 1 ? "Falta la observación de 1 renglón con diferencia."
                     : "Falta la observación de " + sinObs + " renglones con diferencia."));
         }
         return f;
+    }
+
+    private static String sinRenglones(List<DocumentoRecibidoItem> descartes) {
+        return descartes.isEmpty() ? "La factura no trae renglones." : "Todos los renglones de la factura están descartados.";
     }
 
     private FacturaProveedorMobile cabecera(DocumentoRecibido doc, Pedido pedido) {

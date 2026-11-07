@@ -83,6 +83,10 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
     List<MovimientoCajaVirtual> findByOrigenTipoAndOrigenIdAndOrigenSucursalIdAndActivoTrue(
             OrigenMovimientoTipo origenTipo, Long origenId, Long origenSucursalId);
 
+    /** Igual que el anterior, también con los ya revertidos: para saber en qué cajas estuvo un retiro. */
+    List<MovimientoCajaVirtual> findByOrigenTipoAndOrigenIdAndOrigenSucursalId(
+            OrigenMovimientoTipo origenTipo, Long origenId, Long origenSucursalId);
+
     /**
      * Filtro combinado de movimientos (todos opcionales salvo la caja). soloActivos=true oculta anulados.
      * {@code tipo} llega como String (name del enum) y se compara contra la columna casteada a texto:

@@ -33,6 +33,7 @@ class RetiroVerificacionAnularTest {
     private MovimientoCajaVirtualRepository movimientoRepository;
     private TesoreriaService tesoreriaService;
     private RetiroCasoRepository casoRepository;
+    private TesoreriaSecurityService seguridad;
     private RetiroVerificacionService service;
 
     private RetiroVerificacion verificacion;
@@ -46,9 +47,10 @@ class RetiroVerificacionAnularTest {
         movimientoRepository = mock(MovimientoCajaVirtualRepository.class);
         tesoreriaService = mock(TesoreriaService.class);
         casoRepository = mock(RetiroCasoRepository.class);
+        seguridad = mock(TesoreriaSecurityService.class);
         service = new RetiroVerificacionService(retiroRepository, mock(RetiroDetalleService.class),
                 verificacionRepository, casoRepository, movimientoRepository, mock(CajaVirtualService.class),
-                mock(MonedaService.class), tesoreriaService, mock(TesoreriaSecurityService.class),
+                mock(MonedaService.class), tesoreriaService, seguridad,
                 mock(com.franco.dev.service.empresarial.SucursalService.class));
 
         verificacion = new RetiroVerificacion();
@@ -170,5 +172,37 @@ class RetiroVerificacionAnularTest {
         verify(verificacionRepository, never()).save(any());
         verify(tesoreriaService, never()).registrar(any());
         verify(retiroRepository, never()).save(any());
+    }
+
+    @Test
+    void ya_anulada_y_sin_acceso_a_la_caja_responde_el_permiso_antes_que_el_estado() {
+        verificacion.setAnulada(true);
+        MovimientoCajaVirtual revertido = new MovimientoCajaVirtual();
+        com.franco.dev.domain.financiero.CajaVirtual caja = new com.franco.dev.domain.financiero.CajaVirtual();
+        caja.setId(6L);
+        revertido.setCajaVirtual(caja);
+        when(movimientoRepository.findByOrigenTipoAndOrigenIdAndOrigenSucursalId(OrigenMovimientoTipo.RETIRO_CAJA, 700L, 5L))
+                .thenReturn(Collections.singletonList(revertido));
+        doThrow(new GraphQLException("No tenes permiso para mover plata en esta caja.")).when(seguridad).requireEscrituraCaja(6L);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anular(30L, null, null));
+
+        assertTrue(e.getMessage().contains("No tenes permiso"), e.getMessage());
+        verify(retiroRepository, never()).lockByIdAndSucursalId(any(), any());
+    }
+
+    @Test
+    void contada_en_cero_sin_movimientos_igual_pide_acceso_a_la_caja_del_retiro() {
+        when(movimientoRepository.findByOrigenTipoAndOrigenIdAndOrigenSucursalIdAndActivoTrue(
+                OrigenMovimientoTipo.RETIRO_CAJA, 700L, 5L)).thenReturn(Collections.emptyList());
+        when(retiroRepository.findSituacion(700L, 5L)).thenReturn(Optional.of(
+                new com.franco.dev.repository.financiero.RetiroSituacion(null, -1L, 6L)));
+        doThrow(new GraphQLException("No tenes permiso para mover plata en esta caja.")).when(seguridad).requireEscrituraCaja(6L);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anular(30L, null, null));
+
+        assertTrue(e.getMessage().contains("No tenes permiso"), e.getMessage());
+        assertFalse(Boolean.TRUE.equals(verificacion.getAnulada()));
+        verify(verificacionRepository, never()).save(any());
     }
 }

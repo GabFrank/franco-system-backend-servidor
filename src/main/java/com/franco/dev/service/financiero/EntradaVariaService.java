@@ -27,6 +27,7 @@ public class EntradaVariaService {
     private final EntradaVariaRepository repository;
     private final TesoreriaService tesoreriaService;
     private final ComprobanteNumeracionService comprobanteNumeracionService;
+    private final TesoreriaSecurityService seguridad;
 
     public Optional<EntradaVaria> findById(Long id) { return repository.findById(id); }
 
@@ -83,6 +84,8 @@ public class EntradaVariaService {
         // cargada en la request, con el anulado de antes de esperar.
         EntradaVaria e = repository.lockById(id)
                 .orElseThrow(() -> new GraphQLException("Entrada varia no encontrada: " + id));
+        // El acceso a la caja va antes del estado y del límite, igual que en TesoreriaService.revertir.
+        seguridad.requireEscrituraCaja(e.getCajaVirtual() != null ? e.getCajaVirtual().getId() : null);
         if (repository.findAnuladoById(id).orElse(Boolean.TRUE.equals(e.getAnulado()))) {
             throw new GraphQLException("La entrada/salida ya está anulada");
         }

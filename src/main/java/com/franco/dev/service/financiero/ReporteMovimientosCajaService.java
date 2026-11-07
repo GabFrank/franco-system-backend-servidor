@@ -62,7 +62,10 @@ public class ReporteMovimientosCajaService {
     private static final DateTimeFormatter FMT_DIA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter FMT_GENERADO = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
-    /** Mismas etiquetas que el dashboard (ORIGEN_MOVIMIENTO_LABELS en caja-virtual.model.ts). */
+    /**
+     * Mismas etiquetas que el dashboard (ORIGEN_MOVIMIENTO_LABELS y labelMovimiento en caja-virtual.model.ts del
+     * desktop): son dos copias a mano, cambiar las dos. La salida varia se resuelve en {@link #etiquetaCaja}.
+     */
     static final Map<String, String> ORIGEN_LABELS = etiquetas(
             "ANULACION", "Anulación",
             "RRHH_VALE", "Vale",
@@ -79,7 +82,8 @@ public class ReporteMovimientosCajaService {
             "PAGO_CPP", "Compra",
             "CHEQUE", "Cheque",
             "ACREDITACION_POS", "Acreditación POS",
-            "MALETIN", "Maletín");
+            "MALETIN", "Maletín",
+            "VUELTO", "Vuelto");
 
     /** tipoMovimientoLabels del dashboard: el fallback cuando el origen no aporta (MANUAL o ausente). */
     static final Map<String, String> TIPO_CAJA_LABELS = etiquetas(
@@ -272,6 +276,8 @@ public class ReporteMovimientosCajaService {
     }
 
     static String etiquetaCaja(OrigenMovimientoTipo origen, CajaVirtualTipoMovimiento tipo) {
+        // Entradas y salidas varias comparten origen: la dirección la da el tipo.
+        if (origen == OrigenMovimientoTipo.ENTRADA_VARIA && tipo == CajaVirtualTipoMovimiento.EGRESO) return "Salida varia";
         String porOrigen = origen != null ? ORIGEN_LABELS.get(origen.name()) : null;
         if (porOrigen != null) return porOrigen;
         return tipo != null ? TIPO_CAJA_LABELS.getOrDefault(tipo.name(), tipo.name()) : "";

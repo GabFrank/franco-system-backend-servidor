@@ -330,3 +330,25 @@ Cada hallazgo se verificó contra el código antes de aplicarlo.
 | B-G | B | Baja | El resolver depende de que `requireSuperusuario` sea la primera línea | Ya cubierto por el test de la fase 1 |
 
 Sin contradicciones entre los dos ejes.
+
+## Auditoría del diff (paso 8)
+
+Tres ejes fijos (autorización, esquema/migración, contrato con clientes), sin verse entre sí. Ningún
+condicional aplica: el diff no toca maquinaria de release ni tablas replicadas.
+
+| Eje | Sev. | Hallazgo | Qué se hizo |
+|---|---|---|---|
+| Autorización | Media | Con su token, el usuario del bot podía cambiar su propia clave por `saveUsuario` (rama «solo propio», `UsuarioGraphQL.exigirPermisoParaGuardar`) y sacar por `/login` un JWT que no vence | Verificado. `54fc7adc`: el provider marca la sesión con la autoridad `SESION_TOKEN_SERVICIO` y `saveUsuario` rechaza que esa sesión edite su propio usuario, con o sin `EDITAR USUARIOS`. Tests en `UsuarioServiceClaveTest` |
+| Autorización | Media | El tipo `Usuario` expone `password` (`usuario.graphqls:35`), y las claves se guardan en claro | Verificado. **Es previo a este diff y sistémico**: cualquier query que devuelva `Usuario` lo expone. `tokensServicio` solo lo lee un superusuario. Se reporta aparte, fuera de este PR |
+| Autorización | Baja | `crearTokenServicio` pisa la clave de cualquier usuario no ADMIN, humano incluido | Aceptado y documentado (javadoc, `.graphqls`, `CLAUDE.md`): usar un usuario nuevo por bot |
+| Esquema | Baja | No hay test que levante el schema GraphQL completo: un error de mapeo aparece recién al arrancar | Abierto: queda para la prueba de arranque (paso 9) |
+| Esquema | Baja | `ON DELETE CASCADE` borra el rastro de los tokens al borrar el usuario | Aceptado: un token sin usuario no sirve |
+| Contrato | Baja | Tras un rollback del JAR los tokens dejan de valer, y al redesplegar reviven si no vencieron | Documentado: para invalidarlos de verdad, el `UPDATE` de revocación |
+| Contrato | Info | `tokenServicioValidator` queda null en tests que arman el provider a mano (`JwtValidatorTest`) | Sin impacto: solo se usa con `frcsvc_` |
+
+## Batería (paso 9)
+
+- CI (`workflow_dispatch` sobre la rama) en `07894739`: `Tests run: 3322, Failures: 0, Errors: 0, Skipped: 2`, BUILD SUCCESS.
+- **Prueba de runtime local (arrancar el central y los 8 pasos de «Verificación de runtime»): INCUMPLIDA.**
+  No se pudo compilar en la sesión (ver paso 7). Hay que hacerla en local o en alpha antes de mergear,
+  y cubre además el riesgo de arranque del schema.

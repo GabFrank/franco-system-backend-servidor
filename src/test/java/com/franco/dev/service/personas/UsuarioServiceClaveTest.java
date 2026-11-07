@@ -21,8 +21,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -166,5 +168,57 @@ class UsuarioServiceClaveTest {
 
         input.setRespetarClave(null);
         assertEquals("123", graphQL.saveUsuario(input).getPassword());
+    }
+
+    // --- Token de servicio (#579): el bot no se fija una clave propia ---------------------------
+
+    private void sesionConTokenDeServicio(boolean deServicio) {
+        java.util.List<org.springframework.security.core.GrantedAuthority> a = new java.util.ArrayList<>();
+        if (deServicio) a.add(new org.springframework.security.core.authority.SimpleGrantedAuthority(
+                com.franco.dev.security.TokenServicioFormato.AUTORIDAD_SESION));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("JUAN", null, a));
+    }
+
+    private UsuarioInput cambioDeClavePropia() {
+        UsuarioInput input = new UsuarioInput();
+        input.setId(7L);
+        input.setNickname("juan");
+        input.setPassword("conocida");
+        input.setActivo(true);
+        input.setRespetarClave(true);
+        return input;
+    }
+
+    @Test
+    void conTokenDeServicioNoSeCambiaLaClavePropia() {
+        guardado();
+        UsuarioGraphQL graphQL = new UsuarioGraphQL();
+        ReflectionTestUtils.setField(graphQL, "service", service);
+        ReflectionTestUtils.setField(graphQL, "seg", new TesoreriaSecurityFalso(7L));
+        try {
+            sesionConTokenDeServicio(true);
+            assertThrows(graphql.GraphQLException.class, () -> graphQL.saveUsuario(cambioDeClavePropia()));
+            // Tampoco con EDITAR USUARIOS: ese rol no habilita a un bot a tocarse a si mismo.
+            ReflectionTestUtils.setField(graphQL, "seg", new TesoreriaSecurityFalso(7L, "EDITAR USUARIOS"));
+            assertThrows(graphql.GraphQLException.class, () -> graphQL.saveUsuario(cambioDeClavePropia()));
+            verify(repository, never()).save(any(Usuario.class));
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    void conSesionComunCadaUnoSigueCambiandoSuClave() {
+        guardado();
+        UsuarioGraphQL graphQL = new UsuarioGraphQL();
+        ReflectionTestUtils.setField(graphQL, "service", service);
+        ReflectionTestUtils.setField(graphQL, "seg", new TesoreriaSecurityFalso(7L));
+        try {
+            sesionConTokenDeServicio(false);
+            assertEquals("CONOCIDA", graphQL.saveUsuario(cambioDeClavePropia()).getPassword());
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 }

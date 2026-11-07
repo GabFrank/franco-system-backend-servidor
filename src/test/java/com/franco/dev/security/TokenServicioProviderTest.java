@@ -71,6 +71,8 @@ class TokenServicioProviderTest {
         Authentication auth = autenticar(token);
 
         assertEquals("BOT-OPERACIONES", auth.getName());
+        assertTrue(auth.getAuthorities().stream()
+                .anyMatch(a -> TokenServicioFormato.AUTORIDAD_SESION.equals(a.getAuthority())));
         JwtUserDetails detalle = (JwtUserDetails) auth.getPrincipal();
         assertNull(detalle.getPassword());
         assertNotEquals(token, ReflectionTestUtils.getField(detalle, "token"));
@@ -109,6 +111,8 @@ class TokenServicioProviderTest {
     void unJwtDeSesionSigueYendoPorElValidadorDeJwt() {
         Authentication auth = autenticar(jwt("MR"));
         assertEquals("MR", auth.getName());
+        assertTrue(auth.getAuthorities().stream()
+                .noneMatch(a -> TokenServicioFormato.AUTORIDAD_SESION.equals(a.getAuthority())));
         verifyNoInteractions(jdbc);
         verify(servicioValidator, never()).validar(any());
     }

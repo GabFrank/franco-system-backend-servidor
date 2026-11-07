@@ -12,6 +12,7 @@ import org.springframework.security.authentication.dao.AbstractUserDetailsAuthen
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
@@ -53,7 +54,9 @@ public class JwtAuthenticationProvider extends AbstractUserDetailsAuthentication
         if (TokenServicioFormato.esTokenDeServicio(token)) {
             TokenServicioValidator.Valido servicio = tokenServicioValidator.validar(token)
                     .orElseThrow(() -> new BadCredentialsException("Token de servicio invalido"));
-            return new JwtUserDetails(servicio.getNickname(), null, null, new ArrayList<>());
+            List<GrantedAuthority> marca = new ArrayList<>();
+            marca.add(new SimpleGrantedAuthority(TokenServicioFormato.AUTORIDAD_SESION));
+            return new JwtUserDetails(servicio.getNickname(), null, null, marca);
         }
 
         JwtUser jwtUser = validator.validate(token);

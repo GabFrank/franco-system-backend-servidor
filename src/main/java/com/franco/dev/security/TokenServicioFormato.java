@@ -1,5 +1,9 @@
 package com.franco.dev.security;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -18,10 +22,26 @@ public final class TokenServicioFormato {
     /** Caracteres del token que se guardan en claro para reconocerlo. */
     public static final int LARGO_PREFIJO_VISIBLE = 12;
 
+    /**
+     * Autoridad que lleva un request autenticado con token de servicio. No es un rol de negocio
+     * (los roles se leen de la base): solo marca la sesion para lo que un bot no puede hacer.
+     */
+    public static final String AUTORIDAD_SESION = "SESION_TOKEN_SERVICIO";
+
     private static final int BYTES_ALEATORIOS = 32;
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private TokenServicioFormato() {
+    }
+
+    /** true si el request actual entro con un token de servicio. */
+    public static boolean sesionEsDeServicio() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getAuthorities() == null) return false;
+        for (GrantedAuthority a : auth.getAuthorities()) {
+            if (AUTORIDAD_SESION.equals(a.getAuthority())) return true;
+        }
+        return false;
     }
 
     public static boolean esTokenDeServicio(String token) {

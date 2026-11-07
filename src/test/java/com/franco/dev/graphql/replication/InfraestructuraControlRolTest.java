@@ -68,6 +68,20 @@ class InfraestructuraControlRolTest {
     }
 
     @Test
+    void las_cadenas_de_conexion_son_de_admin() throws Exception {
+        // Devuelven usuario y clave de PostgreSQL del central: antes las podia pedir cualquier sesion.
+        List<String> cadenas = List.of("generateCentralConnectionString", "generateConnectionString");
+        seRechazan(con(new LogicalReplicationGraphQL()), cadenas);
+        seRechazan(con(new LogicalReplicationGraphQL(), "SOPORTE", "CONFIGURACION"), cadenas);
+
+        // Con ADMIN pasa el control y sigue hasta el servicio (null en el test).
+        for (String n : cadenas) {
+            Throwable t = invocar(con(new LogicalReplicationGraphQL(), "ADMIN"), n);
+            assertTrue(t instanceof NullPointerException, n + " debia llegar al servicio: " + t);
+        }
+    }
+
+    @Test
     void impresoras_y_guardar_sucursal_piden_configuracion() throws Exception {
         seRechazan(con(new CupsAdminGraphQL(), "SOPORTE"), CUPS);
         seRechazan(con(new SucursalGraphQL(), "SOPORTE"), List.of("saveSucursal"));

@@ -339,7 +339,7 @@ condicional aplica: el diff no toca maquinaria de release ni tablas replicadas.
 | Eje | Sev. | Hallazgo | Qué se hizo |
 |---|---|---|---|
 | Autorización | Media | Con su token, el usuario del bot podía cambiar su propia clave por `saveUsuario` (rama «solo propio», `UsuarioGraphQL.exigirPermisoParaGuardar`) y sacar por `/login` un JWT que no vence | Verificado. `54fc7adc`: el provider marca la sesión con la autoridad `SESION_TOKEN_SERVICIO` y `saveUsuario` rechaza que esa sesión edite su propio usuario, con o sin `EDITAR USUARIOS`. Tests en `UsuarioServiceClaveTest` |
-| Autorización | Media | El tipo `Usuario` expone `password` (`usuario.graphqls:35`), y las claves se guardan en claro | Verificado. **Es previo a este diff y sistémico**: cualquier query que devuelva `Usuario` lo expone. `tokensServicio` solo lo lee un superusuario. Se reporta aparte, fuera de este PR |
+| Autorización | Media | ~~El tipo `Usuario` expone `password`~~ | **Falso, corregido el 2026-11-07.** `usuario.graphqls:35` es `UsuarioInput`, no el tipo `Usuario`: el campo se retiró del tipo en la #344 y lo fija `TipoUsuarioSinPasswordTest`. Lo que sí sigue es que las claves se guardan y comparan en texto plano: #580 |
 | Autorización | Baja | `crearTokenServicio` pisa la clave de cualquier usuario no ADMIN, humano incluido | Aceptado y documentado (javadoc, `.graphqls`, `CLAUDE.md`): usar un usuario nuevo por bot |
 | Esquema | Baja | No hay test que levante el schema GraphQL completo: un error de mapeo aparece recién al arrancar | Abierto: queda para la prueba de arranque (paso 9) |
 | Esquema | Baja | `ON DELETE CASCADE` borra el rastro de los tokens al borrar el usuario | Aceptado: un token sin usuario no sirve |

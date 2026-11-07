@@ -62,7 +62,7 @@ WHERE t.hash = ?
   AND NOT EXISTS (
       SELECT 1 FROM personas.usuario_role ur
       JOIN personas.role r ON r.id = ur.role_id
-      WHERE ur.usuario_id = u.id AND upper(trim(r.nombre)) = 'ADMIN')
+      WHERE ur.user_id = u.id AND upper(trim(r.nombre)) = 'ADMIN')
 ```
 
 - Sin fila → `BadCredentialsException` → 401, igual que un JWT inválido.
@@ -303,6 +303,10 @@ En local contra una copia de alpha (`spring-boot:run` con profile `dev`):
 | 4 · Plan | Este archivo |
 | 5 · Auditoría del plan | Hecho: 2 auditores sin verse (eje A contrato/propagación, eje B reversibilidad/estado). Hallazgos abajo |
 | 6 · Presentar y commitear | Hecho: aprobado por el usuario el 2026-11-07 |
+| 7 · Implementación | Hecho: fases 1-3 en `5a7d7894`, `f81ab1b7`, `07894739`; fase 4 (docs) en el commit siguiente. **Build rápido local INCUMPLIDO**: Maven Central respondió 429 (rate limit) y `jsifenlib` sale de GitHub Packages con un token que la sesión no tiene; cambiar el mirror o compilar `jsifenlib` a mano fue bloqueado por permisos. El gate de compilación y tests es el CI (`workflow_dispatch` sobre la rama) |
+| 10 · Migración contra PG real | Hecho con `psql` contra PostgreSQL 16 local con el esquema de `V0` para `usuario`, `role` y `usuario_role`: `V267.5` aplica dos veces sin error; el SQL del validador da fila para vigente y `activo` NULL, y ninguna para revocado, vencido, inactivo, nickname `admin ` en minúscula con espacio, rol `ADMIN` y rol `ADMIN` otorgado después de emitir; el throttle escribe una vez y no espera una fila bloqueada (29 ms); borrar el usuario borra sus tokens y pone `revocado_por` en NULL; el hash duplicado falla. **No es un dry-run contra un dump de bodega/farmacia** (no hay dump en la sesión). El `TokenServicioSqlIT` en Java quedó reemplazado por esta verificación |
+
+**Hallazgo de la verificación:** el SQL del plan buscaba el rol en `usuario_role.usuario_id`, que es quien asignó el rol; el dueño es `user_id` (`RoleRepository.findByUsuarioId`). Con el error, un rol `ADMIN` del bot no se detectaba. Corregido antes del commit y fijado con un test.
 
 ## Auditoría del plan (paso 5)
 

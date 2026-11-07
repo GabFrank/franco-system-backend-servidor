@@ -169,6 +169,25 @@ class ReporteMovimientosCajaServiceTest {
     }
 
     @Test
+    void etiquetaDeEntradaVariaSigueLaDireccionYVueltoTieneLaSuya() {
+        assertEquals("Salida varia", ReporteMovimientosCajaService.etiquetaCaja(OrigenMovimientoTipo.ENTRADA_VARIA, CajaVirtualTipoMovimiento.EGRESO));
+        assertEquals("Entrada varia", ReporteMovimientosCajaService.etiquetaCaja(OrigenMovimientoTipo.ENTRADA_VARIA, CajaVirtualTipoMovimiento.INGRESO));
+        assertEquals("Vuelto", ReporteMovimientosCajaService.etiquetaCaja(OrigenMovimientoTipo.VUELTO, CajaVirtualTipoMovimiento.INGRESO));
+        assertEquals("Egreso", ReporteMovimientosCajaService.etiquetaCaja(null, CajaVirtualTipoMovimiento.EGRESO));
+    }
+
+    @Test
+    void plantillaImprimeSalidaVariaYVuelto() throws Exception {
+        Moneda gs = moneda(1L, "GUARANIES", "Gs.", 0);
+        List<MovimientoCajaVirtual> movs = Arrays.asList(
+                movCaja(CajaVirtualTipoMovimiento.EGRESO, 700d, gs, OrigenMovimientoTipo.ENTRADA_VARIA, true),
+                movCaja(CajaVirtualTipoMovimiento.INGRESO, 300d, gs, OrigenMovimientoTipo.VUELTO, true));
+        String textos = textos(service.llenar(service.armarCaja(caja(), movs, null, null, null, gs, false, usuario())));
+        assertTrue(textos.contains("| Salida varia |"), "Falta 'Salida varia'. Textos: " + textos);
+        assertTrue(textos.contains("| Vuelto |"), "Falta 'Vuelto'. Textos: " + textos);
+    }
+
+    @Test
     void plantillaSinMovimientosIgualImprimeElEncabezado() throws Exception {
         ReporteMovimientosCajaService.Contenido c = service.armarCaja(caja(), Collections.emptyList(),
                 null, null, null, null, true, usuario());

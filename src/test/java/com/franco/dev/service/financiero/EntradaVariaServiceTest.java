@@ -21,6 +21,7 @@ class EntradaVariaServiceTest {
     private EntradaVariaRepository repository;
     private TesoreriaService tesoreriaService;
     private ComprobanteNumeracionService numeracion;
+    private TesoreriaSecurityService seguridad;
     private EntradaVariaService service;
 
     private MovimientoCajaVirtual movimiento;
@@ -30,7 +31,8 @@ class EntradaVariaServiceTest {
         repository = mock(EntradaVariaRepository.class);
         tesoreriaService = mock(TesoreriaService.class);
         numeracion = mock(ComprobanteNumeracionService.class);
-        service = new EntradaVariaService(repository, tesoreriaService, numeracion);
+        seguridad = mock(TesoreriaSecurityService.class);
+        service = new EntradaVariaService(repository, tesoreriaService, numeracion, seguridad);
         when(repository.save(any())).thenAnswer(i -> i.getArgument(0));
 
         movimiento = new MovimientoCajaVirtual();
@@ -43,6 +45,9 @@ class EntradaVariaServiceTest {
         e.setId(id);
         e.setAnulado(anulado);
         e.setMovimientoCajaVirtualId(50L);
+        com.franco.dev.domain.financiero.CajaVirtual caja = new com.franco.dev.domain.financiero.CajaVirtual();
+        caja.setId(9L);
+        e.setCajaVirtual(caja);
         when(repository.lockById(id)).thenReturn(Optional.of(e));
         return e;
     }
@@ -167,5 +172,17 @@ class EntradaVariaServiceTest {
 
         verify(repository, never()).save(any());
         verify(tesoreriaService, never()).registrar(any());
+    }
+
+    @Test
+    void sin_acceso_a_la_caja_responde_el_permiso_antes_de_mirar_el_estado() {
+        entradaBloqueada(4L, true);
+        doThrow(new GraphQLException("No tenes permiso para mover plata en esta caja.")).when(seguridad).requireEscrituraCaja(9L);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anular(4L, null, null));
+
+        assertTrue(e.getMessage().contains("No tenes permiso"), e.getMessage());
+        verify(repository, never()).findAnuladoById(4L);
+        verify(tesoreriaService, never()).requireDentroDelLimiteDeAnulacion(any(), any());
     }
 }

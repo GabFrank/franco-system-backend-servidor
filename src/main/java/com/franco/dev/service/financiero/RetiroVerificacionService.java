@@ -273,6 +273,8 @@ public class RetiroVerificacionService {
     public RetiroVerificacion anular(Long verificacionId, String motivo, Usuario usuario) {
         RetiroVerificacion v = verificacionRepository.findById(verificacionId)
                 .orElseThrow(() -> new GraphQLException("Verificación no encontrada: " + verificacionId));
+        // El acceso a la caja va antes del estado y del límite, igual que en TesoreriaService.revertir.
+        cajasDeLaVerificacion(v).forEach(seguridad::requireEscrituraCaja);
         if (Boolean.TRUE.equals(v.getAnulada())) {
             throw new GraphQLException("La verificación ya está anulada");
         }
@@ -323,5 +325,22 @@ public class RetiroVerificacionService {
                 usuario, LocalDateTime.now());
 
         return v;
+    }
+
+    /**
+     * Cajas sobre las que hay que poder escribir para anular la verificación. Vigente: la caja que tiene asignada el
+     * retiro (también cuando se contó en cero y no hubo movimiento). Ya anulada: las cajas de los movimientos que tuvo
+     * el retiro; si se volvió a verificar en otra caja entran las dos (pide de más, nunca de menos).
+     */
+    private List<Long> cajasDeLaVerificacion(RetiroVerificacion v) {
+        if (!Boolean.TRUE.equals(v.getAnulada())) {
+            Long caja = retiroRepository.findSituacion(v.getRetiroId(), v.getSucursalId())
+                    .map(RetiroSituacion::getCajaVirtualId).orElse(null);
+            if (caja != null) return Collections.singletonList(caja);
+        }
+        return movimientoRepository.findByOrigenTipoAndOrigenIdAndOrigenSucursalId(
+                        OrigenMovimientoTipo.RETIRO_CAJA, v.getRetiroId(), v.getSucursalId()).stream()
+                .map(m -> m.getCajaVirtual() != null ? m.getCajaVirtual().getId() : null)
+                .filter(Objects::nonNull).distinct().sorted().collect(java.util.stream.Collectors.toList());
     }
 }

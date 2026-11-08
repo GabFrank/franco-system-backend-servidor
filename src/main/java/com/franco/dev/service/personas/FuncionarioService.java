@@ -45,6 +45,16 @@ public class FuncionarioService extends CrudService<Funcionario, FuncionarioRepo
                 cobraBanco, ipsActivo, pageable);
     }
 
+    /**
+     * El responsable elegido para un egreso de caja: null si no se eligió, error si el id no existe
+     * (un id inválido no puede guardarse en silencio como «sin responsable»).
+     */
+    public Funcionario responsableOpcional(Long id) {
+        if (id == null) return null;
+        return repository.findById(id)
+                .orElseThrow(() -> new graphql.GraphQLException("Funcionario responsable no encontrado: " + id));
+    }
+
     public Funcionario findByPersonaId(Long id) {
         return repository.findByPersonaId(id);
     }

@@ -19,8 +19,11 @@
 	<parameter name="fechaGeneracion" class="java.lang.String"/>
 	<parameter name="cantidad" class="java.lang.String"/>
 	<parameter name="totales" class="java.lang.String"/>
+	<!-- Solo la caja mayor tiene "Entregado a"; el banco usa ese ancho para Usuario. -->
+	<parameter name="conEntregadoA" class="java.lang.Boolean"/>
 	<field name="fecha" class="java.lang.String"/>
-	<field name="responsable" class="java.lang.String"/>
+	<field name="usuario" class="java.lang.String"/>
+	<field name="entregadoA" class="java.lang.String"/>
 	<field name="tipo" class="java.lang.String"/>
 	<field name="descripcion" class="java.lang.String"/>
 	<field name="monto" class="java.lang.String"/>
@@ -224,30 +227,51 @@
 					<pen lineWidth="0.5"/>
 				</graphicElement>
 			</rectangle>
-			<!-- Anchos: Fecha 60 | Responsable 125 | Tipo 75 | Descripción 150 | Monto 75 | Saldo 70 = 555 -->
+			<!-- Anchos: Fecha 55 | Usuario 100 | Entregado a 100 | Tipo 70 | Descripción 105 | Monto 65 | Saldo 60 = 555.
+			     Sin "Entregado a" (banco), Usuario ocupa los 200. -->
 			<staticText>
-				<reportElement x="0" y="2" width="60" height="14" uuid="7c1e2d3f-0005-4000-8000-000000000002"/>
+				<reportElement x="0" y="2" width="55" height="14" uuid="7c1e2d3f-0005-4000-8000-000000000002"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="8" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Fecha]]></text>
 			</staticText>
 			<staticText>
-				<reportElement x="60" y="2" width="125" height="14" uuid="7c1e2d3f-0005-4000-8000-000000000003"/>
+				<reportElement x="55" y="2" width="100" height="14" uuid="7c1e2d3f-0005-4000-8000-000000000003">
+					<printWhenExpression><![CDATA[Boolean.TRUE.equals($P{conEntregadoA})]]></printWhenExpression>
+				</reportElement>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="8" isBold="true"/>
 				</textElement>
-				<text><![CDATA[Responsable]]></text>
+				<text><![CDATA[Usuario]]></text>
 			</staticText>
 			<staticText>
-				<reportElement x="185" y="2" width="75" height="14" uuid="7c1e2d3f-0005-4000-8000-000000000004"/>
+				<reportElement x="55" y="2" width="200" height="14" uuid="7c1e2d3f-0005-4000-8000-000000000008">
+					<printWhenExpression><![CDATA[!Boolean.TRUE.equals($P{conEntregadoA})]]></printWhenExpression>
+				</reportElement>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Usuario]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="155" y="2" width="100" height="14" uuid="7c1e2d3f-0005-4000-8000-000000000009">
+					<printWhenExpression><![CDATA[Boolean.TRUE.equals($P{conEntregadoA})]]></printWhenExpression>
+				</reportElement>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Entregado a]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="255" y="2" width="70" height="14" uuid="7c1e2d3f-0005-4000-8000-000000000004"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="8" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Tipo]]></text>
 			</staticText>
 			<staticText>
-				<reportElement x="260" y="2" width="150" height="14" uuid="7c1e2d3f-0005-4000-8000-000000000005"/>
+				<reportElement x="325" y="2" width="105" height="14" uuid="7c1e2d3f-0005-4000-8000-000000000005"/>
 				<box leftPadding="3"/>
 				<textElement textAlignment="Left" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="8" isBold="true"/>
@@ -255,14 +279,14 @@
 				<text><![CDATA[Descripción]]></text>
 			</staticText>
 			<staticText>
-				<reportElement x="410" y="2" width="75" height="14" uuid="7c1e2d3f-0005-4000-8000-000000000006"/>
+				<reportElement x="430" y="2" width="65" height="14" uuid="7c1e2d3f-0005-4000-8000-000000000006"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="8" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Monto]]></text>
 			</staticText>
 			<staticText>
-				<reportElement x="485" y="2" width="70" height="14" uuid="7c1e2d3f-0005-4000-8000-000000000007"/>
+				<reportElement x="495" y="2" width="60" height="14" uuid="7c1e2d3f-0005-4000-8000-000000000007"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="8" isBold="true"/>
 				</textElement>
@@ -273,29 +297,49 @@
 	<detail>
 		<band height="16" splitType="Stretch">
 			<textField isBlankWhenNull="true">
-				<reportElement stretchType="RelativeToTallestObject" x="0" y="1" width="60" height="14" uuid="7c1e2d3f-0006-4000-8000-000000000001"/>
+				<reportElement stretchType="RelativeToTallestObject" x="0" y="1" width="55" height="14" uuid="7c1e2d3f-0006-4000-8000-000000000001"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="7"/>
 				</textElement>
 				<textFieldExpression><![CDATA[$F{fecha}]]></textFieldExpression>
 			</textField>
-			<!-- Responsable y Tipo crecen en alto: un nombre largo baja de línea en vez de cortarse. -->
+			<!-- Usuario, Entregado a y Tipo crecen en alto: un nombre largo baja de línea en vez de cortarse. -->
 			<textField textAdjust="StretchHeight" isBlankWhenNull="true">
-				<reportElement x="60" y="1" width="125" height="14" uuid="7c1e2d3f-0006-4000-8000-000000000002"/>
+				<reportElement x="55" y="1" width="100" height="14" uuid="7c1e2d3f-0006-4000-8000-000000000002">
+					<printWhenExpression><![CDATA[Boolean.TRUE.equals($P{conEntregadoA})]]></printWhenExpression>
+				</reportElement>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="7"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{responsable}]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$F{usuario}]]></textFieldExpression>
 			</textField>
 			<textField textAdjust="StretchHeight" isBlankWhenNull="true">
-				<reportElement x="185" y="1" width="75" height="14" uuid="7c1e2d3f-0006-4000-8000-000000000003"/>
+				<reportElement x="55" y="1" width="200" height="14" uuid="7c1e2d3f-0006-4000-8000-000000000008">
+					<printWhenExpression><![CDATA[!Boolean.TRUE.equals($P{conEntregadoA})]]></printWhenExpression>
+				</reportElement>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{usuario}]]></textFieldExpression>
+			</textField>
+			<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+				<reportElement x="155" y="1" width="100" height="14" uuid="7c1e2d3f-0006-4000-8000-000000000009">
+					<printWhenExpression><![CDATA[Boolean.TRUE.equals($P{conEntregadoA})]]></printWhenExpression>
+				</reportElement>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{entregadoA}]]></textFieldExpression>
+			</textField>
+			<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+				<reportElement x="255" y="1" width="70" height="14" uuid="7c1e2d3f-0006-4000-8000-000000000003"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="7"/>
 				</textElement>
 				<textFieldExpression><![CDATA[$F{tipo}]]></textFieldExpression>
 			</textField>
 			<textField textAdjust="StretchHeight" isBlankWhenNull="true">
-				<reportElement style="descripcion" x="260" y="1" width="150" height="14" uuid="7c1e2d3f-0006-4000-8000-000000000004"/>
+				<reportElement style="descripcion" x="325" y="1" width="105" height="14" uuid="7c1e2d3f-0006-4000-8000-000000000004"/>
 				<box leftPadding="3"/>
 				<textElement textAlignment="Left" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="7"/>
@@ -303,14 +347,14 @@
 				<textFieldExpression><![CDATA[$F{descripcion}]]></textFieldExpression>
 			</textField>
 			<textField isBlankWhenNull="true">
-				<reportElement stretchType="RelativeToTallestObject" x="410" y="1" width="75" height="14" uuid="7c1e2d3f-0006-4000-8000-000000000005"/>
+				<reportElement stretchType="RelativeToTallestObject" x="430" y="1" width="65" height="14" uuid="7c1e2d3f-0006-4000-8000-000000000005"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="7"/>
 				</textElement>
 				<textFieldExpression><![CDATA[$F{monto}]]></textFieldExpression>
 			</textField>
 			<textField isBlankWhenNull="true">
-				<reportElement stretchType="RelativeToTallestObject" x="485" y="1" width="70" height="14" uuid="7c1e2d3f-0006-4000-8000-000000000006"/>
+				<reportElement stretchType="RelativeToTallestObject" x="495" y="1" width="60" height="14" uuid="7c1e2d3f-0006-4000-8000-000000000006"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="7"/>
 				</textElement>

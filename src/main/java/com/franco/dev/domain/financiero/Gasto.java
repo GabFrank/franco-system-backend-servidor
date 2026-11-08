@@ -98,7 +98,19 @@ public class Gasto extends EmbeddedEntity implements Serializable {
      */
     @Column(name = "solicitud_pago_id")
     private Long solicitudPagoId;
+
+    /**
+     * Los montos sin moneda se guardan en 0: un nulo rompia el ticket y el balance de la caja. La columna tiene
+     * DEFAULT 0, pero Hibernate inserta el nulo explicito. Las filas viejas las cubre la lectura.
+     */
+    @PrePersist
+    @PreUpdate
+    void montosEnCero() {
+        if (retiroGs == null) retiroGs = 0.0;
+        if (retiroRs == null) retiroRs = 0.0;
+        if (retiroDs == null) retiroDs = 0.0;
+        if (vueltoGs == null) vueltoGs = 0.0;
+        if (vueltoRs == null) vueltoRs = 0.0;
+        if (vueltoDs == null) vueltoDs = 0.0;
+    }
 }
-
-
-

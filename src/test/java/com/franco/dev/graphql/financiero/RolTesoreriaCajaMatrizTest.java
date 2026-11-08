@@ -49,6 +49,9 @@ class RolTesoreriaCajaMatrizTest {
             "OperacionFinancieraGraphQL.operacionFinancieraCategorias",
             "RetiroGraphQL.retirosFlotantes",
             "RetiroVerificacionGraphQL.verificarRetiro",
+            // Vueltos: la lista exige lectura de la caja y el registro escritura sobre la caja del egreso.
+            "VueltoEgresoGraphQL.egresosParaVuelto",
+            "VueltoEgresoGraphQL.registrarVueltoEgreso",
             "CajaVirtualGraphQL.cuentasBancariasParaDeposito",
             "CajaVirtualGraphQL.cajasVirtualesReceptoras",
             "OperacionFinancieraGraphQL.registrarOperacionFinanciera",

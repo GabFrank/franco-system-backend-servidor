@@ -96,6 +96,14 @@ public class SolicitudPago implements Identifiable<Long> {
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 
+    /**
+     * Funcionario responsable del gasto, elegido al crearlo desde la caja. Opcional. Al pagarse pasa
+     * al movimiento de la caja y al gasto materializado.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "responsable_id", nullable = true)
+    private com.franco.dev.domain.personas.Funcionario responsable;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pago_id", nullable = true)
     private Pago pago;

@@ -33,6 +33,7 @@ import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.utils.PrintingService;
 import com.franco.dev.utilitarios.DateUtils;
 import com.google.zxing.WriterException;
+import com.franco.dev.utilitarios.print.QrTicket;
 import com.franco.dev.utilitarios.print.escpos.EscPos;
 import com.franco.dev.utilitarios.print.escpos.EscPosConst;
 import com.franco.dev.utilitarios.print.escpos.Style;
@@ -203,12 +204,9 @@ public class ImpresionService {
      */
     public Boolean printBalance(PdvCajaBalanceDto balanceDto, String printerName, String local, OutputStream destino) {
         try {
-            if (destino == null) {
-                selectedPrintService = printingService.getPrintService(printerName);
-            }
-            if (destino != null || selectedPrintService != null) {
-                OutputStream salida = destino != null ? destino
-                        : (printerOutputStream = new PrinterOutputStream(selectedPrintService));
+            PrintService impresora = destino == null ? printingService.getPrintService(printerName) : null;
+            if (destino != null || impresora != null) {
+                OutputStream salida = destino != null ? destino : new PrinterOutputStream(impresora);
                 // creating the EscPosImage, need buffered image and algorithm.
                 // Styles
                 Style center = new Style().setJustification(EscPosConst.Justification.Center);
@@ -238,24 +236,26 @@ public class ImpresionService {
                     escpos.writeLF("Cajero: " + balanceDto.getUsuario().getPersona().getNombre());
                 }
                 escpos.writeLF("Fecha Apertura: " + balanceDto.getFechaApertura().format(formatter));
-                escpos.writeLF("Fecha Cierre: " + balanceDto.getFechaCierre().format(formatter));
+                // Una caja abierta todavía no tiene cierre.
+                escpos.writeLF("Fecha Cierre: " + (balanceDto.getFechaCierre() != null
+                        ? balanceDto.getFechaCierre().format(formatter) : "ABIERTA"));
                 escpos.writeLF("--------------------------------");
                 escpos.writeLF(center, "VALORES DE APERTURA");
                 escpos.write("Guaranies G$: ");
                 String valorGsAper = NumberFormat.getNumberInstance(Locale.GERMAN)
-                        .format(balanceDto.getTotalGsAper().intValue());
+                        .format((int) cero(balanceDto.getTotalGsAper()));
                 for (int i = 18; i > valorGsAper.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorGsAper);
                 escpos.write("Reales R$: ");
-                String valorRsAper = String.format("%.2f", balanceDto.getTotalRsAper());
+                String valorRsAper = String.format("%.2f", cero(balanceDto.getTotalRsAper()));
                 for (int i = 21; i > valorRsAper.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorRsAper);
                 escpos.write("Dolares D$: ");
-                String valorDsAper = String.format("%.2f", balanceDto.getTotalDsAper());
+                String valorDsAper = String.format("%.2f", cero(balanceDto.getTotalDsAper()));
                 for (int i = 20; i > valorDsAper.length(); i--) {
                     escpos.write(" ");
                 }
@@ -264,19 +264,19 @@ public class ImpresionService {
                 escpos.writeLF(center, "VALORES DE CIERRE");
                 escpos.write("Guaranies G$: ");
                 String valorGsCierre = NumberFormat.getNumberInstance(Locale.GERMAN)
-                        .format(balanceDto.getTotalGsCierre().intValue());
+                        .format((int) cero(balanceDto.getTotalGsCierre()));
                 for (int i = 18; i > valorGsCierre.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorGsCierre);
                 escpos.write("Reales R$: ");
-                String valorRsCierre = String.format("%.2f", balanceDto.getTotalRsCierre());
+                String valorRsCierre = String.format("%.2f", cero(balanceDto.getTotalRsCierre()));
                 for (int i = 21; i > valorRsCierre.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorRsCierre);
                 escpos.write("Dolares D$: ");
-                String valorDsCierre = String.format("%.2f", balanceDto.getTotalDsCierre());
+                String valorDsCierre = String.format("%.2f", cero(balanceDto.getTotalDsCierre()));
                 for (int i = 20; i > valorDsCierre.length(); i--) {
                     escpos.write(" ");
                 }
@@ -285,19 +285,19 @@ public class ImpresionService {
                 escpos.writeLF(center, "VALORES DE TARJETA");
                 escpos.write("Guaranies G$: ");
                 String valorTarjeta = NumberFormat.getNumberInstance(Locale.GERMAN)
-                        .format(balanceDto.getTotalTarjeta().intValue());
+                        .format((int) cero(balanceDto.getTotalTarjeta()));
                 for (int i = 18; i > valorTarjeta.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorTarjeta);
                 escpos.write("Reales R$: ");
-                String valorTarjetaRs = String.format("%.2f", balanceDto.getTotalTarjetaRs());
+                String valorTarjetaRs = String.format("%.2f", cero(balanceDto.getTotalTarjetaRs()));
                 for (int i = 21; i > valorTarjetaRs.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorTarjetaRs);
                 escpos.write("Dolares D$: ");
-                String valorTarjetaDs = String.format("%.2f", balanceDto.getTotalTarjetaDs());
+                String valorTarjetaDs = String.format("%.2f", cero(balanceDto.getTotalTarjetaDs()));
                 for (int i = 20; i > valorTarjetaDs.length(); i--) {
                     escpos.write(" ");
                 }
@@ -306,19 +306,19 @@ public class ImpresionService {
                 escpos.writeLF(center, "VALORES DE TRANSFERENCIA");
                 escpos.write("Guaranies G$: ");
                 String valorTransferencia = NumberFormat.getNumberInstance(Locale.GERMAN)
-                        .format(balanceDto.getTotalTransferencia().intValue());
+                        .format((int) cero(balanceDto.getTotalTransferencia()));
                 for (int i = 18; i > valorTransferencia.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorTransferencia);
                 escpos.write("Reales R$: ");
-                String valorTransferenciaRs = String.format("%.2f", balanceDto.getTotalTransferenciaRs());
+                String valorTransferenciaRs = String.format("%.2f", cero(balanceDto.getTotalTransferenciaRs()));
                 for (int i = 21; i > valorTransferenciaRs.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorTransferenciaRs);
                 escpos.write("Dolares D$: ");
-                String valorTransferenciaDs = String.format("%.2f", balanceDto.getTotalTransferenciaDs());
+                String valorTransferenciaDs = String.format("%.2f", cero(balanceDto.getTotalTransferenciaDs()));
                 for (int i = 20; i > valorTransferenciaDs.length(); i--) {
                     escpos.write(" ");
                 }
@@ -327,7 +327,7 @@ public class ImpresionService {
                 escpos.writeLF(center, "VALORES DE CREDITO");
                 escpos.write("Guaranies G$: ");
                 String valorCredito = NumberFormat.getNumberInstance(Locale.GERMAN)
-                        .format(balanceDto.getTotalCredito().intValue());
+                        .format((int) cero(balanceDto.getTotalCredito()));
                 for (int i = 18; i > valorCredito.length(); i--) {
                     escpos.write(" ");
                 }
@@ -335,19 +335,19 @@ public class ImpresionService {
                 escpos.writeLF("--------------------------------");
                 escpos.writeLF(center, "VALORES DE RETIRO");
                 String valorGsRetiro = NumberFormat.getNumberInstance(Locale.GERMAN)
-                        .format(balanceDto.getTotalRetiroGs().intValue());
+                        .format((int) cero(balanceDto.getTotalRetiroGs()));
                 escpos.write("Guaranies G$: ");
                 for (int i = 18; i > valorGsRetiro.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorGsRetiro);
-                String valorRsRetiro = String.format("%.2f", balanceDto.getTotalRetiroRs());
+                String valorRsRetiro = String.format("%.2f", cero(balanceDto.getTotalRetiroRs()));
                 escpos.write("Reales R$: ");
                 for (int i = 21; i > valorRsRetiro.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorRsRetiro);
-                String valorDsRetiro = String.format("%.2f", balanceDto.getTotalRetiroDs());
+                String valorDsRetiro = String.format("%.2f", cero(balanceDto.getTotalRetiroDs()));
                 escpos.write("Dolares D$: ");
                 for (int i = 20; i > valorDsRetiro.length(); i--) {
                     escpos.write(" ");
@@ -356,19 +356,19 @@ public class ImpresionService {
                 escpos.writeLF("--------------------------------");
                 escpos.writeLF(center, "VALORES DE GASTO");
                 String valorGsGasto = NumberFormat.getNumberInstance(Locale.GERMAN)
-                        .format(balanceDto.getTotalGastoGs().intValue());
+                        .format((int) cero(balanceDto.getTotalGastoGs()));
                 escpos.write("Guaranies G$: ");
                 for (int i = 18; i > valorGsGasto.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorGsGasto);
-                String valorRsGasto = String.format("%.2f", balanceDto.getTotalGastoRs());
+                String valorRsGasto = String.format("%.2f", cero(balanceDto.getTotalGastoRs()));
                 escpos.write("Reales R$: ");
                 for (int i = 21; i > valorRsGasto.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorRsGasto);
-                String valorDsGasto = String.format("%.2f", balanceDto.getTotalGastoDs());
+                String valorDsGasto = String.format("%.2f", cero(balanceDto.getTotalGastoDs()));
                 escpos.write("Dolares D$: ");
                 for (int i = 20; i > valorDsGasto.length(); i--) {
                     escpos.write(" ");
@@ -377,19 +377,19 @@ public class ImpresionService {
                 escpos.writeLF("--------------------------------");
                 escpos.writeLF(center, "DIFERENCIA");
                 String valorGsDiferencia = NumberFormat.getNumberInstance(Locale.GERMAN)
-                        .format(balanceDto.getDiferenciaGs().intValue());
+                        .format((int) cero(balanceDto.getDiferenciaGs()));
                 escpos.write("Guaranies G$: ");
                 for (int i = 18; i > valorGsDiferencia.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorGsDiferencia);
-                String valorRsDiferencia = String.format("%.2f", balanceDto.getDiferenciaRs());
+                String valorRsDiferencia = String.format("%.2f", cero(balanceDto.getDiferenciaRs()));
                 escpos.write("Reales R$: ");
                 for (int i = 21; i > valorRsDiferencia.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorRsDiferencia);
-                String valorDsDiferencia = String.format("%.2f", balanceDto.getDiferenciaDs());
+                String valorDsDiferencia = String.format("%.2f", cero(balanceDto.getDiferenciaDs()));
                 escpos.write("Dolares D$: ");
                 for (int i = 20; i > valorDsDiferencia.length(); i--) {
                     escpos.write(" ");
@@ -398,25 +398,27 @@ public class ImpresionService {
                 // escpos.writeLF("--------------------------------");
                 // escpos.writeLF(center, "VENTA TOTAL");
                 // String valorGsVenta =
-                // NumberFormat.getNumberInstance(Locale.GERMAN).format(balanceDto.getTotalVentaGs().intValue());
+                // NumberFormat.getNumberInstance(Locale.GERMAN).format((int) cero(balanceDto.getTotalVentaGs()));
                 // escpos.write("Guaranies G$: ");
                 // for (int i = 18; i > valorGsVenta.length(); i--) {
                 // escpos.write(" ");
                 // }
                 // escpos.writeLF(valorGsVenta);
-                // String valorRsVenta = String.format("%.2f", balanceDto.getTotalVentaRs());
+                // String valorRsVenta = String.format("%.2f", cero(balanceDto.getTotalVentaRs()));
                 // escpos.write("Reales R$: ");
                 // for (int i = 21; i > valorRsVenta.length(); i--) {
                 // escpos.write(" ");
                 // }
                 // escpos.writeLF(valorRsVenta);
-                // String valorDsVenta = String.format("%.2f", balanceDto.getTotalVentaDs());
+                // String valorDsVenta = String.format("%.2f", cero(balanceDto.getTotalVentaDs()));
                 // escpos.write("Dolares D$: ");
                 // for (int i = 20; i > valorDsVenta.length(); i--) {
                 // escpos.write(" ");
                 // }
                 // escpos.writeLF(valorDsVenta);
                 escpos.writeLF("--------------------------------");
+                escribirQr(escpos, QrTicket.caja(
+                        balanceDto.getSucursal() != null ? balanceDto.getSucursal().getId() : null, balanceDto.getIdCaja()));
                 escpos.feed(4);
                 escpos.writeLF(center, ".......................");
                 escpos.writeLF(center, "FIRMA");
@@ -427,7 +429,6 @@ public class ImpresionService {
                 }
                 escpos.feed(5);
                 escpos.close();
-                if (destino == null) printerOutputStream.close();
                 return true;
             }
         } catch (IOException e) {
@@ -435,6 +436,20 @@ public class ImpresionService {
             return false;
         }
         return false;
+    }
+
+    /**
+     * QR para el lector de caja mayor (ver {@link QrTicket}). Es un extra del ticket: si falla, el ticket
+     * sale sin QR en vez de quedarse sin cierre.
+     */
+    static void escribirQr(EscPos escpos, String codigo) {
+        if (codigo == null) return;
+        try {
+            escpos.feed(1);
+            escpos.write(new QRCode().setSize(6).setJustification(EscPosConst.Justification.Center), codigo);
+        } catch (Exception e) {
+            log.warn("No se pudo imprimir el QR {}: {}", codigo, e.getMessage());
+        }
     }
 
     public void printGasto(GastoDto gastoDto, String printerName, String local) {
@@ -483,19 +498,19 @@ public class ImpresionService {
                 escpos.writeLF(center, "VALORES DE GASTO");
                 escpos.write("Guaranies G$: ");
                 String valorGsAper = NumberFormat.getNumberInstance(Locale.GERMAN)
-                        .format(gastoDto.getRetiroGs().intValue());
+                        .format((int) cero(gastoDto.getRetiroGs()));
                 for (int i = 18; i > valorGsAper.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorGsAper);
                 escpos.write("Reales R$: ");
-                String valorRsAper = String.format("%.2f", gastoDto.getRetiroRs());
+                String valorRsAper = String.format("%.2f", cero(gastoDto.getRetiroRs()));
                 for (int i = 21; i > valorRsAper.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorRsAper);
                 escpos.write("Dolares D$: ");
-                String valorDsAper = String.format("%.2f", gastoDto.getRetiroDs());
+                String valorDsAper = String.format("%.2f", cero(gastoDto.getRetiroDs()));
                 for (int i = 20; i > valorDsAper.length(); i--) {
                     escpos.write(" ");
                 }
@@ -573,19 +588,19 @@ public class ImpresionService {
                 escpos.writeLF(center, "VALORES DE GASTO");
                 escpos.write("Guaranies G$: ");
                 String valorGsAper = NumberFormat.getNumberInstance(Locale.GERMAN)
-                        .format(gastoDto.getRetiroGs().intValue());
+                        .format((int) cero(gastoDto.getRetiroGs()));
                 for (int i = 18; i > valorGsAper.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorGsAper);
                 escpos.write("Reales R$: ");
-                String valorRsAper = String.format("%.2f", gastoDto.getRetiroRs());
+                String valorRsAper = String.format("%.2f", cero(gastoDto.getRetiroRs()));
                 for (int i = 21; i > valorRsAper.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorRsAper);
                 escpos.write("Dolares D$: ");
-                String valorDsAper = String.format("%.2f", gastoDto.getRetiroDs());
+                String valorDsAper = String.format("%.2f", cero(gastoDto.getRetiroDs()));
                 for (int i = 20; i > valorDsAper.length(); i--) {
                     escpos.write(" ");
                 }
@@ -629,19 +644,24 @@ public class ImpresionService {
             java.util.List<NotaTicketDto> notas,
             java.util.List<FormaPagoTicketDto> formasPago) {
         try {
-            selectedPrintService = printerName != null ? printingService.getPrintService(printerName) : null;
-            if (selectedPrintService == null) {
-                selectedPrintService = PrinterOutputStream.getPrintServiceByName("TICKET58");
+            PrintService impresora = printerName != null ? printingService.getPrintService(printerName) : null;
+            if (impresora == null) {
+                try {
+                    impresora = PrinterOutputStream.getPrintServiceByName("TICKET58");
+                } catch (IllegalArgumentException e) {
+                    throw new GraphQLException("No se encontro la impresora "
+                            + (printerName != null ? printerName : "TICKET58"));
+                }
             }
-            if (selectedPrintService != null) {
-                printerOutputStream = new PrinterOutputStream(selectedPrintService);
+            if (impresora != null) {
+                PrinterOutputStream salida = new PrinterOutputStream(impresora);
                 Style center = new Style().setJustification(EscPosConst.Justification.Center);
                 QRCode qrCode = new QRCode();
 
                 BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
                 imageBufferedImage = resize(imageBufferedImage, 200, 100);
                 BitImageWrapper imageWrapper = new BitImageWrapper();
-                EscPos escpos = new EscPos(printerOutputStream);
+                EscPos escpos = new EscPos(salida);
                 Bitonal algorithm = new BitonalThreshold();
                 EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
                 imageWrapper.setJustification(EscPosConst.Justification.Center);
@@ -702,11 +722,26 @@ public class ImpresionService {
                 escpos.write(qrCode.setSize(8).setJustification(EscPosConst.Justification.Center), qrData);
                 escpos.feed(4);
                 escpos.close();
-                printerOutputStream.close();
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            throw fallaImpresion(e);
         }
+    }
+
+    /** La impresora por nombre; si no esta, la falla le llega al que imprime en vez de no imprimir en silencio. */
+    private PrintService impresoraOFalla(String nombre) {
+        PrintService impresora = printingService.getPrintService(nombre);
+        if (impresora == null) {
+            throw new GraphQLException("No se encontro la impresora " + nombre);
+        }
+        return impresora;
+    }
+
+    /** La falla de impresion con su motivo (la salida ya lo trae como «No se pudo imprimir: ...»). */
+    private static GraphQLException fallaImpresion(IOException e) {
+        String motivo = e.getMessage();
+        return new GraphQLException(motivo != null && motivo.startsWith("No se pudo")
+                ? motivo : "No se pudo imprimir: " + motivo);
     }
 
     /**
@@ -770,19 +805,19 @@ public class ImpresionService {
                 escpos.writeLF(center, "VALORES DE RETIRO");
                 escpos.write("Guaranies G$: ");
                 String valorGsAper = NumberFormat.getNumberInstance(Locale.GERMAN)
-                        .format(retiroDto.getRetiroGs().intValue());
+                        .format((int) cero(retiroDto.getRetiroGs()));
                 for (int i = 18; i > valorGsAper.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorGsAper);
                 escpos.write("Reales R$: ");
-                String valorRsAper = String.format("%.2f", retiroDto.getRetiroRs());
+                String valorRsAper = String.format("%.2f", cero(retiroDto.getRetiroRs()));
                 for (int i = 21; i > valorRsAper.length(); i--) {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorRsAper);
                 escpos.write("Dolares D$: ");
-                String valorDsAper = String.format("%.2f", retiroDto.getRetiroDs());
+                String valorDsAper = String.format("%.2f", cero(retiroDto.getRetiroDs()));
                 for (int i = 20; i > valorDsAper.length(); i--) {
                     escpos.write(" ");
                 }
@@ -809,9 +844,9 @@ public class ImpresionService {
             Boolean ticket, String printerName) {
         if (ticket != null && ticket == true) {
             try {
-                selectedPrintService = printingService.getPrintService(printerName);
-                if (selectedPrintService != null) {
-                    printerOutputStream = new PrinterOutputStream(selectedPrintService);
+                PrintService impresora = impresoraOFalla(printerName);
+                if (impresora != null) {
+                    PrinterOutputStream salida = new PrinterOutputStream(impresora);
                     // creating the EscPosImage, need buffered image and algorithm.
                     // Styles
                     Style center = new Style().setJustification(EscPosConst.Justification.Center);
@@ -821,7 +856,7 @@ public class ImpresionService {
                     BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
                     imageBufferedImage = resize(imageBufferedImage, 200, 100);
                     BitImageWrapper imageWrapper = new BitImageWrapper();
-                    EscPos escpos = new EscPos(printerOutputStream);
+                    EscPos escpos = new EscPos(salida);
                     Bitonal algorithm = new BitonalThreshold();
                     EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
                     imageWrapper.setJustification(EscPosConst.Justification.Center);
@@ -855,10 +890,9 @@ public class ImpresionService {
                     escpos.feed(5);
 
                     escpos.close();
-                    printerOutputStream.close();
                 }
             } catch (IOException e) {
-
+                throw fallaImpresion(e);
             }
             return null;
         } else {
@@ -1331,9 +1365,9 @@ public class ImpresionService {
 
     public void imprimirCodigoDeBarra(Codigo codigo) {
         try {
-            selectedPrintService = printingService.getPrintService("adesivo");
-            if (selectedPrintService != null) {
-                printerOutputStream = new PrinterOutputStream(selectedPrintService);
+            PrintService impresora = impresoraOFalla("adesivo");
+            if (impresora != null) {
+                PrinterOutputStream salida = new PrinterOutputStream(impresora);
                 // creating the EscPosImage, need buffered image and algorithm.
                 // Styles
                 Style center = new Style().setJustification(EscPosConst.Justification.Center);
@@ -1343,7 +1377,7 @@ public class ImpresionService {
                 BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
                 imageBufferedImage = resize(imageBufferedImage, 200, 100);
                 RasterBitImageWrapper imageWrapper = new RasterBitImageWrapper();
-                EscPos escpos = new EscPos(printerOutputStream);
+                EscPos escpos = new EscPos(salida);
                 Bitonal algorithm = new BitonalThreshold();
                 EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
                 imageWrapper.setJustification(EscPosConst.Justification.Center);
@@ -1371,19 +1405,19 @@ public class ImpresionService {
                 // escpos.writeLF(center, "VALORES DE GASTO");
                 // escpos.write("Guaranies G$: ");
                 // String valorGsAper =
-                // NumberFormat.getNumberInstance(Locale.GERMAN).format(gastoDto.getRetiroGs().intValue());
+                // NumberFormat.getNumberInstance(Locale.GERMAN).format((int) cero(gastoDto.getRetiroGs()));
                 // for (int i = 18; i > valorGsAper.length(); i--) {
                 // escpos.write(" ");
                 // }
                 // escpos.writeLF(valorGsAper);
                 // escpos.write("Reales R$: ");
-                // String valorRsAper = String.format("%.2f", gastoDto.getRetiroRs());
+                // String valorRsAper = String.format("%.2f", cero(gastoDto.getRetiroRs()));
                 // for (int i = 21; i > valorRsAper.length(); i--) {
                 // escpos.write(" ");
                 // }
                 // escpos.writeLF(valorRsAper);
                 // escpos.write("Dolares D$: ");
-                // String valorDsAper = String.format("%.2f", gastoDto.getRetiroDs());
+                // String valorDsAper = String.format("%.2f", cero(gastoDto.getRetiroDs()));
                 // for (int i = 20; i > valorDsAper.length(); i--) {
                 // escpos.write(" ");
                 // }
@@ -1412,10 +1446,9 @@ public class ImpresionService {
                 // }
                 escpos.feed(5);
                 escpos.close();
-                printerOutputStream.close();
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            throw fallaImpresion(e);
         }
     }
     @Data
@@ -2141,9 +2174,9 @@ public class ImpresionService {
         if (ticket != null && ticket) {
             // ===== ESC/POS TICKET =====
             try {
-                selectedPrintService = printingService.getPrintService(printerName);
-                if (selectedPrintService != null) {
-                    printerOutputStream = new PrinterOutputStream(selectedPrintService);
+                PrintService impresora = impresoraOFalla(printerName);
+                if (impresora != null) {
+                    PrinterOutputStream salida = new PrinterOutputStream(impresora);
                     Style center = new Style().setJustification(EscPosConst.Justification.Center);
                     QRCode qrCode = new QRCode();
 
@@ -2151,7 +2184,7 @@ public class ImpresionService {
                             .read(new File(imageService.getImagePath() + "logo.png"));
                     imageBufferedImage = resize(imageBufferedImage, 200, 100);
                     BitImageWrapper imageWrapper = new BitImageWrapper();
-                    EscPos escpos = new EscPos(printerOutputStream);
+                    EscPos escpos = new EscPos(salida);
                     Bitonal algorithm = new BitonalThreshold();
                     EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
                     imageWrapper.setJustification(EscPosConst.Justification.Center);
@@ -2221,10 +2254,10 @@ public class ImpresionService {
                     escpos.writeLF(center, "Comprador");
                     escpos.feed(5);
                     escpos.close();
-                    printerOutputStream.close();
                 }
             } catch (IOException e) {
                 log.error("Error al imprimir ticket de pedido: {}", e.getMessage(), e);
+                throw fallaImpresion(e);
             }
             return null;
         } else {
@@ -2337,5 +2370,10 @@ public class ImpresionService {
                 throw new RuntimeException("Error al generar PDF del pedido: " + e.getMessage(), e);
             }
         }
+    }
+
+    /** Un monto nulo se imprime como 0. */
+    private static double cero(Double valor) {
+        return valor != null ? valor : 0.0;
     }
 }

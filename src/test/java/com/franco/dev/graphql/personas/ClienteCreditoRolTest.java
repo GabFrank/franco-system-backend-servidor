@@ -176,6 +176,48 @@ class ClienteCreditoRolTest {
     }
 
     @Test
+    void editarSinSucursalConservaLaGuardada() {
+        sesion("VER PERSONAS");
+        com.franco.dev.domain.empresarial.Sucursal sucursal = new com.franco.dev.domain.empresarial.Sucursal();
+        sucursal.setId(13L);
+        Cliente c = new Cliente();
+        c.setId(1L);
+        c.setPersona(persona);
+        c.setSucursal(sucursal);
+        when(service.findById(1L)).thenReturn(Optional.of(c));
+        assertSame(sucursal, resolver.saveCliente(edicion(null)).getSucursal());
+    }
+
+    @Test
+    void editarConSucursalLaCambia() {
+        sesion("VER PERSONAS");
+        com.franco.dev.domain.empresarial.Sucursal vieja = new com.franco.dev.domain.empresarial.Sucursal();
+        vieja.setId(13L);
+        com.franco.dev.domain.empresarial.Sucursal nueva = new com.franco.dev.domain.empresarial.Sucursal();
+        nueva.setId(24L);
+        com.franco.dev.service.empresarial.SucursalService sucursalService = mock(com.franco.dev.service.empresarial.SucursalService.class);
+        when(sucursalService.findById(24L)).thenReturn(Optional.of(nueva));
+        ReflectionTestUtils.setField(resolver, "sucursalService", sucursalService);
+        Cliente c = new Cliente();
+        c.setId(1L);
+        c.setPersona(persona);
+        c.setSucursal(vieja);
+        when(service.findById(1L)).thenReturn(Optional.of(c));
+        ClienteInput in = edicion(null);
+        in.setSucursalId(24L);
+        assertSame(nueva, resolver.saveCliente(in).getSucursal());
+    }
+
+    @Test
+    void elAltaSinSucursalQuedaSinSucursal() {
+        sesion("VER USUARIOS");
+        ClienteInput alta = new ClienteInput();
+        alta.setPersonaId(7L);
+        alta.setCredito(0f);
+        assertNull(resolver.saveCliente(alta).getSucursal());
+    }
+
+    @Test
     void editarUnClienteQueNoExisteSeRechaza() {
         sesion("VER PERSONAS");
         when(service.findById(2L)).thenReturn(Optional.empty());
@@ -193,5 +235,17 @@ class ClienteCreditoRolTest {
         c.setSaldoActual(new java.math.BigDecimal("250000"));
         when(service.findById(1L)).thenReturn(Optional.of(c));
         assertEquals(0, new java.math.BigDecimal("250000").compareTo(resolver.saveCliente(edicion(null)).getSaldoActual()));
+    }
+
+    @Test
+    void editarConservaLaFechaDeAlta() {
+        sesion("VER PERSONAS");
+        java.time.LocalDateTime alta = java.time.LocalDateTime.of(2024, 3, 15, 10, 30);
+        Cliente c = new Cliente();
+        c.setId(1L);
+        c.setPersona(persona);
+        c.setCreadoEn(alta);
+        when(service.findById(1L)).thenReturn(Optional.of(c));
+        assertEquals(alta, resolver.saveCliente(edicion(null)).getCreadoEn());
     }
 }

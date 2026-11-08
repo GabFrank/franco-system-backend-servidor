@@ -9,6 +9,8 @@ type MovimientoCajaVirtual {
     referenciaId: Int
     descripcion: String
     usuario: Usuario
+    # Funcionario que retira o rinde la plata, elegido al registrar el egreso. Null = se muestra el usuario.
+    responsable: Funcionario
     cajaOrigen: CajaVirtual
     cajaDestino: CajaVirtual
     activo: Boolean
@@ -45,6 +47,7 @@ enum OrigenMovimientoTipo {
     CHEQUE
     ACREDITACION_POS
     MALETIN
+    VUELTO
 }
 
 input MovimientoCajaVirtualInput {
@@ -95,7 +98,7 @@ extend type Mutation {
     Ingreso, egreso o ajuste en una o mas monedas, todo o nada. El ajuste lleva signo. Con
     claveIdempotencia, el mismo pedido repetido no se registra de nuevo.
     """
-    registrarMovimientosCajaVirtual(cajaVirtualId: ID!, tipoMovimiento: CajaVirtualTipoMovimiento!, montos: [MontoCajaVirtualInput!]!, descripcion: String, claveIdempotencia: String): Boolean!
+    registrarMovimientosCajaVirtual(cajaVirtualId: ID!, tipoMovimiento: CajaVirtualTipoMovimiento!, montos: [MontoCajaVirtualInput!]!, descripcion: String, claveIdempotencia: String, responsableId: ID): Boolean!
     """Transferencia entre dos cajas en una o mas monedas, todo o nada."""
     realizarTransferenciasCajaVirtual(origenId: ID!, destinoId: ID!, montos: [MontoCajaVirtualInput!]!, descripcion: String, claveIdempotencia: String): Boolean!
 }

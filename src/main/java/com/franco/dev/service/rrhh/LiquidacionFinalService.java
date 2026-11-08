@@ -85,6 +85,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     private final PrestamoCuotaDescuentoService prestamoCuotaDescuentoService;
     private final ValeCuotaDescuentoService valeCuotaDescuentoService;
     private final ItemProgramadoAplicacionService itemProgramadoAplicacionService;
+    private final LiquidacionItemProgramadoService itemProgramadoService;
 
     @Override
     public LiquidacionFinalRepository getRepository() {
@@ -498,11 +499,20 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         return it;
     }
 
-    /** Igual que en la mensual: el ítem de un programado se anula desde Items programados, no se toca acá. */
+    /** El ítem de un programado no se edita: se elimina (y anula el programado) o se anula desde Items programados. */
     private static void exigirNoProgramado(LiquidacionFinalItem it) {
-        if (LiquidacionItemProgramado.REFERENCIA_TIPO.equals(it.getReferenciaTipo())) {
-            throw new GraphQLException("Este item viene de un item programado: anulalo desde Items programados");
+        if (esProgramado(it)) {
+            throw new GraphQLException("Este item viene de un item programado: eliminalo del finiquito o anulalo desde Items programados");
         }
+    }
+
+    private static boolean esProgramado(LiquidacionFinalItem it) {
+        return LiquidacionItemProgramado.REFERENCIA_TIPO.equals(it.getReferenciaTipo());
+    }
+
+    /** Para el resolver: eliminar un ítem programado anula el programado, y eso pide RRHH LIQUIDAR. */
+    public boolean esItemProgramado(Long itemId) {
+        return itemRepository.findById(itemId).map(LiquidacionFinalService::esProgramado).orElse(false);
     }
 
     @Transactional
@@ -524,13 +534,36 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         return it;
     }
 
+    /**
+     * Elimina un ítem del BORRADOR. Si viene de un item programado, también anula ese programado: si no,
+     * seguiría PENDIENTE y volvería a entrar al regenerar.
+     */
     @Transactional
     public Boolean eliminarItem(Long itemId) {
         LiquidacionFinalItem it = itemRepository.findById(itemId).orElse(null);
         if (it == null) return false;
-        LiquidacionFinal lf = borradorDelItem(it);
-        exigirNoProgramado(it);
+        if (it.getLiquidacionFinal() == null) throw new GraphQLException("Item sin liquidación asociada");
+        // Lock del finiquito: aprobar en paralelo no puede guardar el total de antes de borrar. Tiene que ser
+        // la primera carga del finiquito en el request (liquidacionFinal es LAZY): lockById no refresca una instancia ya cargada.
+        LiquidacionFinal lf = repository.lockById(it.getLiquidacionFinal().getId())
+                .orElseThrow(() -> new GraphQLException("Liquidación final no encontrada"));
+        if (lf.getEstado() != LiquidacionFinalEstado.BORRADOR)
+            throw new GraphQLException("Solo se pueden modificar items en estado BORRADOR");
+        boolean programado = esProgramado(it);
+        Long programadoId = it.getReferenciaId();
+        if (programado && programadoId == null) {
+            throw new GraphQLException("El item #" + itemId + " dice venir de un item programado pero no indica cuál");
+        }
         itemRepository.deleteById(itemId);
+        if (programado) {
+            // anular() busca finiquitos vivos con este programado: el ítem ya no tiene que figurar.
+            itemRepository.flush();
+            try {
+                itemProgramadoService.anular(programadoId);
+            } catch (GraphQLException e) {
+                throw new GraphQLException("No se pudo eliminar el item: " + e.getMessage(), e);
+            }
+        }
         recalcularTotal(lf);
         return true;
     }
@@ -599,12 +632,28 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
 
     @Transactional
     public LiquidacionFinal aprobar(Long id, Long aprobadoPorId) {
-        LiquidacionFinal lf = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion final no encontrada"));
+        // Con lock: no aprueba con el total de antes de que otro elimine un ítem en paralelo.
+        LiquidacionFinal lf = repository.lockById(id).orElseThrow(() -> new GraphQLException("Liquidacion final no encontrada"));
         if (lf.getEstado() != LiquidacionFinalEstado.BORRADOR) throw new GraphQLException("Solo se aprueba un BORRADOR");
+        // Aprobado con total negativo no se puede pagar y queda trabado en APROBADA (issue #515).
+        exigirTotalNoNegativo(lf);
         lf.setEstado(LiquidacionFinalEstado.APROBADA);
         if (aprobadoPorId != null) lf.setAprobadoPor(usuarioService.findById(aprobadoPorId).orElse(null));
         lf.setFechaAprobacion(LocalDateTime.now());
         return repository.save(lf);
+    }
+
+    /**
+     * Total negativo = los descuentos superan a los haberes: el funcionario le debe a la empresa
+     * y no hay finiquito que pagarle. Lo comparten aprobar, pagar y el pago por tesoreria.
+     */
+    public static void exigirTotalNoNegativo(LiquidacionFinal lf) {
+        BigDecimal total = lf.getTotalLiquidado() != null ? lf.getTotalLiquidado() : BigDecimal.ZERO;
+        if (total.signum() < 0) {
+            throw new GraphQLException("El finiquito #" + lf.getId() + " tiene total negativo ("
+                    + total.toPlainString() + "): los descuentos superan a los haberes, no hay nada que pagar."
+                    + " Corrija los items o cobre la diferencia por separado.");
+        }
     }
 
     @Transactional
@@ -625,15 +674,9 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     public LiquidacionFinal pagar(Long id, Long cajaVirtualId) {
         LiquidacionFinal lf = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion final no encontrada"));
         if (lf.getEstado() != LiquidacionFinalEstado.APROBADA) throw new GraphQLException("Solo se paga una APROBADA");
-        // Total negativo = los descuentos superan a los haberes: el funcionario le debe a la
-        // empresa y no hay finiquito que pagarle. Sin este corte el EGRESO se postea con la
-        // cantidad negada y saca de la caja justamente lo que habria que cobrar.
-        BigDecimal total = lf.getTotalLiquidado() != null ? lf.getTotalLiquidado() : BigDecimal.ZERO;
-        if (total.signum() < 0) {
-            throw new GraphQLException("El finiquito #" + lf.getId() + " tiene total negativo ("
-                    + total.toPlainString() + "): los descuentos superan a los haberes, no hay nada que pagar."
-                    + " Corrija los items o cobre la diferencia por separado.");
-        }
+        // Sin este corte el EGRESO se postea con la cantidad negada y saca de la caja
+        // justamente lo que habria que cobrar.
+        exigirTotalNoNegativo(lf);
 
         // Antes de mover plata: una cuota descontada que se cobro por caja despues de generar el borrador
         // se cobraria dos veces (issue #300). Toma las cuotas con lock antes que el saldo de caja.

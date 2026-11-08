@@ -10,6 +10,8 @@ import com.roshka.sifen.core.types.TiTipDocRec;
 import com.franco.dev.domain.financiero.DocumentoElectronico;
 import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.financiero.FacturaLegalItem;
+import com.franco.dev.domain.financiero.PdvCaja;
+import graphql.GraphQLException;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
 import com.franco.dev.domain.financiero.dto.ResumenFacturasDto;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
@@ -293,6 +295,10 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     public Boolean reimprimirFacturaLegal(Long id, Long sucId, String printerName) {
         FacturaLegal facturaLegal = service.findByIdAndSucursalId(id, sucId);
+        if (facturaLegal == null) {
+            throw new GraphQLException("La factura " + id + " no existe");
+        }
+        seg.requireUsuarioORol(usuariosDe(facturaLegal), TesoreriaSecurityService.ANALISIS_DE_CAJA);
         List<FacturaLegalItem> facturaLegalItemList = facturaLegalItemService.findByFacturaLegalId(id, sucId);
         try {
             printTicket58mmFactura(facturaLegal.getVenta(), facturaLegal, facturaLegalItemList, printerName);
@@ -301,6 +307,25 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             e.printStackTrace();
         }
         return false;
+    }
+
+    /**
+     * Quienes pueden reimprimirla sin rol: quien la emitió y el dueño de su caja (o de la caja de su venta: el alta
+     * del PDV casi nunca copia la caja). Solo ids, sin inicializar al usuario.
+     */
+    /** Las descargas: el mismo acceso que reimprimir. Una factura inexistente sigue su camino de siempre. */
+    private void exigirAccesoAFactura(Long id, Long sucId) {
+        FacturaLegal facturaLegal = service.findByIdAndSucursalId(id, sucId);
+        seg.requireUsuarioORol(facturaLegal != null ? usuariosDe(facturaLegal) : java.util.Collections.emptyList(),
+                TesoreriaSecurityService.ANALISIS_DE_CAJA);
+    }
+
+    public static List<Long> usuariosDe(FacturaLegal facturaLegal) {
+        PdvCaja caja = facturaLegal.getCaja() != null ? facturaLegal.getCaja()
+                : facturaLegal.getVenta() != null ? facturaLegal.getVenta().getCaja() : null;
+        return java.util.Arrays.asList(
+                facturaLegal.getUsuario() != null ? facturaLegal.getUsuario().getId() : null,
+                caja != null && caja.getUsuario() != null ? caja.getUsuario().getId() : null);
     }
 
     public void printTicket58mmFactura(Venta venta, FacturaLegal facturaLegal,
@@ -640,37 +665,10 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             // escpos.write( "Conservar este papel ");
             escpos.feed(5);
 
-            try {
-                if (true) {
-                    escpos.close();
-                    if (destino == null) {
-                        printerOutputStream.close();
-                        this.printerOutputStream = null;
-                    }
-                } else {
-                    this.printerOutputStream = printerOutputStream;
-                }
-                // if (facturaLegal.getId() == null) {
-                // Long numero = timbradoDetalleService.aumentarNumeroFactura(timbradoDetalle);
-                // facturaLegal.setTimbradoDetalleId(timbradoDetalle.getId());
-                // if(venta!=null){
-                // facturaLegal.setVentaId(venta.getId());
-                // facturaLegal.setFecha(venta.getCreadoEn());
-                // facturaLegal.setClienteId(venta.getCliente().getId());
-                // facturaLegal.setCajaId(venta.getCaja().getId());
-                // }
-                // facturaLegal.setTotalFinal(totalFinal);
-                // facturaLegal.setIvaParcial5(totalIva5);
-                // facturaLegal.setIvaParcial10(totalIva10);
-                // facturaLegal.setViaTributaria(false);
-                // facturaLegal.setAutoimpreso(true);
-                // facturaLegal.setNumeroFactura(numero.intValue());
-                // facturaLegal.setTotalParcial5(ventaIva5);
-                // facturaLegal.setTotalParcial10(ventaIva10);
-                // facturaLegal.setTotalParcial0(ventaIva0);
-                // }
-            } catch (IOException ioe) {
-                ioe.printStackTrace();
+            // Cierra la salida de este request (no el campo, que puede ser de otro) y avisa si el envio fallo.
+            escpos.close();
+            if (destino == null) {
+                this.printerOutputStream = null;
             }
         }
     }
@@ -1159,18 +1157,10 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             escpos.writeLF(center.setBold(true), "GRACIAS POR LA PREFERENCIA");
             escpos.feed(5);
 
-            try {
-                if (true) {
-                    escpos.close();
-                    if (destino == null) {
-                        printerOutputStream.close();
-                        this.printerOutputStream = null;
-                    }
-                } else {
-                    this.printerOutputStream = printerOutputStream;
-                }
-            } catch (IOException ioe) {
-                ioe.printStackTrace();
+            // Cierra la salida de este request (no el campo, que puede ser de otro) y avisa si el envio fallo.
+            escpos.close();
+            if (destino == null) {
+                this.printerOutputStream = null;
             }
         }
     }
@@ -1592,6 +1582,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public String descargarXmlFacturaElectronica(Long id, Long sucId) {
+        exigirAccesoAFactura(id, sucId);
         try {
             // Obtener factura legal
             FacturaLegal factura = service.findByIdAndSucursalId(id, sucId);
@@ -1649,6 +1640,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public String descargarPdfFacturaElectronica(Long id, Long sucId) {
+        exigirAccesoAFactura(id, sucId);
         return Base64.getEncoder().encodeToString(generarPdfFacturaElectronica(id, sucId));
     }
 

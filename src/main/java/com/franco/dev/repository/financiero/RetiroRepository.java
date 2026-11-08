@@ -67,6 +67,8 @@ public interface RetiroRepository extends HelperRepository<Retiro, EmbebedPrimar
 
     public List<Retiro> findByCajaSalidaId(Long id);
 
+    List<Retiro> findByCajaSalidaIdAndSucursalId(Long cajaSalidaId, Long sucursalId);
+
     /** Retiros destinados a una caja mayor, aún no posteados y ya concluidos (poller de tesorería, F3). */
     @Query("select r from Retiro r where r.cajaVirtualId is not null and r.movimientoCajaVirtualId is null " +
             "and r.estado in (com.franco.dev.domain.financiero.enums.EstadoRetiro.CONCLUIDO, " +

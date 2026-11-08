@@ -34,7 +34,7 @@ class CajasWithFiltersActivoIT {
     private PdvCajaService service;
 
     private Page<PdvCaja> buscar(Boolean activo, int size) {
-        return service.findAllWithFilters(null, null, null, null, null, null, SUCURSAL, null, activo, PageRequest.of(0, size));
+        return service.findAllWithFilters(null, null, null, null, null, null, SUCURSAL, null, activo, null, PageRequest.of(0, size));
     }
 
     @Test

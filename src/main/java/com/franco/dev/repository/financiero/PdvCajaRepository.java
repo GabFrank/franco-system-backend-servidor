@@ -58,8 +58,11 @@ public interface PdvCajaRepository extends HelperRepository<PdvCaja, Long>, JpaS
             "(:verificado is null or c.verificado = :verificado) and " +
             "(:activo is null or c.activo = :activo) and " +
             "((:cajaId is not null) or (cast(:fechaInicio as timestamp) is null or cast(:fechaFin as timestamp) is null) or c.creadoEn between :fechaInicio and :fechaFin) and " +
+            // Turno: minuto del día en la zona del negocio (no la de la sesión), rotado para que el turno sea un rango (CajaTurnos.rango).
+            "mod(cast(hour(function('timezone', :zona, c.creadoEn)) as integer) * 60 + cast(minute(function('timezone', :zona, c.creadoEn)) as integer) + :offset, 1440) >= :desde and " +
+            "mod(cast(hour(function('timezone', :zona, c.creadoEn)) as integer) * 60 + cast(minute(function('timezone', :zona, c.creadoEn)) as integer) + :offset, 1440) < :hasta and " +
             "(c.estado = :estado or cast(:estado as com.franco.dev.domain.financiero.enums.PdvCajaEstado) is null) order by c.creadoEn desc")
-    public Page<PdvCaja> findAllWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, LocalDateTime fechaInicio, LocalDateTime fechaFin, Long sucId, Boolean verificado, Boolean activo, Pageable pageable);
+    public Page<PdvCaja> findAllWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, LocalDateTime fechaInicio, LocalDateTime fechaFin, Long sucId, Boolean verificado, Boolean activo, String zona, int offset, int desde, int hasta, Pageable pageable);
 
     List<PdvCaja> findBySucursalIdAndActivo(Long sucursalId, Boolean activo);
 

@@ -5,11 +5,13 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.CajaBalance;
 import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.financiero.SolicitudAperturaCaja;
+import com.franco.dev.domain.administrativo.enums.Turno;
 import com.franco.dev.domain.financiero.enums.PdvCajaEstado;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.financiero.input.ConteoInput;
 import com.franco.dev.graphql.financiero.input.ConteoMonedaInput;
 import com.franco.dev.graphql.financiero.input.PdvCajaInput;
+import com.franco.dev.service.financiero.CajaTurnos;
 import com.franco.dev.service.financiero.ConteoService;
 import com.franco.dev.service.financiero.FilialCajaProxyService;
 import com.franco.dev.service.financiero.MaletinService;
@@ -81,6 +83,9 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     @Autowired
     private FilialCajaProxyService filialCajaProxyService;
+
+    @Autowired
+    private CajaTurnos cajaTurnos;
 
     @Autowired
     private com.franco.dev.service.financiero.PdvCajaReaperturaConsulta reaperturaConsulta;
@@ -178,10 +183,16 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findByDate(inicio, fin, sucId);
     }
 
-    public Page<PdvCaja> cajasWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, Boolean activo, int page, int size) {
+    public Page<PdvCaja> cajasWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, Boolean activo, Turno turno, int page, int size) {
         seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         Pageable pageable = PageRequest.of(page, size);
-        return service.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio, fechaFin, sucId, verificado, activo, pageable);
+        return service.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio, fechaFin, sucId, verificado, activo, turno, pageable);
+    }
+
+    /** Turnos de esta instancia para el filtro de la lista de Cajas (los cortes difieren entre bodega y farmacia). */
+    public List<CajaTurnos.Ventana> cajaTurnos() {
+        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
+        return cajaTurnos.ventanas();
     }
 
     /**

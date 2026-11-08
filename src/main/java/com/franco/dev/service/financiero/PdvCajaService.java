@@ -3,6 +3,7 @@ package com.franco.dev.service.financiero;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.*;
+import com.franco.dev.domain.administrativo.enums.Turno;
 import com.franco.dev.domain.financiero.enums.EstadoRetiro;
 import com.franco.dev.domain.financiero.enums.PdvCajaEstado;
 import com.franco.dev.domain.operaciones.Venta;
@@ -66,6 +67,8 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
     private ConteoService conteoService;
     @Autowired
     private SucursalService sucursalService;
+    @Autowired
+    private CajaTurnos cajaTurnos;
 
     @Override
     public PdvCajaRepository getRepository() {
@@ -533,8 +536,10 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
         return repository.findByUsuarioIdOrderByIdDesc(id, pageable);
     }
 
-    public Page<PdvCaja> findAllWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, Boolean activo, Pageable pageable) {
-        return repository.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio != null ? stringToDate(fechaInicio) : null, fechaFin != null ? stringToDate(fechaFin) : null, sucId, verificado, activo, pageable);
+    public Page<PdvCaja> findAllWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, Boolean activo, Turno turno, Pageable pageable) {
+        int[] r = cajaTurnos.rango(turno);
+        return repository.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio != null ? stringToDate(fechaInicio) : null, fechaFin != null ? stringToDate(fechaFin) : null, sucId, verificado, activo,
+                cajaTurnos.zona(), r[0], r[1], r[2], pageable);
     }
 
     public Page<PdvCaja> findAllForAnalisisDiferencias(

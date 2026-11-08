@@ -59,6 +59,13 @@ type PdvCajaReapertura {
     creadoEn: Date
 }
 
+# Turno de apertura del filtro de Cajas: desde su corte hasta el siguiente (hasta excluido).
+type CajaTurno {
+    turno: Turno
+    desde: String
+    hasta: String
+}
+
 type PdvCajaPage {
     getTotalPages: Int
     getTotalElements: Int
@@ -87,11 +94,12 @@ extend type Query {
     balancePorCajaIdAndSucursalId(id: ID!, sucId: ID): CajaBalance
     balanceActiveCajasBySucursalId(sucursalId: ID!): [CajaBalance]
     cajasPorUsuarioId(id:ID!, page: Int, size: Int):[PdvCaja]
-    cajasWithFilters(cajaId:ID,estado: PdvCajaEstado , maletinId: ID, cajeroId: ID, fechaInicio:String , fechaFin:String, sucId: ID, verificado: Boolean, activo: Boolean, page:Int, size:Int):PdvCajaPage
+    cajasWithFilters(cajaId:ID,estado: PdvCajaEstado , maletinId: ID, cajeroId: ID, fechaInicio:String , fechaFin:String, sucId: ID, verificado: Boolean, activo: Boolean, turno: Turno, page:Int, size:Int):PdvCajaPage
     cajasAnalisisDiferencias(cajaId:ID, cajaAnteriorId: ID, estado: PdvCajaEstado , maletinId: ID, maletinDescripcion: String, cajeroId: ID, fechaInicio:String , fechaFin:String, sucId: ID, verificado: Boolean, difEstado:String, page:Int, size:Int):PdvCajaPage
     verificarCaja(cajaId:ID!, sucursalId: ID!, usuarioId:ID!, verificado: Boolean): Boolean
     findCajasWithVentaObservaciones:[PdvCaja]!
     reaperturasPorCaja(cajaId: ID!, sucursalId: ID!): [PdvCajaReapertura]
+    cajaTurnos: [CajaTurno]
 }
 
 extend type Mutation {

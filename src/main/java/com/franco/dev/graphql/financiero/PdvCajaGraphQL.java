@@ -11,7 +11,6 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.financiero.input.ConteoInput;
 import com.franco.dev.graphql.financiero.input.ConteoMonedaInput;
 import com.franco.dev.graphql.financiero.input.PdvCajaInput;
-import com.franco.dev.service.financiero.CajaTurnos;
 import com.franco.dev.service.financiero.ConteoService;
 import com.franco.dev.service.financiero.FilialCajaProxyService;
 import com.franco.dev.service.financiero.MaletinService;
@@ -83,9 +82,6 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     @Autowired
     private FilialCajaProxyService filialCajaProxyService;
-
-    @Autowired
-    private CajaTurnos cajaTurnos;
 
     @Autowired
     private com.franco.dev.service.financiero.PdvCajaReaperturaConsulta reaperturaConsulta;
@@ -187,12 +183,6 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         Pageable pageable = PageRequest.of(page, size);
         return service.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio, fechaFin, sucId, verificado, activo, turno, pageable);
-    }
-
-    /** Turnos de esta instancia para el filtro de la lista de Cajas (los cortes difieren entre bodega y farmacia). */
-    public List<CajaTurnos.Ventana> cajaTurnos() {
-        seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
-        return cajaTurnos.ventanas();
     }
 
     /**

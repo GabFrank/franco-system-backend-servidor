@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
- * Filtro por turno de la lista de Cajas: cajasWithFilters con turno, cortes de bodega (default).
+ * Filtro por turno de la lista de Cajas: cajasWithFilters con turno.
  *
  * NO corre en CI (no hay DB): se activa con -Dit.caja=true. Solo lectura y @Transactional.
  * Correrlo también con -Duser.timezone=UTC: la hora tiene que salir igual (se convierte en la query).
@@ -47,12 +47,12 @@ class CajasWithFiltersTurnoIT {
     @Autowired
     private JdbcTemplate jdbc;
 
-    /** Ventanas de bodega por SQL, con la hora en Asunción explícita: no depende de la zona de la sesión.
+    /** Ventanas por SQL, con la hora en Asunción explícita: no depende de la zona de la sesión.
      *  La lista hace join con maletín y usuario: una caja sin alguno de los dos nunca sale. */
     private static final Map<Turno, String> VENTANA = Map.of(
-            Turno.DIA, "h >= time '07:00' and h < time '15:30'",
-            Turno.NOCHE, "h >= time '15:30' and h < time '23:00'",
-            Turno.MADRUGADA, "(h >= time '23:00' or h < time '07:00')");
+            Turno.DIA, "h >= time '04:00' and h < time '12:30'",
+            Turno.NOCHE, "h >= time '12:30' and h < time '23:00'",
+            Turno.MADRUGADA, "(h >= time '23:00' or h < time '04:00')");
 
     @Test
     @DisplayName("cada turno trae exactamente las cajas que da el SQL con la hora de Asunción")

@@ -537,7 +537,7 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
     }
 
     public Page<PdvCaja> findAllWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, Boolean activo, Turno turno, Pageable pageable) {
-        int[] r = cajaTurnos.rango(turno);
+        int[] r = CajaTurnos.rango(turno);
         return repository.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio != null ? stringToDate(fechaInicio) : null, fechaFin != null ? stringToDate(fechaFin) : null, sucId, verificado, activo,
                 cajaTurnos.zona(), r[0], r[1], r[2], pageable);
     }

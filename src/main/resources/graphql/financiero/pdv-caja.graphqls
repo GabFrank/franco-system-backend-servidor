@@ -59,13 +59,6 @@ type PdvCajaReapertura {
     creadoEn: Date
 }
 
-# Turno de apertura del filtro de Cajas: desde su corte hasta el siguiente (hasta excluido).
-type CajaTurno {
-    turno: Turno
-    desde: String
-    hasta: String
-}
-
 type PdvCajaPage {
     getTotalPages: Int
     getTotalElements: Int
@@ -99,7 +92,6 @@ extend type Query {
     verificarCaja(cajaId:ID!, sucursalId: ID!, usuarioId:ID!, verificado: Boolean): Boolean
     findCajasWithVentaObservaciones:[PdvCaja]!
     reaperturasPorCaja(cajaId: ID!, sucursalId: ID!): [PdvCajaReapertura]
-    cajaTurnos: [CajaTurno]
 }
 
 extend type Mutation {

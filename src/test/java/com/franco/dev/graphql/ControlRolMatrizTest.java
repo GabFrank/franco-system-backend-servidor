@@ -70,7 +70,7 @@ class ControlRolMatrizTest {
                 // issue #524: listados de cajas y verificar, solo ANALISIS DE CAJA
                 f(PdvCajaGraphQL.class, "verificarCaja", AC), f(PdvCajaGraphQL.class, "pdvCajas", AC),
                 f(PdvCajaGraphQL.class, "countPdvCaja", AC), f(PdvCajaGraphQL.class, "cajasPorFecha", AC),
-                f(PdvCajaGraphQL.class, "cajasWithFilters", AC), f(PdvCajaGraphQL.class, "cajaTurnos", AC), f(PdvCajaGraphQL.class, "cajasAnalisisDiferencias", AC),
+                f(PdvCajaGraphQL.class, "cajasWithFilters", AC), f(PdvCajaGraphQL.class, "cajasAnalisisDiferencias", AC),
                 f(PdvCajaGraphQL.class, "balancePorFecha", AC), f(PdvCajaGraphQL.class, "balanceActiveCajasBySucursalId", AC),
                 f(PdvCajaGraphQL.class, "cajaAbiertoPorSucursal", AC),
                 f(PdvCajaGraphQL.class, "findCajasWithVentaObservaciones", AC),

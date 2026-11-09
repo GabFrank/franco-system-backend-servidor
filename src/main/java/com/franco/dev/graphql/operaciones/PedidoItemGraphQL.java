@@ -5,6 +5,7 @@ import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.graphql.operaciones.input.PedidoItemInput;
 import com.franco.dev.service.operaciones.PedidoItemService;
 import com.franco.dev.service.operaciones.PedidoService;
+import com.franco.dev.service.operaciones.compras.RenglonPendienteService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.PresentacionService;
 import com.franco.dev.service.productos.ProductoService;
@@ -18,6 +19,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 import java.util.List;
@@ -47,6 +50,12 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private PedidoService pedidoService;
 
+    @Autowired
+    private RenglonPendienteService renglonPendienteService;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
     // ===== BASIC CRUD OPERATIONS =====
 
     public Optional<PedidoItem> pedidoItem(Long id) {
@@ -59,7 +68,22 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     public Boolean deletePedidoItem(Long id) {
         seg.exigirCompras();
-        return service.deleteById(id);
+        // Los renglones de la factura vuelven a pendiente ANTES de borrar (la FK es ON DELETE SET NULL y después ya
+        // no se los encuentra), y en la misma transacción: si el borrado falla, quedan como estaban y se responde false
+        // como siempre.
+        try {
+            return new TransactionTemplate(transactionManager).execute(estado -> {
+                renglonPendienteService.liberarDelItem(id);
+                if (!Boolean.TRUE.equals(service.deleteById(id))) {
+                    estado.setRollbackOnly();
+                    return false;
+                }
+                return true;
+            });
+        } catch (RuntimeException e) {
+            logger.warn("No se pudo borrar el ítem del pedido {}: {}", id, e.getMessage());
+            return false;
+        }
     }
 
     // ===== QUERY OPERATIONS =====

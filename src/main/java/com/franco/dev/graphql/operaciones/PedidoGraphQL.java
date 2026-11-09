@@ -388,6 +388,9 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
             Pedido pedido = service.finalizarCreacion(pedidoId);
             return pedido;
 
+        } catch (GraphQLException e) {
+            // Mensajes para el usuario (p. ej. renglones de la factura sin cargar): llegan tal cual
+            throw e;
         } catch (Exception e) {
             System.err.println("Error finalizando creación del pedido " + pedidoId + ": " + e.getMessage());
             e.printStackTrace();

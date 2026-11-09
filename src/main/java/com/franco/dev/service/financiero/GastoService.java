@@ -98,7 +98,25 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
             return true;
         }
         repository.marcarCancelado(id, sucId, true);
+        emitirGastoCancelado(repository.findByIdAndSucursalId(id, sucId));
         return true;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.franco.dev.eventos.EventoEmisor eventoEmisor;
+
+    /**
+     * gasto.cancelado (srv #587), en la TX de quien cancela. Lo llaman solo los dos caminos que pasan el
+     * gasto de no cancelado a cancelado (cancelarGasto y la anulacion del pago en GastoTesoreriaService):
+     * una segunda llamada sobre un gasto ya cancelado no avisa de nuevo.
+     */
+    public void emitirGastoCancelado(Gasto g) {
+        if (g == null || eventoEmisor == null || !eventoEmisor.encendido()) return;
+        eventoEmisor.emitirProyeccionDe(g.getSucursalId(), "gasto.cancelado", "media",
+                g.getUsuario() != null ? g.getUsuario().getId() : null,
+                "gasto/" + g.getSucursalId() + "/" + g.getId(),
+                () -> com.franco.dev.eventos.EventosCentral.gasto(g),
+                () -> com.franco.dev.eventos.EventosCentral.atributosGasto(g));
     }
 
     public List<com.franco.dev.domain.financiero.GastoPorCategoria> gastosPorCategoria(String inicio, String fin,

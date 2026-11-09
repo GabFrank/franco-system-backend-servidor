@@ -117,4 +117,41 @@ public final class EventosCentral {
         a.put("monto_gs", monto);
         return a;
     }
+    /** gasto.cancelado: la misma forma que el gasto.creado de la filial. */
+    public static Map<String, Object> gasto(com.franco.dev.domain.financiero.Gasto g) {
+        Map<String, Object> d = new LinkedHashMap<>();
+        d.put("id", g.getId());
+        if (g.getCaja() != null) d.put("caja", EventosVenta.mapa("id", g.getCaja().getId()));
+        d.put("sucursalId", g.getSucursalId());
+        if (g.getTipoGasto() != null) {
+            Map<String, Object> t = EventosVenta.mapa("id", g.getTipoGasto().getId());
+            t.put("descripcion", g.getTipoGasto().getDescripcion());
+            d.put("tipoGasto", t);
+        }
+        d.put("valorGs", g.getRetiroGs());
+        d.put("valorRs", g.getRetiroRs());
+        d.put("valorDs", g.getRetiroDs());
+        d.put("sucursal", EventosVenta.mapa("id", g.getSucursalId()));
+        d.put("observacion", g.getObservacion());
+        d.put("cancelado", g.getCancelado());
+        d.put("retiroGs", g.getRetiroGs());
+        d.put("retiroRs", g.getRetiroRs());
+        d.put("retiroDs", g.getRetiroDs());
+        d.put("vueltoGs", g.getVueltoGs());
+        d.put("vueltoRs", g.getVueltoRs());
+        d.put("vueltoDs", g.getVueltoDs());
+        if (g.getResponsable() != null && g.getResponsable().getPersona() != null)
+            d.put("responsable", EventosVenta.mapa("persona", EventosVenta.mapa("nombre", g.getResponsable().getPersona().getNombre())));
+        if (g.getUsuario() != null) d.put("usuario", EventosVenta.usuario(g.getUsuario()));
+        d.put("creadoEn", g.getCreadoEn() != null ? g.getCreadoEn().toString() : null);
+        return d;
+    }
+
+    public static Map<String, Object> atributosGasto(com.franco.dev.domain.financiero.Gasto g) {
+        Map<String, Object> a = new LinkedHashMap<>();
+        a.put("caja_id", g.getCaja() != null ? g.getCaja().getId() : null);
+        a.put("tipo_gasto_id", g.getTipoGasto() != null ? g.getTipoGasto().getId() : null);
+        a.put("monto_gs", g.getRetiroGs());
+        return a;
+    }
 }

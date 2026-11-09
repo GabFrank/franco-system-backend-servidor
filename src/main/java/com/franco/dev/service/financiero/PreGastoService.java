@@ -15,6 +15,7 @@ import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.personas.Funcionario;
+import com.franco.dev.repository.financiero.GastoRendicionRepository;
 import com.franco.dev.repository.financiero.GastoRepository;
 import com.franco.dev.repository.financiero.PreGastoRepository;
 import com.franco.dev.service.administrativo.AutorizacionAuditService;
@@ -97,6 +98,7 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
     private final VehiculoService vehiculoService;
     private final EquipoService equipoService;
     private final GastoRepository gastoRepository;
+    private final GastoRendicionRepository gastoRendicionRepository;
     private final PreGastoDetalleFinanzasService preGastoDetalleFinanzasService;
     private final PdvCajaService pdvCajaService;
     private final MonedaService monedaService;
@@ -300,6 +302,9 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         PreGasto preGasto = repository.findByIdAndSucursalId(id, sucId);
         if (preGasto == null)
             return null;
+        if (preGasto.getEstado() != EstadoPreGasto.AUTORIZADO) {
+            throw new RuntimeException("Solo se puede enviar a tesorería una solicitud autorizada.");
+        }
         if (preGasto.getMontoSolicitado() == null || preGasto.getMontoSolicitado().signum() <= 0) {
             throw new RuntimeException("El gasto no tiene un monto válido para enviar a tesorería.");
         }
@@ -332,8 +337,22 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                 preGasto.getMontoSolicitado().doubleValue(), descripcion,
                 preGasto.getFechaVencimiento(), usuario);
 
+        // El funcionario que pidió es quien retira la plata en la caja mayor: queda como
+        // responsable, y al pagarse el gasto de la caja mayor dice a quién se le entregó.
+        Funcionario responsable = preGasto.getFuncionario() != null && preGasto.getFuncionario().getId() != null
+                ? funcionarioService.findByPersonaId(preGasto.getFuncionario().getId())
+                : null;
+        if (responsable != null) {
+            solicitudPago.setResponsable(responsable);
+            solicitudPago = solicitudPagoService.getRepository().save(solicitudPago);
+        }
+
         preGasto.setEstado(EstadoPreGasto.ENVIADO_A_TESORERIA);
         preGasto.setSolicitudPagoId(solicitudPago.getId());
+        // Si el funcionario había escaneado el QR en una sucursal pero no retiró ahí, esa
+        // confirmación no vale: el retiro ahora lo marca el pago de tesorería.
+        preGasto.setRetiroConfirmadoEn(null);
+        preGasto.setRetiroConfirmadoFuncionario(null);
         return save(preGasto);
     }
 
@@ -352,8 +371,40 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                 : EstadoPreGasto.ENVIADO_A_TESORERIA;
         if (pg.getEstado() != destino) {
             pg.setEstado(destino);
+            if (destino == EstadoPreGasto.PAGADO) {
+                registrarRetiroDeTesoreria(pg, sp);
+            } else {
+                deshacerRetiroDeTesoreria(pg);
+            }
             repository.save(pg);
         }
+    }
+
+    /**
+     * El pago de tesorería es el retiro: recién ahí el funcionario se lleva la plata de la caja
+     * mayor. Sin QR, a diferencia de la sucursal, porque lo entrega tesorería en persona.
+     */
+    private void registrarRetiroDeTesoreria(PreGasto pg, com.franco.dev.domain.operaciones.SolicitudPago sp) {
+        BigDecimal retirado = sp.getMontoPagado() != null && sp.getMontoPagado().signum() > 0
+                ? sp.getMontoPagado()
+                : (sp.getMontoTotal() != null ? BigDecimal.valueOf(sp.getMontoTotal()) : BigDecimal.ZERO);
+        BigDecimal gastado = pg.getMontoGastado() != null ? pg.getMontoGastado() : BigDecimal.ZERO;
+        pg.setMontoRetirado(retirado);
+        pg.setSaldoDevolver(retirado.subtract(gastado).max(BigDecimal.ZERO));
+        pg.setRetiroConfirmadoEn(LocalDateTime.now());
+        pg.setRetiroConfirmadoFuncionario(pg.getFuncionario());
+        pg.setRindioGasto(false);
+        recalcularEstadoRendicion(pg);
+    }
+
+    /** Pago anulado: la plata volvió a la caja mayor y la solicitud vuelve a esperar el pago. */
+    private void deshacerRetiroDeTesoreria(PreGasto pg) {
+        pg.setMontoVuelto(null);
+        pg.setMontoRetirado(BigDecimal.ZERO);
+        pg.setSaldoDevolver(BigDecimal.ZERO);
+        pg.setRetiroConfirmadoEn(null);
+        pg.setRetiroConfirmadoFuncionario(null);
+        pg.setEstadoRendicion(null);
     }
 
     public PreGasto completar(Long id, Long sucId, Boolean rindioGasto, Double montoGastadoInformado,
@@ -372,6 +423,14 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         if (gastoAsociado == null) {
             gastoAsociado = gastoRepository.findFirstByPreGastoIdAndPreGastoSucursalIdOrderByCreadoEnDescIdDesc(id,
                     sucId);
+        }
+        // Retirada en tesorería: el gasto lo crea el pago de la caja mayor, atado a la
+        // solicitud de pago y no a esta solicitud (GastoTesoreriaService).
+        boolean retiroPorTesoreria = false;
+        if (gastoAsociado == null && preGasto.getSolicitudPagoId() != null
+                && preGasto.getEstado() == EstadoPreGasto.PAGADO) {
+            gastoAsociado = gastoRepository.findFirstBySolicitudPagoId(preGasto.getSolicitudPagoId());
+            retiroPorTesoreria = gastoAsociado != null;
         }
         if (gastoAsociado == null) {
             throw new RuntimeException(
@@ -424,7 +483,9 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         }
 
         if (rendidoGs != null && rendidoRs != null && rendidoDs != null) {
-            if (gasto != null) {
+            // En la caja mayor el vuelto lo registra VueltoEgresoService cuando el funcionario
+            // devuelve la plata: no se pisa con lo que dice la rendición.
+            if (gasto != null && !retiroPorTesoreria) {
                 gasto.setVueltoGs(retiroGs.subtract(rendidoGs).max(BigDecimal.ZERO).doubleValue());
                 gasto.setVueltoRs(retiroRs.subtract(rendidoRs).max(BigDecimal.ZERO).doubleValue());
                 gasto.setVueltoDs(retiroDs.subtract(rendidoDs).max(BigDecimal.ZERO).doubleValue());
@@ -495,10 +556,10 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         if (preGasto == null) {
             throw new RuntimeException("Solicitud de gasto no encontrada.");
         }
-        if (preGasto.getEstado() != EstadoPreGasto.AUTORIZADO) {
-            throw new RuntimeException("La solicitud no está autorizada para retiro.");
-        }
-        if (preGasto.getQrToken() == null || preGasto.getQrToken().trim().isEmpty()) {
+        validarRetiroPorSucursal(preGasto);
+        // Código nuevo cada vez que la caja muestra el QR: el que quedó de antes no sirve,
+        // así el funcionario tiene que estar frente a la caja para confirmar.
+        if (preGasto.getRetiroConfirmadoEn() == null) {
             preGasto.setQrToken(UUID.randomUUID().toString().substring(0, 8).toUpperCase());
             super.save(preGasto);
         }
@@ -509,15 +570,31 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         return new QrRetiroPreGastoPayloadDTO(codigoQr, preGastoId, sucursalId, preGasto.getQrToken());
     }
 
+    /**
+     * El retiro con QR es solo para la caja de una sucursal. SERVIDOR no tiene caja, y una
+     * solicitud enviada a tesorería se retira en la caja mayor al pagarse (sin QR).
+     */
+    private void validarRetiroPorSucursal(PreGasto preGasto) {
+        if (SUCURSAL_SERVIDOR.equals(preGasto.getSucursalId())) {
+            throw new RuntimeException(
+                    "Esta solicitud es de SERVIDOR: se retira en tesorería (caja mayor), no con QR.");
+        }
+        if (preGasto.getEstado() == EstadoPreGasto.ENVIADO_A_TESORERIA
+                || preGasto.getEstado() == EstadoPreGasto.PAGADO) {
+            throw new RuntimeException("Esta solicitud se envió a tesorería: se retira en la caja mayor.");
+        }
+        if (preGasto.getEstado() != EstadoPreGasto.AUTORIZADO) {
+            throw new RuntimeException("La solicitud no está autorizada para retiro.");
+        }
+    }
+
     @Transactional
     public PreGasto confirmarRetiroFuncionario(ConfirmarRetiroFuncionarioInput input) {
         PreGasto preGasto = repository.findByIdAndSucursalId(input.getPreGastoId(), input.getSucursalId());
         if (preGasto == null) {
             throw new RuntimeException("Solicitud de gasto no encontrada.");
         }
-        if (preGasto.getEstado() != EstadoPreGasto.AUTORIZADO) {
-            throw new RuntimeException("La solicitud no está autorizada para retiro.");
-        }
+        validarRetiroPorSucursal(preGasto);
         if (preGasto.getQrToken() == null || !preGasto.getQrToken().equalsIgnoreCase(input.getQrToken())) {
             throw new RuntimeException("Código QR inválido o expirado.");
         }
@@ -547,7 +624,8 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         if (preGasto.getEstado() != EstadoPreGasto.AUTORIZADO) {
             throw new RuntimeException("La solicitud no está autorizada para retiro.");
         }
-        if (preGasto.getRetiroConfirmadoEn() == null) {
+        boolean sinQr = Boolean.TRUE.equals(input.getSinQr());
+        if (preGasto.getRetiroConfirmadoEn() == null && !sinQr) {
             throw new RuntimeException("El funcionario aún no confirmó el retiro desde su dispositivo móvil.");
         }
         if (preGasto.getGastoCajaRegistroId() != null) {
@@ -561,6 +639,11 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                 ? resolverMontosRetiroArrayDesdeLineas(input.getLineas())
                 : calcularMontosRetiro(preGasto);
         aplicarRetiroEnPreGasto(preGasto, montos[0], montos[1], montos[2]);
+        if (preGasto.getRetiroConfirmadoEn() == null) {
+            // Entrega directa del cajero, sin QR: el retiro queda confirmado al entregar.
+            preGasto.setRetiroConfirmadoEn(LocalDateTime.now());
+            preGasto.setRetiroConfirmadoFuncionario(preGasto.getFuncionario());
+        }
         preGasto.setCajaId(input.getCajaId());
         preGasto.setGastoCajaRegistroId(input.getGastoRegistroId());
         super.save(preGasto);
@@ -573,6 +656,70 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
             gastoRepository.save(gastoRetiro);
         }
         return repository.findByIdAndSucursalId(input.getPreGastoId(), input.getSucursalId());
+    }
+
+    public PreGasto buscarPorGastoCaja(Long gastoId, Long sucursalId) {
+        if (gastoId == null || sucursalId == null) {
+            return null;
+        }
+        return repository.buscarPorGastoCaja(gastoId, sucursalId);
+    }
+
+    public PreGasto buscarPorSolicitudPago(Long solicitudPagoId) {
+        return solicitudPagoId == null ? null : repository.findBySolicitudPagoId(solicitudPagoId);
+    }
+
+    /**
+     * El cajero de una sucursal cargó el vuelto del gasto con que se retiró la solicitud. Pisa la
+     * rendición del teléfono: el vuelto es lo que de verdad volvió a la caja. Sin solicitud atada
+     * al gasto devuelve null (es un gasto común de la caja).
+     */
+    @Transactional
+    public PreGasto registrarVueltoDeCaja(Long gastoId, Long sucursalId, Double vueltoGs, Double vueltoRs,
+            Double vueltoDs) {
+        PreGasto preGasto = buscarPorGastoCaja(gastoId, sucursalId);
+        if (preGasto == null) {
+            return null;
+        }
+        if (preGasto.getEstado() != EstadoPreGasto.TRAMITE && preGasto.getEstado() != EstadoPreGasto.COMPLETADO) {
+            throw new RuntimeException("La solicitud #" + preGasto.getId() + " no está retirada.");
+        }
+        return aplicarVueltoYGuardar(preGasto, obtenerMontoMoneda(preGasto, vueltoGs, vueltoRs, vueltoDs));
+    }
+
+    /**
+     * Deja la rendición según el vuelto (en la moneda de la solicitud).
+     * <ul>
+     *   <li>Con vuelto: rendido = retirado - vuelto, nada más por devolver, rendición completa.</li>
+     *   <li>{@code null} (se anularon los vueltos): la rendición vuelve a salir del teléfono.</li>
+     * </ul>
+     */
+    @Transactional
+    public PreGasto aplicarVueltoYGuardar(PreGasto preGasto, BigDecimal vuelto) {
+        BigDecimal retirado = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado() : BigDecimal.ZERO;
+        if (vuelto == null) {
+            preGasto.setMontoVuelto(null);
+            BigDecimal rendido = gastoRendicionRepository
+                    .findByPreGastoIdAndSucursalId(preGasto.getId(), preGasto.getSucursalId()).stream()
+                    .map(r -> r.getMontoTotal() != null ? r.getMontoTotal() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            preGasto.setMontoGastado(rendido);
+            preGasto.setSaldoDevolver(retirado.subtract(rendido).max(BigDecimal.ZERO));
+            if (rendido.signum() <= 0) {
+                preGasto.setFechaRendicion(null);
+            }
+        } else {
+            BigDecimal v = vuelto.max(BigDecimal.ZERO);
+            if (retirado.signum() > 0) {
+                v = v.min(retirado);
+            }
+            preGasto.setMontoVuelto(v);
+            preGasto.setMontoGastado(retirado.subtract(v).max(BigDecimal.ZERO));
+            preGasto.setSaldoDevolver(BigDecimal.ZERO);
+            preGasto.setFechaRendicion(LocalDateTime.now());
+        }
+        recalcularEstadoRendicion(preGasto);
+        return super.save(preGasto);
     }
 
     public boolean preGastoRetiroConfirmado(Long preGastoId, Long sucursalId) {
@@ -700,8 +847,8 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         if (preGasto == null) {
             throw new RuntimeException("Solicitud de gasto no encontrada.");
         }
-        if (preGasto.getEstado() != EstadoPreGasto.TRAMITE) {
-            throw new RuntimeException("Solo se puede devolver saldo en solicitudes en trámite.");
+        if (preGasto.getEstado() != EstadoPreGasto.TRAMITE && preGasto.getEstado() != EstadoPreGasto.PAGADO) {
+            throw new RuntimeException("Solo se puede devolver saldo en solicitudes ya retiradas.");
         }
         BigDecimal saldo = preGasto.getSaldoDevolver() != null ? preGasto.getSaldoDevolver() : BigDecimal.ZERO;
         if (saldo.compareTo(BigDecimal.ZERO) <= 0) {
@@ -771,6 +918,12 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
     }
 
     private void recalcularEstadoRendicion(PreGasto preGasto) {
+        // Con vuelto registrado está todo rendido: lo que no volvió a la caja se gastó.
+        if (preGasto.getMontoVuelto() != null) {
+            preGasto.setEstadoRendicion("RENDIDO_COMPLETO");
+            preGasto.setRindioGasto(true);
+            return;
+        }
         BigDecimal retirado = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado() : BigDecimal.ZERO;
         BigDecimal gastado = preGasto.getMontoGastado() != null ? preGasto.getMontoGastado() : BigDecimal.ZERO;
         BigDecimal solicitado = preGasto.getMontoSolicitado() != null ? preGasto.getMontoSolicitado() : BigDecimal.ZERO;

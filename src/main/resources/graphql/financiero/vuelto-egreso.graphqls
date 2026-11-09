@@ -4,6 +4,8 @@ type EgresoParaVuelto {
     movimiento: MovimientoCajaVirtual
     devuelto: Float
     pendiente: Float
+    "La solicitud de gasto pagada con este egreso, si el pago fue de una sola."
+    preGasto: PreGasto
 }
 
 type EgresoParaVueltoPage {

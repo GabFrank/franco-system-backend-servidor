@@ -36,6 +36,9 @@ class PagoProveedorServiceTest {
 
     private SolicitudPago sp;
 
+    private TesoreriaSecurityService seguridad;
+    private com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository detalleRepo;
+
     @BeforeEach
     void setUp() {
         solicitudPagoService = mock(SolicitudPagoService.class);
@@ -69,7 +72,8 @@ class PagoProveedorServiceTest {
         // motor de pago, no el espejo.
         GastoTesoreriaService gastoTesoreriaService = mock(GastoTesoreriaService.class);
         // El ACL de cajas acota detalleDePago; estos tests no lo ejercitan.
-        TesoreriaSecurityService seguridad = mock(TesoreriaSecurityService.class);
+        seguridad = mock(TesoreriaSecurityService.class);
+        this.detalleRepo = detalleRepo;
         // Por defecto la clave es nueva (o no hay): la idempotencia deja correr la operacion.
         idempotenciaService = mock(IdempotenciaService.class);
         when(idempotenciaService.ejecutar(any(), any(), any(), any(), any(), any(), any()))
@@ -328,6 +332,30 @@ class PagoProveedorServiceTest {
     }
 
     // ── Anulación por evento ──
+
+    @Test
+    void anular_sin_acceso_a_la_caja_del_pago_responde_el_permiso_antes_de_mirar_el_estado() {
+        // Pago ya anulado: todos sus detalles lo estan, y la caja igual se valida primero.
+        com.franco.dev.repository.operaciones.PagoRepository pagoRepo =
+                mock(com.franco.dev.repository.operaciones.PagoRepository.class);
+        when(pagoService.getRepository()).thenReturn(pagoRepo);
+        com.franco.dev.domain.operaciones.Pago anulado = new com.franco.dev.domain.operaciones.Pago();
+        anulado.setId(501L);
+        anulado.setEstado(com.franco.dev.domain.operaciones.enums.PagoEstado.CANCELADO);
+        when(pagoRepo.lockById(501L)).thenReturn(Optional.of(anulado));
+        com.franco.dev.domain.financiero.PagoSolicitudDetalle d = new com.franco.dev.domain.financiero.PagoSolicitudDetalle();
+        d.setAnulado(true);
+        d.setCajaVirtualId(4L);
+        d.setMovimientoCajaVirtualId(70L);
+        when(detalleRepo.findByPagoIdOrderByCreadoEnAsc(501L)).thenReturn(java.util.Collections.singletonList(d));
+        doThrow(new GraphQLException("No tenes permiso para mover plata en esta caja.")).when(seguridad).requireEscrituraCaja(4L);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anularPagoCpp(501L, "X", null));
+
+        assertTrue(e.getMessage().contains("No tenes permiso"), e.getMessage());
+        verify(pagoRepo, never()).findEstadoById(501L);
+        verify(tesoreriaService, never()).revertir(any(), any(), any());
+    }
 
     @Test
     void anular_toma_el_pago_con_lock_y_un_pago_ya_anulado_no_toca_el_ledger() {

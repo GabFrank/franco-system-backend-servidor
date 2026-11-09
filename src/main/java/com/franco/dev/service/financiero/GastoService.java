@@ -22,6 +22,8 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
 
     private final GastoRepository repository;
     private final org.springframework.context.ApplicationEventPublisher publisher;
+    /** Avisos por webhook (srv #587). */
+    private final com.franco.dev.eventos.EventoEmisor eventoEmisor;
 
     public static final DecimalFormat df = new DecimalFormat("#,###.##");
 
@@ -102,8 +104,6 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
         return true;
     }
 
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private com.franco.dev.eventos.EventoEmisor eventoEmisor;
 
     /**
      * gasto.cancelado (srv #587), en la TX de quien cancela. Lo llaman solo los dos caminos que pasan el

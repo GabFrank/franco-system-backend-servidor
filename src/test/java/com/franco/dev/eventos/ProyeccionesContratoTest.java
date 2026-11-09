@@ -138,8 +138,12 @@ class ProyeccionesContratoTest {
     void tarjetaCumpleElCatalogoYNoSacaLaImagen() {
         VentaTarjeta vt = new VentaTarjeta();
         vt.setId(1L);
-        vt.setVentaId(10L);
-        vt.setCajaId(15L);
+        Venta vVt = new Venta();
+        vVt.setId(10L);
+        vt.setVenta(vVt);
+        PdvCaja cVt = new PdvCaja();
+        cVt.setId(15L);
+        vt.setCaja(cVt);
         vt.setSucursalId(7L);
         vt.setEstado("COMPLETADO");
         vt.setMonto(new BigDecimal("50000"));

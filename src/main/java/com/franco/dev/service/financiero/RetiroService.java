@@ -26,12 +26,9 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
     private final RetiroVerificacionRepository verificacionRepository;
     private final TesoreriaSecurityService seguridad;
 
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private com.franco.dev.eventos.EventoEmisor eventoEmisor;
-
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    @org.springframework.context.annotation.Lazy
-    private RetiroDetalleService retiroDetalleService;
+    /** Avisos por webhook (srv #587). Provider: RetiroDetalleService depende de este servicio. */
+    private final com.franco.dev.eventos.EventoEmisor eventoEmisor;
+    private final org.springframework.beans.factory.ObjectProvider<RetiroDetalleService> retiroDetalleService;
 
     @Override
     public RetiroRepository getRepository() {
@@ -168,8 +165,8 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
         if (eventoEmisor == null || !eventoEmisor.encendido()) return;
         Retiro r = repository.findByIdAndSucursalId(id, sucId);
         if (r == null) return;
-        java.util.List<com.franco.dev.domain.financiero.RetiroDetalle> det =
-                retiroDetalleService != null ? retiroDetalleService.findByRetiroId(id, sucId) : null;
+        RetiroDetalleService rds = retiroDetalleService != null ? retiroDetalleService.getIfAvailable() : null;
+        java.util.List<com.franco.dev.domain.financiero.RetiroDetalle> det = rds != null ? rds.findByRetiroId(id, sucId) : null;
         Long usuario = null;
         try {
             usuario = seguridad.currentUsuario() != null ? seguridad.currentUsuario().getId() : null;

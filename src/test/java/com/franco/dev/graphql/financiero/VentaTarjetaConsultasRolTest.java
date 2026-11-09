@@ -44,6 +44,7 @@ class VentaTarjetaConsultasRolTest {
         resolver = rol.resolver(VentaTarjetaGraphQL.class);
         service = mock(VentaTarjetaService.class);
         ReflectionTestUtils.setField(resolver, "service", service);
+        ReflectionTestUtils.setField(resolver, "txManager", org.mockito.Mockito.mock(org.springframework.transaction.PlatformTransactionManager.class));
         VentaTarjeta ajeno = cobro(COBRO_AJENO, 5L);
         VentaTarjeta propio = cobro(COBRO_PROPIO, USUARIO_ID);
         when(service.findByIdAndSucursalId(COBRO_AJENO, SUC)).thenReturn(ajeno);

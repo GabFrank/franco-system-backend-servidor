@@ -42,7 +42,7 @@ class RetiroServiceTest {
         publisher = mock(ApplicationEventPublisher.class);
         verificacionRepository = mock(RetiroVerificacionRepository.class);
         seguridad = mock(TesoreriaSecurityService.class);
-        service = new RetiroService(repository, publisher, verificacionRepository, seguridad);
+        service = new RetiroService(repository, publisher, verificacionRepository, seguridad, null, null);
 
         // La instancia que devuelve el lock queda a propósito con el estado viejo (nulo): si el
         // servicio decidiera con ella, los tests de repetición fallarían.

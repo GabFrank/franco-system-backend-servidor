@@ -339,6 +339,16 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.ejecutarRetiro(input);
     }
 
+    public PreGasto preGastoPorGastoCaja(Long gastoId, Long sucursalId) {
+        return service.buscarPorGastoCaja(gastoId, sucursalId);
+    }
+
+    public PreGasto registrarVueltoPreGastoCaja(Long gastoId, Long sucursalId, Double vueltoGs, Double vueltoRs,
+            Double vueltoDs) {
+        seg.requireAnyRole("VENTA TOUCH");
+        return service.registrarVueltoDeCaja(gastoId, sucursalId, vueltoGs, vueltoRs, vueltoDs);
+    }
+
     public PreGasto registrarDevolucionSaldoPreGasto(DevolucionSaldoPreGastoInput input) {
         seg.requireAnyRole("ANALISIS DE CAJA");
         return service.registrarDevolucionSaldo(input);

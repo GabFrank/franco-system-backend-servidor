@@ -40,6 +40,9 @@ public final class CatalogoEventos {
 
     private static final Map<String, Tipo> TIPOS = new LinkedHashMap<>();
 
+    /** Tipos que emite el central; los demas salen de cada filial. */
+    private static final Set<String> NODO_CENTRAL = new LinkedHashSet<>();
+
     private static final Clase O = Clase.OPERATIVO;
     private static final Clase P = Clase.PERSONAL;
     private static final Clase S = Clase.SENSIBLE;
@@ -169,6 +172,24 @@ public final class CatalogoEventos {
         agregar("gasto.editado", Familia.CAMBIO, atrGasto, gasto);
         agregar("gasto.eliminado", Familia.ALERTA, atrGasto, gasto);
 
+        // ---------------------------------------------------------------- central (srv #587, C1)
+        // Ocurren en el central y llegan a la filial por replica, sin pasar por su logica: los emite el central.
+        agregar("retiro.cancelado", Familia.ALERTA, atrRetiro, retiro);
+        agregar("retiro.reactivado", Familia.CAMBIO, atrRetiro, retiro);
+        agregar("gasto.cancelado", Familia.ALERTA, atrGasto, gasto);
+        Map<String, Clase> ventaCancelada = rutas(
+                "id", O, "estado", O, "sucursalId", O, "sucursal.id", O, "creadoEn", O, "totalGs", O,
+                "caja.id", O, "caja.fechaCierre", O, "cajaCerrada", O,
+                "canceladoPor.id", O, "canceladoPor.nickname", P, "canceladoEn", O,
+                "tarjetas.id", O, "tarjetas.estado", O, "tarjetas.monto", O, "tarjetas.moneda.id", O,
+                "tarjetas.terminalPos.id", O, "tarjetas.codigoAutorizacion", S, "tarjetas.numeroBoleta", S,
+                "tarjetas.identificadorTransaccion", S);
+        Set<String> atrVentaCancelada = set("caja_id", "caja_cerrada", "monto_gs");
+        agregar("venta.cancelada", Familia.ALERTA, atrVentaCancelada, ventaCancelada);
+        agregar("venta.reactivada", Familia.CAMBIO, atrVentaCancelada, ventaCancelada);
+        NODO_CENTRAL.addAll(Arrays.asList("retiro.cancelado", "retiro.reactivado", "gasto.cancelado",
+                "venta.cancelada", "venta.reactivada"));
+
         // ---------------------------------------------------------------- items cancelados
         agregar("venta.items_cancelados", Familia.ALERTA, set("caja_id"), rutas(
                 "venta.id", O, "caja.id", O, "usuario.id", O,
@@ -199,6 +220,11 @@ public final class CatalogoEventos {
 
     public static boolean tieneProyeccion(String nombre) {
         return TIPOS.containsKey(nombre);
+    }
+
+    /** "central" o "filial": el nodo donde ocurre el hecho y que emite el evento. */
+    public static String nodo(String nombre) {
+        return NODO_CENTRAL.contains(nombre) ? "central" : "filial";
     }
 
     public static Map<String, Tipo> todos() {

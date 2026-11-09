@@ -37,6 +37,15 @@ public class PreGastoResolver implements GraphQLResolver<PreGasto> {
         return preGastoDetalleFinanzasService.findByPreGastoIdAndSucursalId(preGasto.getId(), preGasto.getSucursalId());
     }
 
+    /**
+     * Nunca se devuelve: el código solo viaja en el QR que muestra la caja (qrRetiroPreGasto).
+     * Si la solicitud lo trajera, el funcionario podría confirmar el retiro desde el celular sin
+     * estar frente a la caja. El campo sigue en el schema porque el desktop lo pide.
+     */
+    public String qrToken(PreGasto preGasto) {
+        return null;
+    }
+
     public BigDecimal montoPendienteRetiro(PreGasto preGasto) {
         BigDecimal solicitado = preGasto.getMontoSolicitado() != null ? preGasto.getMontoSolicitado() : BigDecimal.ZERO;
         BigDecimal retirado = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado() : BigDecimal.ZERO;
@@ -111,12 +120,27 @@ public class PreGastoResolver implements GraphQLResolver<PreGasto> {
         return preGasto.getRetiroConfirmadoFuncionario();
     }
 
+    /**
+     * La rendición cuenta solo con la plata ya entregada: en la caja de una sucursal es
+     * TRAMITE (después de ejecutarRetiro) y COMPLETADO; en tesorería es PAGADO. Sin PAGADO, lo
+     * rendido de un gasto de la caja mayor se mostraba como «No rindió».
+     */
+    private boolean conRetiroHecho(PreGasto preGasto) {
+        switch (preGasto.getEstado()) {
+            case TRAMITE:
+            case COMPLETADO:
+            case PAGADO:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     public String estadoRendicion(PreGasto preGasto) {
         if (preGasto.getEstado() == null) {
             return "NO_RENDIDO";
         }
-        String estado = preGasto.getEstado().name();
-        if (!"TRAMITE".equals(estado) && !"COMPLETADO".equals(estado)) {
+        if (!conRetiroHecho(preGasto)) {
             return "NO_RENDIDO";
         }
         if (preGasto.getEstadoRendicion() != null && !preGasto.getEstadoRendicion().trim().isEmpty()) {
@@ -137,8 +161,7 @@ public class PreGastoResolver implements GraphQLResolver<PreGasto> {
         if (preGasto.getEstado() == null) {
             return false;
         }
-        String estado = preGasto.getEstado().name();
-        if (!"TRAMITE".equals(estado) && !"COMPLETADO".equals(estado)) {
+        if (!conRetiroHecho(preGasto)) {
             return false;
         }
         return Boolean.TRUE.equals(preGasto.getRindioGasto());
@@ -148,8 +171,7 @@ public class PreGastoResolver implements GraphQLResolver<PreGasto> {
         if (preGasto.getEstado() == null) {
             return null;
         }
-        String estado = preGasto.getEstado().name();
-        if (!"TRAMITE".equals(estado) && !"COMPLETADO".equals(estado)) {
+        if (!conRetiroHecho(preGasto)) {
             return null;
         }
         return preGasto.getFechaRendicion();

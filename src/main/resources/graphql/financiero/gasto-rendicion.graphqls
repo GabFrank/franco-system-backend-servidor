@@ -60,6 +60,8 @@ input EjecutarRetiroPreGastoInput {
     usuarioId: ID
     gastoRegistroId: ID!
     lineas: [RetiroPreGastoLineaInput!]
+    # true: el cajero entrega sin que el funcionario escanee el QR.
+    sinQr: Boolean
 }
 
 type LineaRetiroSugerida {

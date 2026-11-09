@@ -98,6 +98,29 @@ public class EventoEmisor {
         return sucursalId;
     }
 
+    /**
+     * En el central el hecho es de una sucursal (la venta cancelada es de la sucursal 7) aunque lo emita
+     * el nodo central: se guarda esa sucursal y el filtro sucursal_ids de la suscripcion la usa (#587).
+     */
+    private static final ThreadLocal<Long> SUCURSAL_DEL_HECHO = new ThreadLocal<>();
+
+    private Long sucursalActual() {
+        Long s = SUCURSAL_DEL_HECHO.get();
+        return s != null ? s : sucursalId;
+    }
+
+    /** emitirProyeccion para un hecho de otra sucursal (el central). Nunca lanza. */
+    public void emitirProyeccionDe(Long sucursalDelHecho, String tipo, String gravedad, Long usuarioId, String sujeto,
+                                   java.util.function.Supplier<Map<String, Object>> datos,
+                                   java.util.function.Supplier<Map<String, Object>> atributos) {
+        SUCURSAL_DEL_HECHO.set(sucursalDelHecho);
+        try {
+            emitirProyeccion(tipo, gravedad, usuarioId, sujeto, datos, atributos);
+        } finally {
+            SUCURSAL_DEL_HECHO.remove();
+        }
+    }
+
     public long getFallosEmisor() {
         return fallosEmisor.get();
     }
@@ -144,7 +167,7 @@ public class EventoEmisor {
             Object[] pausados = (Object[]) f[1];
             Object[] sucs = (Object[]) f[2];
             if (!algunoCoincide(eventos, tipo) || algunoCoincide(pausados, tipo)) continue;
-            if (sucs != null && sucs.length > 0 && !contiene(sucs, sucursalId)) continue;
+            if (sucs != null && sucs.length > 0 && !contiene(sucs, sucursalActual())) continue;
             hay = true;
             per |= Boolean.TRUE.equals(f[3]);
             sen |= Boolean.TRUE.equals(f[4]);
@@ -273,7 +296,7 @@ public class EventoEmisor {
                     ps.setString(1, eventoId);
                     ps.setString(2, tipo);
                     ps.setString(3, gravedad);
-                    ps.setObject(4, sucursalId);
+                    ps.setObject(4, sucursalActual());
                     ps.setObject(5, usuarioId);
                     ps.setString(6, sujeto);
                     ps.setString(7, json);

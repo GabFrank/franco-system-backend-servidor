@@ -60,6 +60,13 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
     private EntityManager em;
 
     @Autowired
+    private com.franco.dev.eventos.EventoEmisor eventoEmisor;
+
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.franco.dev.service.financiero.TesoreriaSecurityService tesoreriaSecurityService;
+
+    @Autowired
     private MovimientoCajaService movimientoCajaService;
 
     @Autowired
@@ -321,12 +328,14 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             }
             // La venta con tarjeta sigue a la venta: cancelada, su cupon queda libre para otra; reactivada,
             // vuelve al estado que le corresponde por sus datos. Baja a la filial por central_filialN_pub.
+            List<VentaTarjeta> tarjetasCambiadas = new ArrayList<>();
             for (VentaTarjeta vt : ventaTarjetaService.findAllByVentaIdAndSucursalId(venta.getId(),
                     venta.getSucursalId())) {
                 String nuevo = estadoTarjetaParaVenta(vt, venta.getEstado());
                 if (!nuevo.equals(vt.getEstado())) {
                     vt.setEstado(nuevo);
                     ventaTarjetaService.save(vt);
+                    tarjetasCambiadas.add(vt);
                 }
             }
             Delivery delivery = venta.getDelivery();
@@ -348,11 +357,30 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             if (venta.getEstado() == VentaEstado.CANCELADA) {
                 darDeBajaFactura(venta, facturaYaCanceladaEnSifen);
             }
+            // Aviso por webhook (srv #587): en la misma TX; si falla el INSERT, la cancelacion sigue
+            final Venta v = venta;
+            if (eventoEmisor.encendido()) eventoEmisor.emitirProyeccionDe(v.getSucursalId(), com.franco.dev.eventos.EventosCentral.tipoCancelacion(v),
+                    v.getEstado() == VentaEstado.CANCELADA ? "media" : "baja", usuarioActualId(), "venta/" + v.getId(),
+                    () -> com.franco.dev.eventos.EventosCentral.ventaCancelada(v, tarjetasCambiadas, usuarioActual()),
+                    () -> com.franco.dev.eventos.EventosCentral.atributosVentaCancelada(v));
             return true;
         } catch (Exception e) {
             e.printStackTrace();
             throw new GraphQLException("No se pudo cancelar la venta");
         }
+    }
+
+    private com.franco.dev.domain.personas.Usuario usuarioActual() {
+        try {
+            return tesoreriaSecurityService.currentUsuario();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Long usuarioActualId() {
+        com.franco.dev.domain.personas.Usuario u = usuarioActual();
+        return u != null ? u.getId() : null;
     }
 
     /** Que se hace con la factura legal de una venta que se cancela. */

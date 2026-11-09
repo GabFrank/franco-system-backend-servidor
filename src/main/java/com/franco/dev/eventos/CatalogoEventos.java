@@ -182,8 +182,7 @@ public final class CatalogoEventos {
                 "caja.id", O, "caja.fechaCierre", O, "cajaCerrada", O,
                 "canceladoPor.id", O, "canceladoPor.nickname", P, "canceladoEn", O,
                 "tarjetas.id", O, "tarjetas.estado", O, "tarjetas.monto", O, "tarjetas.moneda.id", O,
-                "tarjetas.terminalPos.id", O, "tarjetas.codigoAutorizacion", S, "tarjetas.numeroBoleta", S,
-                "tarjetas.identificadorTransaccion", S);
+                "tarjetas.terminalPos.id", O, "tarjetas.codigoAutorizacion", S, "tarjetas.numeroBoleta", S);
         Set<String> atrVentaCancelada = set("caja_id", "caja_cerrada", "monto_gs");
         agregar("venta.cancelada", Familia.ALERTA, atrVentaCancelada, ventaCancelada);
         agregar("venta.reactivada", Familia.CAMBIO, atrVentaCancelada, ventaCancelada);

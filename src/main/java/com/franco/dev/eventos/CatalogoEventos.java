@@ -42,6 +42,8 @@ public final class CatalogoEventos {
 
     /** Tipos que emite el central; los demas salen de cada filial. */
     private static final Set<String> NODO_CENTRAL = new LinkedHashSet<>();
+    /** Hechos que ocurren en los dos nodos: la tarjeta se completa en la caja (filial) o desde la app (central). */
+    private static final Set<String> NODO_AMBOS = new LinkedHashSet<>(Arrays.asList("venta_tarjeta.completada"));
 
     private static final Clase O = Clase.OPERATIVO;
     private static final Clase P = Clase.PERSONAL;
@@ -221,8 +223,9 @@ public final class CatalogoEventos {
         return TIPOS.containsKey(nombre);
     }
 
-    /** "central" o "filial": el nodo donde ocurre el hecho y que emite el evento. */
+    /** "central", "filial" o "ambos": el nodo donde ocurre el hecho y que emite el evento. */
     public static String nodo(String nombre) {
+        if (NODO_AMBOS.contains(nombre)) return "ambos";
         return NODO_CENTRAL.contains(nombre) ? "central" : "filial";
     }
 

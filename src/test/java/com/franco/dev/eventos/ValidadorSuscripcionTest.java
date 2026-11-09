@@ -91,5 +91,6 @@ class ValidadorSuscripcionTest {
         assertEquals("central", CatalogoEventos.nodo("gasto.cancelado"));
         assertEquals("filial", CatalogoEventos.nodo("venta.concluida"));
         assertEquals("filial", CatalogoEventos.nodo("caja.cerrada"));
+        assertEquals("ambos", CatalogoEventos.nodo("venta_tarjeta.completada"));
     }
 }

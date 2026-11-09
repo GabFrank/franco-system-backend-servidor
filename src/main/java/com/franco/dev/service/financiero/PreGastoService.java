@@ -15,6 +15,7 @@ import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.personas.Funcionario;
+import com.franco.dev.repository.financiero.GastoRendicionRepository;
 import com.franco.dev.repository.financiero.GastoRepository;
 import com.franco.dev.repository.financiero.PreGastoRepository;
 import com.franco.dev.service.administrativo.AutorizacionAuditService;
@@ -97,6 +98,7 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
     private final VehiculoService vehiculoService;
     private final EquipoService equipoService;
     private final GastoRepository gastoRepository;
+    private final GastoRendicionRepository gastoRendicionRepository;
     private final PreGastoDetalleFinanzasService preGastoDetalleFinanzasService;
     private final PdvCajaService pdvCajaService;
     private final MonedaService monedaService;
@@ -397,6 +399,7 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
 
     /** Pago anulado: la plata volvió a la caja mayor y la solicitud vuelve a esperar el pago. */
     private void deshacerRetiroDeTesoreria(PreGasto pg) {
+        pg.setMontoVuelto(null);
         pg.setMontoRetirado(BigDecimal.ZERO);
         pg.setSaldoDevolver(BigDecimal.ZERO);
         pg.setRetiroConfirmadoEn(null);
@@ -655,6 +658,70 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         return repository.findByIdAndSucursalId(input.getPreGastoId(), input.getSucursalId());
     }
 
+    public PreGasto buscarPorGastoCaja(Long gastoId, Long sucursalId) {
+        if (gastoId == null || sucursalId == null) {
+            return null;
+        }
+        return repository.buscarPorGastoCaja(gastoId, sucursalId);
+    }
+
+    public PreGasto buscarPorSolicitudPago(Long solicitudPagoId) {
+        return solicitudPagoId == null ? null : repository.findBySolicitudPagoId(solicitudPagoId);
+    }
+
+    /**
+     * El cajero de una sucursal cargó el vuelto del gasto con que se retiró la solicitud. Pisa la
+     * rendición del teléfono: el vuelto es lo que de verdad volvió a la caja. Sin solicitud atada
+     * al gasto devuelve null (es un gasto común de la caja).
+     */
+    @Transactional
+    public PreGasto registrarVueltoDeCaja(Long gastoId, Long sucursalId, Double vueltoGs, Double vueltoRs,
+            Double vueltoDs) {
+        PreGasto preGasto = buscarPorGastoCaja(gastoId, sucursalId);
+        if (preGasto == null) {
+            return null;
+        }
+        if (preGasto.getEstado() != EstadoPreGasto.TRAMITE && preGasto.getEstado() != EstadoPreGasto.COMPLETADO) {
+            throw new RuntimeException("La solicitud #" + preGasto.getId() + " no está retirada.");
+        }
+        return aplicarVueltoYGuardar(preGasto, obtenerMontoMoneda(preGasto, vueltoGs, vueltoRs, vueltoDs));
+    }
+
+    /**
+     * Deja la rendición según el vuelto (en la moneda de la solicitud).
+     * <ul>
+     *   <li>Con vuelto: rendido = retirado - vuelto, nada más por devolver, rendición completa.</li>
+     *   <li>{@code null} (se anularon los vueltos): la rendición vuelve a salir del teléfono.</li>
+     * </ul>
+     */
+    @Transactional
+    public PreGasto aplicarVueltoYGuardar(PreGasto preGasto, BigDecimal vuelto) {
+        BigDecimal retirado = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado() : BigDecimal.ZERO;
+        if (vuelto == null) {
+            preGasto.setMontoVuelto(null);
+            BigDecimal rendido = gastoRendicionRepository
+                    .findByPreGastoIdAndSucursalId(preGasto.getId(), preGasto.getSucursalId()).stream()
+                    .map(r -> r.getMontoTotal() != null ? r.getMontoTotal() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            preGasto.setMontoGastado(rendido);
+            preGasto.setSaldoDevolver(retirado.subtract(rendido).max(BigDecimal.ZERO));
+            if (rendido.signum() <= 0) {
+                preGasto.setFechaRendicion(null);
+            }
+        } else {
+            BigDecimal v = vuelto.max(BigDecimal.ZERO);
+            if (retirado.signum() > 0) {
+                v = v.min(retirado);
+            }
+            preGasto.setMontoVuelto(v);
+            preGasto.setMontoGastado(retirado.subtract(v).max(BigDecimal.ZERO));
+            preGasto.setSaldoDevolver(BigDecimal.ZERO);
+            preGasto.setFechaRendicion(LocalDateTime.now());
+        }
+        recalcularEstadoRendicion(preGasto);
+        return super.save(preGasto);
+    }
+
     public boolean preGastoRetiroConfirmado(Long preGastoId, Long sucursalId) {
         PreGasto preGasto = repository.findByIdAndSucursalId(preGastoId, sucursalId);
         return preGasto != null && preGasto.getRetiroConfirmadoEn() != null;
@@ -851,6 +918,12 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
     }
 
     private void recalcularEstadoRendicion(PreGasto preGasto) {
+        // Con vuelto registrado está todo rendido: lo que no volvió a la caja se gastó.
+        if (preGasto.getMontoVuelto() != null) {
+            preGasto.setEstadoRendicion("RENDIDO_COMPLETO");
+            preGasto.setRindioGasto(true);
+            return;
+        }
         BigDecimal retirado = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado() : BigDecimal.ZERO;
         BigDecimal gastado = preGasto.getMontoGastado() != null ? preGasto.getMontoGastado() : BigDecimal.ZERO;
         BigDecimal solicitado = preGasto.getMontoSolicitado() != null ? preGasto.getMontoSolicitado() : BigDecimal.ZERO;

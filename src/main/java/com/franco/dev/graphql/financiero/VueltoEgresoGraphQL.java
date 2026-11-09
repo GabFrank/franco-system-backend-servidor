@@ -28,4 +28,9 @@ public class VueltoEgresoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         seg.requireOperarCaja();
         return service.registrarVuelto(egresoId, monedaId, monto, descripcion, seg.currentUsuario(), claveIdempotencia);
     }
+
+    public com.franco.dev.domain.financiero.PreGasto rendidoTotalEgresoPreGasto(Long egresoId) {
+        seg.requireOperarCaja();
+        return service.rendidoTotal(egresoId);
+    }
 }

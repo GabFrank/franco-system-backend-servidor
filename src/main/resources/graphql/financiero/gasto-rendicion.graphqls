@@ -99,6 +99,8 @@ extend type Query {
     lineasRetiroSugeridas(preGastoId: ID!, sucursalId: ID!): [LineaRetiroSugerida]!
     montosRetiroDesdeLineas(lineas: [RetiroPreGastoLineaInput!]!): MontosRetiroPayload!
     preGastoRetiroConfirmado(preGastoId: ID!, sucursalId: ID!): Boolean!
+    # La solicitud retirada con este gasto de la caja de una sucursal (null si es un gasto común).
+    preGastoPorGastoCaja(gastoId: ID!, sucursalId: ID!): PreGasto
 }
 
 extend type Mutation {
@@ -107,4 +109,6 @@ extend type Mutation {
     confirmarRetiroFuncionarioPreGasto(input: ConfirmarRetiroFuncionarioInput!): PreGasto!
     ejecutarRetiroPreGasto(input: EjecutarRetiroPreGastoInput!): PreGasto!
     registrarDevolucionSaldoPreGasto(input: DevolucionSaldoPreGastoInput!): PreGasto!
+    # Vuelto cargado por el cajero en el gasto de la caja: pisa la rendición del teléfono.
+    registrarVueltoPreGastoCaja(gastoId: ID!, sucursalId: ID!, vueltoGs: Float, vueltoRs: Float, vueltoDs: Float): PreGasto
 }

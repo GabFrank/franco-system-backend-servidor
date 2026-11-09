@@ -1,6 +1,8 @@
 package com.franco.dev.service.financiero;
 
 import com.franco.dev.domain.financiero.Gasto;
+import com.franco.dev.domain.financiero.enums.EstadoPreGasto;
+import com.franco.dev.domain.financiero.PreGasto;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.financiero.MovimientoCajaVirtual;
 import com.franco.dev.domain.financiero.PagoSolicitudDetalle;
@@ -63,6 +65,7 @@ public class VueltoEgresoService {
     private final PagoSolicitudDetalleRepository detalleRepository;
     private final SolicitudPagoRepository solicitudPagoRepository;
     private final GastoRepository gastoRepository;
+    private final PreGastoService preGastoService;
 
     /** Una fila de la lista: el egreso, lo ya devuelto y lo que falta, los dos en la moneda del egreso. */
     @Data
@@ -70,6 +73,8 @@ public class VueltoEgresoService {
         private MovimientoCajaVirtual movimiento;
         private Double devuelto;
         private Double pendiente;
+        /** La solicitud de gasto que se pagó con este egreso, si es un pago de una sola solicitud. */
+        private PreGasto preGasto;
     }
 
     @Transactional(readOnly = true)
@@ -94,6 +99,7 @@ public class VueltoEgresoService {
             e.setMovimiento(m);
             e.setDevuelto(devuelto.doubleValue());
             e.setPendiente(pendiente(m, devuelto).doubleValue());
+            e.setPreGasto(preGastoService.buscarPorSolicitudPago(solicitudUnica(m)));
             contenido.add(e);
         }
         return new PageImpl<>(contenido, pageable, filas.getTotalElements());
@@ -243,11 +249,8 @@ public class VueltoEgresoService {
      * convertidos a la moneda del gasto, y lo deja en su columna de vuelto, que los reportes restan.
      */
     void actualizarGasto(MovimientoCajaVirtual egreso) {
-        if (egreso.getOrigenTipo() != OrigenMovimientoTipo.GASTO || egreso.getOrigenId() == null) return;
-        Set<Long> solicitudes = detallesActivos(detalleRepository.findByPagoIdOrderByCreadoEnAsc(egreso.getOrigenId()))
-                .map(PagoSolicitudDetalle::getSolicitudPagoId).collect(Collectors.toSet());
-        if (solicitudes.size() != 1) return;
-        Long solicitudId = solicitudes.iterator().next();
+        Long solicitudId = solicitudUnica(egreso);
+        if (solicitudId == null) return;
         SolicitudPago sp = solicitudPagoRepository.findById(solicitudId).orElse(null);
         Gasto gasto = gastoRepository.findFirstBySolicitudPagoId(solicitudId);
         if (sp == null || gasto == null) return;
@@ -275,6 +278,48 @@ public class VueltoEgresoService {
         gasto.setVueltoRs(MONEDA_REAL.equals(monedaId) ? vuelto : 0.0);
         gasto.setVueltoDs(MONEDA_DOLAR.equals(monedaId) ? vuelto : 0.0);
         gastoRepository.save(gasto);
+
+        // Si el gasto salió de una solicitud, el vuelto pisa lo que rindió el teléfono. Sin vueltos
+        // activos (se anularon) la rendición vuelve a salir del teléfono.
+        PreGasto preGasto = preGastoService.buscarPorSolicitudPago(solicitudId);
+        if (preGasto != null && preGasto.getEstado() == EstadoPreGasto.PAGADO) {
+            preGastoService.aplicarVueltoYGuardar(preGasto, total.signum() == 0 ? null : total.setScale(2, RoundingMode.HALF_UP));
+        }
+    }
+
+    /**
+     * «Rindió totalmente» desde la caja mayor: el funcionario gastó todo lo que no devolvió. La solicitud
+     * queda rendida completa con el vuelto ya registrado (cero si no hubo).
+     */
+    @Transactional
+    public PreGasto rendidoTotal(Long egresoId) {
+        MovimientoCajaVirtual egreso = movimientoRepository.findById(egresoId)
+                .orElseThrow(() -> new GraphQLException("No se encontró el egreso."));
+        seguridad.requireEscrituraCaja(egreso.getCajaVirtual() != null ? egreso.getCajaVirtual().getId() : null);
+        Long solicitudId = solicitudUnica(egreso);
+        PreGasto preGasto = preGastoService.buscarPorSolicitudPago(solicitudId);
+        if (preGasto == null) throw new GraphQLException("Este egreso no es el pago de una solicitud de gasto.");
+        if (preGasto.getEstado() != EstadoPreGasto.PAGADO) {
+            throw new GraphQLException("La solicitud #" + preGasto.getId() + " no está pagada.");
+        }
+        Gasto gasto = gastoRepository.findFirstBySolicitudPagoId(solicitudId);
+        BigDecimal vuelto = BigDecimal.ZERO;
+        if (gasto != null) {
+            vuelto = BigDecimal.valueOf(gasto.getVueltoGs() != null ? gasto.getVueltoGs() : 0d)
+                    .add(BigDecimal.valueOf(gasto.getVueltoRs() != null ? gasto.getVueltoRs() : 0d))
+                    .add(BigDecimal.valueOf(gasto.getVueltoDs() != null ? gasto.getVueltoDs() : 0d));
+        }
+        return preGastoService.aplicarVueltoYGuardar(preGasto, vuelto);
+    }
+
+    /** La solicitud de pago de un egreso de pago de gasto, si el pago fue de una sola. */
+    private Long solicitudUnica(MovimientoCajaVirtual egreso) {
+        if (egreso == null || egreso.getOrigenTipo() != OrigenMovimientoTipo.GASTO || egreso.getOrigenId() == null) {
+            return null;
+        }
+        Set<Long> solicitudes = detallesActivos(detalleRepository.findByPagoIdOrderByCreadoEnAsc(egreso.getOrigenId()))
+                .map(PagoSolicitudDetalle::getSolicitudPagoId).collect(Collectors.toSet());
+        return solicitudes.size() == 1 ? solicitudes.iterator().next() : null;
     }
 
     private static java.util.stream.Stream<PagoSolicitudDetalle> detallesActivos(List<PagoSolicitudDetalle> detalles) {

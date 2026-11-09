@@ -4,6 +4,8 @@ type EgresoParaVuelto {
     movimiento: MovimientoCajaVirtual
     devuelto: Float
     pendiente: Float
+    "La solicitud de gasto pagada con este egreso, si el pago fue de una sola."
+    preGasto: PreGasto
 }
 
 type EgresoParaVueltoPage {
@@ -28,4 +30,6 @@ extend type Mutation {
     pendiente. Con claveIdempotencia, el mismo pedido repetido no se registra de nuevo.
     """
     registrarVueltoEgreso(egresoId: ID!, monedaId: ID!, monto: Float!, descripcion: String, claveIdempotencia: String): MovimientoCajaVirtual!
+    "La solicitud de gasto pagada con este egreso queda rendida completa (gastó todo lo que no devolvió)."
+    rendidoTotalEgresoPreGasto(egresoId: ID!): PreGasto!
 }

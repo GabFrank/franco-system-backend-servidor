@@ -287,31 +287,6 @@ public class VueltoEgresoService {
         }
     }
 
-    /**
-     * «Rindió totalmente» desde la caja mayor: el funcionario gastó todo lo que no devolvió. La solicitud
-     * queda rendida completa con el vuelto ya registrado (cero si no hubo).
-     */
-    @Transactional
-    public PreGasto rendidoTotal(Long egresoId) {
-        MovimientoCajaVirtual egreso = movimientoRepository.findById(egresoId)
-                .orElseThrow(() -> new GraphQLException("No se encontró el egreso."));
-        seguridad.requireEscrituraCaja(egreso.getCajaVirtual() != null ? egreso.getCajaVirtual().getId() : null);
-        Long solicitudId = solicitudUnica(egreso);
-        PreGasto preGasto = preGastoService.buscarPorSolicitudPago(solicitudId);
-        if (preGasto == null) throw new GraphQLException("Este egreso no es el pago de una solicitud de gasto.");
-        if (preGasto.getEstado() != EstadoPreGasto.PAGADO) {
-            throw new GraphQLException("La solicitud #" + preGasto.getId() + " no está pagada.");
-        }
-        Gasto gasto = gastoRepository.findFirstBySolicitudPagoId(solicitudId);
-        BigDecimal vuelto = BigDecimal.ZERO;
-        if (gasto != null) {
-            vuelto = BigDecimal.valueOf(gasto.getVueltoGs() != null ? gasto.getVueltoGs() : 0d)
-                    .add(BigDecimal.valueOf(gasto.getVueltoRs() != null ? gasto.getVueltoRs() : 0d))
-                    .add(BigDecimal.valueOf(gasto.getVueltoDs() != null ? gasto.getVueltoDs() : 0d));
-        }
-        return preGastoService.aplicarVueltoYGuardar(preGasto, vuelto);
-    }
-
     /** La solicitud de pago de un egreso de pago de gasto, si el pago fue de una sola. */
     private Long solicitudUnica(MovimientoCajaVirtual egreso) {
         if (egreso == null || egreso.getOrigenTipo() != OrigenMovimientoTipo.GASTO || egreso.getOrigenId() == null) {

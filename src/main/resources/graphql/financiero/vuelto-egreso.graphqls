@@ -30,6 +30,4 @@ extend type Mutation {
     pendiente. Con claveIdempotencia, el mismo pedido repetido no se registra de nuevo.
     """
     registrarVueltoEgreso(egresoId: ID!, monedaId: ID!, monto: Float!, descripcion: String, claveIdempotencia: String): MovimientoCajaVirtual!
-    "La solicitud de gasto pagada con este egreso queda rendida completa (gastó todo lo que no devolvió)."
-    rendidoTotalEgresoPreGasto(egresoId: ID!): PreGasto!
 }

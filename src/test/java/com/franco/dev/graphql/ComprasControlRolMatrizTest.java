@@ -91,7 +91,10 @@ class ComprasControlRolMatrizTest {
                 f(RecepcionMercaderiaItemVariacionGraphQL.class, "deleteRecepcionMercaderiaItemVariacion"),
                 f(RecepcionMercaderiaNotaGraphQL.class, "asociarNotaARecepcion"),
                 f(RecepcionMercaderiaNotaGraphQL.class, "desasociarNotaDeRecepcion"),
-                f(RecepcionMercaderiaNotaGraphQL.class, "deleteRecepcionMercaderiaNota"));
+                f(RecepcionMercaderiaNotaGraphQL.class, "deleteRecepcionMercaderiaNota"),
+                f(com.franco.dev.graphql.operaciones.compras.RenglonesFacturaPedidoGraphQL.class, "renglonesFacturaPendientesPedido", COMPRAS),
+                f(com.franco.dev.graphql.operaciones.compras.RenglonesFacturaPedidoGraphQL.class, "descartarRenglonFactura", COMPRAS),
+                f(com.franco.dev.graphql.operaciones.compras.RenglonesFacturaPedidoGraphQL.class, "restaurarRenglonFactura", COMPRAS));
     }
 
     @TestFactory

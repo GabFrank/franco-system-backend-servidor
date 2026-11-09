@@ -111,7 +111,7 @@ public class ComprasMobileService {
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     /** El formato que lee {@code DateUtils.stringToDate} en los inputs del pedido. */
     private static final DateTimeFormatter FECHA_HORA_SEG = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static final String GUARANI = "GUARANI";
+    static final String GUARANI = "GUARANI";
     private static final double TOLERANCIA_TOTAL = 1.0;
     static final String CABECERA_SIN_CONFIRMAR = "Confirmá los datos de la factura en papel antes de seguir.";
 
@@ -130,6 +130,7 @@ public class ComprasMobileService {
     @Autowired private DocumentoRecibidoRepository documentoRepository;
     @Autowired private DocumentoRecibidoItemRepository renglonRepository;
     @Autowired private ProveedorCodigoProductoRepository aprendizajeRepository;
+    @Autowired private AprendizajeProveedor aprendizaje;
     @Autowired private PedidoService pedidoService;
     @Autowired private PedidoItemService pedidoItemService;
     @Autowired private PedidoItemDistribucionService pedidoItemDistribucionService;
@@ -392,8 +393,8 @@ public class ComprasMobileService {
         renglon.setFactor(f);
         renglon.setTipoMatch(TipoMatch.MANUAL.name());
         renglonRepository.save(renglon);
-        if (Boolean.TRUE.equals(recordar) && doc.getProveedor() != null && sePuedeAprender(renglon)) {
-            aprender(doc.getProveedor(), renglon, presentacion, f);
+        if (Boolean.TRUE.equals(recordar) && doc.getProveedor() != null && AprendizajeProveedor.sePuedeAprender(renglon)) {
+            aprendizaje.aprender(doc.getProveedor(), renglon, presentacion, f);
         }
         return armarSegunModo(doc);
     }
@@ -449,7 +450,7 @@ public class ComprasMobileService {
         Map<Long, RenglonFacturaMobile> porId = factura.getRenglones().stream()
                 .collect(Collectors.toMap(RenglonFacturaMobile::getId, r -> r));
         List<PedidoItem> itemsPedido = pedidoItemService.findByPedidoId(pedido.getId());
-        for (DocumentoRecibidoItem renglon : documentoRecibidoService.renglones(doc.getId())) {
+        for (DocumentoRecibidoItem renglon : vigentes(documentoRecibidoService.renglones(doc.getId()))) {
             RenglonFacturaMobile cruce = porId.get(renglon.getId());
             NotaRecepcionItem item = new NotaRecepcionItem();
             item.setNotaRecepcion(nota);
@@ -468,9 +469,9 @@ public class ComprasMobileService {
             distribuir(item, fuenteDeDistribucion(renglon, itemsPedido), pedido, usuario);
             renglon.setNotaRecepcionItem(item);
             renglonRepository.save(renglon);
-            if (renglon.getProducto() != null && sePuedeAprender(renglon) && doc.getProveedor() != null
+            if (renglon.getProducto() != null && AprendizajeProveedor.sePuedeAprender(renglon) && doc.getProveedor() != null
                     && renglon.getPresentacion() != null) {
-                aprender(doc.getProveedor(), renglon, renglon.getPresentacion(),
+                aprendizaje.aprender(doc.getProveedor(), renglon, renglon.getPresentacion(),
                         renglon.getFactor() != null ? renglon.getFactor() : 1.0);
             }
         }
@@ -811,7 +812,7 @@ public class ComprasMobileService {
         }
         c.setCotizacionFactura(cotOrigen);
         c.setCotizacionPedido(cotDestino);
-        c.setFactor(misma ? 1.0 : cotOrigen / cotDestino);
+        c.setFactor(CruceFactura.factorFacturaAPedido(misma, cotOrigen, cotDestino));
         double total = 0;
         if (factura != null) {
             for (RenglonFacturaMobile r : factura.getRenglones()) {
@@ -868,20 +869,24 @@ public class ComprasMobileService {
      * pago y plazo si vienen). Lo que no trae lo elige el comprador: la forma de pago si la factura no la dice, y las
      * sucursales. Con una sola sucursal recibe todo; con varias, {@code repartos} dice cuánto de cada renglón va a
      * cada una, en la unidad de la factura.
+     *
+     * Con {@code soloReconocidos} la compra se crea con los renglones que tienen producto y deja afuera los sin
+     * reconocer (si el borrador lo permite: {@code puedeCrearSoloReconocidos}). Cada renglón queda vinculado al ítem
+     * que se creó para él, así el cruce de la nota lo encuentra aunque falten otros.
      */
     @Transactional
     public CompraPedidoMobile crearCompraDesdeFactura(Long documentoId, Long formaPagoId, Integer plazoCredito,
                                                        Long sucursalId, List<Long> sucursalIds,
-                                                       List<RepartoRenglonMobileInput> repartos, Long monedaId) {
+                                                       List<RepartoRenglonMobileInput> repartos, Long monedaId,
+                                                       Boolean soloReconocidos) {
+        boolean solo = Boolean.TRUE.equals(soloReconocidos);
         seguridad.exigirCompras();
         DocumentoRecibido doc = documentoObligatorio(documentoId);
         exigirCabeceraConfirmada(doc);
         exigirSinNota(doc);
         exigirQueNoEspereOtroPedido(doc, null);
         FacturaProveedorMobile factura = armarBorrador(doc, true);
-        if (!Boolean.TRUE.equals(factura.getPuedeConfirmar())) {
-            throw new GraphQLException(factura.getMotivoNoConfirma());
-        }
+        exigirPuedeCrear(factura, solo);
         Long formaPago = formaPagoId != null ? formaPagoId : factura.getFormaPagoId();
         if (formaPago == null || !formaPagoService.findById(formaPago).isPresent()) {
             throw new GraphQLException("Elegí la forma de pago: la factura no la trae.");
@@ -890,7 +895,7 @@ public class ComprasMobileService {
             throw new GraphQLException("El plazo de crédito no puede ser negativo.");
         }
         List<Long> sucursales = sucursalesElegidas(sucursalId, sucursalIds);
-        List<DocumentoRecibidoItem> renglones = documentoRecibidoService.renglones(doc.getId());
+        List<DocumentoRecibidoItem> renglones = renglonesDeTrabajo(vigentes(documentoRecibidoService.renglones(doc.getId())), solo);
         Map<Long, RenglonFacturaMobile> porId = factura.getRenglones().stream()
                 .collect(Collectors.toMap(RenglonFacturaMobile::getId, r -> r));
         Map<Long, double[]> repartoPorRenglon = repartoPorRenglon(renglones, porId, sucursales, repartos);
@@ -916,6 +921,21 @@ public class ComprasMobileService {
         pedido = pedidoService.save(pedido);
 
         // 2. Un ítem por renglón, con su reparto por sucursal: como «Agregar ítem» del desktop
+        crearItems(pedido, renglones, porId, sucursales, repartoPorRenglon, factor, usuarioId);
+        pedidoItemService.getRepository().flush();
+
+        // 3. La factura queda esperando la planificación: se carga como nota al finalizarla
+        doc.setPedido(pedido);
+        doc.setCargarAlFinalizar(true);
+        documentoRepository.save(doc);
+        return armarPedido(pedidoObligatorio(pedido.getId()));
+    }
+
+    /**
+     * Un ítem por renglón, con su reparto por sucursal, y cada renglón vinculado al ítem que se creó para él.
+     */
+    void crearItems(Pedido pedido, List<DocumentoRecibidoItem> renglones, Map<Long, RenglonFacturaMobile> porId,
+                    List<Long> sucursales, Map<Long, double[]> repartoPorRenglon, double factor, Long usuarioId) {
         // ⚠️ Al revés del orden de la factura, a propósito: el desktop lista los ítems del pedido por id descendente
         // (pedidoItemPorPedidoPage), así que creados del último al primero se ven en el orden de la factura y el
         // comprador los revisa con el papel en la mano. La nota se crea en el orden de la factura: esa se lista
@@ -946,15 +966,67 @@ public class ComprasMobileService {
                 d.setCantidadAsignada(partes[i]);
                 reparto.add(d);
             }
-            guardadoPedidoItemGraphQL.guardarPedidoItemConDistribuciones(item, reparto);
+            PedidoItem guardado = guardadoPedidoItemGraphQL.guardarPedidoItemConDistribuciones(item, reparto, null);
+            // El renglón apunta a su ítem: el cruce de la nota lo usa en vez de buscarlo por producto
+            renglon.setPedidoItem(guardado);
+            renglonRepository.save(renglon);
         }
-        pedidoItemService.getRepository().flush();
+    }
 
-        // 3. La factura queda esperando la planificación: se carga como nota al finalizarla
-        doc.setPedido(pedido);
-        doc.setCargarAlFinalizar(true);
-        documentoRepository.save(doc);
-        return armarPedido(pedidoObligatorio(pedido.getId()));
+    /**
+     * Si se puede crear la compra: con todo reconocido como siempre, o con {@code soloReconocidos} si el borrador
+     * permite dejar afuera los renglones sin producto. Si no, el motivo del borrador.
+     */
+    static void exigirPuedeCrear(FacturaProveedorMobile factura, boolean soloReconocidos) {
+        boolean puede = Boolean.TRUE.equals(factura.getPuedeConfirmar())
+                || (soloReconocidos && Boolean.TRUE.equals(factura.getPuedeCrearSoloReconocidos()));
+        if (!puede) {
+            throw new GraphQLException(factura.getMotivoNoConfirma());
+        }
+    }
+
+    /** Los renglones que cuentan para el cruce, la compra y la nota: todos menos los descartados («No cargar»). */
+    static List<DocumentoRecibidoItem> vigentes(List<DocumentoRecibidoItem> renglones) {
+        return renglones.stream().filter(r -> !Boolean.TRUE.equals(r.getDescartado())).collect(Collectors.toList());
+    }
+
+    /** Los renglones marcados «No cargar»: no entran a la nota y la factura los nombra en un aviso. */
+    static List<DocumentoRecibidoItem> descartados(List<DocumentoRecibidoItem> renglones) {
+        return renglones.stream().filter(r -> Boolean.TRUE.equals(r.getDescartado())).collect(Collectors.toList());
+    }
+
+    /**
+     * La constancia de los descartes: «No incluye N renglones de la factura descartados por MONEDA MONTO: DESCRIPCIÓN
+     * (MOTIVO); …». {@code null} si no hay descartes.
+     */
+    static String observacionDescartes(List<DocumentoRecibidoItem> descartados, String monedaSimbolo) {
+        if (descartados == null || descartados.isEmpty()) return null;
+        int n = descartados.size();
+        double monto = descartados.stream().mapToDouble(ComprasMobileService::montoEnFactura).sum();
+        String detalle = descartados.stream()
+                .map(r -> texto(r.getDescripcion()) + " (" + texto(r.getMotivoDescarte()) + ")")
+                .collect(Collectors.joining("; "));
+        return "No incluye " + (n == 1 ? "1 renglón de la factura descartado" : n + " renglones de la factura descartados")
+                + " por " + (vacio(monedaSimbolo) ? "" : monedaSimbolo.trim() + " ") + CruceFactura.importe(monto)
+                + ": " + detalle;
+    }
+
+    /** Lo que el renglón cobra en la factura: su total o, si no lo trae, cantidad × (precio − descuento). */
+    private static double montoEnFactura(DocumentoRecibidoItem r) {
+        if (r.getTotal() != null && r.getTotal() > 0) return r.getTotal();
+        return nz(r.getCantidad()) * (nz(r.getPrecioUnitario()) - nz(r.getDescuentoUnitario()));
+    }
+
+    /** Si la factura de un pedido se puede cargar como nota: sin bloqueos, con renglones, todos con producto y observados. */
+    static boolean puedeConfirmarConPedido(boolean conNota, boolean bloqueada, List<CruceFactura.Resultado> resultados) {
+        return !conNota && !bloqueada && !resultados.isEmpty()
+                && resultados.stream().noneMatch(r -> r.estado == CruceFactura.Estado.SIN_PRODUCTO || r.observacionFaltante);
+    }
+
+    /** Los renglones con los que se arma la compra: todos o, con {@code soloReconocidos}, los que tienen producto. */
+    static List<DocumentoRecibidoItem> renglonesDeTrabajo(List<DocumentoRecibidoItem> renglones, boolean soloReconocidos) {
+        if (!soloReconocidos) return renglones;
+        return renglones.stream().filter(r -> r.getProducto() != null).collect(Collectors.toList());
     }
 
     /** Las sucursales de la compra: las de la lista o, si no viene, la única del parámetro viejo. Sin repetir. */
@@ -978,6 +1050,8 @@ public class ComprasMobileService {
      * Cuánto de cada renglón va a cada sucursal, en unidades base y en el orden de {@code sucursales}. Con una sola
      * sucursal va todo a ella. Con varias, el reparto lo carga el comprador en la unidad de la factura y tiene que
      * sumar el renglón entero; se pasa a unidades base en proporción, así con cantidades enteras queda entero.
+     * Solo se reparten los {@code renglones} recibidos: lo cargado para otro renglón (uno que quedó afuera de la
+     * compra) se ignora.
      */
     static Map<Long, double[]> repartoPorRenglon(List<DocumentoRecibidoItem> renglones,
                                                          Map<Long, RenglonFacturaMobile> porId, List<Long> sucursales,
@@ -1111,7 +1185,9 @@ public class ComprasMobileService {
     /** La factura que va a crear la compra: productos reconocidos, avisos de IVA y lo que trae de forma de pago. */
     private FacturaProveedorMobile armarBorrador(DocumentoRecibido doc, boolean recalcular) {
         if (recalcular) documentoRecibidoService.completarCodigos(doc);
-        List<DocumentoRecibidoItem> renglones = documentoRecibidoService.renglones(doc.getId());
+        List<DocumentoRecibidoItem> todos = documentoRecibidoService.renglones(doc.getId());
+        List<DocumentoRecibidoItem> renglones = vigentes(todos);
+        List<DocumentoRecibidoItem> descartes = descartados(todos);
         Proveedor proveedor = doc.getProveedor();
         if (recalcular) {
             for (DocumentoRecibidoItem r : renglones) {
@@ -1173,6 +1249,8 @@ public class ComprasMobileService {
             if (!res.bonificacion) totalNota += res.cantidadBase * res.precioBase;
             totalRenglones += nz(r.getTotal());
         }
+        // El total de la factura sigue incluyendo los descartados: se suman para no avisar una diferencia que no es
+        for (DocumentoRecibidoItem r : descartes) totalRenglones += nz(r.getTotal());
         alertarProductoRepetido(f.getRenglones());
         f.setTotalNota(CruceFactura.redondear(totalNota, 2));
         f.setRenglonesOk(ok);
@@ -1216,8 +1294,10 @@ public class ComprasMobileService {
                     ? "1 renglón no se reconoció" : sinProd + " renglones no se reconocieron")
                     + ": el producto no está en el sistema con ese código. Vinculalo con uno parecido o dalo de alta."));
         }
+        String descarte = observacionDescartes(descartes, f.getMonedaSimbolo());
+        if (descarte != null) a.add(new AvisoFacturaMobile("DESCARTE", "INFO", descarte + "."));
         if (esFoto(doc)) {
-            a.addAll(avisosLecturaFoto(doc, renglones));
+            a.addAll(avisosLecturaFoto(doc, todos));
         } else if (doc.getTotalGeneral() != null && Math.abs(totalRenglones - doc.getTotalGeneral()) > TOLERANCIA_TOTAL) {
             a.add(new AvisoFacturaMobile("TOTAL", "ADVERTENCIA", "La suma de los renglones (" + CruceFactura.importe(totalRenglones)
                     + ") no da el total de la factura (" + CruceFactura.importe(doc.getTotalGeneral()) + "): puede haber un descuento global."));
@@ -1231,13 +1311,18 @@ public class ComprasMobileService {
         if (!f.getPuedeConfirmar()) {
             f.setMotivoNoConfirma(doc.getNotaRecepcion() != null ? "La factura ya está cargada."
                     : bloqueada ? a.stream().filter(x -> "BLOQUEO".equals(x.getNivel())).findFirst().get().getMensaje()
-                    : renglones.isEmpty() ? "La factura no trae renglones."
+                    : renglones.isEmpty() ? sinRenglones(descartes)
                     : sinProd == 1 ? "Falta vincular 1 producto." : "Faltan vincular " + sinProd + " productos.");
         }
+        f.setPuedeCrearSoloReconocidos(SoloReconocidos.puedeCrear(ok, sinProd, bloqueada, doc.getNotaRecepcion() != null));
+        f.setRenglonesReconocidos(ok);
+        double[] montos = SoloReconocidos.montos(resultados);
+        f.setMontoReconocido(montos[0]);
+        f.setMontoSinCargar(montos[1]);
         return f;
     }
 
-    private CruceFactura.Renglon entradaDe(DocumentoRecibidoItem r) {
+    static CruceFactura.Renglon entradaDe(DocumentoRecibidoItem r) {
         CruceFactura.Renglon c = new CruceFactura.Renglon();
         c.id = r.getId();
         c.productoId = r.getProducto() != null ? r.getProducto().getId() : null;
@@ -1252,6 +1337,7 @@ public class ComprasMobileService {
         c.tasaIva = r.getTasaIva();
         c.ivaProducto = r.getProducto() != null ? r.getProducto().getIva() : null;
         c.observacion = r.getObservacion();
+        c.pedidoItemId = r.getPedidoItem() != null ? r.getPedidoItem().getId() : null;
         return c;
     }
 
@@ -1442,7 +1528,9 @@ public class ComprasMobileService {
      */
     private FacturaProveedorMobile armarFactura(DocumentoRecibido doc, Pedido pedido, boolean recalcular) {
         if (recalcular) documentoRecibidoService.completarCodigos(doc);
-        List<DocumentoRecibidoItem> renglones = documentoRecibidoService.renglones(doc.getId());
+        List<DocumentoRecibidoItem> todos = documentoRecibidoService.renglones(doc.getId());
+        List<DocumentoRecibidoItem> renglones = vigentes(todos);
+        List<DocumentoRecibidoItem> descartes = descartados(todos);
         Proveedor proveedor = pedido.getProveedor();
         Moneda moneda = monedaDeOrNull(doc.getMoneda());
         boolean mismaMoneda = moneda == null || pedido.getMoneda() == null || Objects.equals(moneda.getId(), pedido.getMoneda().getId());
@@ -1460,23 +1548,7 @@ public class ComprasMobileService {
         }
 
         List<CruceFactura.Renglon> entrada = new ArrayList<>();
-        for (DocumentoRecibidoItem r : renglones) {
-            CruceFactura.Renglon c = new CruceFactura.Renglon();
-            c.id = r.getId();
-            c.productoId = r.getProducto() != null ? r.getProducto().getId() : null;
-            c.presentacionId = r.getPresentacion() != null ? r.getPresentacion().getId() : null;
-            c.presentacionDescripcion = r.getPresentacion() != null ? r.getPresentacion().getDescripcion() : null;
-            c.factor = r.getFactor();
-            c.cantidad = nz(r.getCantidad());
-            c.precioUnitario = nz(r.getPrecioUnitario());
-            c.descuentoUnitario = nz(r.getDescuentoUnitario());
-            c.total = r.getTotal();
-            c.porcentajeDescuento = r.getPorcentajeDescuento();
-            c.tasaIva = r.getTasaIva();
-            c.ivaProducto = r.getProducto() != null ? r.getProducto().getIva() : null;
-            c.observacion = r.getObservacion();
-            entrada.add(c);
-        }
+        for (DocumentoRecibidoItem r : renglones) entrada.add(entradaDe(r));
         List<CruceFactura.ItemPedido> items = new ArrayList<>();
         for (PedidoItem pi : itemsPedido) {
             if (pi.getProducto() == null) continue;
@@ -1531,6 +1603,8 @@ public class ComprasMobileService {
             if (!res.bonificacion) totalNota += res.cantidadBase * res.precioBase;
             totalRenglones += nz(r.getTotal());
         }
+        // El total de la factura sigue incluyendo los descartados: se suman para no avisar una diferencia que no es
+        for (DocumentoRecibidoItem r : descartes) totalRenglones += nz(r.getTotal());
         alertarProductoRepetido(f.getRenglones());
         f.setTotalNota(CruceFactura.redondear(totalNota, 2));
         f.setRenglonesOk(ok);
@@ -1546,18 +1620,24 @@ public class ComprasMobileService {
             }
         }
 
-        avisos(f, doc, pedido, moneda, mismaMoneda, sinProd, ivaPedido, ivaProducto, sinDistribucion, totalRenglones, renglones);
+        avisos(f, doc, pedido, moneda, mismaMoneda, sinProd, ivaPedido, ivaProducto, sinDistribucion, totalRenglones, todos);
+        String descarte = observacionDescartes(descartes, f.getMonedaSimbolo());
+        if (descarte != null) f.getAvisos().add(new AvisoFacturaMobile("DESCARTE", "INFO", descarte + "."));
         boolean bloqueada = f.getAvisos().stream().anyMatch(a -> "BLOQUEO".equals(a.getNivel()));
-        f.setPuedeConfirmar(doc.getNotaRecepcion() == null && !bloqueada && sinProd == 0 && sinObs == 0 && !renglones.isEmpty());
+        f.setPuedeConfirmar(puedeConfirmarConPedido(doc.getNotaRecepcion() != null, bloqueada, resultados));
         if (!f.getPuedeConfirmar()) {
             f.setMotivoNoConfirma(doc.getNotaRecepcion() != null ? "La factura ya está cargada."
                     : bloqueada ? f.getAvisos().stream().filter(a -> "BLOQUEO".equals(a.getNivel())).findFirst().get().getMensaje()
-                    : renglones.isEmpty() ? "La factura no trae renglones."
+                    : renglones.isEmpty() ? sinRenglones(descartes)
                     : sinProd > 0 ? (sinProd == 1 ? "Falta vincular 1 producto." : "Faltan vincular " + sinProd + " productos.")
                     : (sinObs == 1 ? "Falta la observación de 1 renglón con diferencia."
                     : "Falta la observación de " + sinObs + " renglones con diferencia."));
         }
         return f;
+    }
+
+    private static String sinRenglones(List<DocumentoRecibidoItem> descartes) {
+        return descartes.isEmpty() ? "La factura no trae renglones." : "Todos los renglones de la factura están descartados.";
     }
 
     private FacturaProveedorMobile cabecera(DocumentoRecibido doc, Pedido pedido) {
@@ -2118,42 +2198,6 @@ public class ComprasMobileService {
         r.setTipoMatch(tipo.name());
     }
 
-    /** Hay con qué aprender: el código del proveedor o, si no trae, la descripción. */
-    private static boolean sePuedeAprender(DocumentoRecibidoItem r) {
-        return !vacio(r.getCodigoProveedor()) || DescripcionProveedor.normalizar(r.getDescripcion()) != null;
-    }
-
-    /**
-     * La llave es el código si el renglón lo trae y, si no, la descripción normalizada. La descripción se guarda
-     * <b>siempre</b>, también con código: así lo aprendido de una factura electrónica sirve para sugerir el producto
-     * en una de papel (o un renglón sin código) del mismo proveedor.
-     */
-    void aprender(Proveedor proveedor, DocumentoRecibidoItem r, Presentacion presentacion, double factor) {
-        String codigo = vacio(r.getCodigoProveedor()) ? null : r.getCodigoProveedor().trim();
-        String descripcion = DescripcionProveedor.normalizar(r.getDescripcion());
-        if (codigo == null && descripcion == null) return;
-        ProveedorCodigoProducto a = (codigo != null
-                ? aprendizajeRepository.findByProveedorIdAndCodigoProveedor(proveedor.getId(), codigo)
-                : aprendizajeRepository.findByProveedorIdAndCodigoProveedorIsNullAndDescripcionNormalizada(
-                        proveedor.getId(), descripcion))
-                .orElse(null);
-        if (a == null) {
-            a = new ProveedorCodigoProducto();
-            a.setProveedor(proveedor);
-            a.setCodigoProveedor(codigo);
-            a.setUsos(0);
-            a.setCreadoEn(LocalDateTime.now());
-            a.setUsuario(seguridad.usuarioActual());
-        }
-        a.setDescripcionProveedor(r.getDescripcion());
-        a.setDescripcionNormalizada(descripcion);
-        a.setPresentacion(presentacion);
-        a.setFactor(factor);
-        a.setUsos((a.getUsos() != null ? a.getUsos() : 0) + 1);
-        a.setUltimoUso(LocalDateTime.now());
-        aprendizajeRepository.save(a);
-    }
-
     /**
      * Para un renglón que no se reconoció: productos con un código parecido (un dígito cambiado o de más) y con
      * una descripción parecida, primero entre los del proveedor.
@@ -2513,8 +2557,13 @@ public class ComprasMobileService {
         return p != null && p.getPersona() != null ? p.getPersona().getNombre() : "el proveedor";
     }
 
+    /** Denominación de financiero.moneda para el código de la factura (sin código, guaraní); null si no se conoce. */
+    static String denominacionMoneda(String codigo) {
+        return MONEDAS.get(codigo != null ? codigo.trim().toUpperCase() : "PYG");
+    }
+
     private Moneda monedaDeOrNull(String codigo) {
-        String denominacion = MONEDAS.get(codigo != null ? codigo.trim().toUpperCase() : "PYG");
+        String denominacion = denominacionMoneda(codigo);
         return denominacion != null ? monedaService.findByDescripcion(denominacion) : null;
     }
 
@@ -2560,7 +2609,7 @@ public class ComprasMobileService {
         return n;
     }
 
-    private static String numeroCompleto(DocumentoRecibido doc) {
+    static String numeroCompleto(DocumentoRecibido doc) {
         return texto(doc.getEstablecimiento()) + "-" + texto(doc.getPuntoExpedicion()) + "-" + texto(doc.getNumero());
     }
 

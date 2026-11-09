@@ -1,4 +1,5 @@
 extend type Mutation {
-    # Alta o edición de un ítem del pedido con sus distribuciones en una sola transacción
-    guardarPedidoItemConDistribuciones(pedidoItem: PedidoItemInput!, distribuciones: [PedidoItemDistribucionInput]!): PedidoItem!
+    # Alta o edición de un ítem del pedido con sus distribuciones en una sola transacción.
+    # Con renglonFacturaId, el renglón pendiente de la factura del pedido queda cargado con ese ítem.
+    guardarPedidoItemConDistribuciones(pedidoItem: PedidoItemInput!, distribuciones: [PedidoItemDistribucionInput]!, renglonFacturaId: ID): PedidoItem!
 }

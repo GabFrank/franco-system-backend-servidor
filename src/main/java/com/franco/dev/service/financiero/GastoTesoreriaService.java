@@ -114,6 +114,7 @@ public class GastoTesoreriaService {
             if (gasto != null && !Boolean.TRUE.equals(gasto.getCancelado())) {
                 gasto.setCancelado(true);
                 gastoRepository.save(gasto);
+                gastoService.emitirGastoCancelado(gasto);
             }
             return;
         }

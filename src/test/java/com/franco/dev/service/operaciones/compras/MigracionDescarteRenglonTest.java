@@ -10,13 +10,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** La migración V267.3 se lee como texto: solo aditiva, con las columnas de descarte del renglón. */
+/** La migración V268.3 se lee como texto: solo aditiva, con las columnas de descarte del renglón. */
 class MigracionDescarteRenglonTest {
 
     private static String sql() throws Exception {
         try (InputStream in = MigracionDescarteRenglonTest.class.getResourceAsStream(
-                "/db/migration/V267.3__documento_recibido_item_descarte.sql")) {
-            assertNotNull(in, "falta V267.3__documento_recibido_item_descarte.sql");
+                "/db/migration/V268.3__documento_recibido_item_descarte.sql")) {
+            assertNotNull(in, "falta V268.3__documento_recibido_item_descarte.sql");
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
     }

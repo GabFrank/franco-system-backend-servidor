@@ -72,4 +72,49 @@ public final class EventosCentral {
         a.put("monto_gs", v.getTotalGs());
         return a;
     }
+    /** retiro.cancelado / retiro.reactivado: la misma forma que el retiro.creado de la filial. */
+    public static Map<String, Object> retiro(com.franco.dev.domain.financiero.Retiro retiro,
+                                             List<com.franco.dev.domain.financiero.RetiroDetalle> detalles) {
+        Map<String, Object> d = new LinkedHashMap<>();
+        d.put("id", retiro.getId());
+        d.put("sucursalId", retiro.getSucursalId());
+        d.put("creadoEn", retiro.getCreadoEn() != null ? retiro.getCreadoEn().toString() : null);
+        d.put("estado", retiro.getEstado() != null ? retiro.getEstado().name() : null);
+        d.put("observacion", retiro.getObservacion());
+        if (retiro.getCajaSalida() != null) {
+            d.put("caja", EventosVenta.mapa("id", retiro.getCajaSalida().getId()));
+            Map<String, Object> cs = EventosVenta.mapa("id", retiro.getCajaSalida().getId());
+            if (retiro.getCajaSalida().getMaletin() != null)
+                cs.put("maletin", EventosVenta.mapa("descripcion", retiro.getCajaSalida().getMaletin().getDescripcion()));
+            d.put("cajaSalida", cs);
+        }
+        if (retiro.getUsuario() != null) d.put("usuario", EventosVenta.usuario(retiro.getUsuario()));
+        if (retiro.getResponsable() != null && retiro.getResponsable().getPersona() != null)
+            d.put("responsable", EventosVenta.mapa("persona", EventosVenta.mapa("nombre", retiro.getResponsable().getPersona().getNombre())));
+        List<Map<String, Object>> det = new ArrayList<>();
+        if (detalles != null) for (com.franco.dev.domain.financiero.RetiroDetalle rd : detalles) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("cantidad", rd.getCantidad());
+            if (rd.getMoneda() != null) {
+                Map<String, Object> mo = EventosVenta.mapa("id", rd.getMoneda().getId());
+                mo.put("denominacion", rd.getMoneda().getDenominacion());
+                m.put("moneda", mo);
+            }
+            det.add(m);
+        }
+        d.put("retiroDetalleList", det);
+        return d;
+    }
+
+    public static Map<String, Object> atributosRetiro(com.franco.dev.domain.financiero.Retiro retiro,
+                                                      List<com.franco.dev.domain.financiero.RetiroDetalle> detalles) {
+        Map<String, Object> a = new LinkedHashMap<>();
+        a.put("caja_id", retiro.getCajaSalida() != null ? retiro.getCajaSalida().getId() : null);
+        Double monto = null;
+        if (detalles != null) for (com.franco.dev.domain.financiero.RetiroDetalle rd : detalles)
+            if (rd.getMoneda() != null && rd.getMoneda().getDenominacion() != null
+                    && rd.getMoneda().getDenominacion().toUpperCase().startsWith("GUARANI")) monto = rd.getCantidad();
+        a.put("monto_gs", monto);
+        return a;
+    }
 }

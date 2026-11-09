@@ -26,6 +26,13 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
     private final RetiroVerificacionRepository verificacionRepository;
     private final TesoreriaSecurityService seguridad;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.franco.dev.eventos.EventoEmisor eventoEmisor;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    @org.springframework.context.annotation.Lazy
+    private RetiroDetalleService retiroDetalleService;
+
     @Override
     public RetiroRepository getRepository() {
         return repository;
@@ -126,7 +133,10 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
                 .orElseThrow(() -> new GraphQLException("Retiro no encontrado: " + id + "/" + sucId));
 
         if (Boolean.FALSE.equals(cancelar)) {
-            if (s.estaCancelado()) repository.marcarConcluido(id, sucId);
+            if (s.estaCancelado()) {
+                repository.marcarConcluido(id, sucId);
+                emitirCancelacion("retiro.reactivado", id, sucId);
+            }
             return true;
         }
         if (s.estaCancelado()) {
@@ -149,7 +159,26 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
             throw new GraphQLException("El retiro #" + id + " está en estado " + s.getEstado() + ": no se puede cancelar.");
         }
         repository.marcarCancelado(id, sucId);
+        emitirCancelacion("retiro.cancelado", id, sucId);
         return true;
+    }
+
+    /** Aviso por webhook (srv #587), en la TX de la cancelacion; si falla el INSERT, la cancelacion sigue. */
+    private void emitirCancelacion(String tipo, Long id, Long sucId) {
+        if (eventoEmisor == null || !eventoEmisor.encendido()) return;
+        Retiro r = repository.findByIdAndSucursalId(id, sucId);
+        if (r == null) return;
+        java.util.List<com.franco.dev.domain.financiero.RetiroDetalle> det =
+                retiroDetalleService != null ? retiroDetalleService.findByRetiroId(id, sucId) : null;
+        Long usuario = null;
+        try {
+            usuario = seguridad.currentUsuario() != null ? seguridad.currentUsuario().getId() : null;
+        } catch (Exception ignored) {
+        }
+        eventoEmisor.emitirProyeccionDe(sucId, tipo, "retiro.cancelado".equals(tipo) ? "media" : "baja", usuario,
+                "retiro/" + sucId + "/" + id,
+                () -> com.franco.dev.eventos.EventosCentral.retiro(r, det),
+                () -> com.franco.dev.eventos.EventosCentral.atributosRetiro(r, det));
     }
 
     private static boolean esVerificado(EstadoRetiro estado) {

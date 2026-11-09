@@ -59,7 +59,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
     @Autowired
     private EntityManager em;
 
-    @Autowired
+    @Autowired(required = false)
     private com.franco.dev.eventos.EventoEmisor eventoEmisor;
 
     @Autowired
@@ -359,7 +359,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             }
             // Aviso por webhook (srv #587): en la misma TX; si falla el INSERT, la cancelacion sigue
             final Venta v = venta;
-            if (eventoEmisor.encendido()) eventoEmisor.emitirProyeccionDe(v.getSucursalId(), com.franco.dev.eventos.EventosCentral.tipoCancelacion(v),
+            if (eventoEmisor != null && eventoEmisor.encendido()) eventoEmisor.emitirProyeccionDe(v.getSucursalId(), com.franco.dev.eventos.EventosCentral.tipoCancelacion(v),
                     v.getEstado() == VentaEstado.CANCELADA ? "media" : "baja", usuarioActualId(), "venta/" + v.getId(),
                     () -> com.franco.dev.eventos.EventosCentral.ventaCancelada(v, tarjetasCambiadas, usuarioActual()),
                     () -> com.franco.dev.eventos.EventosCentral.atributosVentaCancelada(v));

@@ -1,0 +1,101 @@
+# Eventos por webhook (srv #587, fase C1). Administracion: rol WEBHOOKS GESTIONAR o ADMIN.
+# Los campos JSON (filtros, campos, umbrales) van como texto JSON.
+
+type EventoCatalogoTipo {
+    tipo: String
+    version: Int
+    familia: String
+    nodo: String
+    atributos: [String]
+    campos: [EventoCatalogoCampo]
+}
+
+type EventoCatalogoCampo {
+    ruta: String
+    clase: String
+}
+
+type EventosConsumidor {
+    id: ID
+    nombre: String
+    contacto: String
+    permitePersonales: Boolean
+    permiteSensibles: Boolean
+    maxSuscripciones: Int
+    activo: Boolean
+    creadoEn: String
+}
+
+input EventosConsumidorInput {
+    id: ID
+    nombre: String!
+    contacto: String
+    permitePersonales: Boolean
+    permiteSensibles: Boolean
+    maxSuscripciones: Int
+    activo: Boolean
+}
+
+type WebhookSuscripcion {
+    id: ID
+    consumidorId: ID
+    nombre: String
+    url: String
+    eventos: [String]
+    eventosPausados: [String]
+    sucursalIds: [ID]
+    filtros: String
+    campos: String
+    umbrales: String
+    entrega: String
+    datosPersonales: Boolean
+    datosSensibles: Boolean
+    cabeceraNombre: String
+    secretoRef: String
+    latido: Boolean
+    verificada: Boolean
+    activo: Boolean
+    configVersion: Int
+    creadoEn: String
+    actualizadoEn: String
+}
+
+input WebhookSuscripcionInput {
+    id: ID
+    consumidorId: ID!
+    nombre: String!
+    url: String!
+    eventos: [String]!
+    sucursalIds: [ID]
+    filtros: String
+    campos: String
+    umbrales: String
+    entrega: String
+    datosPersonales: Boolean
+    datosSensibles: Boolean
+    cabeceraNombre: String
+    secretoRef: String
+    latido: Boolean
+}
+
+type WebhookVerificacion {
+    verificada: Boolean
+    statusHttp: Int
+    mensaje: String
+}
+
+extend type Query {
+    eventosCatalogo: [EventoCatalogoTipo]
+    eventosConsumidores: [EventosConsumidor]
+    webhookSuscripciones(consumidorId: ID): [WebhookSuscripcion]
+    webhookSuscripcion(id: ID!): WebhookSuscripcion
+}
+
+extend type Mutation {
+    saveEventosConsumidor(input: EventosConsumidorInput!): EventosConsumidor
+    saveWebhookSuscripcion(input: WebhookSuscripcionInput!): WebhookSuscripcion
+    activarWebhookSuscripcion(id: ID!, activo: Boolean!): WebhookSuscripcion
+    pausarEventosWebhookSuscripcion(id: ID!, eventos: [String]!): WebhookSuscripcion
+    deleteWebhookSuscripcion(id: ID!): Boolean
+    verificarWebhookSuscripcion(id: ID!): WebhookVerificacion
+}

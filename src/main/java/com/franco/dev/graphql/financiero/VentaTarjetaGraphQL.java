@@ -158,8 +158,22 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.save(entity);
     }
 
+    @Autowired(required = false)
+    private com.franco.dev.eventos.EventoEmisor eventoEmisor;
+
+    @Autowired
+    private org.springframework.transaction.PlatformTransactionManager txManager;
+
+    /**
+     * La app (frc-mobile) completa la tarjeta por aca, en el central. El guardado y su aviso
+     * venta_tarjeta.completada van en una sola TX (srv #587, C1): si el guardado no queda, no hay aviso.
+     */
     public VentaTarjeta updateVentaTarjeta(VentaTarjetaInput input) {
         seg.requireAnyRole("VENTA TOUCH", VENTA_TARJETA_COMPLETAR);
+        return new org.springframework.transaction.support.TransactionTemplate(txManager).execute(s -> actualizar(input));
+    }
+
+    private VentaTarjeta actualizar(VentaTarjetaInput input) {
         VentaTarjeta entity = service.findByIdAndSucursalId(input.getId(), input.getSucursalId());
         if (entity == null) return null;
         exigirCobroPropioORol(entity); // hoy cualquier cajero reescribía monto, autorización e imagen ajenos (#574)
@@ -168,6 +182,7 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (input.getNumeroBoleta() != null) entity.setNumeroBoleta(input.getNumeroBoleta());
         if (input.getMontoEscaneado() != null) entity.setMontoEscaneado(input.getMontoEscaneado());
         if (input.getImagenUrl() != null) entity.setImagenUrl(input.getImagenUrl());
+        String estadoAnterior = entity.getEstado();
         if (input.getEstado() != null) entity.setEstado(input.getEstado());
         if (input.getTerminalPosId() != null) {
             entity.setTerminalPos(terminalPosService.findById(input.getTerminalPosId()).orElse(null));
@@ -181,7 +196,17 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             entity.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
 
-        return service.save(entity);
+        VentaTarjeta guardada = service.save(entity);
+        if (eventoEmisor != null && eventoEmisor.encendido() && "COMPLETADO".equals(guardada.getEstado())
+                && !"COMPLETADO".equals(estadoAnterior)) {
+            final VentaTarjeta vt = guardada;
+            eventoEmisor.emitirProyeccionDe(vt.getSucursalId(), "venta_tarjeta.completada", "baja",
+                    vt.getUsuario() != null ? vt.getUsuario().getId() : null,
+                    "venta_tarjeta/" + vt.getSucursalId() + "/" + vt.getId(),
+                    () -> com.franco.dev.eventos.EventosTarjeta.tarjeta(vt, vt.getVenta(), null),
+                    () -> com.franco.dev.eventos.EventosTarjeta.atributos(vt));
+        }
+        return guardada;
     }
 
     public Boolean deleteVentaTarjeta(Long id, Long sucId) {

@@ -35,7 +35,7 @@ class GastoServiceTest {
     void setUp() {
         repository = mock(GastoRepository.class);
         publisher = mock(ApplicationEventPublisher.class);
-        service = new GastoService(repository, publisher);
+        service = new GastoService(repository, publisher, null);
 
         // La instancia que devuelve el lock queda con el flag viejo (nulo) a propósito.
         when(repository.lockByIdAndSucursalId(5L, 1L)).thenReturn(Optional.of(new Gasto()));

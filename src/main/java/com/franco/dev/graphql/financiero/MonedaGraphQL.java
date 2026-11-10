@@ -49,17 +49,59 @@ public class MonedaGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         return conversionPrecioService.convertir(montosGs);
     }
 
+    /** El kiosco con precios en otra moneda (V260.5): montos en monedaOrigenId (null = guaranies). */
+    public List<PreciosEnMonedaDto> convertirPreciosDesdeMobile(List<Double> montos, Long monedaOrigenId) {
+        Moneda origen = monedaOrigenId != null ? service.findById(monedaOrigenId).orElse(null) : null;
+        if (monedaOrigenId != null && origen == null) return new java.util.ArrayList<>();
+        return conversionPrecioService.convertir(montos, origen);
+    }
+
     public List<Moneda> monedas(int page, int size) {
         return service.findAll2();
     }
 
 
+    /**
+     * Reemplazo completo del registro, salvo dos campos que se conservan:
+     * <ul>
+     *   <li>{@code principal}: la moneda de la empresa no se cambia desde el ABM. Pasarla a otra
+     *   moneda cambia la base de todos los modulos y se hace solo con el procedimiento de corte.
+     *   Una moneda nueva nace no principal.</li>
+     *   <li>{@code codigoIso}, cuando el input no lo trae: un cliente anterior a V258.5 no conoce el
+     *   campo y lo borraria al guardar cualquier otro cambio.</li>
+     * </ul>
+     */
     public Moneda saveMoneda(MonedaInput input) {
         seg.requireGestionar();
         ModelMapper m = new ModelMapper();
         Moneda e = m.map(input, Moneda.class);
-        e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        e.setPais(paisService.findById(input.getPaisId()).orElse(null));
+        Moneda actual = input.getId() != null ? service.findById(input.getId()).orElse(null) : null;
+        e.setPrincipal(actual != null ? actual.getPrincipal() : Boolean.FALSE);
+        if (input.getCodigoIso() == null) {
+            e.setCodigoIso(actual != null ? actual.getCodigoIso() : null);
+        } else {
+            String iso = input.getCodigoIso().trim().toUpperCase(java.util.Locale.ROOT);
+            if (iso.isEmpty()) {
+                e.setCodigoIso(null);
+            } else if (!iso.matches("[A-Z]{3}")) {
+                throw new graphql.GraphQLException("El codigo ISO tiene que ser de tres letras (PYG, USD, BRL).");
+            } else {
+                // El indice unico lo rechazaria igual, pero con un error de Hibernate ilegible.
+                Moneda otra = service.porCodigoIso(iso);
+                if (otra != null && !otra.getId().equals(input.getId())) {
+                    throw new graphql.GraphQLException("El codigo ISO " + iso + " ya lo tiene " + otra.getDenominacion() + ".");
+                }
+                e.setCodigoIso(iso);
+            }
+        }
+        // El ABM del desktop no lee el usuario y a veces no trae el pais: sin id se conserva el guardado
+        // (findById(null) tiraba NPE y editar una moneda fallaba).
+        e.setUsuario(input.getUsuarioId() != null
+                ? usuarioService.findById(input.getUsuarioId()).orElse(null)
+                : (actual != null ? actual.getUsuario() : null));
+        e.setPais(input.getPaisId() != null
+                ? paisService.findById(input.getPaisId()).orElse(null)
+                : (actual != null ? actual.getPais() : null));
         e = service.save(e);
         return e;
     }

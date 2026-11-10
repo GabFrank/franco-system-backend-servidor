@@ -1,0 +1,9 @@
+extend type Query {
+    "Version minima del desktop (ej. 4.12.0). Null = sin control. No pide rol."
+    versionMinimaDesktop: String
+}
+
+extend type Mutation {
+    "null o vacio apaga el control. Solo ADMIN."
+    setVersionMinimaDesktop(version: String): String
+}

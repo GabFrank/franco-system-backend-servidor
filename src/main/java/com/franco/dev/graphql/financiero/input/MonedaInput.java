@@ -12,6 +12,7 @@ public class MonedaInput {
     private Integer decimales;
     private String reglaRedondeo;
     private java.math.BigDecimal redondeoMultiplo;
+    private String codigoIso;
     private Long paisId;
     private Long usuarioId;
 }

@@ -42,6 +42,9 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private VentaService ventaService;
 
     @Autowired
+    private com.franco.dev.service.operaciones.CobroDetalleService cobroDetalleService;
+
+    @Autowired
     private PdvCajaService pdvCajaService;
 
     @Autowired
@@ -203,10 +206,18 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             eventoEmisor.emitirProyeccionDe(vt.getSucursalId(), "venta_tarjeta.completada", "baja",
                     vt.getUsuario() != null ? vt.getUsuario().getId() : null,
                     "venta_tarjeta/" + vt.getSucursalId() + "/" + vt.getId(),
-                    () -> com.franco.dev.eventos.EventosTarjeta.tarjeta(vt, vt.getVenta(), null),
+                    () -> com.franco.dev.eventos.EventosTarjeta.tarjeta(vt, vt.getVenta(), lineasCobro(vt)),
                     () -> com.franco.dev.eventos.EventosTarjeta.atributos(vt));
         }
         return guardada;
+    }
+
+    /** Las lineas de cobro de la venta, como en la filial (pedido de Oku): se leen en la misma TX. */
+    private java.util.List<com.franco.dev.domain.operaciones.CobroDetalle> lineasCobro(VentaTarjeta vt) {
+        if (vt.getVenta() == null || vt.getVenta().getCobro() == null || cobroDetalleService == null) return null;
+        // La sucursal de la venta (clave compuesta del cobro), no la de la tarjeta.
+        Long suc = vt.getVenta().getSucursalId() != null ? vt.getVenta().getSucursalId() : vt.getSucursalId();
+        return cobroDetalleService.findByCobroId(vt.getVenta().getCobro().getId(), suc);
     }
 
     public Boolean deleteVentaTarjeta(Long id, Long sucId) {

@@ -4,6 +4,10 @@ type ConfiguracionCobro {
     aumentoConTope: Boolean!
     "Tope del aumento, en porcentaje del total del cobro (0, 100]."
     aumentoTopePorcentaje: Float!
+    "true = el descuento del cobro (sumando los descuentos por item) no puede pasar descuentoTopePorcentaje del total; false = sin tope."
+    descuentoConTope: Boolean!
+    "Tope del descuento, en porcentaje del total del cobro (0, 100]."
+    descuentoTopePorcentaje: Float!
     "Quien la guardo por ultima vez."
     usuarioNickname: String
     creadoEn: Date
@@ -14,6 +18,8 @@ type ConfiguracionCobro {
 input ConfiguracionCobroInput {
     aumentoConTope: Boolean
     aumentoTopePorcentaje: Float
+    descuentoConTope: Boolean
+    descuentoTopePorcentaje: Float
 }
 
 extend type Query {

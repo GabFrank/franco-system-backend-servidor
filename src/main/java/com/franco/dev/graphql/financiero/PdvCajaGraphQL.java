@@ -5,6 +5,7 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.CajaBalance;
 import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.financiero.SolicitudAperturaCaja;
+import com.franco.dev.domain.administrativo.enums.Turno;
 import com.franco.dev.domain.financiero.enums.PdvCajaEstado;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.financiero.input.ConteoInput;
@@ -178,10 +179,10 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findByDate(inicio, fin, sucId);
     }
 
-    public Page<PdvCaja> cajasWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, Boolean activo, int page, int size) {
+    public Page<PdvCaja> cajasWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, Boolean activo, Turno turno, int page, int size) {
         seg.requireAnyRole(TesoreriaSecurityService.ANALISIS_DE_CAJA);
         Pageable pageable = PageRequest.of(page, size);
-        return service.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio, fechaFin, sucId, verificado, activo, pageable);
+        return service.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio, fechaFin, sucId, verificado, activo, turno, pageable);
     }
 
     /**

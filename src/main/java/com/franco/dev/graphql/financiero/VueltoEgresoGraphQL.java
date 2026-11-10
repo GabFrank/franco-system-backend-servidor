@@ -18,9 +18,11 @@ public class VueltoEgresoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private final TesoreriaSecurityService seg;
 
     public Page<VueltoEgresoService.EgresoParaVuelto> egresosParaVuelto(Long cajaVirtualId, String texto,
+                                                                         String desde, String fin,
                                                                          Integer page, Integer size) {
         seg.requireVerCaja();
-        return service.egresosParaVuelto(cajaVirtualId, texto, page != null ? page : 0, size != null ? size : 10);
+        return service.egresosParaVuelto(cajaVirtualId, texto, desde, fin,
+                page != null ? page : 0, size != null ? size : 10);
     }
 
     public MovimientoCajaVirtual registrarVueltoEgreso(Long egresoId, Long monedaId, Double monto, String descripcion,

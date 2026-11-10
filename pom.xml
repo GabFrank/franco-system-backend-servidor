@@ -286,6 +286,27 @@
 			<artifactId>jasperreports</artifactId>
 			<version>6.20.0</version>
 			<scope>compile</scope>
+			<!-- El itext 2.1.7 de Jasper trae Bouncy Castle 1.70 (jdk15on); se usa la linea jdk18on (firma Ed25519 de los webhooks, srv #587) -->
+			<exclusions>
+				<exclusion>
+					<groupId>org.bouncycastle</groupId>
+					<artifactId>bcprov-jdk15on</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.bouncycastle</groupId>
+					<artifactId>bcutil-jdk15on</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcprov-jdk18on</artifactId>
+			<version>1.86</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcutil-jdk18on</artifactId>
+			<version>1.86</version>
 		</dependency>
 
 		<!-- Envio del KuDE de la factura electronica al correo del cliente -->

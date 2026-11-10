@@ -12,6 +12,9 @@ public interface DocumentoRecibidoItemRepository extends JpaRepository<Documento
 
     List<DocumentoRecibidoItem> findByDocumentoRecibidoIdOrderByOrdenAsc(Long documentoRecibidoId);
 
+    /** Los renglones de factura vinculados a un ítem del pedido. */
+    List<DocumentoRecibidoItem> findByPedidoItemId(Long pedidoItemId);
+
     @Modifying
     @Query("delete from DocumentoRecibidoItem i where i.documentoRecibido.id = :documentoId")
     void deleteByDocumentoRecibidoId(@Param("documentoId") Long documentoId);

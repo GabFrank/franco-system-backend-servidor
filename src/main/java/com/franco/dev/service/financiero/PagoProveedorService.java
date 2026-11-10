@@ -845,6 +845,12 @@ public class PagoProveedorService {
         // contra-movimiento (TesoreriaService.revertir no mira si el original ya esta revertido).
         Pago pago = pagoService.getRepository().lockById(pagoId)
                 .orElseThrow(() -> new GraphQLException("Pago no encontrado: " + pagoId));
+        // El acceso a las cajas va antes del estado y del límite, igual que en TesoreriaService.revertir. Con todos
+        // los detalles, también los anulados: los de un pago ya anulado lo están todos. Banco y cheque no tienen caja.
+        List<PagoSolicitudDetalle> todos = detalleRepository.findByPagoIdOrderByCreadoEnAsc(pagoId);
+        todos.stream().filter(d -> d.getMovimientoCajaVirtualId() != null).map(PagoSolicitudDetalle::getCajaVirtualId)
+                .distinct().sorted(java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder()))
+                .forEach(seguridad::requireEscrituraCaja);
         // El estado se relee despues del lock: AnulacionPagoRrhhService ya cargo el pago en esta misma
         // transaccion antes de llegar aca, y en ese caso lockById devuelve la instancia vieja.
         PagoEstado estado = pagoService.getRepository().findEstadoById(pagoId).orElse(pago.getEstado());
@@ -854,7 +860,7 @@ public class PagoProveedorService {
         // hace poco pasaba, y uno con un diferido sin cobrar no postea ninguna reversa (issue #370).
         tesoreriaService.requireDentroDelLimiteDeAnulacion(pago.getCreadoEn(), "El pago #" + pagoId);
 
-        List<PagoSolicitudDetalle> detalles = detalleRepository.findByPagoIdOrderByCreadoEnAsc(pagoId)
+        List<PagoSolicitudDetalle> detalles = todos
                 .stream().filter(d -> !Boolean.TRUE.equals(d.getAnulado())).collect(Collectors.toList());
         if (detalles.isEmpty()) throw new GraphQLException("El pago no tiene detalles activos para anular");
         exigirAnulacionPermitidaEnModoAcotado(detalles);

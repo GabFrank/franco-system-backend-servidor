@@ -25,6 +25,11 @@ public final class EventosTarjeta {
 
     /** Con la venta y sus lineas de cobro, si la operacion las tiene (se leen por id en la misma TX). */
     public static Map<String, Object> tarjeta(VentaTarjeta vt, Venta venta, List<CobroDetalle> detalles) {
+        return tarjetaConLineas(vt, venta, venta != null ? EventosVenta.lineasCobro(detalles) : null);
+    }
+
+    /** Igual, con las lineas de cobro ya armadas (el central las lee por JDBC, srv #587). */
+    public static Map<String, Object> tarjetaConLineas(VentaTarjeta vt, Venta venta, List<Map<String, Object>> lineas) {
         Map<String, Object> d = new LinkedHashMap<>();
         d.put("id", vt.getId());
         d.put("ventaId", (vt.getVenta() != null ? vt.getVenta().getId() : null));
@@ -70,7 +75,7 @@ public final class EventosTarjeta {
             v.put("id", venta.getId());
             v.put("estado", venta.getEstado() != null ? venta.getEstado().name() : null);
             Map<String, Object> cobro = new LinkedHashMap<>();
-            cobro.put("cobroDetalleList", EventosVenta.lineasCobro(detalles));
+            cobro.put("cobroDetalleList", lineas != null ? lineas : new java.util.ArrayList<>());
             v.put("cobro", cobro);
             d.put("venta", v);
         }

@@ -257,11 +257,16 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         }
     }
 
+    // numeric de Postgres: el driver no lo convierte a Double con getObject(..., Double.class).
+    private static Double aDouble(java.math.BigDecimal b) {
+        return b == null ? null : b.doubleValue();
+    }
+
     static java.util.Map<String, Object> lineaCobro(java.sql.ResultSet rs) throws java.sql.SQLException {
         java.util.Map<String, Object> l = new java.util.LinkedHashMap<>();
         l.put("id", rs.getLong("id"));
-        l.put("valor", (Double) rs.getObject("valor", Double.class));
-        l.put("cambio", (Double) rs.getObject("cambio", Double.class));
+        l.put("valor", aDouble(rs.getBigDecimal("valor")));
+        l.put("cambio", aDouble(rs.getBigDecimal("cambio")));
         l.put("pago", (Boolean) rs.getObject("pago", Boolean.class));
         l.put("vuelto", (Boolean) rs.getObject("vuelto", Boolean.class));
         l.put("descuento", (Boolean) rs.getObject("descuento", Boolean.class));

@@ -1,6 +1,7 @@
 package com.franco.dev.domain.operaciones;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
 import com.franco.dev.domain.productos.Presentacion;
@@ -16,6 +17,7 @@ import javax.persistence.*;
 import javax.persistence.Entity;
 import javax.persistence.Table;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -84,6 +86,22 @@ public class VentaItem implements Serializable {
     private Usuario usuario;
 
     private Boolean activo;
+
+    // Rastro de la conversion del precio de lista (V260.5). precio sigue en la moneda en que se cobro.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "precio_moneda_id", nullable = true)
+    private Moneda precioMoneda;
+
+    @Column(name = "precio_lista")
+    private BigDecimal precioLista;
+
+    /** Unidades de la moneda de cobro por unidad de precioMoneda. */
+    @Column(name = "precio_cotizacion")
+    private BigDecimal precioCotizacion;
+
+    /** Precio unitario cobrado en la moneda de la venta (V267.5); precio es su equivalente en la de la empresa. */
+    @Column(name = "precio_en_moneda")
+    private BigDecimal precioEnMoneda;
 
 
 }

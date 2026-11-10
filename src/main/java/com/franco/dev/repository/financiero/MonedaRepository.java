@@ -23,6 +23,11 @@ public interface MonedaRepository extends HelperRepository<Moneda, Long> {
 
     List<Moneda> findAllByOrderByIdAsc();
 
+    /** La moneda de la empresa. A lo sumo una (uq_moneda_principal); el orden cubre una base sin el indice. */
+    Moneda findFirstByPrincipalTrueOrderByIdAsc();
+
+    Moneda findFirstByCodigoIsoIgnoreCase(String codigoIso);
+
     //    Moneda findByPaisId(Long id);
 
 }

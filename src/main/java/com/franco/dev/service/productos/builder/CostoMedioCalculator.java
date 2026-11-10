@@ -29,6 +29,15 @@ public final class CostoMedioCalculator {
     }
 
     /**
+     * Lo mismo con la moneda de la nota a la vista: una nota en guaraníes no se convierte aunque traiga
+     * cotización &gt; 1 (0 filas así en bodega y farmacia, 2026-10-29). Para el resto, la regla de
+     * siempre: una nota extranjera con cotización nula o &lt;= 1 se guarda sin convertir.
+     */
+    public static double aGuaranies(double costoUnitario, double cotizacion, boolean notaEnGuaranies) {
+        return notaEnGuaranies ? costoUnitario : aGuaranies(costoUnitario, cotizacion);
+    }
+
+    /**
      * Calcula el costo medio resultante (en Gs).
      *
      * @param stockReal          inventario real del producto LUEGO de la entrada de esta compra (denominador)

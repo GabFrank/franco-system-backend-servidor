@@ -1,5 +1,6 @@
 package com.franco.dev.domain.operaciones;
 
+import java.math.BigDecimal;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.service.EmbeddedEntity;
@@ -37,5 +38,9 @@ public class Cobro extends EmbeddedEntity implements Serializable {
 
     @Column(name = "total_gs")
     private Double totalGs;
+
+    /** Total del cobro en la moneda de la venta (V267.5); total_gs es su equivalente en la de la empresa. */
+    @Column(name = "total_moneda")
+    private BigDecimal totalMoneda;
 
 }

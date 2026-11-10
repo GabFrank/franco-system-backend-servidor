@@ -330,14 +330,15 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
                 if (e.getPresentacionPreTransferencia() != null
                         && e.getPresentacionPreTransferencia().getProducto() != null) {
                     Producto producto = e.getPresentacionPreTransferencia().getProducto();
-                    Moneda guarani = null;
+                    // El precio de la transferencia esta en la moneda de la empresa, como las columnas de costo.
+                    Moneda empresa = null;
                     try {
-                        guarani = monedaService.findByDescripcion("GUARANI");
+                        empresa = monedaService.empresa();
                     } catch (Exception ex) {
-                        System.err.println("Moneda GUARANI no encontrada: " + ex.getMessage());
+                        System.err.println("Moneda de la empresa no encontrada: " + ex.getMessage());
                     }
                     costosPorProductoService.registrarCostoCompraManual(
-                            producto, precioCosto, guarani,
+                            producto, precioCosto, empresa,
                             e.getTransferencia().getSucursalOrigen(), e.getUsuario(), e.getCreadoEn());
                 }
             } catch (Exception ex) {

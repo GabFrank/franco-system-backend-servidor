@@ -2,6 +2,7 @@ package com.franco.dev.domain.productos;
 
 import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.personas.Usuario;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -57,6 +58,11 @@ public class PrecioPorSucursal implements Identifiable<Long> {
     private Usuario usuario;
 
     private Boolean activo;
+
+    /** Moneda del precio (V260.5). NULL = la moneda de la empresa (principal). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "moneda_id", nullable = true)
+    private Moneda moneda;
 
 }
 

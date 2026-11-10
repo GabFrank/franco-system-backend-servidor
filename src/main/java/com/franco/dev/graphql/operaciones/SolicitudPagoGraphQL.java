@@ -13,7 +13,9 @@ import com.franco.dev.domain.operaciones.enums.TipoSolicitudPago;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.service.financiero.FormaPagoService;
+import com.franco.dev.service.financiero.MonedaModuloLector;
 import com.franco.dev.service.financiero.MonedaService;
+import com.franco.dev.domain.financiero.enums.ModuloMoneda;
 import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.operaciones.SolicitudPagoDetalleService;
 import com.franco.dev.service.operaciones.SolicitudPagoNotaRecepcionService;
@@ -62,6 +64,9 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     @Autowired
     private MonedaService monedaService;
+
+    @Autowired
+    private MonedaModuloLector monedaModuloLector;
 
     @Autowired
     private FormaPagoService formaPagoService;
@@ -876,7 +881,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     /**
-     * Resolves Moneda from input, first detalle, or default (GUARANI).
+     * Resolves Moneda from input, first detalle, or default (la moneda de COMPRAS).
      * Usado en: save/update cuando monedaId ya no va en cabecera (va en detalle).
      */
     private Moneda resolveMoneda(SolicitudPagoInput input,
@@ -893,7 +898,9 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
                                 "Moneda no encontrada en detalle: " + first.getMonedaId()));
             }
         }
-        Moneda defaultMoneda = monedaService.findByDescripcion("GUARANI");
+        // Sin moneda en el input: la de compras (sin configurar, la de la empresa).
+        Moneda defaultMoneda = monedaModuloLector.resolver(ModuloMoneda.COMPRAS, null);
+        if (defaultMoneda == null) defaultMoneda = monedaService.findByDescripcion("GUARANI");
         if (defaultMoneda == null) {
             throw new IllegalArgumentException("Moneda por defecto GUARANI no encontrada");
         }

@@ -7,9 +7,9 @@ import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.repository.productos.CostosPorProductoRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.productos.builder.CostoMedioCalculator;
-import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +23,6 @@ import java.util.Arrays;
 import java.util.List;
 
 @Service
-@AllArgsConstructor
 public class CostosPorProductoService extends CrudService<CostoPorProducto, CostosPorProductoRepository, Long> {
 
     private static final Logger log = LoggerFactory.getLogger(CostosPorProductoService.class);
@@ -35,6 +34,22 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
     private MovimientoStockService movimientoStockService;
     @Autowired
     private com.franco.dev.service.configuraciones.ModificacionService modificacionService;
+
+    /**
+     * Las columnas de costeo (V259.5). Por campo y no por constructor: los tests que arman el
+     * servicio a mano (CostoGoldenTest) no lo tienen, y sin el se escriben solo las columnas de
+     * siempre, que es exactamente lo que esos tests fijan.
+     */
+    @Autowired
+    private CosteoMoneda costeoMoneda;
+
+    public CostosPorProductoService(CostosPorProductoRepository repository,
+                                    MovimientoStockService movimientoStockService,
+                                    com.franco.dev.service.configuraciones.ModificacionService modificacionService) {
+        this.repository = repository;
+        this.movimientoStockService = movimientoStockService;
+        this.modificacionService = modificacionService;
+    }
 
     @Override
     public CostosPorProductoRepository getRepository() {
@@ -78,6 +93,10 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
                 entidadAnterior.setMoneda(original.getMoneda());
                 entidadAnterior.setMovimientoStock(original.getMovimientoStock());
                 entidadAnterior.setUsuario(original.getUsuario());
+                entidadAnterior.setMonedaCosteo(original.getMonedaCosteo());
+                entidadAnterior.setCostoMedioCosteo(original.getCostoMedioCosteo());
+                entidadAnterior.setUltimoPrecioCompraCosteo(original.getUltimoPrecioCompraCosteo());
+                entidadAnterior.setCotizacionCosteo(original.getCotizacionCosteo());
             }
         }
 
@@ -169,7 +188,14 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
 
         double cotiz = (cotizacion != null) ? cotizacion : 1.0;
         // Costo de la compra normalizado a Gs para que el promedio ponderado sea correcto al mezclar monedas.
-        double costoEnGs = (costoUnitario != null) ? CostoMedioCalculator.aGuaranies(costoUnitario, cotiz) : 0.0;
+        boolean notaEnGuaranies = MonedaService.esGuarani(moneda);
+        double costoEnGs = (costoUnitario != null)
+                ? CostoMedioCalculator.aGuaranies(costoUnitario, cotiz, notaEnGuaranies) : 0.0;
+        if (costoEnGs > 0 && moneda != null && !notaEnGuaranies && moneda.getDenominacion() != null && !(cotiz > 1.0)) {
+            // Lo de siempre (lo fija CostoGoldenTest): no se inventa una cotizacion. Pero queda a la vista.
+            log.warn("COSTO_SIN_CONVERTIR producto={} ({}): nota en {} con cotizacion {}, el costo se guarda sin convertir.",
+                    producto.getId(), producto.getDescripcion(), moneda.getDenominacion(), cotiz);
+        }
         if (costoEnGs <= 0) {
             // Compra sin costo válido: no se toca el costo. Las bonificaciones no llegan acá, así que es
             // un ítem cargado con precio 0; un producto nuevo queda sin costo, por eso se deja a la vista.
@@ -205,7 +231,7 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
                 costoEnGs);
 
         return guardarSiCambia(producto, nuevoCostoMedio, costoEnGs, moneda, cotiz, sucursal, usuario, fecha,
-                costoAnterior);
+                costoAnterior, costoUnitario, stockReal, cantidadEntrada);
     }
 
     /**
@@ -246,9 +272,10 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
         if (producto == null || producto.getId() == null) return null;
         if (precioCosto == null || precioCosto <= 0) return null;
         CostoPorProducto costoAnterior = findLastByProductoId(producto.getId());
-        // precioCosto ya viene en Gs (las transferencias operan en GUARANI)
+        // precioCosto viene en la moneda de la empresa (las transferencias operan en guaranies). La
+        // columna de costeo es su conversion, sin ponderar: esta via no pondera en ninguna moneda.
         return guardarSiCambia(producto, precioCosto, precioCosto, moneda, 1.0, sucursal, usuario, fecha,
-                costoAnterior);
+                costoAnterior, null, null, 0.0);
     }
 
     /**
@@ -257,7 +284,8 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
      */
     private CostoPorProducto guardarSiCambia(Producto producto, double costoMedio, double ultimoPrecioCompra,
                                              Moneda moneda, double cotizacion, Sucursal sucursal,
-                                             Usuario usuario, LocalDateTime fecha, CostoPorProducto costoAnterior) {
+                                             Usuario usuario, LocalDateTime fecha, CostoPorProducto costoAnterior,
+                                             Double precioEnSuMoneda, Double stockReal, double cantidad) {
         Long monedaIdAnterior = (costoAnterior != null && costoAnterior.getMoneda() != null)
                 ? costoAnterior.getMoneda().getId() : null;
         Long monedaIdNuevo = (moneda != null) ? moneda.getId() : null;
@@ -277,6 +305,10 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
         nuevo.setCotizacion(cotizacion);
         if (usuario != null) nuevo.setUsuario(usuario);
         nuevo.setCreadoEn(fecha != null ? fecha : LocalDateTime.now());
+        if (costeoMoneda != null) {
+            costeoMoneda.completar(nuevo, costoAnterior, moneda, precioEnSuMoneda, cotizacion, stockReal, cantidad,
+                    nuevo.getCreadoEn());
+        }
         return save(nuevo);
     }
 

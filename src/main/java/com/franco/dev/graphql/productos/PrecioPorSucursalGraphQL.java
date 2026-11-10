@@ -1,9 +1,17 @@
 package com.franco.dev.graphql.productos;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.financiero.Moneda;
+import com.franco.dev.domain.financiero.enums.ModuloMoneda;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
+import com.franco.dev.domain.productos.dto.PrecioEnOtraMoneda;
+import com.franco.dev.domain.productos.dto.ProductoMonedaPrecio;
 import com.franco.dev.graphql.productos.input.PrecioPorSucursalInput;
 import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.financiero.ControlVersionMoneda;
+import com.franco.dev.service.financiero.MonedaModuloLector;
+import com.franco.dev.service.financiero.MonedaService;
+import graphql.GraphQLException;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.*;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -57,10 +65,55 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
     @Autowired
     private Environment env;
 
+    @Autowired
+    private MonedaService monedaService;
+
+    @Autowired
+    private MonedaModuloLector monedaModuloLector;
+
+    @Autowired
+    private ControlVersionMoneda controlVersionMoneda;
+
+    @Autowired
+    private com.franco.dev.graphql.productos.resolver.PresentacionResolver presentacionResolver;
+
     @SuppressWarnings("unused")
 
     public Optional<PrecioPorSucursal> precioPorSucursal(Long id) {
         return service.findById(id);
+    }
+
+    /**
+     * Los precios en otra moneda que la de la empresa (V260.5), para que un cliente los cachee una vez
+     * en lugar de pedir la moneda producto por producto. Los que no estan son de la moneda de la empresa.
+     */
+    public List<PrecioEnOtraMoneda> preciosEnOtraMoneda() {
+        Moneda empresa = monedaModuloLector.empresa();
+        return service.getRepository().findConMoneda().stream()
+                .filter(p -> !MonedaService.misma(p.getMoneda(), empresa))
+                .map(p -> new PrecioEnOtraMoneda(p.getId(), p.getMoneda()))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * Para una pagina de productos, la moneda de su precio principal (el mismo que muestra
+     * {@code Producto.precioPrincipal}), solo de los que no estan en la moneda de la empresa. Una sola
+     * llamada por pagina: el listado no puede pedir la moneda en su consulta compartida.
+     */
+    public List<ProductoMonedaPrecio> monedaPrecioPrincipalDeProductos(List<Long> productoIds) {
+        Moneda empresa = monedaModuloLector.empresa();
+        List<ProductoMonedaPrecio> r = new java.util.ArrayList<>();
+        if (productoIds == null) return r;
+        for (Long id : productoIds) {
+            if (id == null) continue;
+            com.franco.dev.domain.productos.Presentacion pre = presentacionService.findByPrincipalAndProductoId(true, id);
+            if (pre == null) continue;
+            PrecioPorSucursal precio = presentacionResolver.precioPrincipal(pre);
+            if (precio != null && precio.getMoneda() != null && !MonedaService.misma(precio.getMoneda(), empresa)) {
+                r.add(new ProductoMonedaPrecio(id, precio.getMoneda()));
+            }
+        }
+        return r;
     }
 
     public List<PrecioPorSucursal> precioPorSucursalPorPresentacionId(Long id) {
@@ -82,14 +135,21 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
     public PrecioPorSucursal savePrecioPorSucursal(PrecioPorSucursalInput input) {
         seg.requireGestionar();
         Double precioAnterior = null;
+        Moneda monedaGuardada = null;
         if (input.getId() != null) {
             PrecioPorSucursal p = service.findById(input.getId()).orElse(null);
             if (p != null) {
                 precioAnterior = p.getPrecio();
+                monedaGuardada = p.getMoneda();
             }
         }
+        Moneda moneda = monedaDelPrecio(input, monedaGuardada);
+        Long monedaId = input.getMonedaId();
+        input.setMonedaId(null); // la resuelve monedaDelPrecio; ModelMapper armaria una Moneda suelta
         ModelMapper m = new ModelMapper();
         PrecioPorSucursal e = m.map(input, PrecioPorSucursal.class);
+        input.setMonedaId(monedaId);
+        e.setMoneda(moneda);
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
@@ -121,6 +181,29 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
         sendPrecioActualizadoNotification(e, precioAnterior);
 
         return e;
+    }
+
+    /**
+     * La moneda del precio (V260.5). Con monedaId, esa; sin el, en una edicion la guardada (un cliente
+     * viejo que no la manda no la borra) y en un alta la del modulo PRECIOS. La moneda de la empresa
+     * se guarda como NULL, como todos los precios de antes. Otra moneda exige la version minima del
+     * escritorio: uno viejo cobraria 4,39 USD como 4 de la moneda de la empresa.
+     */
+    Moneda monedaDelPrecio(PrecioPorSucursalInput input, Moneda guardada) {
+        Moneda moneda;
+        if (input.getMonedaId() != null) {
+            moneda = monedaService.findById(input.getMonedaId())
+                    .orElseThrow(() -> new GraphQLException("La moneda " + input.getMonedaId() + " no existe."));
+        } else if (input.getId() != null) {
+            moneda = guardada;
+        } else {
+            moneda = monedaModuloLector.resolver(ModuloMoneda.PRECIOS, null);
+        }
+        if (moneda == null || MonedaService.misma(moneda, monedaModuloLector.empresa())) return null;
+        if (!MonedaService.misma(moneda, guardada)) {
+            controlVersionMoneda.exigirParaOtraMoneda("cargar precios en " + moneda.getDenominacion());
+        }
+        return moneda;
     }
 
     public Boolean deletePrecioPorSucursal(Long id) {

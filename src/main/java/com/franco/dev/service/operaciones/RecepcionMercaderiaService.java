@@ -33,9 +33,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.Optional;
@@ -194,8 +196,9 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
         List<RecepcionCostoAdicional> costosAdicionales = recepcionCostoAdicionalService
             .findByRecepcionMercaderiaId(recepcionId);
         
-        Double totalCostosAdicionales = calcularTotalCostosAdicionales(costosAdicionales, recepcion.getMoneda());
-        Double totalValorItems = calcularTotalValorItems(items);
+        // Los dos totales en Gs: las notas y los costos adicionales pueden estar en monedas distintas.
+        BigDecimal totalCostosAdicionales = calcularTotalCostosAdicionalesGs(costosAdicionales, items, recepcion);
+        BigDecimal totalValorItems = calcularTotalValorItemsGs(items, recepcion);
         
         // Procesar cada ítem: generar movimiento de stock y actualizar costo.
         // Los ítems de una compra ya cancelada no entran al stock (#535): la cancelación anuló lo
@@ -246,8 +249,8 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
      * Procesa un ítem individual de recepción
      */
     @Transactional
-    private void procesarItemRecepcion(RecepcionMercaderiaItem item, Double totalCostosAdicionales, 
-                                     Double totalValorItems, RecepcionMercaderia recepcion) {
+    private void procesarItemRecepcion(RecepcionMercaderiaItem item, BigDecimal totalCostosAdicionales,
+                                     BigDecimal totalValorItems, RecepcionMercaderia recepcion) {
         
         // Solo procesar ítems que fueron realmente recibidos
         if (item.getCantidadRecibida() == null || item.getCantidadRecibida() <= 0) {
@@ -268,38 +271,24 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
     }
 
     /**
-     * Calcula el costo unitario final incluyendo costos adicionales prorrateados
+     * Costo unitario final en la moneda de la NOTA (la que espera aplicarCostoCompra), con su parte
+     * de los costos adicionales. Ver {@link ProrrateoCostoRecepcion#costoUnitario}.
      */
-    private Double calcularCostoUnitarioFinal(RecepcionMercaderiaItem item, Double totalCostosAdicionales, 
-                                            Double totalValorItems, RecepcionMercaderia recepcion) {
-        
+    private Double calcularCostoUnitarioFinal(RecepcionMercaderiaItem item, BigDecimal totalCostosAdicionales,
+                                            BigDecimal totalValorItems, RecepcionMercaderia recepcion) {
+
         // Si es bonificación, el costo es 0
         if (item.getEsBonificacion()) {
             return 0.0;
         }
-        
+
         // Obtener precio base del ítem de la nota
         Double precioBase = item.getNotaRecepcionItem().getPrecioUnitarioEnNota();
         if (precioBase == null) {
             precioBase = 0.0;
         }
-        
-        // Convertir a moneda de la recepción si es necesario
-        Double precioBaseEnMonedaRecepcion = convertirMoneda(precioBase, 
-            item.getNotaRecepcionItem().getNotaRecepcion().getMoneda(),
-            recepcion.getMoneda(),
-            item.getNotaRecepcionItem().getNotaRecepcion().getCotizacion(),
-            recepcion.getCotizacion());
-        
-        // Calcular prorrateo de costos adicionales
-        Double costoAdicionalPorItem = 0.0;
-        if (totalCostosAdicionales > 0 && totalValorItems > 0) {
-            Double valorItem = precioBaseEnMonedaRecepcion * item.getCantidadRecibida();
-            Double porcentajeItem = valorItem / totalValorItems;
-            costoAdicionalPorItem = (totalCostosAdicionales * porcentajeItem) / item.getCantidadRecibida();
-        }
-        
-        return precioBaseEnMonedaRecepcion + costoAdicionalPorItem;
+
+        return ProrrateoCostoRecepcion.costoUnitario(precioBase, totalCostosAdicionales, totalValorItems);
     }
 
     /**
@@ -408,37 +397,56 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
     }
 
     /**
-     * Calcula el total de costos adicionales convertidos a la moneda de la recepción
+     * Total de los costos adicionales en Gs, cada uno con la cotización de su moneda en esta
+     * recepción (ver {@link ProrrateoCostoRecepcion#gsPorUnidad}).
      */
-    private Double calcularTotalCostosAdicionales(List<RecepcionCostoAdicional> costosAdicionales, 
-                                                 Moneda monedaRecepcion) {
-        return costosAdicionales.stream()
-            .mapToDouble(costo -> convertirMoneda(costo.getMonto(), costo.getMoneda(), 
-                                                 monedaRecepcion, 1.0, 1.0)) // Simplificado - asumir misma moneda
-            .sum();
+    private BigDecimal calcularTotalCostosAdicionalesGs(List<RecepcionCostoAdicional> costosAdicionales,
+                                                      List<RecepcionMercaderiaItem> items,
+                                                      RecepcionMercaderia recepcion) {
+        if (costosAdicionales.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        // Por id: el equals/hashCode de la entidad no sirve para esto.
+        Map<Long, NotaRecepcion> notas = new LinkedHashMap<>();
+        for (RecepcionMercaderiaItem item : items) {
+            NotaRecepcion nota = item.getNotaRecepcionItem() != null ? item.getNotaRecepcionItem().getNotaRecepcion() : null;
+            if (nota != null) notas.putIfAbsent(nota.getId(), nota);
+        }
+        BigDecimal total = BigDecimal.ZERO;
+        for (RecepcionCostoAdicional costo : costosAdicionales) {
+            if (costo.getMonto() == null) continue;
+            BigDecimal gs = ProrrateoCostoRecepcion.gsPorUnidad(costo.getMoneda(), notas.values(),
+                    recepcion.getMoneda(), recepcion.getCotizacion(), costo.getDescripcion());
+            total = total.add(BigDecimal.valueOf(costo.getMonto()).multiply(gs));
+        }
+        return total;
     }
 
     /**
-     * Calcula el total del valor de todos los ítems
+     * Valor en Gs de los ítems recibidos (sin bonificaciones): el peso de cada uno en el prorrateo.
+     * Cada ítem con la cotización de su nota, la misma que después usa el costo medio.
      */
-    private Double calcularTotalValorItems(List<RecepcionMercaderiaItem> items) {
-        return items.stream()
-            .filter(item -> !item.getEsBonificacion() && item.getCantidadRecibida() > 0)
-            .mapToDouble(item -> {
-                Double precio = item.getNotaRecepcionItem().getPrecioUnitarioEnNota();
-                return (precio != null ? precio : 0.0) * item.getCantidadRecibida();
-            })
-            .sum();
+    private BigDecimal calcularTotalValorItemsGs(List<RecepcionMercaderiaItem> items, RecepcionMercaderia recepcion) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (RecepcionMercaderiaItem item : items) {
+            if (item.getEsBonificacion() || item.getCantidadRecibida() == null || item.getCantidadRecibida() <= 0) {
+                continue;
+            }
+            Double precio = item.getNotaRecepcionItem().getPrecioUnitarioEnNota();
+            if (precio == null) continue;
+            total = total.add(BigDecimal.valueOf(precio)
+                    .multiply(BigDecimal.valueOf(item.getCantidadRecibida()))
+                    .multiply(ProrrateoCostoRecepcion.factorGs(cotizacionNota(item, recepcion))));
+        }
+        return total;
     }
 
-    /**
-     * Convierte entre monedas (simplificado - en producción usar servicio de conversión)
-     */
-    private Double convertirMoneda(Double monto, Moneda monedaOrigen, Moneda monedaDestino, 
-                                  Double cotizacionOrigen, Double cotizacionDestino) {
-        // Por ahora asumir que todas las monedas son iguales
-        // En producción implementar lógica de conversión real
-        return monto;
+    /** Cotización de la nota del ítem, o la de la recepción, o 1: la misma que usa actualizarCostoPorProducto. */
+    private static Double cotizacionNota(RecepcionMercaderiaItem item, RecepcionMercaderia recepcion) {
+        NotaRecepcion nota = item.getNotaRecepcionItem() != null
+            ? item.getNotaRecepcionItem().getNotaRecepcion() : null;
+        if (nota != null && nota.getCotizacion() != null) return nota.getCotizacion();
+        return recepcion.getCotizacion() != null ? recepcion.getCotizacion() : 1.0;
     }
 
     /**

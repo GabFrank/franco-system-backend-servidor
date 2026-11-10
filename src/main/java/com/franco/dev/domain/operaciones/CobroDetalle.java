@@ -75,4 +75,8 @@ public class CobroDetalle extends EmbeddedEntity implements Serializable {
 
     private String identificadorTransaccion;
 
+    /** Moneda de la empresa por unidad de {@link #moneda}, con decimales (V267.5). cambio sigue entero. */
+    @Column(name = "cotizacion")
+    private java.math.BigDecimal cotizacion;
+
 }

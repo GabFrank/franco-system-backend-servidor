@@ -11,6 +11,12 @@ type CostoPorProducto {
     existencia: Float
     creadoEn: Date
     usuario: Usuario
+    "Moneda de costeo (modulo COSTOS) de los dos campos siguientes. Los de arriba siguen en la moneda de la empresa."
+    monedaCosteo: Moneda
+    "Costo medio en monedaCosteo. En filas anteriores a V259.5, el costo de la empresa a la cotizacion de compras de vigente_desde."
+    costoMedioCosteo: Float
+    "Ultimo precio de compra en monedaCosteo, con la misma regla."
+    ultimoPrecioCompraCosteo: Float
 }
 
 input CostoPorProductoInput {

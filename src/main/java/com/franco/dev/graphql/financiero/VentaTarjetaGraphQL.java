@@ -41,8 +41,6 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private VentaService ventaService;
 
-    @Autowired
-    private com.franco.dev.service.operaciones.CobroDetalleService cobroDetalleService;
 
     @Autowired
     private PdvCajaService pdvCajaService;
@@ -206,18 +204,89 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             eventoEmisor.emitirProyeccionDe(vt.getSucursalId(), "venta_tarjeta.completada", "baja",
                     vt.getUsuario() != null ? vt.getUsuario().getId() : null,
                     "venta_tarjeta/" + vt.getSucursalId() + "/" + vt.getId(),
-                    () -> com.franco.dev.eventos.EventosTarjeta.tarjeta(vt, vt.getVenta(), lineasCobro(vt)),
+                    () -> com.franco.dev.eventos.EventosTarjeta.tarjetaConLineas(vt, vt.getVenta(), lineasCobro(vt)),
                     () -> com.franco.dev.eventos.EventosTarjeta.atributos(vt));
         }
         return guardada;
     }
 
-    /** Las lineas de cobro de la venta, como en la filial (pedido de Oku): se leen en la misma TX. */
-    private java.util.List<com.franco.dev.domain.operaciones.CobroDetalle> lineasCobro(VentaTarjeta vt) {
-        if (vt.getVenta() == null || vt.getVenta().getCobro() == null || cobroDetalleService == null) return null;
+    @Autowired(required = false)
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
+    static final String SQL_LINEAS_COBRO = "SELECT cd.id, cd.valor, cd.cambio, cd.pago, cd.vuelto, cd.descuento, cd.aumento,"
+            + " cd.identificador_transaccion, m.id AS moneda_id, m.denominacion, fp.id AS forma_pago_id, fp.descripcion"
+            + " FROM operaciones.cobro_detalle cd"
+            + " LEFT JOIN financiero.moneda m ON m.id = cd.moneda_id"
+            + " LEFT JOIN financiero.forma_pago fp ON fp.id = cd.forma_pago_id"
+            + " WHERE cd.cobro_id = ? AND cd.sucursal_id = ? ORDER BY cd.id";
+
+    /**
+     * Las lineas de cobro de la venta, con la forma de EventosVenta.lineaCobro (pedido de Oku, srv #587).
+     * Por JDBC sobre la conexion de la TX y dentro de un savepoint: si la lectura falla, se vuelve al
+     * savepoint y el aviso sale sin lineas. No pasa por un repositorio de Spring Data ni por Hibernate,
+     * que ante una excepcion dejarian la TX de la tarjeta marcada para rollback (auditoria de C1).
+     */
+    java.util.List<java.util.Map<String, Object>> lineasCobro(VentaTarjeta vt) {
+        if (vt.getVenta() == null || vt.getVenta().getCobro() == null || jdbcTemplate == null) return null;
+        Long cobroId = vt.getVenta().getCobro().getId();
         // La sucursal de la venta (clave compuesta del cobro), no la de la tarjeta.
         Long suc = vt.getVenta().getSucursalId() != null ? vt.getVenta().getSucursalId() : vt.getSucursalId();
-        return cobroDetalleService.findByCobroId(vt.getVenta().getCobro().getId(), suc);
+        try {
+            return jdbcTemplate.execute((org.springframework.jdbc.core.ConnectionCallback<java.util.List<java.util.Map<String, Object>>>) con -> {
+                java.sql.Savepoint sp = con.setSavepoint();
+                try (java.sql.PreparedStatement ps = con.prepareStatement(SQL_LINEAS_COBRO)) {
+                    ps.setQueryTimeout(2);
+                    ps.setLong(1, cobroId);
+                    ps.setLong(2, suc);
+                    java.util.List<java.util.Map<String, Object>> l = new java.util.ArrayList<>();
+                    try (java.sql.ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) l.add(lineaCobro(rs));
+                    }
+                    con.releaseSavepoint(sp);
+                    return l;
+                } catch (java.sql.SQLException e) {
+                    con.rollback(sp);
+                    throw e;
+                }
+            });
+        } catch (Exception e) {
+            // El aviso sale sin lineas y la tarjeta se guarda igual; queda en el log para que se note en el piloto.
+            org.slf4j.LoggerFactory.getLogger(VentaTarjetaGraphQL.class).warn(
+                    "[eventos] venta_tarjeta.completada {}/{} sin lineas de cobro: {}", vt.getSucursalId(), vt.getId(), e.toString());
+            return null;
+        }
+    }
+
+    // numeric de Postgres: el driver no lo convierte a Double con getObject(..., Double.class).
+    private static Double aDouble(java.math.BigDecimal b) {
+        return b == null ? null : b.doubleValue();
+    }
+
+    static java.util.Map<String, Object> lineaCobro(java.sql.ResultSet rs) throws java.sql.SQLException {
+        java.util.Map<String, Object> l = new java.util.LinkedHashMap<>();
+        l.put("id", rs.getLong("id"));
+        l.put("valor", aDouble(rs.getBigDecimal("valor")));
+        l.put("cambio", aDouble(rs.getBigDecimal("cambio")));
+        l.put("pago", (Boolean) rs.getObject("pago", Boolean.class));
+        l.put("vuelto", (Boolean) rs.getObject("vuelto", Boolean.class));
+        l.put("descuento", (Boolean) rs.getObject("descuento", Boolean.class));
+        l.put("aumento", (Boolean) rs.getObject("aumento", Boolean.class));
+        l.put("identificadorTransaccion", rs.getString("identificador_transaccion"));
+        Long monedaId = (Long) rs.getObject("moneda_id", Long.class);
+        if (monedaId != null) {
+            java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("id", monedaId);
+            m.put("denominacion", rs.getString("denominacion"));
+            l.put("moneda", m);
+        }
+        Long fpId = (Long) rs.getObject("forma_pago_id", Long.class);
+        if (fpId != null) {
+            java.util.Map<String, Object> f = new java.util.LinkedHashMap<>();
+            f.put("id", fpId);
+            f.put("descripcion", rs.getString("descripcion"));
+            l.put("formaPago", f);
+        }
+        return l;
     }
 
     public Boolean deleteVentaTarjeta(Long id, Long sucId) {

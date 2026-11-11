@@ -39,9 +39,11 @@ import org.springframework.stereotype.Component;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.logging.Logger;
 
 @Component
@@ -269,17 +271,20 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
                 }
             }
         }
-        if (filtro.length() > 0 && sucursalIdList != null && sucursalIdList.size() > 0) {
+        // «Todas» llega como [null]: findById(null) devuelve null y no un Optional vacío.
+        List<Long> sucursales = sucursalIdList == null ? Collections.emptyList()
+                : sucursalIdList.stream().filter(Objects::nonNull).collect(Collectors.toList());
+        if (filtro.length() > 0) {
             filtro.append("\n");
         }
-        if (sucursalIdList != null && sucursalIdList.size() > 0) {
-            if (sucursalIdList.size() > 1) {
-                filtro.append("Sucursales: ");
-            } else {
-                filtro.append("Sucursal: ");
-            }
+        if (sucursales.isEmpty()) {
+            filtro.append("Sucursales: Todas");
+        } else if (sucursales.size() > 1) {
+            filtro.append("Sucursales: ");
+        } else {
+            filtro.append("Sucursal: ");
         }
-        for (Long sucId : sucursalIdList) {
+        for (Long sucId : sucursales) {
             Sucursal suc = sucursalService.findById(sucId).orElse(null);
             if (suc != null)
                 filtro.append(suc.getNombre() + ", ");

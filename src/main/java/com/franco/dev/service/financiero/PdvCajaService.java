@@ -38,7 +38,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.springframework.data.domain.PageImpl;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
@@ -561,11 +560,18 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
             Pageable pageable) {
 
         if (cajaAnteriorId != null && maletinDescripcion == null && sucId == null && estado == null && fechaInicio == null && fechaFin == null) {
-            return findCajasByAnteriorIdOptimized(cajaAnteriorId, sucId, pageable);
+            return findCajasByAnteriorIdOptimized(cajaAnteriorId, sucId, difEstado, pageable);
         }
 
         final LocalDateTime inicio = fechaInicio != null ? stringToDate(fechaInicio) : null;
         final LocalDateTime fin = fechaFin != null ? stringToDate(fechaFin) : null;
+
+        // Con filtro de estado o de caja anterior, el estado de todas las cajas se calcula en la base y
+        // se pagina despues (#609): filtrar en memoria la pagina ya cortada perdia cajas y el total.
+        if (difEstado != null || cajaAnteriorId != null) {
+            return analisisDiferenciasFiltrado(cajaId, cajaAnteriorId, estado, maletinId, maletinDescripcion, cajeroId,
+                    inicio, fin, sucId, verificado, difEstado, pageable);
+        }
 
         Specification<PdvCaja> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -605,30 +611,40 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
 
         List<PdvCaja> cajas = new ArrayList<>(page.getContent());
         cajas.forEach(this::enriquecerConCajaAnterior);
+        return new PageImpl<PdvCaja>(cajas, page.getPageable(), page.getTotalElements());
+    }
 
-        List<PdvCaja> cajasFiltradas = cajas;
-
-        if(cajaAnteriorId != null){
-            cajasFiltradas = cajasFiltradas.stream().filter(c -> cajaAnteriorId.equals(c.getCajaAnteriorId())).collect(Collectors.toList());
-        }
-
-        if (difEstado != null) {
-            cajasFiltradas = cajasFiltradas.stream()
-                .filter(c -> {
-                    String estadoCalculado = calcularEstadoDiferenciaConsecutiva(c);
-                    return difEstado.equals(estadoCalculado);
-                })
-                .collect(Collectors.toList());
-        }
-
-        if (difEstado != null || cajaAnteriorId != null) {
-            int start = (int) pageable.getOffset();
-            int end = Math.min((start + pageable.getPageSize()), cajasFiltradas.size());
-            List<PdvCaja> sublist = (start <= end) ? cajasFiltradas.subList(start, end) : new ArrayList<>();
-            return new PageImpl<PdvCaja>(sublist, pageable, cajasFiltradas.size());
+    private Page<PdvCaja> analisisDiferenciasFiltrado(Long cajaId, Long cajaAnteriorId, PdvCajaEstado estado, Long maletinId,
+                                                      String maletinDescripcion, Long cajeroId, LocalDateTime inicio,
+                                                      LocalDateTime fin, Long sucId, Boolean verificado, String difEstado,
+                                                      Pageable pageable) {
+        String desc = maletinDescripcion != null ? "%" + maletinDescripcion.toLowerCase() + "%" : null;
+        java.util.function.LongFunction<List<Object[]>> pagina = desde -> repository.findAnalisisDiferencias(
+                texto(sucId), texto(cajaId), estado != null ? estado.name() : null, texto(maletinId), desc,
+                texto(cajeroId), texto(verificado), texto(inicio), texto(fin), texto(cajaAnteriorId), difEstado,
+                pageable.getPageSize(), desde);
+        List<Object[]> filas = pagina.apply(pageable.getOffset());
+        long total;
+        if (!filas.isEmpty()) {
+            total = ((Number) filas.get(0)[2]).longValue();
         } else {
-            return new PageImpl<PdvCaja>(cajasFiltradas, page.getPageable(), page.getTotalElements());
+            // Pagina pasada del final: el total sale de la primera.
+            List<Object[]> primera = pageable.getOffset() > 0 ? pagina.apply(0) : filas;
+            total = primera.isEmpty() ? 0 : ((Number) primera.get(0)[2]).longValue();
         }
+        List<PdvCaja> cajas = new ArrayList<>();
+        for (Object[] f : filas) {
+            PdvCaja c = repository.findByIdAndSucursalId(((Number) f[0]).longValue(), ((Number) f[1]).longValue());
+            if (c != null) {
+                enriquecerConCajaAnterior(c);
+                cajas.add(c);
+            }
+        }
+        return new PageImpl<>(cajas, pageable, total);
+    }
+
+    private static String texto(Object valor) {
+        return valor != null ? valor.toString() : null;
     }
 
     /**
@@ -770,7 +786,7 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
      * @param pageable
      * @return
      */
-    private Page<PdvCaja> findCajasByAnteriorIdOptimized(Long cajaAnteriorId, Long sucId, Pageable pageable) {
+    private Page<PdvCaja> findCajasByAnteriorIdOptimized(Long cajaAnteriorId, Long sucId, String difEstado, Pageable pageable) {
         final List<PdvCaja> posiblesCajasAnteriores = buscarCajasPorId(cajaAnteriorId, sucId);
 
         if (posiblesCajasAnteriores.isEmpty()) {
@@ -800,6 +816,9 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
                 .ifPresent(resultadosTotales::add);
         }
         
+        if (difEstado != null) {
+            resultadosTotales.removeIf(c -> !difEstado.equals(c.getEstadoDiferenciaConsecutiva()));
+        }
         resultadosTotales.sort((a, b) -> b.getFechaApertura().compareTo(a.getFechaApertura()));
 
         int start = (int) pageable.getOffset();

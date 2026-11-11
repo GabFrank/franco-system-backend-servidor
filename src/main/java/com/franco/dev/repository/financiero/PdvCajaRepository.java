@@ -11,6 +11,7 @@ import com.franco.dev.repository.HelperRepositoryEmbeddedId;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.time.LocalDateTime;
@@ -92,41 +93,69 @@ public interface PdvCajaRepository extends HelperRepository<PdvCaja, Long>, JpaS
     @Query("SELECT DISTINCT v.caja FROM VentaObservacion vo JOIN vo.venta v WHERE v.caja IS NOT NULL")
     List<PdvCaja> findCajasWithVentaObservaciones();
 
-    @Query("SELECT c FROM PdvCaja c WHERE c.maletin.id = :maletinId AND c.fechaCierre < :fechaApertura AND c.conteoCierre IS NOT NULL ORDER BY c.fechaCierre DESC")
+    @Query("SELECT c FROM PdvCaja c WHERE c.maletin.id = :maletinId AND c.fechaCierre < :fechaApertura AND c.conteoCierre IS NOT NULL ORDER BY c.fechaCierre DESC, c.id DESC, c.sucursalId DESC")
     List<PdvCaja> findPreviousCajaByMaletinAndFecha(Long maletinId, LocalDateTime fechaApertura, Pageable pageable);
 
-    @Query(value = "SELECT c.* FROM financiero.pdv_caja c " +
-            "LEFT JOIN LATERAL (SELECT SUM(cm.cantidad * mb.valor) AS total_apertura FROM financiero.conteo_moneda cm JOIN financiero.moneda_billetes mb ON mb.id = cm.moneda_billetes_id WHERE cm.conteo_id = c.conteo_apertura_id) ca ON TRUE " +
-            "LEFT JOIN LATERAL (SELECT SUM(cm.cantidad * mb.valor) AS total_cierre FROM financiero.conteo_moneda cm JOIN financiero.moneda_billetes mb ON mb.id = cm.moneda_billetes_id WHERE cm.conteo_id = c.conteo_cierre_id) cc ON TRUE " +
-            "LEFT JOIN financiero.maletin m ON c.maletin_id = m.id " +
-            "WHERE (:sucId IS NULL OR c.sucursal_id = CAST(:sucId AS bigint)) " +
-            "AND (:cajaId IS NULL OR c.id = CAST(:cajaId AS bigint)) " +
-            "AND (:maletinId IS NULL OR m.id = CAST(:maletinId AS bigint)) " +
-            "AND (:cajeroId IS NULL OR c.usuario_id = CAST(:cajeroId AS bigint)) " +
-            "AND (:verificado IS NULL OR c.verificado = :verificado) " +
-            "AND ((:fechaInicio IS NULL OR :fechaFin IS NULL) OR c.creado_en BETWEEN :fechaInicio AND :fechaFin) " +
-            "AND (:estado IS NULL OR c.estado = CAST(:estado AS TEXT)) " +
-            "AND ( :difEstado IS NULL " +
-            "      OR (:difEstado = 'CON_DIFERENCIA'  AND ca.total_apertura IS NOT NULL AND cc.total_cierre IS NOT NULL AND ca.total_apertura <> cc.total_cierre) " +
-            "      OR (:difEstado = 'SIN_DIFERENCIA' AND ca.total_apertura IS NOT NULL AND cc.total_cierre IS NOT NULL AND ca.total_apertura = cc.total_cierre) " +
-            "      OR (:difEstado = 'SIN_DATOS'      AND (ca.total_apertura IS NULL OR cc.total_cierre IS NULL)) ) " +
-            "ORDER BY c.fecha_cierre DESC",
-            countQuery = "SELECT COUNT(*) FROM financiero.pdv_caja c " +
-            "LEFT JOIN LATERAL (SELECT SUM(cm.cantidad * mb.valor) AS total_apertura FROM financiero.conteo_moneda cm JOIN financiero.moneda_billetes mb ON mb.id = cm.moneda_billetes_id WHERE cm.conteo_id = c.conteo_apertura_id) ca ON TRUE " +
-            "LEFT JOIN LATERAL (SELECT SUM(cm.cantidad * mb.valor) AS total_cierre FROM financiero.conteo_moneda cm JOIN financiero.moneda_billetes mb ON mb.id = cm.moneda_billetes_id WHERE cm.conteo_id = c.conteo_cierre_id) cc ON TRUE " +
-            "LEFT JOIN financiero.maletin m ON c.maletin_id = m.id " +
-            "WHERE (:sucId IS NULL OR c.sucursal_id = CAST(:sucId AS bigint)) " +
-            "AND (:cajaId IS NULL OR c.id = CAST(:cajaId AS bigint)) " +
-            "AND (:maletinId IS NULL OR m.id = CAST(:maletinId AS bigint)) " +
-            "AND (:cajeroId IS NULL OR c.usuario_id = CAST(:cajeroId AS bigint)) " +
-            "AND (:verificado IS NULL OR c.verificado = :verificado) " +
-            "AND ((:fechaInicio IS NULL OR :fechaFin IS NULL) OR c.creado_en BETWEEN :fechaInicio AND :fechaFin) " +
-            "AND (:estado IS NULL OR c.estado = CAST(:estado AS TEXT)) " +
-            "AND ( :difEstado IS NULL " +
-            "      OR (:difEstado = 'CON_DIFERENCIA'  AND ca.total_apertura IS NOT NULL AND cc.total_cierre IS NOT NULL AND ca.total_apertura <> cc.total_cierre) " +
-            "      OR (:difEstado = 'SIN_DIFERENCIA' AND ca.total_apertura IS NOT NULL AND cc.total_cierre IS NOT NULL AND ca.total_apertura = cc.total_cierre) " +
-            "      OR (:difEstado = 'SIN_DATOS'      AND (ca.total_apertura IS NULL OR cc.total_cierre IS NULL)) )",
+    /**
+     * Analisis de diferencias de maletin (#609): estado de cada caja contra la anterior del mismo
+     * maletin, filtrado y paginado en la base, con el total en cada fila. Misma regla que
+     * PdvCajaService.enriquecerConCajaAnterior + estadoPorMoneda: anterior = misma maletin_id, cerrada
+     * antes de la apertura de esta y con conteo de cierre, la mas reciente; moneda por moneda con
+     * medio centavo de tolerancia. Los filtros llegan como texto: un nulo de Hibernate puede venir como
+     * bytea, y CAST(bytea AS text) existe; CAST(bytea AS bigint) no.
+     * Fila: id, sucursal_id, total.
+     */
+    @Query(value = "WITH base AS ( " +
+            "  SELECT c.id, c.sucursal_id, c.maletin_id, c.creado_en, c.fecha_apertura, c.conteo_apertura_id " +
+            "  FROM financiero.pdv_caja c LEFT JOIN financiero.maletin m ON m.id = c.maletin_id " +
+            "  WHERE (CAST(:sucId AS text) IS NULL OR c.sucursal_id = CAST(CAST(:sucId AS text) AS bigint)) " +
+            "    AND (CAST(:cajaId AS text) IS NULL OR c.id = CAST(CAST(:cajaId AS text) AS bigint)) " +
+            "    AND (CAST(:estado AS text) IS NULL OR CAST(c.estado AS text) = CAST(:estado AS text)) " +
+            "    AND (CAST(:maletinId AS text) IS NULL OR c.maletin_id = CAST(CAST(:maletinId AS text) AS bigint)) " +
+            "    AND (CAST(:maletinDescripcion AS text) IS NULL OR lower(m.descripcion) LIKE CAST(:maletinDescripcion AS text)) " +
+            "    AND (CAST(:cajeroId AS text) IS NULL OR c.usuario_id = CAST(CAST(:cajeroId AS text) AS bigint)) " +
+            "    AND (CAST(:verificado AS text) IS NULL OR c.verificado = CAST(CAST(:verificado AS text) AS boolean)) " +
+            "    AND (CAST(:inicio AS text) IS NULL OR CAST(:fin AS text) IS NULL " +
+            "         OR c.creado_en BETWEEN CAST(CAST(:inicio AS text) AS timestamp) AND CAST(CAST(:fin AS text) AS timestamp)) " +
+            "), est AS ( " +
+            "  SELECT b.*, ant.id AS ant_id, " +
+            "    CASE WHEN ant.id IS NULL THEN 'SIN_DATOS' " +
+            "      WHEN EXISTS ( " +
+            "        SELECT 1 FROM ( " +
+            "          SELECT mo.denominacion AS d, cm.cantidad * mb.valor AS t " +
+            "          FROM financiero.conteo_moneda cm " +
+            "          JOIN financiero.moneda_billetes mb ON mb.id = cm.moneda_billetes_id " +
+            "          JOIN financiero.moneda mo ON mo.id = mb.moneda_id " +
+            "          WHERE cm.conteo_id = ant.conteo_cierre_id AND cm.sucursal_id = ant.sucursal_id " +
+            "          UNION ALL " +
+            "          SELECT mo.denominacion, -(cm.cantidad * mb.valor) " +
+            "          FROM financiero.conteo_moneda cm " +
+            "          JOIN financiero.moneda_billetes mb ON mb.id = cm.moneda_billetes_id " +
+            "          JOIN financiero.moneda mo ON mo.id = mb.moneda_id " +
+            "          WHERE cm.conteo_id = b.conteo_apertura_id AND cm.sucursal_id = b.sucursal_id " +
+            "        ) x WHERE x.d IS NOT NULL AND x.t IS NOT NULL GROUP BY x.d HAVING abs(sum(x.t)) > 0.005 " +
+            "      ) THEN 'CON_DIFERENCIA' ELSE 'SIN_DIFERENCIA' END AS estado_dif " +
+            "  FROM base b " +
+            "  LEFT JOIN LATERAL ( " +
+            "    SELECT a.id, a.sucursal_id, a.conteo_cierre_id FROM financiero.pdv_caja a " +
+            "    WHERE b.conteo_apertura_id IS NOT NULL AND b.fecha_apertura IS NOT NULL " +
+            "      AND a.maletin_id = b.maletin_id AND a.fecha_cierre < b.fecha_apertura AND a.conteo_cierre_id IS NOT NULL " +
+            "    ORDER BY a.fecha_cierre DESC, a.id DESC, a.sucursal_id DESC LIMIT 1 " +
+            "  ) ant ON TRUE " +
+            ") " +
+            "SELECT e.id, e.sucursal_id, count(*) OVER () AS total FROM est e " +
+            "WHERE (CAST(:cajaAnteriorId AS text) IS NULL OR e.ant_id = CAST(CAST(:cajaAnteriorId AS text) AS bigint)) " +
+            "  AND (CAST(:difEstado AS text) IS NULL OR e.estado_dif = CAST(:difEstado AS text)) " +
+            "ORDER BY e.maletin_id DESC, e.creado_en DESC, e.id DESC, e.sucursal_id DESC " +
+            "LIMIT :limite OFFSET :desde",
             nativeQuery = true)
-    Page<PdvCaja> findAllForAnalisisDiferenciasNative(Long cajaId, String estado, Long maletinId, Long cajeroId, LocalDateTime fechaInicio, LocalDateTime fechaFin, Long sucId, Boolean verificado, String difEstado, Pageable pageable);
+    List<Object[]> findAnalisisDiferencias(@Param("sucId") String sucId, @Param("cajaId") String cajaId,
+                                           @Param("estado") String estado, @Param("maletinId") String maletinId,
+                                           @Param("maletinDescripcion") String maletinDescripcion,
+                                           @Param("cajeroId") String cajeroId, @Param("verificado") String verificado,
+                                           @Param("inicio") String inicio, @Param("fin") String fin,
+                                           @Param("cajaAnteriorId") String cajaAnteriorId,
+                                           @Param("difEstado") String difEstado,
+                                           @Param("limite") int limite, @Param("desde") long desde);
 
 }

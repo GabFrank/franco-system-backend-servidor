@@ -78,6 +78,35 @@ Flyway, réplica, SIFEN, correo, cotización, acreditación POS, poller de retir
    etiqueta nueva, y el filtro CON/SIN DIFERENCIA la incluye o excluye en consecuencia.
 3. Si la base no trae un caso de monedas cruzadas, se arma por SQL en conteos de prueba y se restaura.
 
+## Resultado de las pruebas (11/11/2026)
+
+**Tests:** `PdvCajaEstadoConsecutivoTest` 9/9 en verde (más `PdvCajaServiceMontosNulosTest` y `ProyeccionesContratoTest`).
+Con la regla vieja (suma mezclada + `Double.equals`) fallan 5: 3 × 0,1 contra 0,3, monedas cruzadas, faltante en
+guaraníes compensado con reales, la paridad con el evento, y el billete con datos nulos (NPE).
+
+**Runtime:** jar de `develop` y jar de la rama, uno después del otro en el 8081, contra la bodega local (perfil `dev`,
+Flyway, réplica, SIFEN, correo, cotización, acreditación POS, poller de retiros y Firebase apagados).
+- `cajasAnalisisDiferencias` sucursal 1, 10 páginas de 50: con los dos jars, 213 CON, 286 SIN y 1 SIN DATOS, **sin
+  ningún cambio**. Los casos que arregla la #607 son raros en los datos reales.
+- **Caso armado:** caja 6337 (anterior 6333, maletín 0020220104, «SIN DIFERENCIA» con los dos jars). Su fila de
+  apertura 167758 (8 × R$ 10, billete 16) se pasó a US$ 10 (billete 23): la suma mezclada no cambia.
+  - API con la rama: `CON_DIFERENCIA`; filtro `difEstado` CON la incluye, SIN la excluye.
+  - **Desktop** (Análisis de diferencias → Diferencia en maletines, maletín 0020220104): con la rama, la fila 6333 →
+    6337 dice «CON DIFERENCIA», aparece con el filtro «Con diferencia» y no con «Sin diferencia»; con `develop`, la
+    misma fila dice «SIN DIFERENCIA» y aparece con «Sin diferencia» (el bug).
+  - La fila se restauró al billete 16 y se verificó igual a la original.
+
+**Visto al probar, previo y fuera de alcance:** buscando por **caja anterior** sin fecha, el desktop manda
+`cajaAnteriorId` sin fechas y el central entra en `findCajasByAnteriorIdOptimized`, que **ignora `difEstado`**: el
+filtro de estado no filtra (pasa igual con `develop`). Va con #609.
+
+## Auditoría del diff (paso 8)
+
+Fijo 1 (permisos): sin cambios de resolvers ni roles. Fijo 2 (migraciones): N/A. Fijo 3 (operaciones/contrato): mismo
+campo `@Transient` y mismos tres valores; misma cantidad de consultas por caja. `EventosCaja.totalesDeConteo` gana
+saltear la denominación nula (antes NPE en `merge`); su otro llamador (evento `caja.abierta`) no cambia en datos
+válidos. Condicionales: no toca tablas replicadas ni canales.
+
 ## Auditoría (paso 5, 11/11/2026)
 
 | # | Hallazgo | Qué se hizo |

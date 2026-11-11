@@ -96,7 +96,7 @@ public final class EventosCaja {
         return d;
     }
 
-    /** El central suma el conteo en todas las monedas sin convertir; aca se compara moneda por moneda. */
+    /** Moneda por moneda, con medio centavo de tolerancia; el analisis del central usa la misma regla (#607). */
     public static String estadoConsecutivo(Double gs, Double rs, Double ds, Anterior ant) {
         if (ant == null) return "SIN_DATOS";
         return hayDiferencia(gs, rs, ds, ant) ? "CON_DIFERENCIA" : "SIN_DIFERENCIA";
@@ -269,7 +269,7 @@ public final class EventosCaja {
         Map<String, Double> t = new LinkedHashMap<>();
         if (billetes != null) for (com.franco.dev.domain.financiero.ConteoMoneda cm : billetes) {
             if (cm.getMonedaBilletes() == null || cm.getMonedaBilletes().getMoneda() == null || cm.getCantidad() == null
-                    || cm.getMonedaBilletes().getValor() == null) continue;
+                    || cm.getMonedaBilletes().getValor() == null || cm.getMonedaBilletes().getMoneda().getDenominacion() == null) continue;
             t.merge(cm.getMonedaBilletes().getMoneda().getDenominacion(), cm.getCantidad() * cm.getMonedaBilletes().getValor(), Double::sum);
         }
         if (respaldo != null) for (com.franco.dev.domain.financiero.MovimientoCaja mc : respaldo) {

@@ -50,7 +50,7 @@ public interface CodigoRepository extends HelperRepository<Codigo, Long> {
 
     public List<Codigo> findByPresentacionId(Long id);
 
-    @Query(value = "select * from productos.presentacion p " +
+    @Query(value = "select c.* from productos.presentacion p " +
             "left outer join productos.codigo c on c.presentacion_id = p.id " +
             "where c.principal = true and p.id = ?1 limit 1", nativeQuery = true)
     public Codigo findPrincipalByPresentacionId(Long id);

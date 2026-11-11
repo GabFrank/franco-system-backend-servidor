@@ -464,8 +464,9 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
             balance.setFechaApertura(pdvCaja.getFechaApertura());
             balance.setFechaCierre(pdvCaja.getFechaCierre());
             balance.setDiferenciaGs(balance.getTotalGsCierre() - balance.getTotalGsAper() - balance.getTotalVentaGs() - balance.getVueltoGs() + totalRetiroGs + totalGastoGs);
-            balance.setDiferenciaRs(balance.getTotalRsCierre() - balance.getTotalRsAper() - balance.getTotalVentaRs() - balance.getVueltoRs() + totalRetiroRs + totalGastoRs);
-            balance.setDiferenciaDs(balance.getTotalDsCierre() - balance.getTotalDsAper() - balance.getTotalVentaDs() - balance.getVueltoDs() + totalRetiroDs + totalGastoDs);
+            // Reales y dolares en centavos: la suma en double deja ruido (0,1+0,2) y los clientes comparan con 0 (#604).
+            balance.setDiferenciaRs(centavos(balance.getTotalRsCierre() - balance.getTotalRsAper() - balance.getTotalVentaRs() - balance.getVueltoRs() + totalRetiroRs + totalGastoRs));
+            balance.setDiferenciaDs(centavos(balance.getTotalDsCierre() - balance.getTotalDsAper() - balance.getTotalVentaDs() - balance.getVueltoDs() + totalRetiroDs + totalGastoDs));
             balance.setSucursal((Sucursal) sucursalService.findById(pdvCaja.getSucursalId()).orElse(null));
         }
         return balance;
@@ -812,6 +813,12 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
         };
         List<PdvCaja> cajas = repository.findAll(spec);
         return cajas;
+    }
+
+    /** A 2 decimales (HALF_UP); null, NaN e infinito pasan tal cual: BigDecimal.valueOf los rechaza. */
+    static Double centavos(Double valor) {
+        if (valor == null || valor.isNaN() || valor.isInfinite()) return valor;
+        return java.math.BigDecimal.valueOf(valor).setScale(2, java.math.RoundingMode.HALF_UP).doubleValue();
     }
 
     /** Un monto nulo cuenta como 0. */

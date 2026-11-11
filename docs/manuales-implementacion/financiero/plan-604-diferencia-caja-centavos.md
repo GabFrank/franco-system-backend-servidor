@@ -75,6 +75,42 @@ Los dos jars van uno después del otro en el mismo puerto (memoria de la máquin
 que lo ocupe.
 Si la base local no tiene una caja con ruido, se arma una por SQL (conteo de cierre en dólares) y se restaura.
 
+## Resultado de las pruebas (11/11/2026)
+
+**Tests:** `PdvCajaServiceBalanceTest` 6/6 en verde (más `PdvCajaServiceMontosNulosTest` y `TicketEscposGraphQLTest`).
+Con las dos líneas viejas fallan los 4 casos de ruido: −0,5700000000000003, 0,5700000000000003, 5,55e−17 y 0,00333.
+
+**Runtime:** jar de `develop` y jar de la rama, uno después del otro en el 8081, contra la bodega local (perfil `dev`,
+Flyway, réplica, SIFEN, correo, cotización, acreditación POS, poller de retiros y Firebase apagados).
+`balancePorCajaIdAndSucursalId` de las 400 cajas más recientes de la sucursal 1 con cierre en reales o dólares:
+
+| | develop | rama |
+|---|---|---|
+| Cajas con `diferenciaRs`/`Ds` fuera de centavos | 275 | 0 |
+| Campos que cambiaron | — | solo `diferenciaRs`, en 294 cajas |
+| Mayor cambio | — | 0,0048 (siempre el redondeo a centavos del valor de develop) |
+| `-0.0` | — | ninguno |
+| Totales (`totalVentaRs` 350,00391…, cierres, total general) | — | idénticos |
+
+Ejemplo: caja 6334, 15,790434782608713 R$ → 15,79. La muestra no tenía ruido en dólares (lo cubren los tests).
+
+**Por pantalla:**
+- PWA, detalle de caja **6232** (diferencia real −0,0039 R$): con develop «R$ -0,00» y «La caja cierra con
+  diferencia»; con la rama «R$ 0,00» y **sin aviso**.
+- PWA, caja **6002** (control negativo, −4 R$): «R$ -4,00» con aviso en los dos.
+- Desktop web contra el mismo central (Operaciones → Venta → Cajas → Ir a Ventas), caja 6232: «Reales: 0,00» en los
+  dos (ya formatea a 2 decimales).
+
+**Base local:** le faltaban columnas de migraciones `.5` de develop y el balance no corría ni con develop. Se agregaron
+a mano, con las sentencias idempotentes de esas migraciones y sin fila en el historial de Flyway: `moneda.codigo_iso`
+(V258.5) y las seis `ADD COLUMN` de V267.5 (`venta`, `venta_item`, `cobro`, `cobro_detalle`), todas nullable.
+
+## Auditoría del diff (paso 8)
+
+Fijo 1 (permisos): sin cambios de resolvers ni roles. Fijo 2 (migraciones): N/A. Fijo 3 (operaciones/contrato): mismo
+tipo `Float`, mismos campos; solo `diferenciaRs`/`Ds` con menos dígitos; nada se persiste. Condicionales: no toca
+tablas replicadas ni canales; el central no compara su balance con el del filial.
+
 ## Auditoría (paso 5, 11/11/2026)
 
 | # | Hallazgo | Qué se hizo |

@@ -106,6 +106,44 @@ Flyway **apagado** —el índice se crea a mano con la misma sentencia y se borr
    total y páginas correctos.
 7. La migración V273.1 aplica: su archivo por `psql` en una transacción sobre la bodega local (y rollback).
 
+## Resultado de las pruebas (11/11/2026)
+
+**IT** `AnalisisDiferenciasQueriesIT` (bodega local): 7/7 en verde (más `PdvCajaEstadoConsecutivoTest`,
+`PdvCajaAccesoTest`, `ControlRolMatrizTest`). Con el servicio de #607 fallan 2: la última página parcial sale vacía y el
+atajo por caja anterior no filtra por estado. El empate de cierres pasaba también con el viejo (el orden indefinido cayó
+del mismo lado); ahora está fijado. La caja sin maletín aparece en el camino sin filtro: el `Sort` por `maletin.id` no
+hace join interno.
+
+**Migración V273.1** por `psql` sobre la bodega local en una transacción: crea el índice en **69 ms** (51.196 cajas);
+rollback.
+
+**Runtime** (bodega local, índice creado a mano con la misma sentencia y borrado al final; jar de #607 y jar de la rama,
+uno por vez en el 8081, Flyway, réplica y jobs apagados). Maletín 0020220103 (1.844 cajas):
+
+| | jar de #607 | jar de la rama |
+|---|---|---|
+| CON, páginas 1/2/3 | 10 / 0 / 0 cajas, totales 10 / 7 / 2 | todas las páginas de 100: total 1.130, 1.130 recorridas, sin repetidas |
+| SIN, páginas 1/2/3 | 0 / 0 / 0 cajas, totales 0 / 3 / 8 | total 713, 713 recorridas, sin repetidas |
+| Etiqueta distinta del filtro | — | 0 |
+
+- **Paridad sobre datos reales:** las 1.844 cajas del maletín, estado de la consulta SQL == etiqueta de Java (consulta
+  sin filtro): **0 diferencias** (1 SIN_DATOS).
+- **Tiempos** (página de 10): maletín 0,5 s (página 1 y 51); un día 0,1 s.
+- **Caja anterior 6328** (atajo): SIN → 0, CON → la 6333; antes devolvía la 6333 con cualquier filtro.
+- **Por pantalla, desktop** (Análisis de diferencias → Diferencia en maletines, maletín 0020220103 sin fecha):
+  sin filtro «1 – 10 of 1844»; «Con diferencia» «1 – 10 of 1130», siguiente página «11 – 20 of 1130», última
+  «1121 – 1130 of 1130», todas CON DIFERENCIA.
+- **Pestaña Diferencia en cajas:** con caja 6328 manda `cajaAnteriorId` sin fechas (aunque la fecha esté puesta) → atajo:
+  6333; con sucursal SUC. CENTRAL pasa por la consulta nueva: 6333, «1 – 1 of 1».
+
+## Auditoría del diff (paso 8)
+
+Fijo 1 (permisos): `cajasAnalisisDiferencias` sin cambios de control de acceso. Fijo 2 (migraciones): V273.1 solo
+`CREATE INDEX IF NOT EXISTS`, central, permitido; probada en transacción. Fijo 3 (operaciones/contrato): mismo query,
+mismos campos; con filtro cambia contenido y total (correctos); sin filtro, igual; el desempate del JPQL de la caja
+anterior solo decide empates exactos. Condicionales: `pdv_caja` es BRANCH_TO_MAIN; un índice en el suscriptor no
+toca la réplica.
+
 ## Auditoría (paso 5, 11/11/2026)
 
 Medido además (bodega local, índice temporal en transacción con rollback, una sola consulta con `count(*) over()`):

@@ -11,8 +11,12 @@ import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
+import org.hibernate.exception.ConstraintViolationException;
 import org.modelmapper.ModelMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -20,6 +24,8 @@ import java.util.Optional;
 
 @Component
 public class MonedaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    private static final Logger log = LoggerFactory.getLogger(MonedaGraphQL.class);
 
     @Autowired
     private TesoreriaSecurityService seg;
@@ -102,8 +108,41 @@ public class MonedaGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         e.setPais(input.getPaisId() != null
                 ? paisService.findById(input.getPaisId()).orElse(null)
                 : (actual != null ? actual.getPais() : null));
-        e = service.save(e);
-        return e;
+        try {
+            return service.save(e);
+        } catch (DataIntegrityViolationException ex) {
+            // La base la rechazo al confirmar (CrudService.save es transaccional): el detalle va al log y
+            // el usuario ve que paso, no el error de Hibernate (#602).
+            log.warn("Alta/edicion de moneda rechazada por la base: id={} denominacion={} restriccion={} causa={}",
+                    e.getId(), e.getDenominacion(), restriccion(ex), ex.getMostSpecificCause().getMessage());
+            throw new graphql.GraphQLException(mensajeRechazo(ex, e.getCodigoIso()));
+        }
+    }
+
+    /** El mensaje para el usuario segun la restriccion que rechazo el guardado. */
+    static String mensajeRechazo(DataIntegrityViolationException ex, String iso) {
+        String r = restriccion(ex).toLowerCase(java.util.Locale.ROOT);
+        if (r.contains("moneda_pkey")) {
+            return "No se pudo guardar la moneda: la numeracion de monedas de la base quedo atrasada. Avisa a soporte.";
+        }
+        if (r.contains("uq_moneda_codigo_iso")) {
+            return "El codigo ISO " + (iso != null ? iso + " " : "") + "ya lo tiene otra moneda.";
+        }
+        if (r.contains("uq_moneda_principal")) {
+            return "Ya hay otra moneda principal.";
+        }
+        return "No se pudo guardar la moneda: la base la rechazo. El detalle quedo en el registro del servidor.";
+    }
+
+    /** Nombre de la restriccion; si Hibernate no lo trae, el texto de la causa (PostgreSQL lo nombra ahi). */
+    private static String restriccion(DataIntegrityViolationException ex) {
+        for (Throwable t = ex; t != null; t = t.getCause()) {
+            if (t instanceof ConstraintViolationException && ((ConstraintViolationException) t).getConstraintName() != null) {
+                return ((ConstraintViolationException) t).getConstraintName();
+            }
+        }
+        Throwable causa = ex.getMostSpecificCause();
+        return String.valueOf(causa != null ? causa.getMessage() : ex.getMessage());
     }
 
     public List<Moneda> monedasSearch(String texto) {

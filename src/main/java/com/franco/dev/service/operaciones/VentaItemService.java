@@ -31,6 +31,25 @@ import java.util.Map;
 @Service
 @AllArgsConstructor
 public class VentaItemService extends CrudService<VentaItem, VentaItemRepository, EmbebedPrimaryKey> {
+
+    /**
+     * {@code costo_por_producto.ultimo_precio_compra} en guaranies. La columna tiene dos convenciones:
+     * hasta 3920ae74 (2026-07-09, y mas tarde en cada canal segun su deploy) una compra extranjera se
+     * guardaba en la moneda de la nota (6 US$, cotizacion 6.000); desde ahi ya en Gs (36.000). Por
+     * fecha no se separan bien, asi que se decide por fila contra {@code costo_medio}, que siempre
+     * estuvo en Gs: si precio * cotizacion queda en su orden de magnitud la fila esta en la moneda de
+     * la nota y se multiplica; si queda decenas de veces arriba, ya estaba en Gs.
+     * <p>
+     * Medido el 2026-10-28 en produccion: ninguna fila cae entre 10x y 100x (bodega 103 en moneda de
+     * la nota y 500 en Gs, farmacia 901 en Gs). El umbral de 30x queda en el medio y muy por debajo de
+     * la cotizacion mas baja en uso (el real, ~1.100). Las filas en Gs (cotizacion 1) no cambian.
+     */
+    static final String SQL_ULTIMO_PRECIO_COMPRA_GS =
+            "(CASE WHEN cpp.cotizacion > 1 AND cpp.costo_medio > 0 " +
+            "        AND cpp.ultimo_precio_compra * cpp.cotizacion > cpp.costo_medio * 30 " +
+            "      THEN cpp.ultimo_precio_compra " +
+            "      ELSE cpp.ultimo_precio_compra * COALESCE(NULLIF(cpp.cotizacion, 0), 1) END)";
+
     private final VentaItemRepository repository;
     private final EntityManager em;
 
@@ -497,15 +516,14 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
      * Serie de costo de compra por periodo. El costo real se registra de forma global (no por sucursal)
      * en productos.costo_por_producto, tabla que guarda el ultimo_precio_compra cada vez que se
      * actualiza el costo de un producto. Las cantidades compradas y el numero de compras se toman de
-     * los movimientos de stock tipo COMPRA. El precio se normaliza a guaranies multiplicando por la
-     * cotizacion (1 para moneda local).
+     * los movimientos de stock tipo COMPRA. El precio en guaranies sale de {@link #SQL_ULTIMO_PRECIO_COMPRA_GS}.
      */
     private List<ProductoCostoPorPeriodo> obtenerCostoCompraProductoPorPeriodo(LocalDateTime inicio, LocalDateTime fin,
             Long productoId, String agrupacion) {
         boolean porDia = "dia".equalsIgnoreCase(agrupacion);
         String periodoCosto = porDia ? "CAST(cpp.creado_en AS DATE)" : "TO_CHAR(cpp.creado_en, 'YYYY-MM')";
         String periodoCompra = porDia ? "CAST(ms.creado_en AS DATE)" : "TO_CHAR(ms.creado_en, 'YYYY-MM')";
-        String costoGs = "cpp.ultimo_precio_compra * COALESCE(NULLIF(cpp.cotizacion, 0), 1)";
+        String costoGs = SQL_ULTIMO_PRECIO_COMPRA_GS;
 
         StringBuilder filtroCosto = new StringBuilder();
         StringBuilder filtroCompra = new StringBuilder();
@@ -578,7 +596,7 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
     public List<RankingInflacionItem> obtenerRankingInflacionCosto(LocalDateTime inicio, LocalDateTime fin,
             Long sucursalId, Long familiaId, Integer limit, String orden) {
         // El costo se registra de forma global (no por sucursal) en productos.costo_por_producto,
-        // por eso sucursalId no se usa. El precio se normaliza a guaranies con la cotizacion.
+        // por eso sucursalId no se usa. El precio en Gs sale de SQL_ULTIMO_PRECIO_COMPRA_GS.
         StringBuilder filtros = new StringBuilder();
         if (inicio != null) filtros.append("AND cpp.creado_en >= :inicio ");
         if (fin != null) filtros.append("AND cpp.creado_en < :fin ");
@@ -587,7 +605,7 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
         String sql = "WITH costos_mes AS ( " +
                 "  SELECT cpp.producto_id AS producto_id, p.descripcion AS descripcion, " +
                 "         TO_CHAR(cpp.creado_en, 'YYYY-MM') AS periodo, " +
-                "         AVG(cpp.ultimo_precio_compra * COALESCE(NULLIF(cpp.cotizacion, 0), 1)) AS costo, " +
+                "         AVG(" + SQL_ULTIMO_PRECIO_COMPRA_GS + ") AS costo, " +
                 "         COUNT(*) AS compras " +
                 "  FROM productos.costo_por_producto cpp " +
                 "  JOIN productos.producto p ON p.id = cpp.producto_id " +

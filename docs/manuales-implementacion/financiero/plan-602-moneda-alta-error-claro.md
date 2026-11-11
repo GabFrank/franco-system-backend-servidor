@@ -71,6 +71,32 @@ ese central:
    anotado si hace falta).
 3. ISO repetido: el mensaje de siempre (validación previa), sin cambio.
 
+## Resultado de las pruebas (11/11/2026)
+
+**Tests:** `MonedaGraphQLRechazoTest` 7/7 en verde (más `MonedaGraphQLSaveTest` 5/5). Con el `save` sin `try/catch`
+fallan los 6 de rechazo (sale la `DataIntegrityViolationException`); el alta que funciona pasa igual.
+
+**Runtime:** central de la rama contra la bodega local (perfil `dev`, Flyway, réplica y jobs apagados) y el desktop web
+contra él (Financiero › Configuración › Monedas › Adicionar), usuario MR.
+1. **Secuencia atrasada:** `moneda_id_seq` anotada (`5`, `is_called=false`) y puesta en 1. Alta «ZZ PRUEBA 602» →
+   «Ups! Algo salió mal en operacion: No se pudo guardar la moneda: la numeracion de monedas de la base quedo atrasada.
+   Avisa a soporte.» No se creó ninguna moneda; el log tiene el detalle (`warn`, denominación y causa).
+   **Hibernate no trajo el nombre de la restricción**: el PostgreSQL local responde en castellano («llave duplicada
+   viola restricción de unicidad «moneda_pkey»») y el extractor de Hibernate no lo reconoce. La encontró el respaldo
+   por el texto de la causa.
+2. **Alta que funciona** (secuencia restaurada): se crea la moneda 5.
+3. **ISO repetido:** alta con ISO ZZZ (moneda 6) y otra con «zzz» → «El codigo ISO ZZZ ya lo tiene ZZ PRUEBA 602 B.»,
+   igual que antes.
+
+Al terminar: monedas 5 y 6 borradas, secuencia en `5`/`false`, 4 monedas como al principio. La bodega local tiene slots
+de réplica de la filial 24 local inactivos: recibirán el alta y la baja (neto cero).
+
+## Auditoría del diff (paso 8)
+
+Fijo 1 (permisos): `saveMoneda` sigue con `seg.requireGestionar()` primero. Fijo 2 (migraciones): N/A. Fijo 3
+(operaciones/contrato): mismo mutation; solo cambia el texto del error y se agrega un log; el `catch` no consulta la
+base. Condicionales: `moneda` es MAIN_TO_ALL, pero un rechazo no deja nada para replicar.
+
 ## Auditoría (paso 5, 11/11/2026)
 
 | # | Hallazgo | Qué se hizo |

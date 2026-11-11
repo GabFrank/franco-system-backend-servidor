@@ -76,6 +76,39 @@ filiales reales). **No contra el alpha:** sus jobs (SIFEN, correo de facturas) c
 2. **Mismo importe que hoy:** para presentaciones con dos principales, el `precio` que devuelve el jar es el mismo que da
    la consulta vieja (`select * … limit 1`) en psql contra la misma base.
 
+## Resultado de las pruebas (11/11/2026)
+
+**IT** `PrincipalDePresentacionQueriesIT` contra la bodega local: 2/2 en verde con `select c.*`; con el `select *`
+viejo, 2/2 fallan con `expected: <999605003> but was: <999605001>` (el id de la presentación).
+
+**Runtime:** jar de la rama contra la bodega local (perfil `dev`, Flyway apagado, réplica, SIFEN, correo, cotización,
+acreditación POS, poller de retiros y Firebase apagados). Quedó en el **8081**, no en el 8084: el
+`application-user-dev.properties` fija `server.port` con prioridad sobre la línea de comandos (solo pisa eso). Consulta
+autenticada con la sesión de la PWA local (MR):
+
+| Presentación | Antes (`select *`) | Ahora: precio | Ahora: código | Importe = consulta vieja |
+|---|---|---|---|---|
+| 4 | id 4 (presentación) | id 4, 2.000 | id 3 | sí |
+| 68 | id 68 | id 366, 28.000 | id 437 | sí |
+| 152 (principales 80.000 y 78.000) | id 152 | id 441, 80.000 | — | sí |
+| 160 (156.000 y 155.000) | id 160 | id 450, 156.000 | — | sí |
+| 193 (55.000 y 53.000) | id 193 | id 475, 55.000 | id 500 | sí |
+| 229 (30.000 y 29.000) | id 229 | id 523, 30.000 | — | sí |
+
+`activo`/`principal` llegan en `true` (los del precio/código). **Por pantalla:** buscador de la PWA, AMSTEL LAGER LATA:
+el pack (193) muestra el código 7896045504848 y «₲ 55.000», el mismo importe de antes.
+
+**Base local:** le faltaban migraciones `.5` de develop (V258.5, V259.5, V260.5, V267.5); la entidad ya mapea
+`precio_por_sucursal.moneda_id` (V260.5) y la consulta no corría. Se agregó a mano solo esa columna con su FK `NOT
+VALID` (sentencias idempotentes de V260.5, sin fila en el historial de Flyway: un central de develop la vuelve a aplicar
+sin error).
+
+## Auditoría del diff (paso 8)
+
+Fijo 1 (permisos): sin cambios de resolvers ni roles. Fijo 2 (migraciones): N/A, no hay. Fijo 3 (operaciones/contrato):
+mismo tipo, mismos campos, mismo join/where/limit; solo cambian las columnas que se leen. Condicionales: no toca tablas
+replicadas ni canales. El IT no corre en CI (`@EnabledIfSystemProperty`), igual que sus vecinos.
+
 ## Auditoría (paso 5, 11/11/2026)
 
 | # | Hallazgo | Qué se hizo |

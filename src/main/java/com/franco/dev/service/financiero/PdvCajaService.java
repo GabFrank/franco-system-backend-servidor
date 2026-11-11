@@ -31,10 +31,13 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import com.franco.dev.domain.personas.Usuario;
 
+import com.franco.dev.eventos.EventosCaja;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.PageImpl;
 
@@ -735,26 +738,30 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
         }
 
         List<ConteoMoneda> cierreAnteriorList = conteoMonedaService.findByConteoId(
-            cajaAnterior.getConteoCierre().getId(), 
+            cajaAnterior.getConteoCierre().getId(),
             cajaAnterior.getSucursalId()
         );
-
-        Double totalCierreAnterior = cierreAnteriorList.stream()
-                .mapToDouble(cm -> cm.getCantidad() * cm.getMonedaBilletes().getValor()).sum();
-
         List<ConteoMoneda> aperturaActualList = conteoMonedaService.findByConteoId(
-            cajaActual.getConteoApertura().getId(), 
+            cajaActual.getConteoApertura().getId(),
             cajaActual.getSucursalId()
         );
+        return estadoPorMoneda(cierreAnteriorList, aperturaActualList);
+    }
 
-        Double totalAperturaActual = aperturaActualList.stream()
-                .mapToDouble(cm -> cm.getCantidad() * cm.getMonedaBilletes().getValor()).sum();
-
-        if(!totalCierreAnterior.equals(totalAperturaActual)){
-            return "CON_DIFERENCIA";
-        } else {
-            return "SIN_DIFERENCIA";
+    /**
+     * Cierre de la caja anterior contra apertura de esta, moneda por moneda (#607): sumar todas juntas
+     * dejaba pasar 100 R$ que volvian como 100 US$. Medio centavo de tolerancia, como
+     * EventosCaja.hayDiferencia: cantidad x valor en double deja ruido (3 x 0,1 != 0,3).
+     */
+    static String estadoPorMoneda(List<ConteoMoneda> cierreAnterior, List<ConteoMoneda> aperturaActual) {
+        Map<String, Double> cierre = EventosCaja.totalesDeConteo(cierreAnterior, null);
+        Map<String, Double> apertura = EventosCaja.totalesDeConteo(aperturaActual, null);
+        Set<String> monedas = new HashSet<>(cierre.keySet());
+        monedas.addAll(apertura.keySet());
+        for (String m : monedas) {
+            if (Math.abs(cierre.getOrDefault(m, 0.0) - apertura.getOrDefault(m, 0.0)) > 0.005) return "CON_DIFERENCIA";
         }
+        return "SIN_DIFERENCIA";
     }
 
     /**

@@ -2,7 +2,6 @@ package com.franco.dev.service.productos;
 
 import com.franco.dev.domain.dto.ProductoIdAndCantidadDto;
 import com.franco.dev.domain.dto.ProductoReportDto;
-import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.domain.productos.Familia;
@@ -797,103 +796,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         List<ProductoIdAndCantidadDto> productoIdAndCantidadDtoList = repository
                 .findProductosAndCantidadVendidaPorPeriodoAndSucursal(sucId, stringToDate(inicio), stringToDate(fin));
         return productoIdAndCantidadDtoList;
-    }
-
-    public List<LucroPorProductosDto> findLucroPorProductos(String inicio, String fin, List<Long> sucIdList,
-            List<Long> usuarioIdList, List<Long> productoIdList, Long subfamiliaId, Long familiaId) {
-        List<LucroPorProductosDto> aggregatedResult = new ArrayList<>();
-        Map<Long, Double> totalVentaPacksMap = new HashMap<>();
-
-        // Obtener datos de todas las sucursales
-        for (Long sucId : sucIdList) {
-            boolean filtrarUsuario = usuarioIdList != null && !usuarioIdList.isEmpty();
-            boolean filtrarProducto = productoIdList != null && !productoIdList.isEmpty();
-
-            List<Long> finalUsuarioIdList = filtrarUsuario ? usuarioIdList : Arrays.asList(-1L);
-            List<Long> finalProductoIdList = filtrarProducto ? productoIdList : Arrays.asList(-1L);
-
-            List<LucroPorProductosDto> lucroPorProductosDtoList = repository.findLucroPorProducto(sucId,
-                    stringToDate(inicio), stringToDate(fin), finalUsuarioIdList, finalProductoIdList, subfamiliaId, familiaId, filtrarUsuario,
-                    filtrarProducto);
-            aggregatedResult.addAll(lucroPorProductosDtoList);
-
-            // Obtener totalVentaPacks (SUM(vi.precio * vi.cantidad)) para calcular
-            // ventaMedia correctamente
-            List<Object[]> totalVentaPacksList = repository.findTotalVentaPacksPorProducto(sucId, stringToDate(inicio),
-                    stringToDate(fin), finalUsuarioIdList, finalProductoIdList, subfamiliaId, familiaId, filtrarUsuario, filtrarProducto);
-            for (Object[] row : totalVentaPacksList) {
-                Long productoId = ((Number) row[0]).longValue();
-                Double totalVentaPacks = ((Number) row[1]).doubleValue();
-                totalVentaPacksMap.merge(productoId, totalVentaPacks, Double::sum);
-            }
-        }
-
-        Map<Long, LucroPorProductosDto> combinedResults = new HashMap<>();
-        for (LucroPorProductosDto dto : aggregatedResult) {
-            combinedResults.merge(dto.getProductoId(), dto, (oldDto, newDto) -> {
-                oldDto.aggregate(newDto);
-                return oldDto;
-            });
-        }
-        List<LucroPorProductosDto> result = new ArrayList<>(combinedResults.values());
-
-        // Calcular todos los campos derivados después de la agregación
-        for (LucroPorProductosDto dto : result) {
-
-            if (dto.getCantidad() != null && dto.getCantidad() > 0) {
-                // Calcular costo unitario
-                dto.setCostoUnitario(dto.getCostoTotal() / dto.getCantidad());
-
-                Double totalVentaPacks = totalVentaPacksMap.get(dto.getProductoId());
-
-                if (totalVentaPacks != null) {
-                    dto.setTotalVenta(totalVentaPacks);
-                }
-
-                if (totalVentaPacks != null && totalVentaPacks > 0 && dto.getCantidad() > 0) {
-                    dto.setVentaMedia(totalVentaPacks / dto.getCantidad());
-                } else {
-                    dto.setVentaMedia(0.0);
-                }
-
-                if (dto.getTotalDescuento() != null) {
-                    dto.setTotalDescuento((double) Math.round(dto.getTotalDescuento()));
-                }
-                if (dto.getTotalAumento() != null) {
-                    dto.setTotalAumento((double) Math.round(dto.getTotalAumento()));
-                }
-
-                // Calcular lucro (total venta - total costo - descuento + aumento)
-                dto.setLucro((double) Math.round(dto.getTotalVenta() - dto.getCostoTotal()
-                        - (dto.getTotalDescuento() != null ? dto.getTotalDescuento() : 0.0)
-                        + (dto.getTotalAumento() != null ? dto.getTotalAumento() : 0.0)));
-
-                // Calcular margen (lucro / costo total * 100) - porcentaje sobre costo
-                if (dto.getCostoTotal() > 0) {
-                    dto.setMargen((dto.getLucro() / dto.getCostoTotal()) * 100);
-                } else {
-                    dto.setMargen(0.0);
-                }
-
-                // Calcular porcentaje (lucro / total venta * 100) - porcentaje sobre venta
-                if (dto.getTotalVenta() > 0) {
-                    dto.setPercent((dto.getLucro() / dto.getTotalVenta()) * 100);
-                } else {
-                    dto.setPercent(0.0);
-                }
-
-            } else {
-                // Si no hay cantidad, todos los valores son 0
-                dto.setCostoUnitario(0.0);
-                dto.setVentaMedia(0.0);
-                dto.setLucro(0.0);
-                dto.setMargen(0.0);
-                dto.setPercent(0.0);
-            }
-        }
-
-        result.sort((dto1, dto2) -> dto2.getTotalVenta().compareTo(dto1.getTotalVenta()));
-        return result;
     }
 
     public Double findPrecioVentaPorProducto(Long productoId, Long sucursalId) {

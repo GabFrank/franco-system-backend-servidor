@@ -46,7 +46,16 @@ class LucroRespaldoCostoMedioTest {
     @Test
     void lucroPorFuncionarioSoloMiraLosCobrosDelRango() {
         String sql = sql(VentaItemRepository.class, "findLucroPorFuncionarioNative");
-        assertTrue(sql.contains("AND (cd.cobro_id, cd.sucursal_id) IN (SELECT cobro_id, sucursal_id FROM ventas) "),
-                "agrupar todo cobro_detalle sin filtrar por las ventas del rango tarda ~23 s");
+        assertTrue(sql.contains("LEFT JOIN LATERAL ( SELECT SUM(CASE WHEN cd.descuento = true"),
+                "los descuentos/aumentos se buscan por cada venta del rango");
+        assertTrue(sql.contains("WHERE cd.cobro_id = v.cobro_id AND cd.sucursal_id = v.sucursal_id "),
+                "por el índice (cobro_id, sucursal_id): juntar los de toda la historia crecía con la tabla (#615)");
+    }
+
+    @Test
+    void lucroPorFuncionarioSinSucursalesNoFiltraPorSucursal() {
+        String sql = sql(VentaItemRepository.class, "findLucroPorFuncionarioNative");
+        assertTrue(sql.contains("AND (:filtrarSucursal = false OR v.sucursal_id IN (:sucursalIdList)) "),
+                "«Todas» llega como [null]: IN (NULL) dejaba el reporte vacío (#615)");
     }
 }

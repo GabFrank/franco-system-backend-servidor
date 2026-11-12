@@ -5,7 +5,7 @@
 -- libera su reserva y saldo_reservado queda inflado. Tambien sirve si BancoLedgerService loguea
 -- "Saldo reservado de la cuenta ... quedaba en ...".
 --
--- ORDEN (plan PLAN-CAJA-MAYOR-CHEQUES.md §4):
+-- ORDEN:
 --   1. Apagar la bandera:  UPDATE empresarial.configuracion_sistema SET valor = 'false' WHERE clave = 'cheque.al_dia_emitido';
 --   2. Correr la PARTE A (solo lectura) y revisar.
 --   3. Correr la PARTE B dentro de la transaccion; si el conteo no es el esperado, ROLLBACK.

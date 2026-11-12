@@ -122,7 +122,24 @@ public class ChequeDashboardService {
             pendientePorChequera.merge(c.getChequera().getId(), c.getTotal() != null ? c.getTotal() : 0.0, Double::sum);
         }
         List<SaldoChequera> out = new ArrayList<>();
-        for (Chequera ch : chequeraRepository.findByEstadoOrderByIdDesc(EstadoChequera.ACTIVA)) {
+        // Las activas, y las que ya no lo son pero tienen cheques pendientes: una chequera agotada con un diferido sin
+        // cobrar sacaba ese monto de lo pendiente y de la posición general.
+        List<Chequera> chequeras = new ArrayList<>(chequeraRepository.findByEstadoOrderByIdDesc(EstadoChequera.ACTIVA));
+        java.util.Set<Long> incluidas = new java.util.HashSet<>();
+        chequeras.forEach(ch -> incluidas.add(ch.getId()));
+        java.util.Map<Long, Chequera> otras = new java.util.TreeMap<>(java.util.Comparator.reverseOrder());
+        // Para entrar alcanza un pendiente con cualquier fecha de pago: su reserva sigue en la cuenta aunque el pago
+        // caiga después de «hasta».
+        LocalDateTime sinTope = LocalDateTime.of(9999, 12, 31, 23, 59);
+        List<Cheque> todosPendientes = new ArrayList<>(chequeRepository.filtrarPorFechaPago(desde, sinTope, null, null,
+                estado != null ? estado : EstadoCheque.DIFERIDO));
+        if (estado == null) todosPendientes.addAll(chequeRepository.filtrarPorFechaPago(desde, sinTope, null, null, EstadoCheque.EMITIDO));
+        for (Cheque c : todosPendientes) {
+            Chequera ch = c.getChequera();
+            if (ch != null && !incluidas.contains(ch.getId())) otras.putIfAbsent(ch.getId(), ch);
+        }
+        chequeras.addAll(otras.values());
+        for (Chequera ch : chequeras) {
             SaldoChequera s = new SaldoChequera();
             s.setChequera(ch);
             s.setCuentaBancaria(ch.getCuentaBancaria());

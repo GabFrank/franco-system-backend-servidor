@@ -1,6 +1,6 @@
 # Prueba manual — Caja Mayor, retiros y cheques
 
-Plan: [PLAN-CAJA-MAYOR-CHEQUES.md](PLAN-CAJA-MAYOR-CHEQUES.md). Ramas `feature/financiero-caja-mayor-cheques` en central
+Ramas `feature/financiero-caja-mayor-cheques` en central
 y desktop. **Central y desktop de la misma rama**: el desktop nuevo pide operaciones que un central viejo no tiene
 (salvo los órdenes y la cotización, que degradan solos).
 
@@ -76,19 +76,29 @@ Cada caso: **pasos → qué tiene que pasar**. Marcar ✅ / ❌ y anotar lo que 
 8. Exportar → un .xlsx con lo que se ve.
 9. **Bandera `cheque.al_dia_emitido`** (solo en alpha/local):
    `UPDATE empresarial.configuracion_sistema SET valor='true' WHERE clave='cheque.al_dia_emitido';`
-   → Un cheque al día sale «emitido (pendiente de cobro)», reserva el monto y no debita; sin fondos, avisa pero emite.
+   → Un cheque al día sale «emitido (pendiente de cobro)», reserva el monto y no debita. Con un monto mayor al
+   saldo avisa pero emite; «Cobrar» ese cheque → «Saldo insuficiente en la cuenta bancaria». Con fondos,
    «Cobrar» lo debita y libera la reserva. Anularlo libera la reserva. Volver a `false` al terminar.
-10. Tesorería → consolidado: además del saldo, «disponible» (saldo − reservado).
+10. Financiero → Dashboard: con cheques pendientes, un chip «Disponible <moneda>» (saldo − reservado) al lado del
+    saldo. Contra un central anterior no aparece y el resto del dashboard carga igual.
+11. Fechas tipeadas en Emitir cheque: escribir `20122026` en la fecha de pago → queda `20/12/2026` y la vista previa
+    toma esa fecha (antes el datepicker la leía como mes/día y no emitía).
+12. Panel lateral con una chequera agotada que tiene un diferido pendiente → sigue en «Chequeras» con el chip
+    AGOTADA y su reserva cuenta en la posición general. Dos chequeras de la misma cuenta → el saldo se suma una vez.
 
 ## F7 · Números inutilizados (srv #603 §3, desk #720 §4)
 
-1. Gestionar chequeras → ⋮ → «Números inutilizados». Inutilizar el próximo número con motivo. → Emitir cheque muestra
-   el siguiente libre; el cheque nuevo sale con ese.
+1. Gestionar chequeras → ⋮ → «Números inutilizados». Inutilizar el próximo número con motivo. → El subtítulo, la
+   columna «Siguiente» de Gestionar chequeras y el «Próximo Nº» de Emitir cheque muestran el siguiente libre; el
+   cheque nuevo sale con ese. El motivo queda en mayúsculas.
 2. Inutilizar un número pasado sin cheque → queda en la lista.
 3. Un número con un cheque suelto, «Anular el cheque también» → el cheque queda anulado y la reserva liberada.
 4. Un número con cheque de un pago, «Anular» → rechazo que manda a revertir el pago. «Pasar a otro número» con uno libre
    → el cheque cambia de número; con uno ocupado → rechazo.
-5. Inutilizar el último libre del rango → la chequera queda AGOTADA. Revertir → vuelve a ACTIVA.
+5. Inutilizar el último libre del rango → la chequera queda AGOTADA, subtítulo «— (sin hojas libres)» y «Siguiente» —.
+   Revertir → vuelve a ACTIVA.
+5b. Revertir un número que ya quedó atrás del correlativo (se emitió uno posterior) → el aviso dice que pierde la
+   marca pero no se reusa; la numeración no vuelve atrás.
 6. Tablero → Estado «Números inutilizados» → la lista, sin montos.
 7. Pagar compras con 3 cheques del plan → los «Nº» del panel saltean los inutilizados.
 

@@ -382,6 +382,7 @@ class ChequeGestionServiceTest {
     @Test
     void cobrar_un_emitido_libera_la_reserva_antes_de_debitar_y_enlaza_el_pago() {
         Cheque c = nuevo(false); c.setId(9L); c.setEstado(EstadoCheque.EMITIDO); c.setCuentaBancaria(cuenta);
+        c.setNumero(1010d);
         when(chequeRepository.lockById(9L)).thenReturn(Optional.of(c));
         com.franco.dev.domain.financiero.MovimientoBancario mov = new com.franco.dev.domain.financiero.MovimientoBancario();
         mov.setId(55L);
@@ -394,7 +395,9 @@ class ChequeGestionServiceTest {
         assertEquals(EstadoCheque.COBRADO, r.getEstado());
         org.mockito.InOrder orden = inOrder(bancoLedgerService);
         orden.verify(bancoLedgerService).ajustarReservado(eq(4L), eq(new BigDecimal("500000.0").negate()));
-        orden.verify(bancoLedgerService).registrar(eq(4L), eq(MovimientoBancarioTipo.SALIDA_MANUAL), any(), any(), any(), any(), any());
+        // El número es Double en la entidad: sin longValue la fila del banco decía «Cobro cheque 1010.0».
+        orden.verify(bancoLedgerService).registrar(eq(4L), eq(MovimientoBancarioTipo.SALIDA_MANUAL), any(),
+                eq("Cobro cheque 1010"), any(), any(), any());
         assertEquals(55L, d.getMovimientoBancarioId(), "la fila del banco sigue diciendo de qué pago es");
     }
 
@@ -582,5 +585,13 @@ class ChequeGestionServiceTest {
         assertThrows(GraphQLException.class, () -> service.inutilizar(1L, 98L, "x", RENUMERADO, 99L, null));
         service.inutilizar(1L, 98L, "hoja rota", RENUMERADO, 100L, null);
         assertEquals(100.0, c.getNumero());
+    }
+
+    @Test
+    void el_cheque_sin_moneda_toma_la_de_la_cuenta_de_la_chequera() {
+        com.franco.dev.domain.financiero.Moneda gs = new com.franco.dev.domain.financiero.Moneda(); gs.setId(1L);
+        cuenta.setMoneda(gs);
+        java.util.List<Cheque> out = service.emitirLote(lote(), cuotas(2), null, null);
+        assertTrue(out.stream().allMatch(c -> c.getMoneda() == gs), "los cheques del lote llevan la moneda de la cuenta");
     }
 }

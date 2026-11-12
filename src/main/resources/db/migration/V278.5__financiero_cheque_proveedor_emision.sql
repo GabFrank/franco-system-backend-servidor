@@ -11,7 +11,7 @@
 -- La bandera cheque.al_dia_emitido va en configuracion_sistema y NO en configuracion_general: configuracion_general
 -- esta en central_pub (se replica a las filiales) y una columna nueva sin su espejo cortaria esa replicacion.
 -- Apagada = el cheque al dia se debita al emitirse, como siempre. Se prende a mano, por canal, con el central y el
--- desktop de esta version ya instalados (plan PLAN-CAJA-MAYOR-CHEQUES.md §4).
+-- desktop de esta version ya instalados; antes de volver a un central anterior, ver reconciliar-saldo-reservado.sql.
 --
 -- Aditiva. Central-only: financiero.cheque y configuracion_sistema no estan en ninguna publicacion.
 -- Reversible: UPDATE financiero.cheque SET fecha_entrega = NULL WHERE fecha_entrega_backfill;

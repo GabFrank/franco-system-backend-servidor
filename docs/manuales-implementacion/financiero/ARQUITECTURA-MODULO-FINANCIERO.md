@@ -131,8 +131,15 @@ CAMBIO_DIVISA (egreso+ingreso caja), DEPOSITO_BANCARIO (egreso caja + entrada ba
   un número con cheque se anula (solo suelto) o se renumera. Orden de locks: chequera → cheque → cuenta.
 - **Un cheque de un pago no se anula suelto**: se anula el pago.
 - Tablero: filtro por fecha de emisión, pago o cobro, varios estados, texto y proveedor, con tope de 500.
+- Panel de saldos del tablero: las chequeras activas y las no activas que tengan cheques pendientes (con cualquier
+  fecha de pago); el saldo y lo reservado se suman una vez por cuenta.
+- La numeración no vuelve atrás del correlativo: revertir un número que ya quedó atrás le quita la marca, pero no lo
+  reusa (las hojas anteriores pudieron usarse fuera del sistema).
+- El aviso de fondos de un `EMITIDO` compara contra el saldo real, igual que el control del cobro: lo reservado por
+  otros cheques no bloquea a propósito.
 
-Detalle: [PLAN-CAJA-MAYOR-CHEQUES.md](PLAN-CAJA-MAYOR-CHEQUES.md) y la skill `frc-financiero-expert`.
+Prueba manual: [PRUEBA-MANUAL-CAJA-MAYOR-CHEQUES.md](PRUEBA-MANUAL-CAJA-MAYOR-CHEQUES.md). Más detalle en la skill
+`frc-financiero-expert`.
 
 ## 7. Concurrencia (regla del módulo)
 

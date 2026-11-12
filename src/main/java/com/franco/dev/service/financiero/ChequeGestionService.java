@@ -156,6 +156,9 @@ public class ChequeGestionService {
                 && !cuenta.getMoneda().getId().equals(cheque.getMoneda().getId())) {
             throw new GraphQLException("La moneda del cheque no es la de la cuenta de la chequera " + nombreChequera + ".");
         }
+        // Sin moneda (la emisión en lote no la manda), la de la cuenta: un cheque sin moneda no se puede mostrar ni
+        // sumar por moneda (encontrado en la prueba de UI, 2026-11-12).
+        if (cheque.getMoneda() == null) cheque.setMoneda(cuenta.getMoneda());
 
         // La fecha de emisión siempre queda (issue #601): sin ella el cheque no aparecía en «Emitidos hoy» y la
         // columna Emisión salía vacía en los emitidos sueltos.
@@ -210,6 +213,8 @@ public class ChequeGestionService {
             // Los fondos no bloquean en esta etapa (decidido 2026-11-12): el aviso va en la respuesta.
             cheque.setEstado(EstadoCheque.EMITIDO);
             bancoLedgerService.ajustarReservado(cheque.getCuentaBancaria().getId(), monto);
+            // El aviso compara contra el saldo real, que es lo que controla el cobro (BancoLedgerService.registrar):
+            // lo reservado por otros cheques no bloquea a propósito.
             BigDecimal saldo = cuenta.getSaldo() != null ? cuenta.getSaldo() : BigDecimal.ZERO;
             if (saldo.compareTo(monto) < 0) {
                 cheque.setAvisoFondos("El saldo de la cuenta no alcanza para este cheque: se emitió igual y se va a"
@@ -493,7 +498,7 @@ public class ChequeGestionService {
             bancoLedgerService.ajustarReservado(cheque.getCuentaBancaria().getId(), monto.negate());
         }
         MovimientoBancario mov = bancoLedgerService.registrar(cheque.getCuentaBancaria().getId(),
-                MovimientoBancarioTipo.SALIDA_MANUAL, monto, "Cobro cheque " + cheque.getNumero(),
+                MovimientoBancarioTipo.SALIDA_MANUAL, monto, "Cobro cheque " + (cheque.getNumero() != null ? cheque.getNumero().longValue() : cheque.getId()),
                 "CHEQUE", cheque.getId(), usuario);
         cheque.setEstado(EstadoCheque.COBRADO);
         cheque.setFechaCobro(LocalDateTime.now());

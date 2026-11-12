@@ -750,4 +750,68 @@ class OperacionFinancieraServiceTest {
         nadaAsentado();
         verify(tesoreriaService, never()).registrarEntradaDeEnvio(any());
     }
+
+    // ── Cotización «menor por 1 mayor» (issue #603) ──
+
+    private OperacionFinanciera cambio(String montoOrigen, long monedaOrigen, String montoDestino, long monedaDestino,
+                                       String cotizacion) {
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setTipoOperacion(TipoOperacionFinanciera.CAMBIO_DIVISA);
+        op.setMontoOrigen(new BigDecimal(montoOrigen));
+        op.setMonedaOrigen(moneda(monedaOrigen));
+        op.setMontoDestino(new BigDecimal(montoDestino));
+        op.setMonedaDestino(moneda(monedaDestino));
+        op.setCotizacion(cotizacion != null ? new BigDecimal(cotizacion) : null);
+        return op;
+    }
+
+    @Test
+    void desktop_anterior_con_cotizacion_invertida_se_normaliza_sin_rechazar() {
+        OperacionFinanciera op = cambio("560", 2, "102.20", 3, "0.1825"); // R$ → US$, US$ por R$
+        service.normalizarCotizacion(op);
+        assertEquals(new BigDecimal("5.479452"), op.getCotizacion());
+        assertEquals(3L, op.getCotizacionMoneda().getId(), "vale 1 el dólar");
+        assertEquals(new BigDecimal("0.1825"), op.getCotizacionOriginal());
+    }
+
+    @Test
+    void desktop_anterior_con_cotizacion_coherente_no_deja_original() {
+        OperacionFinanciera op = cambio("2000000", 1, "1777.78", 2, "1125");
+        service.normalizarCotizacion(op);
+        assertEquals(new BigDecimal("1125.000000"), op.getCotizacion());
+        assertEquals(2L, op.getCotizacionMoneda().getId());
+        assertNull(op.getCotizacionOriginal());
+    }
+
+    @Test
+    void desktop_nuevo_con_cotizacion_invertida_se_rechaza() {
+        OperacionFinanciera op = cambio("560", 2, "102.20", 3, "0.1825");
+        op.setCotizacionMoneda(moneda(3));
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.normalizarCotizacion(op));
+        assertTrue(e.getMessage().contains("no cierra con los montos"), e.getMessage());
+    }
+
+    @Test
+    void desktop_nuevo_con_la_moneda_equivocada_se_rechaza() {
+        OperacionFinanciera op = cambio("560", 2, "100", 3, "5.60");
+        op.setCotizacionMoneda(moneda(2)); // dijo «por 1 real», pero el que vale más es el dólar
+        assertThrows(GraphQLException.class, () -> service.normalizarCotizacion(op));
+    }
+
+    @Test
+    void desktop_nuevo_coherente_pasa() {
+        OperacionFinanciera op = cambio("560", 2, "100", 3, "5.60");
+        op.setCotizacionMoneda(moneda(3));
+        service.normalizarCotizacion(op);
+        assertEquals(new BigDecimal("5.600000"), op.getCotizacion());
+    }
+
+    @Test
+    void fuera_del_cambio_de_divisa_no_se_toca() {
+        OperacionFinanciera op = cambio("100", 1, "100", 1, null);
+        op.setTipoOperacion(TipoOperacionFinanciera.DEPOSITO_BANCARIO);
+        service.normalizarCotizacion(op);
+        assertNull(op.getCotizacionMoneda());
+        assertNull(op.getCotizacion());
+    }
 }

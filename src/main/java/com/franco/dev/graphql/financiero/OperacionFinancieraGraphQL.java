@@ -94,6 +94,10 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
         if (in.getCuentaBancariaDestinoId() != null) op.setCuentaBancariaDestino(cuentaBancariaRepository.findById(in.getCuentaBancariaDestinoId()).orElse(null));
         if (in.getMonedaOrigenId() != null) op.setMonedaOrigen(monedaService.findById(in.getMonedaOrigenId()).orElse(null));
         if (in.getMonedaDestinoId() != null) op.setMonedaDestino(monedaService.findById(in.getMonedaDestinoId()).orElse(null));
+        if (in.getCotizacionMonedaId() != null) {
+            op.setCotizacionMoneda(monedaService.findById(in.getCotizacionMonedaId())
+                    .orElseThrow(() -> new graphql.GraphQLException("La moneda de la cotización no existe.")));
+        }
         if (in.getCategoriaId() != null) op.setCategoria(categoriaRepository.findById(in.getCategoriaId()).orElse(null));
         com.franco.dev.domain.personas.Usuario usuario = seg.currentUsuario();
         return altaIdempotente.operacionFinanciera(claveIdempotencia, huella, usuario, () -> service.registrar(op, usuario));
@@ -101,7 +105,7 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
 
     /** Los 16 campos del input, tal como llegaron: las monedas que el servicio deriva de las cuentas no entran. */
     static String huellaDe(OperacionFinancieraInputWrapper in) {
-        return new com.franco.dev.service.financiero.HuellaPedido()
+        com.franco.dev.service.financiero.HuellaPedido h = new com.franco.dev.service.financiero.HuellaPedido()
                 .texto(in.getTipoOperacion() != null ? in.getTipoOperacion().name() : null)
                 .texto(in.getDescripcion()).id(in.getCategoriaId())
                 .id(in.getCajaMayorOrigenId()).id(in.getCuentaBancariaOrigenId()).id(in.getMonedaOrigenId())
@@ -112,8 +116,10 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
                 .texto(in.getNumeroComprobante())
                 .numero(com.franco.dev.service.financiero.AltaIdempotenteService.monto(in.getDiferencia()))
                 .texto(in.getDiferenciaDestinoTipo() != null ? in.getDiferenciaDestinoTipo().name() : null)
-                .texto(in.getDiferenciaObservacion())
-                .calcular();
+                .texto(in.getDiferenciaObservacion());
+        // Solo si vino: así la huella de un pedido de un desktop anterior queda igual que antes.
+        if (in.getCotizacionMonedaId() != null) h.id(in.getCotizacionMonedaId());
+        return h.calcular();
     }
 
     public OperacionFinanciera anularOperacionFinanciera(Long id, String motivo) {
@@ -135,6 +141,7 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
         private Long monedaDestinoId;
         private Double montoDestino;
         private Double cotizacion;
+        private Long cotizacionMonedaId;
         private String numeroComprobante;
         private Double diferencia;
         private com.franco.dev.domain.financiero.enums.DiferenciaDestinoTipo diferenciaDestinoTipo;

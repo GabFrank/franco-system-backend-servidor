@@ -127,7 +127,11 @@ del caso #4745 (Gs declarado + R$ 500 sobrante).
   graba y se loguea un aviso. Test de contrato: input del desktop viejo → aceptado y normalizado.
 - Rollback: el backend viejo lee la cotización normalizada con la semántica vieja solo para mostrarla
   (no recalcula montos de operaciones guardadas). Se declara en «impacto en rollback» del PR.
-- Query `cotizacionCruzada(monedaAId, monedaBId)`: las dos contra Gs desde `cambio`.
+- ~~Query `cotizacionCruzada`~~ — **cambio al implementar (2026-11-12)**: la cruzada la calcula el desktop con
+  las dos cotizaciones contra Gs que ya trae `CambioService`; una query más no agregaba nada.
+- Implementado en `CotizacionNormalizada` (regla única con V276.5): la mayor es la de monto menor (los montos son
+  los reales; la diferencia es un ajuste aparte); tolerancia relativa **1 %**, que atrapa una inversión (decenas
+  de veces) sin rechazar redondeos. La cotización coherente se conserva tal cual (no se pisa 1.125 con 1.124,9986).
 
 **Desktop**
 - Motor de cálculo extraído a una clase pura (`cotizacion-motor.ts`) con la tabla de casos de #720 §3

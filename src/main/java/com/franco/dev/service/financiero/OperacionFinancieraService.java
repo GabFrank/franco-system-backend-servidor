@@ -56,6 +56,7 @@ public class OperacionFinancieraService {
         exigirPermitidaEnModoAcotado(op);
         exigirEnvioValido(op);
         validarDestinoDeDiferencia(op);
+        normalizarCotizacion(op);
         op.setUsuario(usuario);
         op.setAnulado(false);
         // Antes del save: el tipeado no puede repetirse, y vacío es «sin número», que se autonumera si la
@@ -257,6 +258,34 @@ public class OperacionFinancieraService {
         if (op.getCotizacion() != null && op.getCotizacion().compareTo(java.math.BigDecimal.ONE) != 0) {
             throw new GraphQLException("No autorizado: esta operación no lleva cotización.");
         }
+    }
+
+    /**
+     * Cambio de divisa: la cotización queda «menor por 1 mayor» y se guarda qué moneda vale 1 (issue #603).
+     *
+     * Un desktop que manda {@code cotizacionMonedaId} muestra la cotización en ese formato: lo que muestra tiene que
+     * ser lo que se guarda, así que si no cierra con los montos se rechaza (atrapa cualquier inversión). Uno anterior
+     * no lo manda y su cotización puede venir en cualquiera de los dos sentidos: no se lo rechaza, se normaliza y el
+     * valor recibido queda en {@code cotizacionOriginal} si hubo que cambiarlo.
+     */
+    void normalizarCotizacion(OperacionFinanciera op) {
+        if (op.getTipoOperacion() != TipoOperacionFinanciera.CAMBIO_DIVISA) return;
+        CotizacionNormalizada n = CotizacionNormalizada.de(op.getMontoOrigen(), op.getMontoDestino(), op.getCotizacion());
+        if (n == null) return;
+        com.franco.dev.domain.financiero.Moneda mayor = n.mayorEsOrigen ? op.getMonedaOrigen() : op.getMonedaDestino();
+        if (op.getCotizacionMoneda() != null) {
+            String nombreMayor = mayor != null ? mayor.getDenominacion() : "la moneda de mayor valor";
+            req(mayor != null && mayor.getId().equals(op.getCotizacionMoneda().getId()),
+                    "La cotización se expresa por 1 " + nombreMayor + ", la moneda de mayor valor del cambio.");
+            req(op.getCotizacion() == null || n.recibidaCoincide,
+                    "La cotización " + op.getCotizacion().stripTrailingZeros().toPlainString() + " no cierra con los montos"
+                            + " (daría " + n.cotizacion.stripTrailingZeros().toPlainString() + " por 1 " + nombreMayor
+                            + "). Revisá si está invertida.");
+        } else if (op.getCotizacion() != null && !n.recibidaCoincide) {
+            op.setCotizacionOriginal(op.getCotizacion());
+        }
+        op.setCotizacion(n.cotizacion);
+        op.setCotizacionMoneda(mayor);
     }
 
     private void exigirMismaMoneda(com.franco.dev.domain.financiero.Moneda origen,

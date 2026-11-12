@@ -219,6 +219,7 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
     public Boolean saveUserImage(Long id, String type, String image, List<Double> embedding, String embeddingGaleriaJson)
             throws IOException {
         System.out.println("Saving user image for id: " + id + ", type: " + type);
+        validarEnrolamientoFacial(id, embeddingGaleriaJson);
         try {
             String directoryPath = imageService.getImagePath() + File.separator + "personas" + File.separator + type
                     + File.separator;
@@ -335,6 +336,27 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
         personaRepository.saveAndFlush(persona);
         embeddingCacheService.refreshUsuario(usuarioId, embeddingJson);
         return new IncorporarEmbeddingMarcacionResult(resultado.getResultado(), resultado.getMensaje());
+    }
+
+    /**
+     * Rechaza un enrolamiento que no sirve para reconocer, antes de tocar la foto o la galeria.
+     * Ver {@link EmbeddingGaleriaService#motivoEnrolamientoNoConfiable}.
+     */
+    void validarEnrolamientoFacial(Long usuarioId, String embeddingGaleriaJson) {
+        if (embeddingGaleriaJson == null || embeddingGaleriaJson.isBlank()) {
+            return;
+        }
+        com.franco.dev.graphql.personas.dto.EmbeddingGaleriaDto galeria =
+                embeddingGaleriaService.parsearDesdeJson(embeddingGaleriaJson);
+        if (galeria == null) {
+            return; // el formato lo valida normalizarJsonEntrada, con su propio mensaje
+        }
+        double[] promedio = embeddingGaleriaService.promedioNormalizado(galeria);
+        String motivo = embeddingGaleriaService.motivoEnrolamientoNoConfiable(
+                promedio, embeddingCacheService.maximaSimilitudConOtrosMasters(promedio, usuarioId));
+        if (motivo != null) {
+            throw new graphql.GraphQLException(motivo);
+        }
     }
 
     private String resolverEmbeddingJson(String embeddingGaleriaJson) {

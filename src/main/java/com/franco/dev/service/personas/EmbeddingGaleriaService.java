@@ -29,6 +29,22 @@ public class EmbeddingGaleriaService {
     private static final double SCORE_MINIMO_MASTER = 0.5;
     private static final java.util.Set<String> POSES_ENROLLMENT = java.util.Set.of("left", "right", "front");
 
+    /**
+     * Tope de dimensiones en cero del promedio de las fotos de un enrolamiento.
+     *
+     * En las galerias de produccion (2026-11-12) las rotas por el WebGL de algunos celulares
+     * (frc-mobile-pwa#144) dan 0,38 o mas: la red devolvia casi el mismo vector para cualquier
+     * cara. Las sanas suelen quedar por debajo de 0,27, pero una de desktop con tres fotos casi
+     * identicas llego a 0,31 (el promedio conserva los ceros que comparten). 0,35 deja pasar
+     * esa y frena todas las rotas; la regla de parecido con otra persona es la segunda red.
+     */
+    public static final double MAX_CEROS_ENROLAMIENTO = 0.35;
+    /**
+     * Tope de coseno entre el promedio de un enrolamiento nuevo y el de otra persona.
+     * Entre personas distintas sanas el maximo medido fue 0,80; las rotas, 0,95 o mas entre si.
+     */
+    public static final double MAX_SIMILITUD_CON_OTRA_PERSONA = 0.90;
+
     private final ObjectMapper objectMapper;
 
     public EmbeddingGaleriaService() {
@@ -71,6 +87,63 @@ public class EmbeddingGaleriaService {
             throw new IllegalArgumentException("embeddingGaleriaJson debe incluir al menos un item en gallery");
         }
         return serializar(galeria);
+    }
+
+    /**
+     * El promedio de las fotos de la galeria, cada una normalizada. Es el "centro" del rostro
+     * enrolado, sin depender del master que mando el cliente.
+     */
+    public double[] promedioNormalizado(EmbeddingGaleriaDto galeria) {
+        if (galeria == null || galeria.getGallery() == null) {
+            return new double[0];
+        }
+        double[] suma = null;
+        for (EmbeddingGaleriaItemDto item : galeria.getGallery()) {
+            if (item == null || item.getEmbedding() == null || item.getEmbedding().isEmpty()) {
+                continue;
+            }
+            double[] v = unitario(toArray(item.getEmbedding()));
+            if (suma == null) {
+                suma = new double[v.length];
+            }
+            if (v.length != suma.length) {
+                continue;
+            }
+            for (int i = 0; i < v.length; i++) {
+                suma[i] += v[i];
+            }
+        }
+        return suma == null ? new double[0] : unitario(suma);
+    }
+
+    /**
+     * Por que un enrolamiento no sirve para reconocer, o null si sirve.
+     *
+     * Detecta las galerias "aplastadas": la red neuronal devolvio casi el mismo vector para
+     * cualquier cara (pasa con el WebGL de algunos celulares, frc-mobile-pwa#144). Una galeria
+     * asi se parece a todas las otras galerias aplastadas y el 1:N no distingue a esas personas
+     * entre si: una puede marcar por otra.
+     *
+     * @param maximaSimilitudConOtros coseno maximo del promedio contra el master de cualquier
+     *                                otra persona enrolada (0 si no hay otras).
+     */
+    public String motivoEnrolamientoNoConfiable(double[] promedio, double maximaSimilitudConOtros) {
+        if (promedio == null || promedio.length == 0) {
+            return "El registro facial no trae fotos válidas.";
+        }
+        int ceros = 0;
+        for (double x : promedio) {
+            if (x == 0.0) {
+                ceros++;
+            }
+        }
+        if ((double) ceros / promedio.length >= MAX_CEROS_ENROLAMIENTO) {
+            return "Este dispositivo no generó un rostro confiable. Actualizá la aplicación o registrá el rostro desde otro equipo.";
+        }
+        if (maximaSimilitudConOtros >= MAX_SIMILITUD_CON_OTRA_PERSONA) {
+            return "El rostro registrado se parece demasiado al de otra persona enrolada. Actualizá la aplicación o registrá el rostro desde otro equipo.";
+        }
+        return null;
     }
 
     public List<double[]> extraerVectores(EmbeddingGaleriaDto galeria) {

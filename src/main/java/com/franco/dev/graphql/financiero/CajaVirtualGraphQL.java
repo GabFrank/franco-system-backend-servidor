@@ -241,9 +241,13 @@ public class CajaVirtualGraphQL implements GraphQLQueryResolver, GraphQLMutation
                     .orElseThrow(() -> new GraphQLException("Caja virtual no encontrada: " + input.getId()));
         }
         entity.setNombre(input.getNombre());
-        entity.setTipo(input.getTipo());
+        // CAJA_CHICA se retiró (issue #220): toda caja es CAJA_MAYOR, aunque un desktop viejo mande
+        // CAJA_CHICA. El valor sigue en el enum por compatibilidad (V274.5 guarda el tipo anterior).
+        entity.setTipo(CajaVirtualTipo.CAJA_MAYOR);
         entity.setDescripcion(input.getDescripcion());
-        entity.setLimiteGs(input.getLimiteGs());
+        // limite_gs quedó sin uso con la caja chica. Solo se pisa si llega, para no perder el valor
+        // de las cajas viejas mientras se decide su futuro (#620).
+        if (input.getLimiteGs() != null) entity.setLimiteGs(input.getLimiteGs());
         entity.setActivo(input.getActivo());
         if (input.getSucursalId() != null) {
             entity.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));

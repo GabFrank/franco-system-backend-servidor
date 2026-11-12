@@ -74,8 +74,10 @@ mergear (última en develop: `V273.1`).
   PATCH como `cuentasBancariasOrden`. Validación: operaciones solo valores de `TipoOperacionFinanciera`
   y sin repetir; monedas/sucursales ids existentes.
 - `cajaVirtualSaldos`: ordenado por `monedas_orden`, después el resto por `moneda.id` (reusar `ordenarCuentas`).
-- Sucursales: query `sucursalesOrdenadasDeCaja(cajaVirtualId, soloDeLaCaja)` que aplica `sucursales_orden`
-  y, sin orden, nombre. Sirve a los dos caminos de `IngresarRetiroCajaMayorDialog` (todas / acotado).
+- Sucursales: **cambio al implementar (2026-11-12)** — sin query nueva. El central guarda y valida
+  `sucursales_orden`; el desktop lo aplica con una función común sobre las dos listas que ya tiene
+  (todas / propia + adicionales). Una query nueva sumaba superficie de seguridad sin ganar nada.
+- Helper común `OrdenConfigurable` (parseo, orden y validación); `ordenarCuentas` pasa a usarlo.
 - Operaciones: la config solo ordena y oculta. **El servicio no la usa para autorizar** (el rol sigue mandando).
 
 **Desktop**
@@ -229,7 +231,7 @@ Ninguna tabla tocada está en la réplica: el filial no tiene `caja_virtual*`, `
 | Dato | Escribe | Lee |
 |---|---|---|
 | `caja_virtual_configuracion.monedas_orden` | `CajaVirtualConfiguracionGraphQL.save` ← `configurar-caja-virtual-dialog` | `cajaVirtualSaldos` → `construirCards` |
-| `…sucursales_orden` | idem | `sucursalesOrdenadasDeCaja` → `ingresar-retiro-caja-mayor-dialog` |
+| `…sucursales_orden` | idem | `ingresar-retiro-caja-mayor-dialog` (función común del desktop) |
 | `…operaciones_financieras_orden` / `_ocultas` | idem | `add-operacion-financiera-dialog` (desde la caja) |
 | `operacion_financiera.cotizacion_moneda_id` | `OperacionFinancieraService` (input o deducido) + backfill V276.5 | `OperacionFinancieraDetalleDialog`, armador de descripción (F5) |
 | `operacion_financiera.cotizacion_original` | backfill V276.5 | nadie en la app: es la traza del backfill (auditoría por SQL) |

@@ -68,4 +68,32 @@ class CajaVirtualConfiguracionGraphQLTest {
 
         assertEquals("[2,1,3]", out.getCuentasBancariasOrden());
     }
+
+    @Test
+    void ordenes_nuevos_son_patch_y_se_validan() {
+        CajaVirtualConfiguracion existente = new CajaVirtualConfiguracion();
+        existente.setCajaVirtual(new CajaVirtual());
+        existente.setMonedasOrden("[2,1]");
+        existente.setOperacionesFinancierasOrden("[\"CAMBIO_DIVISA\"]");
+        when(repository.findByCajaVirtualId(1L)).thenReturn(Optional.of(existente));
+
+        CajaVirtualConfiguracionGraphQL.CajaVirtualConfiguracionInputWrapper in = input(null);
+        in.setSucursalesOrden("[ 5, 3 ]");
+        CajaVirtualConfiguracion out = resolver.saveCajaVirtualConfiguracion(in);
+
+        assertEquals("[2,1]", out.getMonedasOrden(), "null no pisa");
+        assertEquals("[\"CAMBIO_DIVISA\"]", out.getOperacionesFinancierasOrden(), "null no pisa");
+        assertEquals("[5,3]", out.getSucursalesOrden(), "se guarda normalizado");
+    }
+
+    @Test
+    void operacion_inexistente_se_rechaza() {
+        CajaVirtualConfiguracion existente = new CajaVirtualConfiguracion();
+        existente.setCajaVirtual(new CajaVirtual());
+        when(repository.findByCajaVirtualId(1L)).thenReturn(Optional.of(existente));
+
+        CajaVirtualConfiguracionGraphQL.CajaVirtualConfiguracionInputWrapper in = input(null);
+        in.setOperacionesFinancierasOcultas("[\"NO_EXISTE\"]");
+        assertThrows(graphql.GraphQLException.class, () -> resolver.saveCajaVirtualConfiguracion(in));
+    }
 }

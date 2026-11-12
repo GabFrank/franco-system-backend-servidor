@@ -3,10 +3,12 @@ package com.franco.dev.graphql.financiero;
 import com.franco.dev.domain.financiero.CajaVirtualConfiguracion;
 import com.franco.dev.domain.financiero.CuentaBancaria;
 import com.franco.dev.domain.financiero.FormaPago;
+import com.franco.dev.domain.financiero.enums.TipoOperacionFinanciera;
 import com.franco.dev.repository.financiero.CajaVirtualConfiguracionRepository;
 import com.franco.dev.repository.financiero.CuentaBancariaRepository;
 import com.franco.dev.repository.financiero.FormaPagoRepository;
 import com.franco.dev.service.financiero.CajaVirtualService;
+import com.franco.dev.service.financiero.OrdenConfigurable;
 import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -64,6 +66,23 @@ public class CajaVirtualConfiguracionGraphQL implements GraphQLQueryResolver, Gr
         if (input.getCuentasBancariasOrden() != null) {
             c.setCuentasBancariasOrden(input.getCuentasBancariasOrden());
         }
+        // Los demás órdenes, también PATCH, validados (ids enteros sin repetir; operaciones solo
+        // valores del enum). La lista de ocultas ordena y oculta en el diálogo: nunca habilita una
+        // operación que el rol no permite.
+        if (input.getMonedasOrden() != null) {
+            c.setMonedasOrden(OrdenConfigurable.validarIds(input.getMonedasOrden(), "Orden de monedas"));
+        }
+        if (input.getSucursalesOrden() != null) {
+            c.setSucursalesOrden(OrdenConfigurable.validarIds(input.getSucursalesOrden(), "Orden de sucursales"));
+        }
+        if (input.getOperacionesFinancierasOrden() != null) {
+            c.setOperacionesFinancierasOrden(OrdenConfigurable.validarEnum(input.getOperacionesFinancierasOrden(),
+                    TipoOperacionFinanciera.class, "Orden de operaciones"));
+        }
+        if (input.getOperacionesFinancierasOcultas() != null) {
+            c.setOperacionesFinancierasOcultas(OrdenConfigurable.validarEnum(input.getOperacionesFinancierasOcultas(),
+                    TipoOperacionFinanciera.class, "Operaciones ocultas"));
+        }
         return repository.save(c);
     }
 
@@ -77,5 +96,9 @@ public class CajaVirtualConfiguracionGraphQL implements GraphQLQueryResolver, Gr
         private List<Long> formasPagoVisiblesIds;
         private List<Long> cuentasBancariasVisiblesIds;
         private String cuentasBancariasOrden;
+        private String monedasOrden;
+        private String sucursalesOrden;
+        private String operacionesFinancierasOrden;
+        private String operacionesFinancierasOcultas;
     }
 }

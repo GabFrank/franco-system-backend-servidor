@@ -90,6 +90,8 @@ class ImpresionServicePedidoFormatoTest {
         try (InputStream in = getClass().getClassLoader().getResourceAsStream("reports/pedido-compra.jrxml")) {
             reporte = JasperCompileManager.compileReport(in);
         }
+        // El runner de CI no tiene Verdana; el test lee los textos, no mide la fuente
+        reporte.setProperty("net.sf.jasperreports.awt.ignore.missing.font", "true");
         ImpresionService.PedidoItemDto dto = new ImpresionService.PedidoItemDto();
         dto.setNumero(1);
         dto.setDescripcion("PILSEN CLASICA LATA 269 ML");

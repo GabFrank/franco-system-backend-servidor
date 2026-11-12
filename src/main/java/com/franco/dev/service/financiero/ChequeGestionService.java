@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Ciclo de vida de cheques emitidos sobre una cuenta bancaria.
@@ -36,6 +37,27 @@ public class ChequeGestionService {
     private final BancoLedgerService bancoLedgerService;
     private final IdempotenciaService idempotenciaService;
     private final javax.persistence.EntityManager entityManager;
+    private final com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository pagoDetalleRepository;
+    private final com.franco.dev.service.empresarial.ConfiguracionSistemaService configuracionSistema;
+
+    /** {@code configuracion_sistema}: el cheque al día queda EMITIDO hasta confirmar su cobro (issue #601). */
+    static final String CLAVE_AL_DIA_EMITIDO = "cheque.al_dia_emitido";
+
+    /** Nombre de la operación de la emisión en cuotas en {@code financiero.operacion_idempotente}. */
+    static final String OPERACION_EMITIR_CHEQUES = "EMITIR_CHEQUES";
+
+    /**
+     * Si la bandera está prendida. Apagada (o sin fila) = el cheque al día se debita al emitirse, como siempre. Se
+     * prende recién con el central y el desktop de esta versión en el canal: un desktop anterior no cobra un EMITIDO.
+     */
+    boolean alDiaQuedaEmitido() {
+        return configuracionSistema.valor(CLAVE_AL_DIA_EMITIDO).map(v -> "true".equalsIgnoreCase(v.trim())).orElse(false);
+    }
+
+    /** Un cheque con el monto reservado en la cuenta: el diferido y el al día emitido (issue #601). */
+    static boolean reserva(Cheque cheque) {
+        return cheque.getEstado() == EstadoCheque.DIFERIDO || cheque.getEstado() == EstadoCheque.EMITIDO;
+    }
 
     /** Nombre de la operacion en {@code financiero.operacion_idempotente}. */
     static final String OPERACION_EMITIR_CHEQUE = "EMITIR_CHEQUE";
@@ -80,15 +102,21 @@ public class ChequeGestionService {
 
     /** Huella del pedido de emision. {@code fechaPago} cuenta solo por su dia. */
     static String huellaDe(Cheque cheque) {
-        return new HuellaPedido()
+        HuellaPedido h = new HuellaPedido()
                 .id(cheque.getChequera() != null ? cheque.getChequera().getId() : null)
                 .numero(cheque.getTotal() != null ? BigDecimal.valueOf(cheque.getTotal()) : null)
                 .bandera(cheque.getDiferido())
                 .id(cheque.getMoneda() != null ? cheque.getMoneda().getId() : null)
                 .id(cheque.getCuentaBancaria() != null ? cheque.getCuentaBancaria().getId() : null)
                 .dia(cheque.getFechaPago())
-                .texto(cheque.getConcepto())
-                .calcular();
+                .texto(cheque.getConcepto());
+        // Los datos de la emisión completa (issue #601), solo si vinieron: así la huella de un pedido de un desktop
+        // anterior queda igual que antes.
+        if (cheque.getProveedor() != null) h.id(cheque.getProveedor().getId());
+        if (cheque.getBeneficiario() != null) h.texto(cheque.getBeneficiario());
+        if (cheque.getNominal() != null) h.bandera(cheque.getNominal());
+        if (cheque.getFechaEntrega() != null) h.dia(cheque.getFechaEntrega());
+        return h.calcular();
     }
 
     /**
@@ -126,6 +154,13 @@ public class ChequeGestionService {
         if (cheque.getMoneda() != null && cuenta.getMoneda() != null
                 && !cuenta.getMoneda().getId().equals(cheque.getMoneda().getId())) {
             throw new GraphQLException("La moneda del cheque no es la de la cuenta de la chequera " + nombreChequera + ".");
+        }
+
+        // La fecha de emisión siempre queda (issue #601): sin ella el cheque no aparecía en «Emitidos hoy» y la
+        // columna Emisión salía vacía en los emitidos sueltos.
+        if (cheque.getFechaEntrega() == null) cheque.setFechaEntrega(LocalDateTime.now());
+        if (cheque.getBeneficiario() == null && cheque.getProveedor() != null && cheque.getProveedor().getPersona() != null) {
+            cheque.setBeneficiario(cheque.getProveedor().getPersona().getNombre());
         }
 
         boolean esDiferido = Boolean.TRUE.equals(cheque.getDiferido());
@@ -167,6 +202,16 @@ public class ChequeGestionService {
         if (esDiferido) {
             cheque.setEstado(EstadoCheque.DIFERIDO);
             bancoLedgerService.ajustarReservado(cheque.getCuentaBancaria().getId(), monto);
+        } else if (alDiaQuedaEmitido()) {
+            // Al día, entregado y todavía no debitado: reserva como un diferido y se debita al confirmar el cobro.
+            // Los fondos no bloquean en esta etapa (decidido 2026-11-12): el aviso va en la respuesta.
+            cheque.setEstado(EstadoCheque.EMITIDO);
+            bancoLedgerService.ajustarReservado(cheque.getCuentaBancaria().getId(), monto);
+            BigDecimal saldo = cuenta.getSaldo() != null ? cuenta.getSaldo() : BigDecimal.ZERO;
+            if (saldo.compareTo(monto) < 0) {
+                cheque.setAvisoFondos("El saldo de la cuenta no alcanza para este cheque: se emitió igual y se va a"
+                        + " rechazar al cobrarlo si para entonces no hay fondos.");
+            }
         } else {
             MovimientoBancario mov = bancoLedgerService.registrar(cheque.getCuentaBancaria().getId(),
                     MovimientoBancarioTipo.SALIDA_MANUAL, monto, "Cheque " + numero + " (contado)",
@@ -195,6 +240,95 @@ public class ChequeGestionService {
         }
     }
 
+    /** Una cuota de la emisión en lote: monto y fecha de pago. */
+    @lombok.Data
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class CuotaCheque {
+        private Double total;
+        private LocalDateTime fechaPago;
+    }
+
+    /** Datos comunes de los cheques de un lote. */
+    @lombok.Data
+    public static class DatosLote {
+        private Long chequeraId;
+        private Boolean diferido;
+        private Boolean nominal;
+        private String beneficiario;
+        private com.franco.dev.domain.personas.Proveedor proveedor;
+        private LocalDateTime fechaEmision;
+        private String concepto;
+    }
+
+    /** Tope de cheques por emisión (el desktop ofrece 1 a 12). */
+    static final int MAXIMO_CUOTAS = 24;
+
+    /**
+     * Emite N cheques de una chequera en una sola transacción (issue #601): todos o ninguno, con números de la chequera
+     * en orden y una sola clave de idempotencia para el lote (el reenvío devuelve los mismos N). Antes el desktop habría
+     * tenido que llamar N veces a emitirCheque, y un corte a la mitad dejaba cheques sueltos.
+     *
+     * <p>Cada cheque pasa por {@link #emitir(Cheque, Usuario)}: mismas validaciones, mismo lock de la chequera (se toma
+     * acá una vez y el resto lo reusa dentro de la transacción) y mismo estado según diferido / al día.</p>
+     */
+    @Transactional
+    public List<Cheque> emitirLote(DatosLote datos, List<CuotaCheque> cuotas, Usuario usuario, String claveIdempotencia) {
+        if (cuotas == null || cuotas.isEmpty()) throw new GraphQLException("Indicá al menos un cheque.");
+        if (cuotas.size() > MAXIMO_CUOTAS) throw new GraphQLException("Como máximo " + MAXIMO_CUOTAS + " cheques por emisión.");
+        if (datos.getChequeraId() == null) throw new GraphQLException("El cheque requiere una chequera");
+        HuellaPedido h = new HuellaPedido().id(datos.getChequeraId()).bandera(datos.getDiferido()).bandera(datos.getNominal())
+                .texto(datos.getBeneficiario()).id(datos.getProveedor() != null ? datos.getProveedor().getId() : null)
+                .dia(datos.getFechaEmision()).texto(datos.getConcepto());
+        for (CuotaCheque c : cuotas) {
+            h.numero(c.getTotal() != null ? BigDecimal.valueOf(c.getTotal()) : null).dia(c.getFechaPago());
+        }
+        return idempotenciaService.ejecutar(claveIdempotencia, OPERACION_EMITIR_CHEQUES, h.calcular(), usuario,
+                () -> emitirTodos(datos, cuotas, usuario),
+                lista -> lista.get(0).getId(),
+                loteId -> chequeRepository.findByLoteIdOrderByNumeroAsc(loteId));
+    }
+
+    private List<Cheque> emitirTodos(DatosLote datos, List<CuotaCheque> cuotas, Usuario usuario) {
+        Chequera chequera = chequeraRepository.lockById(datos.getChequeraId())
+                .orElseThrow(() -> new GraphQLException("Chequera no encontrada"));
+        entityManager.refresh(chequera);
+        long libres = hojasLibres(chequera);
+        if (libres < cuotas.size()) {
+            String nombre = chequera.getNombre() != null ? chequera.getNombre() : ("#" + chequera.getId());
+            throw new GraphQLException("La chequera " + nombre + " tiene " + libres + " hoja(s) libre(s): no alcanzan para "
+                    + cuotas.size() + " cheques.");
+        }
+        LocalDateTime emision = datos.getFechaEmision() != null ? datos.getFechaEmision() : LocalDateTime.now();
+        List<Cheque> out = new java.util.ArrayList<>();
+        Long loteId = null;
+        for (CuotaCheque cuota : cuotas) {
+            Cheque c = new Cheque();
+            c.setChequera(chequera);
+            c.setTotal(cuota.getTotal());
+            c.setDiferido(Boolean.TRUE.equals(datos.getDiferido()));
+            c.setFechaPago(cuota.getFechaPago());
+            c.setFechaEntrega(emision);
+            c.setNominal(datos.getNominal() != null ? datos.getNominal() : Boolean.TRUE);
+            c.setBeneficiario(datos.getBeneficiario());
+            c.setProveedor(datos.getProveedor());
+            c.setConcepto(datos.getConcepto());
+            Cheque emitido = emitir(c, usuario);
+            if (loteId == null) loteId = emitido.getId();
+            emitido.setLoteId(loteId);
+            out.add(chequeService.save(emitido));
+        }
+        return out;
+    }
+
+    /** Hojas que le quedan a la chequera desde su próximo número. Sin tope de rango = sin límite. */
+    long hojasLibres(Chequera chequera) {
+        if (chequera.getRangoHasta() == null) return Long.MAX_VALUE;
+        long desde = chequera.getRangoDesde() != null ? chequera.getRangoDesde().longValue() : 1L;
+        long siguiente = chequera.getSiguienteNumero() != null ? chequera.getSiguienteNumero() : desde;
+        return Math.max(0, chequera.getRangoHasta().longValue() - siguiente + 1);
+    }
+
     /** Cobra un cheque diferido: debita el saldo real y libera la reserva. */
     @Transactional
     public Cheque cobrar(Long chequeId, Usuario usuario) {
@@ -204,8 +338,9 @@ public class ChequeGestionService {
         if (cheque.getEstado() == EstadoCheque.ANULADO) throw new GraphQLException("El cheque está anulado");
         BigDecimal monto = BigDecimal.valueOf(cheque.getTotal() != null ? cheque.getTotal() : 0.0);
         // Liberar la reserva ANTES de debitar: así el control de descubierto (saldo - reservado)
-        // no cuenta dos veces este mismo cheque.
-        if (Boolean.TRUE.equals(cheque.getDiferido())) {
+        // no cuenta dos veces este mismo cheque. Por estado, no por el flag diferido: el al día EMITIDO
+        // también reservó (issue #601).
+        if (reserva(cheque)) {
             bancoLedgerService.ajustarReservado(cheque.getCuentaBancaria().getId(), monto.negate());
         }
         MovimientoBancario mov = bancoLedgerService.registrar(cheque.getCuentaBancaria().getId(),
@@ -214,6 +349,13 @@ public class ChequeGestionService {
         cheque.setEstado(EstadoCheque.COBRADO);
         cheque.setFechaCobro(LocalDateTime.now());
         cheque.setMovimientoBancarioId(mov != null ? mov.getId() : null);
+        // Si el cheque salió de un pago, la fila del banco tiene que seguir diciendo de qué pago es (pagoIdLeido sale de
+        // este vínculo). Es solo para mostrar: anular el pago revierte por cheque.movimientoBancarioId, una sola vez.
+        if (mov != null && cheque.getId() != null) {
+            pagoDetalleRepository.findFirstByChequeIdOrderByIdAsc(cheque.getId())
+                    .filter(d -> d.getMovimientoBancarioId() == null)
+                    .ifPresent(d -> { d.setMovimientoBancarioId(mov.getId()); pagoDetalleRepository.save(d); });
+        }
         return chequeService.save(cheque);
     }
 
@@ -225,8 +367,12 @@ public class ChequeGestionService {
         if (cheque.getEstado() == EstadoCheque.COBRADO) {
             throw new GraphQLException("No se puede anular un cheque ya cobrado");
         }
-        if (Boolean.TRUE.equals(cheque.getDiferido()) && cheque.getEstado() == EstadoCheque.DIFERIDO
-                && cheque.getCuentaBancaria() != null) {
+        // Un cheque de un pago no se anula suelto: el pago quedaría pagado con un cheque que no existe (issue #601).
+        pagoDetalleRepository.findFirstByChequeIdOrderByIdAsc(chequeId)
+                .filter(d -> !Boolean.TRUE.equals(d.getAnulado()))
+                .ifPresent(d -> { throw new GraphQLException("Este cheque es del pago #" + d.getPagoId()
+                        + ": anulá el pago desde la caja mayor, que anula el cheque con él."); });
+        if (reserva(cheque) && cheque.getCuentaBancaria() != null) {
             BigDecimal monto = BigDecimal.valueOf(cheque.getTotal() != null ? cheque.getTotal() : 0.0);
             bancoLedgerService.ajustarReservado(cheque.getCuentaBancaria().getId(), monto.negate());
         }
@@ -250,8 +396,7 @@ public class ChequeGestionService {
                 movimientoBancarioRepository.findById(cheque.getMovimientoBancarioId())
                         .ifPresent(mb -> bancoLedgerService.revertir(mb, motivo, usuario));
             }
-        } else if (Boolean.TRUE.equals(cheque.getDiferido()) && cheque.getEstado() == EstadoCheque.DIFERIDO
-                && cheque.getCuentaBancaria() != null) {
+        } else if (reserva(cheque) && cheque.getCuentaBancaria() != null) {
             BigDecimal monto = BigDecimal.valueOf(cheque.getTotal() != null ? cheque.getTotal() : 0.0);
             bancoLedgerService.ajustarReservado(cheque.getCuentaBancaria().getId(), monto.negate());
         }

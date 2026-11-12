@@ -175,8 +175,12 @@ REAL→DOLAR de bodega. Desktop — spec del motor (ejecutable con `npm test`, a
 **Central**
 - `V278.5__financiero_cheque_proveedor_emision.sql`: `cheque.proveedor_id` (FK `personas.proveedor`,
   índice), índice por `fecha_entrega`, `fecha_entrega_backfill boolean` y backfill `fecha_entrega = creado_en`
-  donde sea NULL, marcando esas filas. Bandera nueva en `configuracion_general` (o la tabla de config
-  financiera vigente): `cheque.al_dia_emitido`, **apagada**.
+  donde sea NULL, marcando esas filas, y `lote_id` (id del primer cheque de una emisión en cuotas: el reenvío
+  devuelve los mismos N aunque los números no sean consecutivos). Bandera `cheque.al_dia_emitido`, **apagada**, en
+  `empresarial.configuracion_sistema` — **no** en `configuracion_general`, que está en `central_pub` (se replica a
+  las filiales): una columna nueva sin su espejo cortaría esa replicación (verificado en V0, 2026-11-12).
+- `BancoLedgerService.ajustarReservado`: si el reservado quedara negativo, se deja en 0 y se loguea (no se rechaza:
+  un desvío viejo bloquearía el cobro de un cheque legítimo).
 - Orden de locks fijo en todo el módulo de cheques: **chequera → cheque → cuenta** (ids ascendentes si hay
   varias). Lo cumplen `emitir`, `emitirCheques`, `cobrar`, `anular`, `anularPorPago` e `inutilizarNumeroCheque`.
 - `emitirCheque` acepta `proveedorId`, `beneficiario`, `nominal`, `fechaEmision` (en la huella de
@@ -279,6 +283,9 @@ existe en Java, `.graphqls` y la columna (`varchar(20)` sin CHECK, V183.5): **no
 - Con la bandera apagada, `emitir` hace exactamente lo de hoy.
 - Puertas de la bandera: `ChequeGestionService.emitir` es el **único** punto que decide el estado inicial
   (lo llaman `ChequePosGraphQL:45`, `PagoProveedorService:832` y el nuevo `emitirCheques`). Verificar por grep.
+
+**Cómo se prende** (por instancia, con SQL, tras confirmar que el desktop del canal es de esta versión):
+`UPDATE empresarial.configuracion_sistema SET valor = 'true' WHERE clave = 'cheque.al_dia_emitido';`
 
 **Cuándo se prende:** con central **y** desktop de este PR estables en el canal. Primero alpha, después farmacia
 y bodega, cada una por separado.

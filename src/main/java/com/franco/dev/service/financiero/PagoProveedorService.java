@@ -735,7 +735,8 @@ public class PagoProveedorService {
         }
         Map<Long, Cheque> chequePorRef = new LinkedHashMap<>();
         for (Map.Entry<Long, LineaPago> e : primeraLineaCheque.entrySet()) {
-            chequePorRef.put(e.getKey(), emitirCheque(e.getValue(), sumaChequeRef.get(e.getKey()), provNombre, etiquetaPago, usuario));
+            chequePorRef.put(e.getKey(), emitirCheque(e.getValue(), sumaChequeRef.get(e.getKey()), provNombre, etiquetaPago, usuario,
+                    proveedor));
         }
 
         // 4) Detalles (uno por línea) apuntando al movimiento consolidado + evento, y saldar cada solicitud.
@@ -815,7 +816,8 @@ public class PagoProveedorService {
     }
 
     /** Emite un cheque físico (total = suma de sus partes). Diferido reserva saldo; contado debita. */
-    private Cheque emitirCheque(LineaPago l, BigDecimal total, String provNombre, String etiquetaPago, Usuario usuario) {
+    private Cheque emitirCheque(LineaPago l, BigDecimal total, String provNombre, String etiquetaPago, Usuario usuario,
+                                com.franco.dev.domain.personas.Proveedor proveedor) {
         if (l.getChequeraId() == null) throw new GraphQLException("La forma de pago con cheque requiere una chequera");
         Chequera chequera = chequeraRepository.findById(l.getChequeraId())
                 .orElseThrow(() -> new GraphQLException("Chequera no encontrada"));
@@ -829,6 +831,8 @@ public class PagoProveedorService {
         cheque.setBeneficiario(l.getBeneficiario() != null ? l.getBeneficiario() : provNombre);
         cheque.setNominal(l.getNominal() != null ? l.getNominal() : Boolean.TRUE);
         cheque.setConcepto(etiquetaPago);
+        // A quién se le pagó, para el tablero de cheques (issue #601). Null en los pagos sin proveedor (RRHH, gastos).
+        cheque.setProveedor(proveedor);
         return chequeGestionService.emitir(cheque, usuario);
     }
 

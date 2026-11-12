@@ -1076,29 +1076,36 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             List<Long> usuarioIdList, List<Long> productoIdList, Long subfamiliaId, Long familiaId) {
         Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
         StringBuilder filtro = new StringBuilder();
-        if (usuarioIdList != null && !usuarioIdList.isEmpty()) {
-            filtro.append("Funcionario: ");
-            for (int i = 0; i < usuarioIdList.size(); i++) {
-                Usuario u = usuarioService.findById(usuarioIdList.get(i)).orElse(null);
+        // Los ids pueden venir null («Todas» llega como [null]) y findById(null) devuelve null, no un
+        // Optional vacío: hay que saltearlos antes del .orElse() (#615).
+        List<String> funcionarios = new ArrayList<>();
+        if (usuarioIdList != null) {
+            for (Long id : usuarioIdList) {
+                Usuario u = id != null ? usuarioService.findById(id).orElse(null) : null;
                 if (u != null) {
-                    filtro.append(u.getNickname());
-                    if (i < usuarioIdList.size() - 1) {
-                        filtro.append(", ");
-                    }
+                    funcionarios.add(u.getNickname());
                 }
             }
         }
-        if (filtro.length() > 0 && sucursalIdList != null && sucursalIdList.size() > 0) {
-            filtro.append("\n");
+        if (!funcionarios.isEmpty()) {
+            filtro.append("Funcionario: ").append(String.join(", ", funcionarios)).append("\n");
         }
-        if (sucursalIdList != null && sucursalIdList.size() > 0) {
-            if (sucursalIdList.size() > 1) {
-                filtro.append("Sucursales: ");
-            } else {
-                filtro.append("Sucursal: ");
+        List<Long> sucursales = new ArrayList<>();
+        if (sucursalIdList != null) {
+            for (Long id : sucursalIdList) {
+                if (id != null) {
+                    sucursales.add(id);
+                }
             }
         }
-        for (Long sucId : sucursalIdList) {
+        if (sucursales.isEmpty()) {
+            filtro.append("Sucursales: Todas");
+        } else if (sucursales.size() > 1) {
+            filtro.append("Sucursales: ");
+        } else {
+            filtro.append("Sucursal: ");
+        }
+        for (Long sucId : sucursales) {
             Sucursal suc = sucursalService.findById(sucId).orElse(null);
             if (suc != null)
                 filtro.append(suc.getNombre() + ", ");

@@ -808,26 +808,31 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         }, newPageable);
     }
 
+    /**
+     * Lucro por funcionario. Una lista de sucursales nula, vacía o que solo trae {@code null} (lo que
+     * manda «Todas» en el desktop) no filtra por sucursal (#615): antes {@code [null]} llegaba a la
+     * consulta como {@code IN (NULL)} y el reporte salía vacío.
+     */
     public List<LucroPorFuncionarioDto> findLucroPorFuncionarios(String inicio, String fin, List<Long> sucIdList,
             List<Long> usuarioIdList, List<Long> productoIdList, Long subfamiliaId, Long familiaId) {
-        if (sucIdList == null || sucIdList.isEmpty()) {
-            return new ArrayList<>();
-        }
+        List<Long> sucursales = idsSinNulos(sucIdList);
+        List<Long> usuarios = idsSinNulos(usuarioIdList);
+        List<Long> productos = idsSinNulos(productoIdList);
 
-        boolean filtrarUsuario = usuarioIdList != null && !usuarioIdList.isEmpty();
-        boolean filtrarProducto = productoIdList != null && !productoIdList.isEmpty();
+        boolean filtrarSucursal = !sucursales.isEmpty();
+        boolean filtrarUsuario = !usuarios.isEmpty();
+        boolean filtrarProducto = !productos.isEmpty();
 
-        List<Long> finalUsuarioIdList = filtrarUsuario ? usuarioIdList : Arrays.asList(-1L);
-        List<Long> finalProductoIdList = filtrarProducto ? productoIdList : Arrays.asList(-1L);
-
+        // Hibernate no acepta un IN vacío: sin filtro va un relleno que el flag deja sin efecto.
         List<Object[]> rows = ventaItemRepository.findLucroPorFuncionarioNative(
-                sucIdList,
+                filtrarSucursal ? sucursales : Arrays.asList(-1L),
                 stringToDate(inicio),
                 stringToDate(fin),
-                finalUsuarioIdList,
-                finalProductoIdList,
+                filtrarUsuario ? usuarios : Arrays.asList(-1L),
+                filtrarProducto ? productos : Arrays.asList(-1L),
                 subfamiliaId,
                 familiaId,
+                filtrarSucursal,
                 filtrarUsuario,
                 filtrarProducto);
 
@@ -887,6 +892,19 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
         result.sort((dto1, dto2) -> dto2.getTotalVenta().compareTo(dto1.getTotalVenta()));
         return result;
+    }
+
+    private static List<Long> idsSinNulos(List<Long> ids) {
+        if (ids == null) {
+            return new ArrayList<>();
+        }
+        List<Long> r = new ArrayList<>();
+        for (Long id : ids) {
+            if (id != null && !r.contains(id)) {
+                r.add(id);
+            }
+        }
+        return r;
     }
 }
 

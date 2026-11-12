@@ -88,7 +88,7 @@ public class OperacionFinancieraService {
                     } else {
                         bancoLedgerService.registrar(op.getCuentaBancariaOrigen().getId(),
                                 MovimientoBancarioTipo.SALIDA_MANUAL, montoOrigen(op),
-                                "Cambio de divisa (op #" + saved.getId() + ")",
+                                OperacionFinancieraDescripcion.de(saved, OperacionFinancieraDescripcion.Lado.ORIGEN),
                                 OrigenMovimientoTipo.OPERACION_FINANCIERA.name(), saved.getId(), usuario);
                     }
                 };
@@ -99,7 +99,7 @@ public class OperacionFinancieraService {
                     } else {
                         bancoLedgerService.registrar(op.getCuentaBancariaDestino().getId(),
                                 MovimientoBancarioTipo.ENTRADA_MANUAL, montoDestino(op),
-                                "Cambio de divisa (op #" + saved.getId() + ")",
+                                OperacionFinancieraDescripcion.de(saved, OperacionFinancieraDescripcion.Lado.DESTINO),
                                 OrigenMovimientoTipo.OPERACION_FINANCIERA.name(), saved.getId(), usuario);
                     }
                 };
@@ -115,7 +115,7 @@ public class OperacionFinancieraService {
                         "Depósito requiere caja origen y cuenta bancaria destino");
                 cajaMov(op.getCajaMayorOrigen(), CajaVirtualTipoMovimiento.EGRESO, op.getMontoOrigen(), op.getMonedaOrigen(), saved, usuario);
                 bancoLedgerService.registrar(op.getCuentaBancariaDestino().getId(), MovimientoBancarioTipo.ENTRADA_MANUAL,
-                        montoDestino(op), "Depósito bancario (op #" + saved.getId() + ")",
+                        montoDestino(op), OperacionFinancieraDescripcion.de(saved, OperacionFinancieraDescripcion.Lado.DESTINO),
                         OrigenMovimientoTipo.OPERACION_FINANCIERA.name(), saved.getId(), usuario);
                 break;
             case RETIRO_BANCARIO:
@@ -127,7 +127,7 @@ public class OperacionFinancieraService {
                 // son SELECT FOR UPDATE, que espera, no falla rápido.
                 cajaMov(op.getCajaMayorDestino(), CajaVirtualTipoMovimiento.INGRESO, op.getMontoDestino(), op.getMonedaDestino(), saved, usuario);
                 bancoLedgerService.registrar(op.getCuentaBancariaOrigen().getId(), MovimientoBancarioTipo.SALIDA_MANUAL,
-                        montoOrigen(op), "Retiro bancario (op #" + saved.getId() + ")",
+                        montoOrigen(op), OperacionFinancieraDescripcion.de(saved, OperacionFinancieraDescripcion.Lado.ORIGEN),
                         OrigenMovimientoTipo.OPERACION_FINANCIERA.name(), saved.getId(), usuario);
                 break;
             case TRANSFERENCIA_ENTRE_CAJAS:
@@ -149,10 +149,10 @@ public class OperacionFinancieraService {
                         "La cuenta origen y destino no pueden ser la misma");
                 // No toca caja mayor. Orden canónico de lock (id de cuenta ascendente) para evitar deadlock.
                 Runnable salida = () -> bancoLedgerService.registrar(op.getCuentaBancariaOrigen().getId(), MovimientoBancarioTipo.SALIDA_MANUAL,
-                        montoOrigen(op), "Transferencia bancaria (op #" + saved.getId() + ")",
+                        montoOrigen(op), OperacionFinancieraDescripcion.de(saved, OperacionFinancieraDescripcion.Lado.ORIGEN),
                         OrigenMovimientoTipo.OPERACION_FINANCIERA.name(), saved.getId(), usuario);
                 Runnable entrada = () -> bancoLedgerService.registrar(op.getCuentaBancariaDestino().getId(), MovimientoBancarioTipo.ENTRADA_MANUAL,
-                        montoDestino(op), "Transferencia bancaria (op #" + saved.getId() + ")",
+                        montoDestino(op), OperacionFinancieraDescripcion.de(saved, OperacionFinancieraDescripcion.Lado.DESTINO),
                         OrigenMovimientoTipo.OPERACION_FINANCIERA.name(), saved.getId(), usuario);
                 if (op.getCuentaBancariaOrigen().getId() <= op.getCuentaBancariaDestino().getId()) { salida.run(); entrada.run(); }
                 else { entrada.run(); salida.run(); }
@@ -496,7 +496,11 @@ public class OperacionFinancieraService {
         m.setCantidad(monto.doubleValue());
         m.setMoneda(moneda);
         m.setUsuario(usuario);
-        m.setDescripcion(op.getTipoOperacion() + " (op #" + op.getId() + ")");
+        // La pata de caja nombra la otra punta (desk #721). El lado sale del tipo, no de la caja: un cambio de
+        // divisa en la misma caja la tiene de origen y de destino.
+        boolean esOrigen = tipo == CajaVirtualTipoMovimiento.EGRESO || tipo == CajaVirtualTipoMovimiento.TRANSFERENCIA_SALIDA;
+        m.setDescripcion(OperacionFinancieraDescripcion.de(op, esOrigen
+                ? OperacionFinancieraDescripcion.Lado.ORIGEN : OperacionFinancieraDescripcion.Lado.DESTINO));
         m.setReferenciaId(op.getId());
         m.setOrigenTipo(OrigenMovimientoTipo.OPERACION_FINANCIERA);
         m.setOrigenId(op.getId());

@@ -152,11 +152,13 @@ REAL→DOLAR de bodega. Desktop — spec del motor (ejecutable con `npm test`, a
   en `movimiento_bancario` y `movimiento_caja_virtual`; copia la descripción vieja **solo donde la nueva difiere**
   y después reescribe con la misma regla en SQL. **Solo la columna descripción**, nunca montos ni saldos.
   Dry-run + conteo esperado (bodega: 64 bancarios) con `RAISE EXCEPTION`. Reversible desde `descripcion_original`.
-- Efecto visible: quien buscaba «op #116» en el texto libre ya no lo encuentra en los movimientos con
-  comprobante. La búsqueda (`MovimientoCajaVirtualRepository:152`) suma `descripcion_original` al `like`.
-- Editar el Nº de comprobante de una operación actualiza la descripción de sus movimientos.
-- Detalle de retiro para la caja: query `retiroDetalleCajaMayor(retiroId, sucursalId)` (sucursal, caja,
-  responsable, monedas, verificación), con `requireLecturaCaja`.
+- ~~Efecto en la búsqueda de texto~~ — **no aplica (verificado)**: la única búsqueda por descripción
+  (`MovimientoCajaVirtualRepository:152`) es la de egresos para vuelto (MANUAL/ENTRADA_VARIA/GASTO), que nunca
+  incluye movimientos de operaciones; los filtros de movimientos de caja y banco no buscan por texto.
+- ~~Editar el Nº de comprobante actualiza la descripción~~ — **N/A (verificado 2026-11-12)**: el comprobante no
+  se puede editar por ningún camino (`setNumeroComprobante` solo en el alta; no hay mutation de edición).
+- ~~Query `retiroDetalleCajaMayor`~~ — **cambio al implementar**: el detalle del retiro desde la caja usa las
+  queries que ya existen, `retiro(id, sucId)` y `verificacionDeRetiro(retiroId, sucursalId)`.
 
 **Desktop**
 - `caja-virtual-dashboard`: `menuBanco` con «Ver detalle» por `origenTipo` (tabla de #721 §2),

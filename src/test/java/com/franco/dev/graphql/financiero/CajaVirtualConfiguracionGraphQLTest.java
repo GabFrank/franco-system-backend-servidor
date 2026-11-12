@@ -23,6 +23,7 @@ class CajaVirtualConfiguracionGraphQLTest {
 
     private CajaVirtualConfiguracionRepository repository;
     private CajaVirtualConfiguracionGraphQL resolver;
+    private TesoreriaSecurityService seg;
 
     @BeforeEach
     void setUp() {
@@ -30,7 +31,7 @@ class CajaVirtualConfiguracionGraphQLTest {
         FormaPagoRepository formaPagoRepository = mock(FormaPagoRepository.class);
         CuentaBancariaRepository cuentaBancariaRepository = mock(CuentaBancariaRepository.class);
         CajaVirtualService cajaVirtualService = mock(CajaVirtualService.class);
-        TesoreriaSecurityService seg = mock(TesoreriaSecurityService.class);
+        seg = mock(TesoreriaSecurityService.class);
         resolver = new CajaVirtualConfiguracionGraphQL(repository, formaPagoRepository,
                 cuentaBancariaRepository, cajaVirtualService, seg);
         when(repository.save(any())).thenAnswer(i -> i.getArgument(0));
@@ -95,5 +96,15 @@ class CajaVirtualConfiguracionGraphQLTest {
         CajaVirtualConfiguracionGraphQL.CajaVirtualConfiguracionInputWrapper in = input(null);
         in.setOperacionesFinancierasOcultas("[\"NO_EXISTE\"]");
         assertThrows(graphql.GraphQLException.class, () -> resolver.saveCajaVirtualConfiguracion(in));
+    }
+
+    @Test
+    void ordenes_se_leen_con_el_rol_de_caja_y_sin_config_vienen_null() {
+        when(repository.findByCajaVirtualId(1L)).thenReturn(Optional.empty());
+        com.franco.dev.graphql.financiero.dto.CajaVirtualOrdenes out = resolver.cajaVirtualOrdenes(1L);
+        assertNull(out.getMonedasOrden());
+        verify(seg).requireVerCaja();
+        verify(seg).requireLecturaCaja(1L);
+        verify(seg, never()).requireVer();
     }
 }

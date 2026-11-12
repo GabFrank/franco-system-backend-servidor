@@ -78,6 +78,9 @@ mergear (última en develop: `V273.1`).
   `sucursales_orden`; el desktop lo aplica con una función común sobre las dos listas que ya tiene
   (todas / propia + adicionales). Una query nueva sumaba superficie de seguridad sin ganar nada.
 - Helper común `OrdenConfigurable` (parseo, orden y validación); `ordenarCuentas` pasa a usarlo.
+- Query `cajaVirtualOrdenes(cajaVirtualId)`: solo los 4 órdenes, con `requireVerCaja` + `requireLecturaCaja`.
+  Hace falta porque el rol acotado (TESORERIA CAJA) no pasa `requireVer()` de `cajaVirtualConfiguracion` y
+  #653 pide el orden también para él. El desktop la pide aparte: si el central es viejo, solo falla esta.
 - Operaciones: la config solo ordena y oculta. **El servicio no la usa para autorizar** (el rol sigue mandando).
 
 **Desktop**
@@ -284,6 +287,9 @@ cobre y libere bien. Los cheques ya `COBRADO` no se tocan.
 lista de pendientes en el tablero con «Cobrar» masivo (F6).
 
 ## 5 · Qué queda sin verificar
+
+- **El schema GraphQL completo no lo valida ningún test** (no hay test que lo levante). Se verifica en F8
+  levantando el central local: un type o resolver mal cableado no deja arrancar el JAR.
 
 - Si algún reporte o pantalla fuera de `financiero` lee `cheque.estado = COBRADO` para cheques al día
   (grep completo en F6 antes de cambiar `emitir`).

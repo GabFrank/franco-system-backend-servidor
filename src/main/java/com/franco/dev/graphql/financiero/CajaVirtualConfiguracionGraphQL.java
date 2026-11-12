@@ -4,6 +4,7 @@ import com.franco.dev.domain.financiero.CajaVirtualConfiguracion;
 import com.franco.dev.domain.financiero.CuentaBancaria;
 import com.franco.dev.domain.financiero.FormaPago;
 import com.franco.dev.domain.financiero.enums.TipoOperacionFinanciera;
+import com.franco.dev.graphql.financiero.dto.CajaVirtualOrdenes;
 import com.franco.dev.repository.financiero.CajaVirtualConfiguracionRepository;
 import com.franco.dev.repository.financiero.CuentaBancariaRepository;
 import com.franco.dev.repository.financiero.FormaPagoRepository;
@@ -34,6 +35,16 @@ public class CajaVirtualConfiguracionGraphQL implements GraphQLQueryResolver, Gr
         seg.requireVer();
         seg.requireLecturaCaja(cajaVirtualId);
         return repository.findByCajaVirtualId(cajaVirtualId).orElse(null);
+    }
+
+    /**
+     * Los órdenes de la caja, para los diálogos que se abren desde ella. Lectura de la caja (incluye el rol
+     * acotado TESORERIA CAJA, que no ve el resto de la configuración): solo ordena, no expone saldos ni permisos.
+     */
+    public CajaVirtualOrdenes cajaVirtualOrdenes(Long cajaVirtualId) {
+        seg.requireVerCaja();
+        seg.requireLecturaCaja(cajaVirtualId);
+        return CajaVirtualOrdenes.de(repository.findByCajaVirtualId(cajaVirtualId).orElse(null));
     }
 
     public CajaVirtualConfiguracion saveCajaVirtualConfiguracion(CajaVirtualConfiguracionInputWrapper input) {

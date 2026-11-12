@@ -2135,6 +2135,37 @@ public class ImpresionService {
         return fmt.format(valor);
     }
 
+    /**
+     * Decimales de los montos de un pedido: los de la moneda. Sin el dato, 0 para GUARANI (o sin moneda) y 2
+     * para el resto, la misma regla que el desktop.
+     */
+    static int decimalesMoneda(com.franco.dev.domain.financiero.Moneda moneda) {
+        if (moneda == null) return 0;
+        if (moneda.getDecimales() != null) return moneda.getDecimales();
+        return "GUARANI".equalsIgnoreCase(moneda.getDenominacion()) ? 0 : 2;
+    }
+
+    /** Patrón de un monto (subtotal, total) con los decimales de la moneda. */
+    static String patronMonto(int decimales) {
+        return decimales > 0 ? "#,##0." + "0".repeat(decimales) : "#,##0";
+    }
+
+    /** Patrón de un costo unitario: el del monto, con hasta 4 decimales si la moneda los tiene (desktop #711). */
+    static String patronCosto(int decimales) {
+        return decimales > 0 ? patronMonto(decimales) + "#".repeat(Math.max(0, 4 - decimales)) : "#,##0";
+    }
+
+    /**
+     * Formato del ticket del pedido: separadores paraguayos (miles «.», decimal «,») y redondeo HALF_UP, el del
+     * {@code Math.round} de antes (DecimalFormat redondea HALF_EVEN: 2966,5 saldria 2.966).
+     */
+    static String formatPedido(double valor, String patron) {
+        java.text.DecimalFormat fmt = new java.text.DecimalFormat(patron,
+                new java.text.DecimalFormatSymbols(java.util.Locale.GERMANY));
+        fmt.setRoundingMode(java.math.RoundingMode.HALF_UP);
+        return fmt.format(valor);
+    }
+
     private String formatMonto(java.math.BigDecimal monto, String simbolo) {
         if (monto == null)
             return "";
@@ -2212,6 +2243,7 @@ public class ImpresionService {
                     escpos.writeLF("--------------------------------");
 
                     double totalPedido = 0;
+                    int decimales = decimalesMoneda(pedido.getMoneda());
                     for (int i = 0; i < items.size(); i++) {
                         PedidoItem item = items.get(i);
                         String desc = item.getProducto() != null ? item.getProducto().getDescripcion() : "";
@@ -2228,10 +2260,8 @@ public class ImpresionService {
                         totalPedido += sub;
 
                         String cantStr = String.format("%.0f", cant);
-                        String precioStr = NumberFormat.getNumberInstance(Locale.GERMAN)
-                                .format((long) Math.round(precio));
-                        String subStr = NumberFormat.getNumberInstance(Locale.GERMAN)
-                                .format((long) Math.round(sub));
+                        String precioStr = formatPedido(precio, patronCosto(decimales));
+                        String subStr = formatPedido(sub, patronMonto(decimales));
                         escpos.writeLF("  " + cantStr + " x " + precioStr + " = " + subStr);
 
                         if (Boolean.TRUE.equals(item.getEsBonificacion())) {
@@ -2240,8 +2270,7 @@ public class ImpresionService {
                     }
 
                     escpos.writeLF("--------------------------------");
-                    String totalStr = NumberFormat.getNumberInstance(Locale.GERMAN)
-                            .format((long) Math.round(totalPedido));
+                    String totalStr = formatPedido(totalPedido, patronMonto(decimales));
                     escpos.writeLF(center.setBold(true), "TOTAL: " + totalStr);
                     escpos.writeLF("--------------------------------");
 
@@ -2358,6 +2387,11 @@ public class ImpresionService {
                 parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
                 parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
                 parameters.put("montoTotal", montoTotal);
+                int decimales = decimalesMoneda(pedido.getMoneda());
+                parameters.put("patronCosto", patronCosto(decimales));
+                parameters.put("patronMonto", patronMonto(decimales));
+                // Separadores paraguayos como el ticket y el desktop; sin esto toma el locale de la JVM (en_US)
+                parameters.put(JRParameter.REPORT_LOCALE, java.util.Locale.GERMANY);
                 parameters.put("qrText", "frc-0-PEDIDO-" + pedido.getId() + "-" + pedido.getId()
                         + "-GestionComprasComponent-null-null");
 

@@ -306,6 +306,17 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
                     "No se encontró galería facial válida para actualizar.");
         }
 
+        // Anti-contaminacion: una captura que se parece mas a otra persona no ensena nada,
+        // aunque haya pasado la verificacion. Si entrara, la galeria empezaria a parecerse a
+        // ese otro y la proxima vez lo aceptaria a el.
+        com.franco.dev.graphql.personas.UsuarioSimilitudResult mejor =
+                embeddingCacheService.findBestMatch(embedding, null);
+        if (mejor != null && mejor.getUsuario() != null && !usuarioId.equals(mejor.getUsuario().getId())) {
+            return new IncorporarEmbeddingMarcacionResult(
+                    ResultadoIncorporacionEmbedding.RECHAZADO_SIMILITUD,
+                    "La captura se parece más a otra persona registrada: no se usa para actualizar el perfil.");
+        }
+
         IncorporarCapturaMarcacionResult resultado = embeddingGaleriaService
                 .incorporarCapturaMarcacion(galeria, embedding, score);
         if (resultado.getResultado() != ResultadoIncorporacionEmbedding.OK) {

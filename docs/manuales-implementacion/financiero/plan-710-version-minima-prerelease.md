@@ -21,3 +21,9 @@ en minúsculas y responde «La version tiene que tener la forma 4.12.0 o 4.12.0-
 
 `VersionClienteGraphQLTest` (unitario): prerelease aceptada y en minúsculas; `X.Y.Z` y vacío como hoy; formatos
 inválidos rechazados. `ControlVersionMonedaTest`: `menor` con prerelease en los dos lados.
+
+## Resultado (11-12/11/2026)
+
+Tests: `VersionClienteGraphQLTest` 5/5, `ControlVersionMonedaTest` 2/2 (con el código viejo fallan los de prerelease).
+Runtime con el desktop de la rama, en pantalla y en Electron: ver el plan del desktop. Contra el jar de `develop`, la
+prerelease se rechaza con el mensaje viejo: este PR va primero.

@@ -34,8 +34,9 @@ public class ControlVersionMoneda {
         }
     }
 
+    /** Solo la base X.Y.Z: una prerelease (4.2.0-alpha.345) cuenta como su release, ya trae lo de esa version. */
     static boolean menor(String a, String b) {
-        String[] x = a.split("\\."), y = b.split("\\.");
+        String[] x = a.split("-", 2)[0].split("\\."), y = b.split("-", 2)[0].split("\\.");
         for (int i = 0; i < Math.max(x.length, y.length); i++) {
             int p = i < x.length ? entero(x[i]) : 0, q = i < y.length ? entero(y[i]) : 0;
             if (p != q) return p < q;

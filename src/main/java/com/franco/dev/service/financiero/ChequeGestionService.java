@@ -39,6 +39,7 @@ public class ChequeGestionService {
     private final javax.persistence.EntityManager entityManager;
     private final com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository pagoDetalleRepository;
     private final com.franco.dev.service.empresarial.ConfiguracionSistemaService configuracionSistema;
+    private final com.franco.dev.repository.financiero.ChequeraNumeroInutilizadoRepository inutilizadoRepository;
 
     /** {@code configuracion_sistema}: el cheque al día queda EMITIDO hasta confirmar su cobro (issue #601). */
     static final String CLAVE_AL_DIA_EMITIDO = "cheque.al_dia_emitido";
@@ -174,10 +175,12 @@ public class ChequeGestionService {
             }
         }
 
-        // El número efectivo: el siguiente de la chequera, o el primero de su rango si todavía no emitió.
+        // El número efectivo: el siguiente de la chequera (o el primero de su rango si todavía no emitió), salteando
+        // los inutilizados vigentes y los que ya tienen cheque (issue #603).
         Long desde = chequera.getRangoDesde() != null ? chequera.getRangoDesde().longValue() : null;
         Long hasta = chequera.getRangoHasta() != null ? chequera.getRangoHasta().longValue() : null;
-        long numero = chequera.getSiguienteNumero() != null ? chequera.getSiguienteNumero() : (desde != null ? desde : 1L);
+        long base = chequera.getSiguienteNumero() != null ? chequera.getSiguienteNumero() : (desde != null ? desde : 1L);
+        long numero = primerLibre(chequera, base);
         String rango = (desde != null ? desde : "…") + "–" + (hasta != null ? hasta : "…");
         if (hasta != null && numero > hasta) {
             throw new GraphQLException("La chequera " + nombreChequera + " no tiene más números (rango " + rango + ").");
@@ -221,9 +224,10 @@ public class ChequeGestionService {
             cheque.setMovimientoBancarioId(mov != null ? mov.getId() : null);
         }
 
-        // Avanzar correlativo + agotar chequera
+        // Avanzar correlativo + agotar chequera: agotada cuando no queda ningún número libre en el rango (los
+        // inutilizados del final no cuentan como hojas).
         chequera.setSiguienteNumero(numero + 1);
-        if (hasta != null && numero >= hasta) {
+        if (hasta != null && (numero >= hasta || hojasLibres(chequera) == 0)) {
             chequera.setEstado(EstadoChequera.AGOTADA);
         }
         chequeraService.save(chequera);
@@ -321,12 +325,157 @@ public class ChequeGestionService {
         return out;
     }
 
-    /** Hojas que le quedan a la chequera desde su próximo número. Sin tope de rango = sin límite. */
-    long hojasLibres(Chequera chequera) {
-        if (chequera.getRangoHasta() == null) return Long.MAX_VALUE;
+    // ── Numeración (issue #603) ──
+
+    /** Próximo número de la chequera: el siguiente, o el primero del rango si todavía no emitió. */
+    private static long base(Chequera chequera) {
         long desde = chequera.getRangoDesde() != null ? chequera.getRangoDesde().longValue() : 1L;
-        long siguiente = chequera.getSiguienteNumero() != null ? chequera.getSiguienteNumero() : desde;
-        return Math.max(0, chequera.getRangoHasta().longValue() - siguiente + 1);
+        return chequera.getSiguienteNumero() != null ? chequera.getSiguienteNumero() : desde;
+    }
+
+    /** Números desde {@code desde} que no se pueden usar: inutilizados vigentes y los que ya tienen un cheque. */
+    private java.util.Set<Long> ocupados(Chequera chequera, long desde) {
+        java.util.Set<Long> out = new java.util.HashSet<>(inutilizadoRepository.numerosVigentesDesde(chequera.getId(), desde));
+        for (Double n : chequeRepository.numerosDesde(chequera.getId(), (double) desde)) {
+            if (n != null) out.add(n.longValue());
+        }
+        return out;
+    }
+
+    /** El primer número libre desde {@code desde}. Puede pasarse del rango: quien llama lo controla. */
+    long primerLibre(Chequera chequera, long desde) {
+        java.util.Set<Long> ocupados = ocupados(chequera, desde);
+        long n = desde;
+        while (ocupados.contains(n)) n++;
+        return n;
+    }
+
+    /**
+     * Los próximos {@code cantidad} números libres (para el «Próximo Nº» y el plan de cuotas del desktop). Se corta en
+     * el fin del rango: puede devolver menos.
+     */
+    public List<Long> proximosLibres(Chequera chequera, int cantidad) {
+        long desde = base(chequera);
+        Long hasta = chequera.getRangoHasta() != null ? chequera.getRangoHasta().longValue() : null;
+        java.util.Set<Long> ocupados = ocupados(chequera, desde);
+        List<Long> out = new java.util.ArrayList<>();
+        for (long n = desde; out.size() < cantidad && (hasta == null || n <= hasta); n++) {
+            if (!ocupados.contains(n)) out.add(n);
+        }
+        return out;
+    }
+
+    /** Hojas libres desde el próximo número hasta el fin del rango, sin los inutilizados. Sin rango = sin límite. */
+    public long hojasLibres(Chequera chequera) {
+        if (chequera.getRangoHasta() == null) return Long.MAX_VALUE;
+        long desde = base(chequera);
+        long hasta = chequera.getRangoHasta().longValue();
+        if (hasta < desde) return 0;
+        long ocupadosEnRango = ocupados(chequera, desde).stream().filter(n -> n <= hasta).count();
+        return Math.max(0, hasta - desde + 1 - ocupadosEnRango);
+    }
+
+    // ── Inutilizar números (issue #603, desk #720) ──
+
+    /**
+     * Inutiliza un número de la chequera. Futuro: se saltea al emitir. Pasado sin cheque: queda registrado. Con cheque:
+     * {@code ANULADO} lo anula (solo si es suelto: el de un pago se revierte con el pago) o {@code RENUMERADO} lo pasa a
+     * {@code numeroNuevo}, que tiene que estar libre y en el rango.
+     *
+     * <p>Locks en el orden del módulo: chequera → cheque → cuenta.</p>
+     */
+    @Transactional
+    public com.franco.dev.domain.financiero.ChequeraNumeroInutilizado inutilizar(Long chequeraId, Long numero, String motivo,
+            com.franco.dev.domain.financiero.enums.AccionChequeInutilizado accion, Long numeroNuevo, Usuario usuario) {
+        if (numero == null) throw new GraphQLException("Indicá el número a inutilizar.");
+        if (motivo == null || motivo.trim().isEmpty()) throw new GraphQLException("El motivo es obligatorio.");
+        Chequera chequera = chequeraRepository.lockById(chequeraId)
+                .orElseThrow(() -> new GraphQLException("Chequera no encontrada"));
+        entityManager.refresh(chequera);
+        exigirEnRango(chequera, numero);
+        if (inutilizadoRepository.findFirstByChequeraIdAndNumeroAndRevertidoEnIsNull(chequeraId, numero).isPresent()) {
+            throw new GraphQLException("El número " + numero + " ya está inutilizado.");
+        }
+        com.franco.dev.domain.financiero.enums.AccionChequeInutilizado a =
+                accion != null ? accion : com.franco.dev.domain.financiero.enums.AccionChequeInutilizado.NINGUNA;
+        Cheque cheque = chequeRepository.findFirstByChequeraIdAndNumero(chequeraId, numero.doubleValue()).orElse(null);
+        if (cheque != null && cheque.getEstado() != EstadoCheque.ANULADO
+                && a == com.franco.dev.domain.financiero.enums.AccionChequeInutilizado.NINGUNA) {
+            throw new GraphQLException("El número " + numero + " tiene un cheque: elegí anularlo o pasarlo a otro número.");
+        }
+        if (cheque == null && a != com.franco.dev.domain.financiero.enums.AccionChequeInutilizado.NINGUNA) {
+            a = com.franco.dev.domain.financiero.enums.AccionChequeInutilizado.NINGUNA;
+        }
+        String razon = "Número inutilizado: " + motivo.trim();
+        if (a == com.franco.dev.domain.financiero.enums.AccionChequeInutilizado.ANULADO) {
+            pagoDetalleRepository.findFirstByChequeIdOrderByIdAsc(cheque.getId())
+                    .filter(d -> !Boolean.TRUE.equals(d.getAnulado()))
+                    .ifPresent(d -> { throw new GraphQLException("El cheque Nº " + numero + " es del pago #" + d.getPagoId()
+                            + ": revertí el pago desde la caja mayor, o pasá el cheque a otro número."); });
+            // Misma lógica que la anulación por pago: libera la reserva o revierte el débito si ya era COBRADO.
+            anularPorPago(cheque.getId(), razon, usuario);
+        } else if (a == com.franco.dev.domain.financiero.enums.AccionChequeInutilizado.RENUMERADO) {
+            if (numeroNuevo == null) throw new GraphQLException("Indicá el número al que pasa el cheque.");
+            exigirEnRango(chequera, numeroNuevo);
+            if (numeroNuevo.equals(numero)
+                    || inutilizadoRepository.findFirstByChequeraIdAndNumeroAndRevertidoEnIsNull(chequeraId, numeroNuevo).isPresent()
+                    || chequeRepository.findFirstByChequeraIdAndNumero(chequeraId, numeroNuevo.doubleValue()).isPresent()) {
+                throw new GraphQLException("El número " + numeroNuevo + " no está libre.");
+            }
+            Cheque bloqueado = chequeRepository.lockById(cheque.getId()).orElse(cheque);
+            bloqueado.setNumero(numeroNuevo.doubleValue());
+            chequeService.save(bloqueado);
+            // Si el número nuevo era el próximo, el correlativo lo saltea solo (primerLibre mira los cheques).
+        }
+        com.franco.dev.domain.financiero.ChequeraNumeroInutilizado i = new com.franco.dev.domain.financiero.ChequeraNumeroInutilizado();
+        i.setChequera(chequera);
+        i.setNumero(numero);
+        i.setMotivo(motivo.trim().toUpperCase());
+        i.setUsuario(usuario);
+        i.setCheque(cheque);
+        i.setAccionCheque(a);
+        i.setNumeroNuevo(a == com.franco.dev.domain.financiero.enums.AccionChequeInutilizado.RENUMERADO ? numeroNuevo : null);
+        com.franco.dev.domain.financiero.ChequeraNumeroInutilizado guardado = inutilizadoRepository.save(i);
+        actualizarAgotada(chequera);
+        return guardado;
+    }
+
+    /** Revierte una inutilización: el número vuelve a estar libre. No revive el cheque anulado ni deshace el renumerado. */
+    @Transactional
+    public com.franco.dev.domain.financiero.ChequeraNumeroInutilizado revertirInutilizacion(Long id, Usuario usuario) {
+        com.franco.dev.domain.financiero.ChequeraNumeroInutilizado i = inutilizadoRepository.findById(id)
+                .orElseThrow(() -> new GraphQLException("Inutilización no encontrada: " + id));
+        if (i.getRevertidoEn() != null) throw new GraphQLException("La inutilización ya estaba revertida.");
+        Chequera chequera = chequeraRepository.lockById(i.getChequera().getId())
+                .orElseThrow(() -> new GraphQLException("Chequera no encontrada"));
+        entityManager.refresh(chequera);
+        i.setRevertidoEn(LocalDateTime.now());
+        i.setRevertidoPor(usuario);
+        com.franco.dev.domain.financiero.ChequeraNumeroInutilizado guardado = inutilizadoRepository.save(i);
+        actualizarAgotada(chequera);
+        return guardado;
+    }
+
+    private static void exigirEnRango(Chequera chequera, Long numero) {
+        Long desde = chequera.getRangoDesde() != null ? chequera.getRangoDesde().longValue() : null;
+        Long hasta = chequera.getRangoHasta() != null ? chequera.getRangoHasta().longValue() : null;
+        if ((desde != null && numero < desde) || (hasta != null && numero > hasta)) {
+            throw new GraphQLException("El número " + numero + " está fuera del rango de la chequera ("
+                    + (desde != null ? desde : "…") + "–" + (hasta != null ? hasta : "…") + ").");
+        }
+    }
+
+    /** ACTIVA ↔ AGOTADA según queden números libres (inutilizar el último la agota; revertirlo la reactiva). */
+    private void actualizarAgotada(Chequera chequera) {
+        if (chequera.getRangoHasta() == null) return;
+        boolean sinLibres = hojasLibres(chequera) == 0;
+        if (sinLibres && chequera.getEstado() == EstadoChequera.ACTIVA) {
+            chequera.setEstado(EstadoChequera.AGOTADA);
+            chequeraService.save(chequera);
+        } else if (!sinLibres && chequera.getEstado() == EstadoChequera.AGOTADA) {
+            chequera.setEstado(EstadoChequera.ACTIVA);
+            chequeraService.save(chequera);
+        }
     }
 
     /** Cobra un cheque diferido: debita el saldo real y libera la reserva. */

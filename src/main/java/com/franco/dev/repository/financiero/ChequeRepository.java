@@ -65,6 +65,13 @@ public interface ChequeRepository extends HelperRepository<Cheque, Long> {
                                 @Param("texto") String texto,
                                 org.springframework.data.domain.Pageable tope);
 
+    /** Números con cheque de una chequera desde {@code desde} (un cheque renumerado puede ocupar uno futuro). */
+    @Query("select c.numero from Cheque c where c.chequera.id = :chequeraId and c.numero >= :desde")
+    List<Double> numerosDesde(@Param("chequeraId") Long chequeraId, @Param("desde") Double desde);
+
+    /** El cheque que tiene un número en una chequera, si hay. */
+    java.util.Optional<Cheque> findFirstByChequeraIdAndNumero(Long chequeraId, Double numero);
+
     /** Los cheques de una emisión en cuotas, por número. */
     List<Cheque> findByLoteIdOrderByNumeroAsc(Long loteId);
 

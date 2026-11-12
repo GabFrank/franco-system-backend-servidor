@@ -19,11 +19,15 @@ public class ChequeraResolver implements GraphQLResolver<Chequera> {
         return chequeService.findByChequeraId(chequera.getId());
     }
 
-    /** Hojas restantes en la chequera: rangoHasta − siguienteNumero + 1 (0 si está agotada/nula). */
+    @Autowired
+    private com.franco.dev.service.financiero.ChequeGestionService chequeGestionService;
+
+    /**
+     * Hojas restantes: desde el próximo número hasta el fin del rango, sin los inutilizados ni los que ya tienen
+     * cheque (issue #603). 0 sin rango.
+     */
     public Integer hojasDisponibles(Chequera c) {
         if (c.getRangoHasta() == null) return 0;
-        double sig = c.getSiguienteNumero() != null ? c.getSiguienteNumero() : (c.getRangoDesde() != null ? c.getRangoDesde() : 0);
-        long libres = (long) Math.floor(c.getRangoHasta() - sig + 1);
-        return (int) Math.max(0, libres);
+        return (int) Math.min(Integer.MAX_VALUE, chequeGestionService.hojasLibres(c));
     }
 } 

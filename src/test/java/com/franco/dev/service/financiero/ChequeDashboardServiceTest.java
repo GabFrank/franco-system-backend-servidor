@@ -20,12 +20,14 @@ class ChequeDashboardServiceTest {
     private ChequeRepository chequeRepository;
     private ChequeraRepository chequeraRepository;
     private ChequeDashboardService service;
+    private ChequeGestionService chequeGestionService;
 
     @BeforeEach
     void setUp() {
         chequeRepository = mock(ChequeRepository.class);
         chequeraRepository = mock(ChequeraRepository.class);
-        service = new ChequeDashboardService(chequeRepository, chequeraRepository);
+        chequeGestionService = mock(ChequeGestionService.class);
+        service = new ChequeDashboardService(chequeRepository, chequeraRepository, chequeGestionService);
     }
 
     private Cheque cheque(String fechaPago, double total) {
@@ -37,7 +39,8 @@ class ChequeDashboardServiceTest {
 
     @Test
     void resumen_por_dia_agrupa_y_suma_por_fecha_de_pago() {
-        when(chequeRepository.filtrarPorFechaPago(any(), any(), any(), any(), any())).thenReturn(Arrays.asList(
+        // El resumen pasa por el filtro del tablero (issue #601); sin tipo de fecha, por fecha de pago.
+        when(chequeRepository.filtrarTablero(any(), any(), any(), any(), any(), anyBoolean(), any(), any(), any(), any())).thenReturn(Arrays.asList(
                 cheque("2026-08-12", 100000),
                 cheque("2026-08-12", 50000),   // mismo día → se suma
                 cheque("2026-08-20", 30000)

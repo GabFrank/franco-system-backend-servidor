@@ -29,6 +29,7 @@ public class ChequeDashboardService {
 
     private final ChequeRepository chequeRepository;
     private final ChequeraRepository chequeraRepository;
+    private final ChequeGestionService chequeGestionService;
 
     /** Tope del tablero: los más nuevos primero. Un rango largo con «Todos» no trae la tabla entera. */
     static final int TOPE_TABLERO = 500;
@@ -130,13 +131,9 @@ public class ChequeDashboardService {
                 s.setSaldoCuenta(ch.getCuentaBancaria().getSaldo() != null ? ch.getCuentaBancaria().getSaldo().doubleValue() : 0.0);
                 s.setSaldoReservado(ch.getCuentaBancaria().getSaldoReservado() != null ? ch.getCuentaBancaria().getSaldoReservado().doubleValue() : 0.0);
             }
-            double hojas = 0;
-            if (ch.getRangoHasta() != null) {
-                double sig = ch.getSiguienteNumero() != null ? ch.getSiguienteNumero()
-                        : (ch.getRangoDesde() != null ? ch.getRangoDesde() : 0);
-                hojas = Math.max(0, Math.floor(ch.getRangoHasta() - sig + 1));
-            }
-            s.setHojasDisponibles((int) hojas);
+            // Sin los inutilizados (issue #603): la misma cuenta que la emisión.
+            s.setHojasDisponibles(ch.getRangoHasta() == null ? 0
+                    : (int) Math.min(Integer.MAX_VALUE, chequeGestionService.hojasLibres(ch)));
             out.add(s);
         }
         return out;

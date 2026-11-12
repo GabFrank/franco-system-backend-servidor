@@ -19,9 +19,9 @@ ALTER TABLE financiero.movimiento_bancario ADD COLUMN IF NOT EXISTS descripcion_
 ALTER TABLE financiero.movimiento_caja_virtual ADD COLUMN IF NOT EXISTS descripcion_original text;
 
 COMMENT ON COLUMN financiero.movimiento_bancario.descripcion_original IS
-    'Descripcion anterior a V277.5 (desktop #721), solo si cambio. La busqueda de texto tambien la mira.';
+    'Descripcion anterior a V277.5 (desktop #721), solo si cambio. Solo auditoria y reversa por SQL.';
 COMMENT ON COLUMN financiero.movimiento_caja_virtual.descripcion_original IS
-    'Descripcion anterior a V277.5 (desktop #721), solo si cambio. La busqueda de texto tambien la mira.';
+    'Descripcion anterior a V277.5 (desktop #721), solo si cambio. Solo auditoria y reversa por SQL.';
 
 DO $$
 DECLARE

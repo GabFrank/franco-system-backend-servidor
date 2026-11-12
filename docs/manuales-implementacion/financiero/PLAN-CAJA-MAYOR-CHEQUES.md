@@ -1,6 +1,7 @@
 # Plan — Caja Mayor, retiros y cheques (un PR por repo)
 
-> Estado: **auditado** (paso 5: ejes A y B, hallazgos en §7), pendiente de aprobación. Fecha: 2026-11-12.
+> Estado: **implementado F1–F7** (2026-11-12), en cierre (F8). Plan auditado (paso 5, §7) y aprobado. Desvíos y
+> pendientes de la implementación en §8.
 > Ramas: `feature/financiero-caja-mayor-cheques` en **central** y **desktop**, salidas de `develop`
 > (central `58ebaaa9`, desktop `c8f4f3bd`). **El filial no se toca** (ver §2).
 
@@ -253,6 +254,8 @@ Ninguna tabla tocada está en la réplica: el filial no tiene `caja_virtual*`, `
 | `cheque.estado = EMITIDO` | `ChequeGestionService.emitir` (al día) | `cobrar`, `anular`, `anularPorPago`, `TesoreriaReporteService` vencimientos, dashboard |
 | `chequera_numero_inutilizado.*` | `inutilizarNumeroCheque` / `revertirInutilizacion` | `emitir`/`emitirCheques`, `proximosNumerosCheque`, `hojasDisponibles`, tablero |
 | `movimiento_*.descripcion` (nuevo formato) | armadores de F3 y F5 + V277.5 | tablas de caja y banco |
+| `caja_virtual.tipo_original`, `movimiento_*.descripcion_original`, `cheque.fecha_entrega_backfill` | V274.5 / V277.5 / V278.5 | nadie en la app: **solo auditoría y reversa por SQL** (decidido; sin mapeo en entidades) |
+| `cheque.lote_id` | `ChequeGestionService.emitirLote` | `ChequeRepository.findByLoteIdOrderByNumeroAsc` (reenvío del lote) |
 
 ## 4 · `EMITIDO` — cheque al día entregado y no debitado (opción B, detrás de bandera)
 
@@ -288,7 +291,14 @@ existe en Java, `.graphqls` y la columna (`varchar(20)` sin CHECK, V183.5): **no
 `UPDATE empresarial.configuracion_sistema SET valor = 'true' WHERE clave = 'cheque.al_dia_emitido';`
 
 **Cuándo se prende:** con central **y** desktop de este PR estables en el canal. Primero alpha, después farmacia
-y bodega, cada una por separado.
+y bodega, cada una por separado. **Requisito técnico, no solo de checklist** (auditoría del diff, Fijo 3): antes de
+prenderla, poner `cliente.desktop.version_minima` (V258.5, `configuracion_sistema`) en la versión del desktop de este
+PR, para que un desktop postergado —que no puede cobrar un EMITIDO— no opere. Hace falta además el «Cobrar» masivo
+(pendiente, §8).
+
+**Rollback cruzado:** el desktop de este PR **requiere** el central de este PR (tablero y emisión de cheques piden
+campos y operaciones nuevos). Un rollback del central en un canal obliga a volver también el desktop de ese canal
+(el web `*.desk` con un redeploy; el Electron, con el canal de actualización). Va en la descripción del PR.
 
 **Si hay que volver atrás con la bandera prendida:** apagarla **antes** del rollback del JAR y correr
 `docs/manuales-implementacion/financiero/reconciliar-saldo-reservado.sql` (nuevo en F6): recalcula
@@ -346,6 +356,36 @@ lista de pendientes en el tablero con «Cobrar» masivo (F6).
 | 10 | B | media | Doble reversa al anular un pago con cheque cobrado | Enlace solo visual + test (§4) |
 | 11 | B | media | Faltan tests de rollback y datos existentes | IT con datos previos (§6) |
 | 12 | B | media | PK no declarada / backfill de fecha no distinguible | §6 + `fecha_entrega_backfill` |
-| 13 | A | baja | Búsqueda «op #N» deja de encontrar | `descripcion_original` en el `like` (F5) |
+| 13 | A | baja | Búsqueda «op #N» deja de encontrar | No aplica: ninguna búsqueda cubre esos movimientos (verificado en F5) |
 | 14 | B | baja | Backend viejo emite números inutilizados | Aceptado y documentado (§6) |
 | — | A | — | Replicación, mobile-pwa, mobile, variables de entorno | Verificado sin hallazgos |
+
+## 8 · Estado de la implementación (2026-11-12)
+
+Commits por fase en `feature/financiero-caja-mayor-cheques` de central y desktop. Guía de prueba:
+[PRUEBA-MANUAL-CAJA-MAYOR-CHEQUES.md](PRUEBA-MANUAL-CAJA-MAYOR-CHEQUES.md).
+
+**Cambios respecto del plan (decididos al implementar):**
+- F2: sin query de sucursales ordenadas; el desktop aplica `sucursales_orden`. Se agregó `cajaVirtualOrdenes`
+  (legible por el rol acotado) y el desktop la pide aparte, para que un central viejo solo pierda los órdenes.
+- F4: sin query `cotizacionCruzada`; la calcula el desktop. El desktop reenvía sin `cotizacionMonedaId` si el central
+  no lo conoce.
+- F5: sin query de detalle de retiro; usa `retiro` + `verificacionDeRetiro`. La búsqueda de texto no se tocó (no
+  cubría movimientos de operaciones).
+- F6: la bandera va en `configuracion_sistema` (no en `configuracion_general`, que se replica). El panel de cheques
+  del pago **no** se extrajo a un componente: la regla de cuotas se unificó en `cheque/cheque-cuotas.ts`, que usan los
+  dos diálogos. `ajustarReservado` deja el reservado en 0 y loguea en vez de rechazar.
+- Desktop: los campos nuevos del tablero de cheques y `emitirCheques` **requieren el central de este PR** (desplegar
+  el central primero).
+
+**Pendiente (no entra en este PR):**
+- «Cobrar» masivo de cheques al día EMITIDO (mitigación del §4): hoy se cobran de a uno. Hace falta antes de prender
+  la bandera en un canal con muchos cheques al día.
+- Imprimir el cheque y su comprobante → desk #729.
+- Reglas configurables por caja (límites, restricciones) → srv #620.
+- Revisar si el control de fondos del cheque EMITIDO debe bloquear (hoy solo avisa).
+
+**Verificado:** tests unitarios nuevos en central (fallan con el código viejo donde aplica), specs del desktop para el
+motor de cotización y la moneda no declarada, build de producción del desktop en cada fase, dry-run de cada
+migración contra la copia local, y arranque del central con V274.5–V278.5 (JPQL y schema GraphQL validados al
+iniciar). **Ojo:** ese arranque migró por error la base local `bodega_fact_test_2` (ver `ENTORNO_LOCAL.md`).

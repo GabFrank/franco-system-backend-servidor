@@ -107,4 +107,11 @@ class CajaVirtualConfiguracionGraphQLTest {
         verify(seg).requireLecturaCaja(1L);
         verify(seg, never()).requireVer();
     }
+
+    @Test
+    void configurar_una_caja_exige_ser_su_duenio() {
+        doThrow(new graphql.GraphQLException("No autorizado")).when(seg).requirePropietarioCaja(1L);
+        assertThrows(graphql.GraphQLException.class, () -> resolver.saveCajaVirtualConfiguracion(input("[1]")));
+        verify(repository, never()).save(any());
+    }
 }

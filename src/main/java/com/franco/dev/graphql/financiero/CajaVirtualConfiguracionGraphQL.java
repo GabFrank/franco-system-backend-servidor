@@ -49,6 +49,9 @@ public class CajaVirtualConfiguracionGraphQL implements GraphQLQueryResolver, Gr
 
     public CajaVirtualConfiguracion saveCajaVirtualConfiguracion(CajaVirtualConfiguracionInputWrapper input) {
         seg.requireGestionar();
+        // Configurar la caja es modificarla: como saveCajaVirtual, solo su dueño (o ADMIN). Sin esto un GESTIONAR podía
+        // ocultar las operaciones de una caja ajena y leer sus cuentas visibles (auditoría del diff, 2026-11-12).
+        seg.requirePropietarioCaja(input.getCajaVirtualId());
         CajaVirtualConfiguracion c = repository.findByCajaVirtualId(input.getCajaVirtualId())
                 .orElseGet(CajaVirtualConfiguracion::new);
         if (c.getCajaVirtual() == null) {

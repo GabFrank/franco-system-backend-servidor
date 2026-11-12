@@ -153,14 +153,23 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("sucId") Long sucId, @Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin);
 
-        @Query("SELECT Distinct new com.franco.dev.domain.operaciones.dto.LucroPorProductosDto(" +
+        /**
+         * Lucro por producto de todas las sucursales pedidas en una sola consulta (#611). Antes se
+         * llamaba una vez por sucursal, junto con una segunda consulta para el total de venta: 2 por
+         * sucursal, que recorrían venta_item cada una.
+         *
+         * <p>{@code totalVenta} es {@code SUM(precio * cantidad)}: {@code vi.precio} es el precio de la
+         * presentación y {@code vi.cantidad} cuántas presentaciones se vendieron, así que no se
+         * multiplica por {@code pre.cantidad}. Sin {@code ORDER BY}: el service ordena.
+         */
+        @Query("SELECT new com.franco.dev.domain.operaciones.dto.LucroPorProductosDto(" +
                         "pro.id as id, " +
                         "pro.descripcion as descripcion, " +
                         // Venta sin costo: el respaldo es el costo medio, no el precio de una sola compra.
                         "SUM(vi.cantidad * pre.cantidad * COALESCE(vi.precioCosto, NULLIF(cpp.costoMedio, 0), cpp.ultimoPrecioCompra, 0)) as costoTotal, "
                         +
                         "SUM(vi.cantidad * pre.cantidad) as cantidad, " +
-                        "SUM(vi.precio * vi.cantidad * pre.cantidad) as totalVenta," +
+                        "SUM(vi.precio * vi.cantidad) as totalVenta, " +
                         "0.0, 0.0, 0.0, 0.0, " +
                         "SUM(CASE WHEN (v.totalGs > 0) THEN ((vi.precio * vi.cantidad) / v.totalGs * COALESCE((SELECT SUM(cd.valor * cd.cambio) FROM CobroDetalle cd WHERE cd.cobro = v.cobro AND cd.descuento = true), 0.0)) ELSE 0.0 END), "
                         +
@@ -179,51 +188,25 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         "WHERE " +
                         "v.estado = 'CONCLUIDA' AND " +
                         "v.creadoEn BETWEEN :startDate AND :endDate AND " +
-                        "(:sucursalId is null or v.sucursalId = :sucursalId) AND " +
+                        "(:filtrarSucursal = false or v.sucursalId IN (:sucursalIdList)) AND " +
                         "(:filtrarUsuario = false or u.id IN (:usuarioIdList)) AND " +
                         "(:filtrarProducto = false or pro.id IN (:productoIdList)) AND " +
                         "((:subfamiliaId) is null or pro.subfamilia.id = :subfamiliaId) AND " +
                         "((:familiaId) is null or pro.subfamilia.id IN (SELECT sf.id FROM Subfamilia sf WHERE sf.familia.id = :familiaId)) " +
-                        "group by pro.id " +
-                        "ORDER BY SUM(vi.precio * vi.cantidad * pre.cantidad) DESC")
+                        "group by pro.id")
         public List<LucroPorProductosDto> findLucroPorProducto(
-                        @Param("sucursalId") Long sucursalId,
+                        @Param("sucursalIdList") List<Long> sucursalIdList,
                         @Param("startDate") LocalDateTime startDate,
                         @Param("endDate") LocalDateTime endDate,
                         @Param("usuarioIdList") List<Long> usuarioIdList,
                         @Param("productoIdList") List<Long> productoIdList,
                         @Param("subfamiliaId") Long subfamiliaId,
                         @Param("familiaId") Long familiaId,
+                        @Param("filtrarSucursal") Boolean filtrarSucursal,
                         @Param("filtrarUsuario") Boolean filtrarUsuario,
                         @Param("filtrarProducto") Boolean filtrarProducto);
 
-        @Query("SELECT pro.id, SUM(vi.precio * vi.cantidad) " +
-                        "FROM VentaItem vi " +
-                        "JOIN vi.venta v " +
-                        "JOIN v.usuario u " +
-                        "JOIN vi.presentacion pre " +
-                        "JOIN vi.producto pro " +
-                        "WHERE " +
-                        "v.estado = 'CONCLUIDA' AND " +
-                        "v.creadoEn BETWEEN :startDate AND :endDate AND " +
-                        "((:sucursalId) is null or v.sucursalId = (:sucursalId)) AND " +
-                        "(:filtrarUsuario = false or u.id IN (:usuarioIdList)) AND " +
-                        "(:filtrarProducto = false or pro.id IN (:productoIdList)) AND " +
-                        "((:subfamiliaId) is null or pro.subfamilia.id = :subfamiliaId) AND " +
-                        "((:familiaId) is null or pro.subfamilia.id IN (SELECT sf.id FROM Subfamilia sf WHERE sf.familia.id = :familiaId)) " +
-                        "GROUP BY pro.id")
-        public List<Object[]> findTotalVentaPacksPorProducto(
-                        @Param("sucursalId") Long sucursalId,
-                        @Param("startDate") LocalDateTime startDate,
-                        @Param("endDate") LocalDateTime endDate,
-                        @Param("usuarioIdList") List<Long> usuarioIdList,
-                        @Param("productoIdList") List<Long> productoIdList,
-                        @Param("subfamiliaId") Long subfamiliaId,
-                        @Param("familiaId") Long familiaId,
-                        @Param("filtrarUsuario") Boolean filtrarUsuario,
-                        @Param("filtrarProducto") Boolean filtrarProducto);
-
-        /** Misma base que {@link #findTotalVentaPacksPorProducto}, agrupado por sucursal (gráfico ventas). */
+        /** Total de venta ({@code SUM(precio * cantidad)}) agrupado por sucursal (gráfico ventas). */
         @Query("SELECT v.sucursalId, s.nombre, SUM(vi.precio * vi.cantidad), COUNT(DISTINCT v.id) " +
                         "FROM VentaItem vi " +
                         "JOIN vi.venta v " +

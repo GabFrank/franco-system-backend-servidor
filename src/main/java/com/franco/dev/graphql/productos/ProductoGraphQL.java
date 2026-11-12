@@ -39,9 +39,11 @@ import org.springframework.stereotype.Component;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.logging.Logger;
 
 @Component
@@ -54,6 +56,9 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private ProductoService service;
+
+    @Autowired
+    private LucroPorProductoService lucroPorProductoService;
 
     @Autowired
     private UsuarioService usuarioService;
@@ -266,17 +271,20 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
                 }
             }
         }
-        if (filtro.length() > 0 && sucursalIdList != null && sucursalIdList.size() > 0) {
+        // «Todas» llega como [null]: findById(null) devuelve null y no un Optional vacío.
+        List<Long> sucursales = sucursalIdList == null ? Collections.emptyList()
+                : sucursalIdList.stream().filter(Objects::nonNull).collect(Collectors.toList());
+        if (filtro.length() > 0) {
             filtro.append("\n");
         }
-        if (sucursalIdList != null && sucursalIdList.size() > 0) {
-            if (sucursalIdList.size() > 1) {
-                filtro.append("Sucursales: ");
-            } else {
-                filtro.append("Sucursal: ");
-            }
+        if (sucursales.isEmpty()) {
+            filtro.append("Sucursales: Todas");
+        } else if (sucursales.size() > 1) {
+            filtro.append("Sucursales: ");
+        } else {
+            filtro.append("Sucursal: ");
         }
-        for (Long sucId : sucursalIdList) {
+        for (Long sucId : sucursales) {
             Sucursal suc = sucursalService.findById(sucId).orElse(null);
             if (suc != null)
                 filtro.append(suc.getNombre() + ", ");
@@ -293,7 +301,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
                 filtro.append("\nSubfamilia: " + subfamilia.getNombre());
             }
         }
-        List<LucroPorProductosDto> lucroPorProductosDtoList = service.findLucroPorProductos(fechaInicio, fechaFin,
+        List<LucroPorProductosDto> lucroPorProductosDtoList = lucroPorProductoService.calcular(fechaInicio, fechaFin,
                 sucursalIdList, usuarioIdList, productoIdList, subfamiliaId, familiaId);
         return impresionService.imprimirReporteLucroPorProducto(lucroPorProductosDtoList, fechaInicio, fechaFin, "",
                 filtro.toString(), usuario);
@@ -310,8 +318,11 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             Integer size,
             Long familiaId) {
 
-        List<LucroPorProductosDto> fullList = service.findLucroPorProductos(fechaInicio, fechaFin,
-                sucursalIdList, usuarioIdList, productoIdList, subfamiliaId, familiaId);
+        // La primera página (la que pide «Filtrar») recalcula; las siguientes reusan ese resultado
+        // mientras esté vigente, así todas las páginas y el resumen salen del mismo cálculo.
+        boolean primeraPagina = page == null || page <= 0;
+        List<LucroPorProductosDto> fullList = lucroPorProductoService.calcularConCache(fechaInicio, fechaFin,
+                sucursalIdList, usuarioIdList, productoIdList, subfamiliaId, familiaId, primeraPagina);
 
         // 1. Calculate Global Summary
         LucroPorProductoSummary summary = new LucroPorProductoSummary();

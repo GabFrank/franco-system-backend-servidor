@@ -121,6 +121,24 @@ public class UsuarioEmbeddingCacheService {
         return null;
     }
 
+    /**
+     * Coseno maximo de un vector contra el master (primer vector) de cada otra persona
+     * enrolada. Sirve para detectar un enrolamiento que no se distingue de otro.
+     */
+    public double maximaSimilitudConOtrosMasters(double[] vector, Long excluirUsuarioId) {
+        if (vector == null || vector.length == 0) {
+            return 0.0;
+        }
+        double maxima = 0.0;
+        for (CachedEntry entry : entries) {
+            if (entry.usuarioId.equals(excluirUsuarioId) || entry.vectores.isEmpty()) {
+                continue;
+            }
+            maxima = Math.max(maxima, EmbeddingGaleriaService.cosineSimilarity(vector, entry.vectores.get(0)));
+        }
+        return maxima;
+    }
+
     public int size() {
         return entries.size();
     }

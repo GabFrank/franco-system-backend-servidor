@@ -31,12 +31,20 @@ public class VersionClienteGraphQL implements GraphQLQueryResolver, GraphQLMutat
         }
     }
 
+    /**
+     * X.Y.Z o con prerelease (4.2.0-alpha.345): el desktop compara con semver, y una alpha es menor que
+     * su release; sin prerelease, en alpha la unica minima posible bloqueaba a todas (desktop#710).
+     * En minusculas, como las versiones de Electron: semver distingue mayusculas y una minima
+     * 4.2.0-ALPHA.345 quedaria por debajo de toda alpha, sin bloquear a nadie.
+     */
+    static final String PATRON_VERSION = "\\d+\\.\\d+\\.\\d+(-[0-9a-z-]+(\\.[0-9a-z-]+)*)?";
+
     /** null o vacio apaga el control. Solo ADMIN: puede dejar sin operar a toda la empresa. */
     public String setVersionMinimaDesktop(String version) {
         configuracionSistema.exigirAdmin();
-        String v = version != null ? version.trim() : "";
-        if (!v.isEmpty() && !v.matches("\\d+\\.\\d+\\.\\d+")) {
-            throw new GraphQLException("La version tiene que tener la forma 4.12.0.");
+        String v = version != null ? version.trim().toLowerCase(java.util.Locale.ROOT) : "";
+        if (!v.isEmpty() && (v.length() > 64 || !v.matches(PATRON_VERSION))) {
+            throw new GraphQLException("La version tiene que tener la forma 4.12.0 o 4.12.0-alpha.345.");
         }
         configuracionSistema.guardar(CLAVE_VERSION_MINIMA_DESKTOP, v);
         return versionMinimaDesktop();

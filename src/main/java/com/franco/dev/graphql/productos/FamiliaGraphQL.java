@@ -44,7 +44,7 @@ public class FamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     public List<Familia> familiaSearch(String texto) {return service.findByAll(texto);}
 
-    public Page<Familia> familiaSearch(String texto, int index, int size) {return service.findByAllWithPage(texto, index, size);}
+    public Page<Familia> familiaSearch(String texto, Integer index, Integer size) {return service.findByAllWithPage(texto, index, size);}
 
 
     public List<Familia> familias(int page, int size){

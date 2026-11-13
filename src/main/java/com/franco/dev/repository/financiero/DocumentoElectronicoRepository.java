@@ -61,7 +61,9 @@ public interface DocumentoElectronicoRepository extends HelperRepository<Documen
            "(d.estado = :estado OR cast(:estado as com.franco.dev.domain.financiero.enums.EstadoDE) IS NULL) AND " +
            "(d.fechaEmision >= :fechaInicio OR cast(:fechaInicio as timestamp) IS NULL) AND " +
            "(d.fechaEmision <= :fechaFin OR cast(:fechaFin as timestamp) IS NULL) " +
-           "AND d.sucursalId = :sucursalId or (:sucursalId is null) " +
+           // Entre parentesis: sin ellos el OR abarcaba todo el WHERE y, sin sucursal,
+           // devolvia los documentos de cualquier estado y fecha (#582)
+           "AND (d.sucursalId = :sucursalId OR :sucursalId IS NULL) " +
            "ORDER BY d.id DESC")
     Page<DocumentoElectronico> findByFilters(
         @Param("estado") EstadoDE estado,

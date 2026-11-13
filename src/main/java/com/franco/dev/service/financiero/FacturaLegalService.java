@@ -28,6 +28,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -84,7 +85,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
     public Page<FacturaLegal> findByAll(Integer page, Integer size, String fechaInicio, String fechaFin,
             List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10, Boolean isElectronico,
             Boolean activo, Boolean sinNombre, Long ventaId) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("id").ascending());
+        Pageable pageable = Paginacion.of(page, size, Sort.by("id").ascending());
         Page<FacturaLegal> response = repository.findAll(
                 withFilters(fechaInicio, fechaFin, sucId, ruc, nombre, isElectronico, activo, sinNombre, ventaId),
                 pageable);

@@ -714,20 +714,39 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                 conDescuento, conAumento, conObservacion, clienteId, fechaInicio, fechaFin);
     }
 
-    public Page<Venta> findWithGenericFiltersCriteria(Long idVenta, Long id, Long sucId, Long formaPagoId,
-            VentaEstado estado,
-            Pageable pageable, Boolean isDelivery, Long monedaId, Boolean isAsc, Boolean conDescuento,
-            Boolean conAumento, Boolean conObservacion, Long clienteId, String fechaInicio, String fechaFin) {
-        // Al filtrar por nro. de venta todas las filas comparten el id (la PK es
-        // compuesta: id + sucursal_id), por eso se desempata por creadoEn desc para
-        // que la venta mas reciente quede primera. sucursalId cierra el orden para
-        // que la paginacion sea determinista.
-        Sort sort = isAsc == Boolean.TRUE
+    /**
+     * Orden de la lista de ventas (ventasGenericFilter).
+     *
+     * Sin rango de fechas, por nro. de venta: es la busqueda por numero en todo el historico. Al
+     * filtrar por nro. todas las filas comparten el id (la PK es compuesta: id + sucursal_id), por eso
+     * se desempata por creadoEn desc para que la mas reciente quede primera; sucursalId cierra el orden
+     * para que la paginacion sea determinista.
+     *
+     * Con rango de fechas, por fecha (#636): ordenar por id obligaba a PostgreSQL a recorrer venta_pk
+     * hacia atras descartando todas las ventas mas nuevas que el rango (marzo 2024: 983 ms y 2,8 M filas
+     * descartadas; por fecha, 0,16 ms con idx_venta_creado_en o idx_venta_sucursal_creado_en). Sin
+     * nullsLast: haria que el indice no sirva para ordenar, y dentro del rango creado_en nunca es nulo.
+     */
+    static Sort ordenListaVentas(Boolean isAsc, boolean conRangoDeFechas) {
+        boolean asc = isAsc == Boolean.TRUE;
+        if (conRangoDeFechas) {
+            return asc
+                    ? Sort.by(Sort.Order.asc("creadoEn"), Sort.Order.asc("id"), Sort.Order.asc("sucursalId"))
+                    : Sort.by(Sort.Order.desc("creadoEn"), Sort.Order.desc("id"), Sort.Order.desc("sucursalId"));
+        }
+        return asc
                 ? Sort.by(Sort.Order.asc("id"), Sort.Order.desc("creadoEn").nullsLast(),
                         Sort.Order.desc("sucursalId"))
                 : Sort.by(Sort.Order.desc("id"), Sort.Order.desc("creadoEn").nullsLast(),
                         Sort.Order.desc("sucursalId"));
-        Pageable newPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
+    }
+
+    public Page<Venta> findWithGenericFiltersCriteria(Long idVenta, Long id, Long sucId, Long formaPagoId,
+            VentaEstado estado,
+            Pageable pageable, Boolean isDelivery, Long monedaId, Boolean isAsc, Boolean conDescuento,
+            Boolean conAumento, Boolean conObservacion, Long clienteId, String fechaInicio, String fechaFin) {
+        Pageable newPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                ordenListaVentas(isAsc, fechaInicio != null && fechaFin != null));
 
         return this.repository.findAll((root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();

@@ -199,4 +199,27 @@ actualizar el remoto y perder la ventaja de que la farmacia vea la bodega antes.
 - **Red entre instancias.** Según la skill del central, bodega (8081) y farmacia (8082) corren en
   la misma VM, así que `http://localhost:<puerto>/graphql` debería alcanzar. No se miró en el
   servidor.
-- **Login del usuario técnico**: si `/login` exige usuario activo o algún rol. Se ve en la fase 3.
+
+## Pruebas de runtime (2026-11-13)
+
+Central de la rama en el 8081 y un jar de `master` en el 8084, los dos sobre `bodega@5551`; PWA de la
+rama en el 4300. Datos de prueba creados y borrados al terminar.
+
+| Caso | Resultado |
+|---|---|
+| Usuario técnico **sin persona ni roles**: `/login` en el remoto de `master` y consulta | ✅ entra y consulta |
+| MR (cliente con convenios) | ✅ 20 000 000 / 34 500, igual al resumen propio (misma base); 0,4 s |
+| Persona sin cliente (JULIO) | ✅ `null`; la PWA no muestra la sección |
+| CI con puntos (`7.460.508`) | ✅ lo encuentra por texto exacto: 300 000 / 178 000, coincide con la base |
+| Persona sin CI | ✅ `null` |
+| Remoto apagado | ✅ error en 38 ms; tarjeta con «No se pudo consultar…» y «Reintentar», sin toast; lo propio carga |
+| Remoto que acepta y no responde | ✅ error a los 5,0 s |
+| Reintentar con el remoto de vuelta | ✅ skeleton y después los números |
+| No es cliente acá pero sí allá (remoto simulado) | ✅ «No tenés convenio» y «Crédito en Farmacia» 750 000 / 150 000 / 600 000 |
+| Logs | ✅ URL y causa, nunca el token |
+
+`usuario.persona_id` es `UNIQUE`: dos usuarios no pueden compartir persona, así que el riesgo de
+«cuenta compartida» de la auditoría no aplica.
+
+No probado en runtime: token inválido (el remoto responde 401, que entra por el mismo camino que el
+remoto apagado; lo cubre `errorHttpLanza`).

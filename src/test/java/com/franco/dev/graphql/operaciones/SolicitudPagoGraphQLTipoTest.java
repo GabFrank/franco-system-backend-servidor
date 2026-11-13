@@ -159,7 +159,7 @@ class SolicitudPagoGraphQLTipoTest {
         in.setId(COMPRA);
 
         rechaza(() -> resolver.solicitudesPagoPorPedido(5L), msg);
-        rechaza(() -> resolver.solicitudesPagoPaginated(0, 10, null, null, null, null, null), msg);
+        rechaza(() -> resolver.solicitudesPagoPaginated(0, 10, null, null, null, null, null, null), msg);
         rechaza(() -> resolver.notasDisponiblesParaPago(5L), msg);
         rechaza(() -> resolver.isNotaIncludedInSolicitud(10L), msg);
         rechaza(() -> resolver.notaRecepcionDisponibleParaPagoPorNumero(1, 5L), msg);

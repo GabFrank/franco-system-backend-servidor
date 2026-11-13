@@ -76,6 +76,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Component;
 
 import javax.imageio.ImageIO;
@@ -413,12 +414,8 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             Boolean conAumento) {
         PdvCajaGraphQL.exigirLecturaDeCaja(seg, pdvCajaService, idCaja, sucId);
 
-        Pageable pageable;
-        if (page != null) {
-            pageable = PageRequest.of(page, size);
-        } else {
-            pageable = PageRequest.of(0, 15);
-        }
+        // Sin page o sin size: primera pagina de 15 (antes, page sin size daba error) (#582)
+        Pageable pageable = Paginacion.of(page, size);
         return service.onSearch(idVenta, idCaja, pageable, asc, sucId, formaPago, estado, isDelivery, monedaId,
                 conDescuento, conAumento);
     }
@@ -493,12 +490,8 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         // Con caja es el detalle de esa caja (#562): mismo control que ventasPorCajaId
         if (idCaja != null) PdvCajaGraphQL.exigirLecturaDeCaja(seg, pdvCajaService, idCaja, sucId);
 
-        Pageable pageable;
-        if (page != null) {
-            pageable = PageRequest.of(page, size);
-        } else {
-            pageable = PageRequest.of(0, 15);
-        }
+        // Sin page o sin size: primera pagina de 15 (antes, page sin size daba error) (#582)
+        Pageable pageable = Paginacion.of(page, size);
         return service.onGenericSearch(
                 idVenta,
                 idCaja,

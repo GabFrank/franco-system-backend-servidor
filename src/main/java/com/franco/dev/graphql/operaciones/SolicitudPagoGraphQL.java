@@ -116,7 +116,8 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             SolicitudPagoEstado estado,
             String numero,
             String fechaDesde,
-            String fechaHasta) {
+            String fechaHasta,
+            List<Long> monedaIds) {
         exigirRolCompras();
         PageRequest pageRequest = PageRequest.of(page, size);
         Specification<SolicitudPago> spec = (root, query, cb) -> {
@@ -129,6 +130,9 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             }
             if (estado != null) {
                 predicates.add(cb.equal(root.get("estado"), estado));
+            }
+            if (monedaIds != null && !monedaIds.isEmpty()) {
+                predicates.add(root.get("moneda").get("id").in(monedaIds));
             }
             if (numero != null && !numero.trim().isEmpty()) {
                 predicates.add(cb.like(cb.upper(root.get("numeroSolicitud")), "%" + numero.trim().toUpperCase() + "%"));

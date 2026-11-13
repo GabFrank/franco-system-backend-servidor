@@ -82,7 +82,15 @@ public class ConvenioRemotoService {
         Usuario usuario = usuarioService.findByNickname(auth.getName()).orElse(null);
         String documento = usuario != null && usuario.getPersona() != null ? usuario.getPersona().getDocumento() : null;
         if (vacio(documento)) return null;
-        return consultar(documento.trim());
+        try {
+            return consultar(documento.trim());
+        } catch (GraphQLException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            // Respuesta con otra forma (p. ej. una lista donde se esperaba un objeto): ClassCastException.
+            log.warn("[CONVENIO REMOTO] Respuesta inesperada de {}: {}", url, e.toString());
+            throw noSePudo();
+        }
     }
 
     ConvenioRemoto consultar(String documento) {

@@ -86,8 +86,10 @@ class ConvenioRemotoServiceTest {
     void sumaLosAbiertosYMandaElDocumentoExacto() {
         personaEnSesion(" 1.234.567-8 ");
         responde("\"texto\":\"1.234.567-8\"", "{\"data\":{\"data\":{\"id\":\"40\"}}}");
-        responde("clientePorPersonaId", "{\"data\":{\"data\":{\"id\":\"7\",\"credito\":500000.0}}}");
-        responde("ABIERTO", "{\"data\":{\"data\":[{\"valorTotal\":100000},{\"valorTotal\":25000.5},{\"valorTotal\":null}]}}");
+        // El id de la persona va a clientePorPersonaId y el del cliente a ventaCreditoPorCliente: cruzarlos
+        // mezclaría créditos de personas distintas.
+        responde("\"variables\":{\"id\":\"40\"}", "{\"data\":{\"data\":{\"id\":\"7\",\"credito\":500000.0}}}");
+        responde("\"variables\":{\"id\":\"7\"}", "{\"data\":{\"data\":[{\"valorTotal\":100000},{\"valorTotal\":25000.5},{\"valorTotal\":null}]}}");
 
         ConvenioRemoto r = service(URL, "tk").deLaPersonaEnSesion();
 
@@ -122,6 +124,26 @@ class ConvenioRemotoServiceTest {
         responde("clientePorPersonaId", "{\"errors\":[{\"message\":\"query did not return a unique result\"}],\"data\":{\"data\":null}}");
         GraphQLException e = assertThrows(GraphQLException.class, () -> service(URL, "tk").deLaPersonaEnSesion());
         assertEquals("No se pudo consultar el crédito en Bodega", e.getMessage());
+    }
+
+    @Test
+    void respuestaConOtraFormaLanzaNoSePudo() {
+        personaEnSesion("1234567");
+        responde("personaPorDocumento", "{\"data\":{\"data\":[{\"id\":\"40\"}]}}");
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service(URL, "tk").deLaPersonaEnSesion());
+        assertEquals("No se pudo consultar el crédito en Bodega", e.getMessage());
+    }
+
+    @Test
+    void idsNumericosTambienSirven() {
+        personaEnSesion("1234567");
+        responde("personaPorDocumento", "{\"data\":{\"data\":{\"id\":40}}}");
+        responde("\"variables\":{\"id\":40}", "{\"data\":{\"data\":{\"id\":7,\"credito\":null}}}");
+        responde("\"variables\":{\"id\":7}", "{\"data\":{\"data\":[]}}");
+        ConvenioRemoto r = service(URL, "tk").deLaPersonaEnSesion();
+        assertEquals(0.0, r.getLimite());
+        assertEquals(0.0, r.getUtilizado());
+        remoto.verify();
     }
 
     @Test

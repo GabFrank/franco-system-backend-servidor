@@ -135,9 +135,12 @@ otra empresa con un botón de intercambio.
 - `credito-resumen.component.ts` pide a la vez el resumen propio (como hoy) y
   `MisFinanzasService.creditoOtraEmpresa()` (el de la fase 2). Son independientes: una no espera a
   la otra.
-- Si hay crédito en la otra empresa, la cabecera suma un botón con el ícono `intercambio` (que ya
-  existe), junto al ojo. Alterna entre las dos; la etiqueta pasa a «Crédito disponible en
-  {empresa}». Tiene `stopPropagation`, como el ojo: tocarlo no navega.
+- Si hay crédito en la otra empresa, aparece un botón con el ícono `intercambio` (que ya existe)
+  **abajo a la derecha**: en la línea de los montos y en la columna del ojo (lo pidió Franco al
+  probarlo, para no confundirlo con el ojo y tenerlo a mano del pulgar). Alterna entre las dos; la
+  etiqueta pasa a «Crédito disponible en {empresa}». Tocarlo no navega, ni con el teclado.
+- La preferencia del ojo («valores visibles») se borra con la sesión (`limpiarSesion`): el próximo
+  que entra en el mismo teléfono no ve el saldo del anterior. Pedido de Franco tras la auditoría.
 - El ojo vale para las dos: con los valores ocultos, cambiar de empresa no los muestra.
 - Si acá no es cliente pero allá sí, la tarjeta muestra la otra empresa directamente, sin botón.
 - Si la otra empresa no responde o no hay nada allá, no aparece el botón y la tarjeta queda como

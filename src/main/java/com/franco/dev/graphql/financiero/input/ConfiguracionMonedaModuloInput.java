@@ -12,4 +12,6 @@ public class ConfiguracionMonedaModuloInput {
     private Long monedaId;
     /** "yyyy-MM-dd HH:mm" o ISO-8601. Null = ahora. */
     private String vigenteDesde;
+    /** true = guardar aunque la cotizacion del comercio tenga mas de 30 dias (el usuario ya vio el aviso). */
+    private Boolean confirmarCotizacionVieja;
 }

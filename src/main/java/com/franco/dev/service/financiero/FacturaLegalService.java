@@ -85,11 +85,31 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
     public Page<FacturaLegal> findByAll(Integer page, Integer size, String fechaInicio, String fechaFin,
             List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10, Boolean isElectronico,
             Boolean activo, Boolean sinNombre, Long ventaId) {
-        Pageable pageable = Paginacion.of(page, size, Sort.by("id").ascending());
-        Page<FacturaLegal> response = repository.findAll(
-                withFilters(fechaInicio, fechaFin, sucId, ruc, nombre, isElectronico, activo, sinNombre, ventaId),
-                pageable);
-        return response;
+        Specification<FacturaLegal> filtros =
+                withFilters(fechaInicio, fechaFin, sucId, ruc, nombre, isElectronico, activo, sinNombre, ventaId);
+        if (fechaInicio == null && fechaFin == null) {
+            return repository.findAll(filtros, Paginacion.of(page, size, Sort.by("id").ascending()));
+        }
+        return repository.findAll(filtros.and(ordenPorIdSinIndice()), Paginacion.of(page, size));
+    }
+
+    /**
+     * Mismo orden que Sort.by("id").ascending(), escrito como id + 0 (#636).
+     *
+     * Con rango de fechas, ORDER BY id + LIMIT hacia que PostgreSQL recorriera factura_legal_pk desde el
+     * principio descartando todas las facturas anteriores al rango (Central, septiembre: 239 ms y 524.677
+     * filas descartadas). Con id + 0 no puede usar la PK para ordenar: filtra primero con
+     * idx_factura_legal_sucursal_creado_en y ordena lo que quedo (6,7 ms, mismas filas y mismo orden).
+     * El conteo del paginador no lleva orden (Spring Data lo quita).
+     */
+    static Specification<FacturaLegal> ordenPorIdSinIndice() {
+        return (root, query, cb) -> {
+            Class<?> tipo = query.getResultType();
+            if (tipo != Long.class && tipo != long.class) {
+                query.orderBy(cb.asc(cb.sum(root.<Long>get("id"), 0L)));
+            }
+            return null;
+        };
     }
 
     public Optional<FacturaLegal> findByCdc(String cdc) {

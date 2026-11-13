@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
@@ -106,7 +107,7 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     public Page<Retiro> filterRetiros(Long id, Long cajaId, Long sucId, Long responsableId, Long cajeroId, Integer page,
             Integer size) {
         seg.requireAnyRole(LECTURA_RETIROS);
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         return service.filterRetirosPage(id, cajaId, sucId, responsableId, cajeroId, pageable);
     }
 

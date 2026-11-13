@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -119,7 +120,7 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     public Page<Gasto> filterGastos(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion,
             Integer page, Integer size) {
         seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         descripcion = StringUtils.convertToCustomFormat(descripcion);
         String finalDescripcion = descripcion;
         return service.filterGastosPage(id, cajaId, sucId, responsableId, finalDescripcion, pageable);

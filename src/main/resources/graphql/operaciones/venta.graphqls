@@ -17,6 +17,14 @@ type Venta {
     sucursal: Sucursal
     delivery: Delivery
     ventaObservacionList: [VentaObservacion]
+    cancelacion: VentaCancelacion
+}
+
+# Quien cancelo la venta (V274.1). Solo si esta cancelada y quedo registro.
+type VentaCancelacion {
+    id: ID
+    usuario: Usuario
+    creadoEn: Date
 }
 
 input VentaInput {

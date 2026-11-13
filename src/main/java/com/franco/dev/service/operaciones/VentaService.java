@@ -17,6 +17,7 @@ import com.franco.dev.domain.operaciones.dto.VentaPorPeriodoV1Dto;
 import com.franco.dev.domain.operaciones.enums.DeliveryEstado;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
+import com.franco.dev.repository.operaciones.VentaCancelacionRepository;
 import com.franco.dev.repository.operaciones.VentaItemRepository;
 import com.franco.dev.repository.operaciones.VentaRepository;
 import com.franco.dev.repository.productos.ProductoRepository;
@@ -65,6 +66,9 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
     @Autowired
     @org.springframework.context.annotation.Lazy
     private com.franco.dev.service.financiero.TesoreriaSecurityService tesoreriaSecurityService;
+
+    @Autowired
+    private VentaCancelacionRepository ventaCancelacionRepository;
 
     @Autowired
     private MovimientoCajaService movimientoCajaService;
@@ -357,6 +361,8 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             if (venta.getEstado() == VentaEstado.CANCELADA) {
                 darDeBajaFactura(venta, facturaYaCanceladaEnSifen);
             }
+            // Quien la cancelo o reactivo: la lista de ventas lo muestra (V274.1)
+            ventaCancelacionRepository.save(new VentaCancelacion(venta, usuarioActual()));
             // Aviso por webhook (srv #587): en la misma TX; si falla el INSERT, la cancelacion sigue
             final Venta v = venta;
             if (eventoEmisor != null && eventoEmisor.encendido()) eventoEmisor.emitirProyeccionDe(v.getSucursalId(), com.franco.dev.eventos.EventosCentral.tipoCancelacion(v),

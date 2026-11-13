@@ -196,6 +196,50 @@ class ConfiguracionMonedaModuloServiceTest {
         assertEquals(ModuloMoneda.COMPRAS, e.getModulo());
     }
 
+    // Cotizacion vieja: el comercio la cargo hace meses. No bloquea, pero hay que confirmarla.
+
+    private void cotizacionDelComercioCargadaHace(int dias) {
+        Cambio c = new Cambio();
+        c.setValorEnGs(5700.0);
+        c.setCreadoEn(LocalDateTime.now().minusDays(dias));
+        when(cambioRepository.findVigenteDelComercio(eq(2L), any())).thenReturn(c);
+    }
+
+    @Test
+    void cotizacionDeMasDe30Dias_sinConfirmar_seRechazaConLaFecha() {
+        cotizacionDelComercioCargadaHace(45);
+        GraphQLException ex = assertThrows(GraphQLException.class,
+                () -> service.crear(input(ModuloMoneda.COMPRAS, null, 2L, null), autor));
+        assertTrue(ex.getMessage().startsWith("COTIZACION_VIEJA"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("DOLAR"), ex.getMessage());
+        String fecha = LocalDateTime.now().minusDays(45).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        assertTrue(ex.getMessage().contains(fecha), ex.getMessage());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void cotizacionDeMasDe30Dias_confirmada_seGuarda() {
+        cotizacionDelComercioCargadaHace(45);
+        ConfiguracionMonedaModuloInput i = input(ModuloMoneda.COMPRAS, null, 2L, null);
+        i.setConfirmarCotizacionVieja(true);
+        assertNotNull(service.crear(i, autor));
+        verify(repository).save(any());
+    }
+
+    @Test
+    void cotizacionDeHastaTreintaDias_noPideConfirmar() {
+        cotizacionDelComercioCargadaHace(29);
+        assertNotNull(service.crear(input(ModuloMoneda.COMPRAS, null, 2L, null), autor));
+    }
+
+    @Test
+    void cotizacionVieja_enLaMonedaDeLaEmpresa_noPideConfirmar() {
+        // La moneda de la empresa no se convierte: su cotizacion no se usa.
+        cotizacionDelComercioCargadaHace(400);
+        when(monedaService.empresa()).thenReturn(dolar);
+        assertNotNull(service.crear(input(ModuloMoneda.COMPRAS, null, 2L, null), autor));
+    }
+
     private static ConfiguracionMonedaModuloInput input(ModuloMoneda m, Long sucursalId, Long monedaId, String desde) {
         ConfiguracionMonedaModuloInput i = new ConfiguracionMonedaModuloInput();
         i.setModulo(m);

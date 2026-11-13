@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -44,12 +45,12 @@ public class TransferenciaItemService extends CrudService<TransferenciaItem, Tra
     }
 
     public Page<TransferenciaItem> findByTransferenciaItemId(Long id, Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         return repository.findByTransferenciaIdOrderByIdDesc(id, pageable);
     }
 
     public Page<TransferenciaItem> findByTransferenciaItemIdWithFilter(Long id, String name, Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         return repository.findByTransferenciaIdWithFilters(id, name != null ? "%"+name.toUpperCase()+"%" : null, pageable);
     }
 

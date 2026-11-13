@@ -49,6 +49,36 @@ class PaginacionTest {
         assertEquals(15, p.getPageSize());
     }
 
+    // Punto 3 de #582: tope de size del lado del servidor
+
+    @Test
+    void sizeMayorAlTopeSeRecortaAlTope() {
+        Pageable p = Paginacion.of(2, 100000);
+        assertEquals(2, p.getPageNumber());
+        assertEquals(Paginacion.SIZE_MAXIMO, p.getPageSize());
+        assertEquals(500, Paginacion.SIZE_MAXIMO);
+    }
+
+    @Test
+    void sizeIgualAlTopeSeRespeta() {
+        assertEquals(500, Paginacion.of(0, 500).getPageSize());
+    }
+
+    @Test
+    void sizesQuePidenHoyLosClientesNoCambian() {
+        // paginadores del desktop (15..100) y subfamilias de la PWA (200)
+        for (int size : new int[]{10, 15, 25, 50, 100, 200}) {
+            assertEquals(size, Paginacion.of(0, size).getPageSize());
+        }
+    }
+
+    @Test
+    void elTopeConservaElOrden() {
+        Pageable p = Paginacion.of(0, 1000, Sort.by("persona.nombre"));
+        assertEquals(500, p.getPageSize());
+        assertEquals(Sort.by("persona.nombre"), p.getSort());
+    }
+
     @Test
     void conservaElOrden() {
         Pageable p = Paginacion.of(null, null, Sort.by("id").ascending());

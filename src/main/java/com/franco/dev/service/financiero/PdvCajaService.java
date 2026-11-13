@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import javax.persistence.criteria.Join;
@@ -535,7 +536,7 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
     }
 
     public List<PdvCaja> findByUsuarioId(Long id, Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         return repository.findByUsuarioIdOrderByIdDesc(id, pageable);
     }
 

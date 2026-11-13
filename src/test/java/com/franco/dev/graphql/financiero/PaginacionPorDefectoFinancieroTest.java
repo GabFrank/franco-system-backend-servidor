@@ -24,8 +24,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * #582, tanda financiero: sin page/size estas consultas fallaban (PageRequest.of con nulos, o null en un
- * parametro int). Ahora devuelven la primera pagina de 15; con valores, se respetan.
+ * #582, tanda financiero: sin page/size estas consultas fallaban. Con Integer, PageRequest.of(null, ...) da
+ * NullPointerException. Con int, graphql-java-kickstart convierte el argumento faltante en 0: un page
+ * faltante pasa como pagina 0, pero un size faltante llega como 0 y PageRequest.of tira
+ * IllegalArgumentException. Ahora devuelven la primera pagina de 15; con valores, se respetan.
  */
 class PaginacionPorDefectoFinancieroTest {
 

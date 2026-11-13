@@ -227,6 +227,14 @@ Script de solo lectura contra `farmacia@5551` y `bodega@5552` (los dos con venta
 
 El formato distinto afecta a 3 personas: se corrige el dato, no el código.
 
+Franco revisó los 3 y ninguno es cliente en la otra empresa: son coincidencias de dígitos entre personas
+distintas (CI con letras o con DV), no la misma persona mal escrita. Confirma que no hay que normalizar.
+
+**Criterio de «tiene convenio» (decisión de Franco, 2026-11-13):** límite mayor a 0 o algún convenio
+abierto, no el tipo de cliente. Quien tiene convenio en la otra empresa se carga allá como
+`CONVENIADO` (en la copia local de bodega: 25, todos con límite, ninguno funcionario de bodega), pero
+filtrar por tipo escondería una deuda abierta de alguien cargado con otro tipo.
+
 ## Sin verificar
 
 - **Formato del CI en la farmacia.** En la bodega local: 5969 personas, 12 con caracteres que no

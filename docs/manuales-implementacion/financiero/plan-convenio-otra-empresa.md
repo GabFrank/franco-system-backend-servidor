@@ -73,6 +73,7 @@ Qué devuelve en cada caso. «No hay» y «no pude preguntar» son respuestas di
 | Sin configurar (falta URL o token) | `null` | no muestra la sección |
 | Usuario sin persona o persona sin CI | `null` | no la muestra |
 | El CI no existe en el otro central, o no es cliente ahí | `null` | no la muestra |
+| Es cliente ahí pero **sin convenio**: límite 0 y nada abierto (agregado el 2026-11-13: 29 de los 41 usuarios de farmacia son clientes en bodega, muchos solo para facturar) | `null` | no la muestra |
 | Error de red, HTTP o `errors` de GraphQL del remoto | error GraphQL «No se pudo consultar el crédito en …» | muestra el error |
 | Dos `cliente` para la misma persona en el remoto | `findByPersonaId` lanza, el remoto devuelve `errors` → error | muestra el error, **nunca el crédito de otra persona** |
 
@@ -212,6 +213,19 @@ otra instancia, porque hoy cualquier usuario autenticado puede (#177). Lo que se
 tocar el remoto es operativo: un usuario técnico por dirección, token solo en el `.env` y nunca en
 logs. La alternativa de raíz es un endpoint dedicado con un secreto de un solo uso, pero exige
 actualizar el remoto y perder la ventaja de que la farmacia vea la bodega antes.
+
+## Datos reales (2026-11-13, solo conteos)
+
+Script de solo lectura contra `farmacia@5551` y `bodega@5552` (los dos con ventas a crédito de hoy):
+
+| | farmacia | bodega |
+|---|---|---|
+| Usuarios activos con persona | 41 | 165 |
+| CI con caracteres que no son dígitos | 1 | 3 |
+| Usuarios encontrados como cliente en la otra | 29 | 56 |
+| No encontrados por formato distinto del CI | 1 | 2 |
+
+El formato distinto afecta a 3 personas: se corrige el dato, no el código.
 
 ## Sin verificar
 

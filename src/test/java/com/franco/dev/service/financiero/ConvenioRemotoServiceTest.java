@@ -138,11 +138,34 @@ class ConvenioRemotoServiceTest {
     void idsNumericosTambienSirven() {
         personaEnSesion("1234567");
         responde("personaPorDocumento", "{\"data\":{\"data\":{\"id\":40}}}");
-        responde("\"variables\":{\"id\":40}", "{\"data\":{\"data\":{\"id\":7,\"credito\":null}}}");
+        responde("\"variables\":{\"id\":40}", "{\"data\":{\"data\":{\"id\":7,\"credito\":300000}}}");
         responde("\"variables\":{\"id\":7}", "{\"data\":{\"data\":[]}}");
         ConvenioRemoto r = service(URL, "tk").deLaPersonaEnSesion();
-        assertEquals(0.0, r.getLimite());
+        assertEquals(300000.0, r.getLimite());
         assertEquals(0.0, r.getUtilizado());
+        remoto.verify();
+    }
+
+    @Test
+    void clienteSinConvenioAllaDevuelveNull() {
+        // Cliente solo para facturar: sin tope y sin nada abierto. Una tarjeta en cero confundiría.
+        personaEnSesion("1234567");
+        responde("personaPorDocumento", "{\"data\":{\"data\":{\"id\":\"40\"}}}");
+        responde("clientePorPersonaId", "{\"data\":{\"data\":{\"id\":\"7\",\"credito\":0}}}");
+        responde("ABIERTO", "{\"data\":{\"data\":[]}}");
+        assertNull(service(URL, "tk").deLaPersonaEnSesion());
+        remoto.verify();
+    }
+
+    @Test
+    void sinTopePeroConConvenioAbiertoSeMuestra() {
+        personaEnSesion("1234567");
+        responde("personaPorDocumento", "{\"data\":{\"data\":{\"id\":\"40\"}}}");
+        responde("clientePorPersonaId", "{\"data\":{\"data\":{\"id\":\"7\",\"credito\":null}}}");
+        responde("ABIERTO", "{\"data\":{\"data\":[{\"valorTotal\":45000}]}}");
+        ConvenioRemoto r = service(URL, "tk").deLaPersonaEnSesion();
+        assertEquals(0.0, r.getLimite());
+        assertEquals(45000.0, r.getUtilizado());
         remoto.verify();
     }
 

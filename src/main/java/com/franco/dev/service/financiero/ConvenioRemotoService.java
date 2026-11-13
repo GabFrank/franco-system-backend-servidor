@@ -72,8 +72,8 @@ public class ConvenioRemotoService {
     }
 
     /**
-     * {@code null} si no está configurado, si la persona en sesión no tiene CI, o si allá no existe o no es
-     * cliente. Lanza si no se pudo preguntar: «no hay» y «no pude preguntar» son respuestas distintas.
+     * {@code null} si no está configurado, si la persona en sesión no tiene CI, o si allá no existe, no es
+     * cliente o es cliente sin convenio (límite 0 y nada abierto). Lanza si no se pudo preguntar: «no hay» y «no pude preguntar» son respuestas distintas.
      */
     public ConvenioRemoto deLaPersonaEnSesion() {
         if (vacio(url) || vacio(token)) return null;
@@ -103,11 +103,15 @@ public class ConvenioRemotoService {
         List<Map<String, Object>> abiertos = graphql(
                 "query($id: ID!) { data: ventaCreditoPorCliente(id: $id, estado: ABIERTO) { valorTotal } }",
                 "id", cliente.get("id"));
+        double limite = numero(cliente.get("credito"));
+        // Ser cliente allá no es tener convenio: muchos están solo para facturar. Sin tope y sin convenios
+        // abiertos no hay nada que mostrar; una tarjeta en cero diría que agotó un crédito que nunca tuvo.
+        if (limite <= 0 && (abiertos == null || abiertos.isEmpty())) return null;
         double utilizado = 0;
         if (abiertos != null) {
             for (Map<String, Object> c : abiertos) utilizado += numero(c.get("valorTotal"));
         }
-        return new ConvenioRemoto(nombre, numero(cliente.get("credito")), utilizado);
+        return new ConvenioRemoto(nombre, limite, utilizado);
     }
 
     @SuppressWarnings("unchecked")

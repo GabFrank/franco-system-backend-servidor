@@ -127,6 +127,27 @@ porque no participa. N/A para el desktop porque no muestra convenios del funcion
 - Bloque nuevo en `docs/PLAN_TESTEO_MANUAL.md` y nota en `docs/modulos/mis-rrhh-y-finanzas.md`.
 - Gate: `npm run build` y `npm test`.
 
+### Fase 4 — PWA: alternar la empresa en la tarjeta de Inicio (pedido de Franco, 2026-11-13)
+
+Tras probar la fase 2, Franco pidió que la tarjeta «Crédito disponible» de Inicio pueda mostrar la
+otra empresa con un botón de intercambio.
+
+- `credito-resumen.component.ts` pide a la vez el resumen propio (como hoy) y
+  `MisFinanzasService.creditoOtraEmpresa()` (el de la fase 2). Son independientes: una no espera a
+  la otra.
+- Si hay crédito en la otra empresa, la cabecera suma un botón con el ícono `intercambio` (que ya
+  existe), junto al ojo. Alterna entre las dos; la etiqueta pasa a «Crédito disponible en
+  {empresa}». Tiene `stopPropagation`, como el ojo: tocarlo no navega.
+- El ojo vale para las dos: con los valores ocultos, cambiar de empresa no los muestra.
+- Si acá no es cliente pero allá sí, la tarjeta muestra la otra empresa directamente, sin botón.
+- Si la otra empresa no responde o no hay nada allá, no aparece el botón y la tarjeta queda como
+  hoy. En Inicio no se muestra el error de la otra empresa: Mis finanzas ya lo muestra, y acá
+  ensuciaría la primera pantalla.
+- La elección no se guarda: al volver a Inicio arranca en la propia. Queda para después si hace
+  falta.
+- Tests: `src/app/pruebas/credito-resumen.spec.ts` (la tarjeta no tenía ninguno). Casos 22.7 y
+  siguientes en el bloque 22 del plan de testeo manual.
+
 ### Fase 3 — configuración en los servidores (sin código; la hacen Franco o Gabriel)
 
 - Usuario técnico en cada instancia (bodega y farmacia), sin roles; token por `/login`.

@@ -356,13 +356,14 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                 ventaCreditoService.cancelarVentaCredito(ventaCredito.getId(), ventaCredito.getSucursalId(), venta);
             }
 
+            // Quien la cancelo o reactivo (V274.1). Antes de la baja de la factura, que puede mandar el evento a
+            // SIFEN: si esto fallara despues, quedaria la factura cancelada en SIFEN y la venta no.
+            ventaCancelacionRepository.save(new VentaCancelacion(venta, usuarioActual()));
             // Solo al cancelar. Reactivar no toca la factura: un documento cancelado en SIFEN no
             // revive, y antes este bloque volvia a mandar el evento de cancelacion.
             if (venta.getEstado() == VentaEstado.CANCELADA) {
                 darDeBajaFactura(venta, facturaYaCanceladaEnSifen);
             }
-            // Quien la cancelo o reactivo: la lista de ventas lo muestra (V274.1)
-            ventaCancelacionRepository.save(new VentaCancelacion(venta, usuarioActual()));
             // Aviso por webhook (srv #587): en la misma TX; si falla el INSERT, la cancelacion sigue
             final Venta v = venta;
             if (eventoEmisor != null && eventoEmisor.encendido()) eventoEmisor.emitirProyeccionDe(v.getSucursalId(), com.franco.dev.eventos.EventosCentral.tipoCancelacion(v),

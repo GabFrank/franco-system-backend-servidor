@@ -131,3 +131,20 @@ Restaurar los estados de las ventas usadas al final.
 ## Sin verificar
 
 - Filiales con versiones anteriores al rechazo del 28/09 podrían replicar cancelaciones sin fila: solo se vería «sin registro».
+
+## Auditoría del diff (paso 8)
+
+Condicionales A (release) y B (replicación) no aplican: el diff no toca la maquinaria de release ni
+tablas que viajen entre nodos.
+
+- **Fijo 1 — autorización**: sin hallazgo bloqueante. La única escritura sigue detrás de
+  `requireCancelarVenta` en los 4 llamadores; el autor sale del token; la lectura filtra por venta y
+  sucursal. Observación: `VentaCancelacion.usuario` reutiliza el tipo `Usuario` (persona, roles), igual
+  que el `Venta.usuario` que ya existe en la misma query: no es dato nuevo expuesto. Se deja así.
+- **Fijo 2 — esquema**: sin defectos. `V274.1` libre (la única `V274+` remota es `V274.5` de otra rama,
+  no colisiona). Observación aplicada: el INSERT pasó **antes** de `darDeBajaFactura`, que puede mandar
+  el evento a SIFEN; si fallara después, quedaba la factura cancelada en SIFEN y la venta no.
+- **Fijo 3 — contrato**: sin ruptura de clientes. Aplicado: (a) la respuesta de la consulta se
+  revalida al llegar (fila abierta y venta cancelada), si no una respuesta tardía escribía «Cancelado
+  por» en una venta ya habilitada; (b) `onGetCancelacion` propaga también el error de GraphQL, si no un
+  fallo del resolver con datos parciales se mostraba como «sin registro».

@@ -127,6 +127,7 @@ extend type Query {
         numero: String
         fechaDesde: String
         fechaHasta: String
+        monedaIds: [ID]
     ): SolicitudPagoPage
     
     # Get notas de recepcion available for payment for a specific pedido

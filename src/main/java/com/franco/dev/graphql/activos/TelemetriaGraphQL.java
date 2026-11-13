@@ -10,8 +10,10 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,17 +40,21 @@ public class TelemetriaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         return service.findAll(pageable);
     }
 
-    public List<Telemetria> telemetriaPorDispositivo(Long dispositivoId, String startDate, String endDate, int page,
-            int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        if (startDate != null || endDate != null) {
-            return service.findByDispositivoIdAndFechaGpsBetween(dispositivoId,
-                    startDate != null ? stringToDate(startDate) : null,
-                    endDate != null ? stringToDate(endDate) : null,
-                    pageable).getContent();
-        }
-        return service.findByDispositivoId(dispositivoId);
+    public List<Telemetria> telemetriaPorDispositivo(Long dispositivoId, String startDate, String endDate, Integer page,
+            Integer size) {
+        // #582: siempre paginada, mas reciente primero. Sin fechas antes traia toda la telemetria
+        // del dispositivo. El extremo que falta se completa con un limite abierto en vez de mandar
+        // null a la consulta de rango.
+        LocalDateTime inicio = stringToDate(startDate);
+        LocalDateTime fin = stringToDate(endDate);
+        return service.findByDispositivoIdAndFechaGpsBetween(dispositivoId,
+                inicio != null ? inicio : SIN_INICIO,
+                fin != null ? fin : SIN_FIN,
+                Paginacion.of(page, size)).getContent();
     }
+
+    private static final LocalDateTime SIN_INICIO = LocalDateTime.of(1970, 1, 1, 0, 0);
+    private static final LocalDateTime SIN_FIN = LocalDateTime.of(9999, 12, 31, 23, 59, 59);
 
     public Telemetria saveTelemetria(TelemetriaInput input) {
         seg.requireSuperusuario(); // pantalla solo ADMIN o sin pantalla que la llame

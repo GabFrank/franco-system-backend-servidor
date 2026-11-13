@@ -17,6 +17,7 @@ import com.franco.dev.domain.operaciones.dto.VentaPorPeriodoV1Dto;
 import com.franco.dev.domain.operaciones.enums.DeliveryEstado;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
+import com.franco.dev.repository.operaciones.VentaCancelacionRepository;
 import com.franco.dev.repository.operaciones.VentaItemRepository;
 import com.franco.dev.repository.operaciones.VentaRepository;
 import com.franco.dev.repository.productos.ProductoRepository;
@@ -65,6 +66,9 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
     @Autowired
     @org.springframework.context.annotation.Lazy
     private com.franco.dev.service.financiero.TesoreriaSecurityService tesoreriaSecurityService;
+
+    @Autowired
+    private VentaCancelacionRepository ventaCancelacionRepository;
 
     @Autowired
     private MovimientoCajaService movimientoCajaService;
@@ -352,6 +356,9 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                 ventaCreditoService.cancelarVentaCredito(ventaCredito.getId(), ventaCredito.getSucursalId(), venta);
             }
 
+            // Quien la cancelo o reactivo (V274.1). Antes de la baja de la factura, que puede mandar el evento a
+            // SIFEN: si esto fallara despues, quedaria la factura cancelada en SIFEN y la venta no.
+            ventaCancelacionRepository.save(new VentaCancelacion(venta, usuarioActual()));
             // Solo al cancelar. Reactivar no toca la factura: un documento cancelado en SIFEN no
             // revive, y antes este bloque volvia a mandar el evento de cancelacion.
             if (venta.getEstado() == VentaEstado.CANCELADA) {

@@ -31,6 +31,8 @@ input ConfiguracionMonedaModuloInput {
     monedaId: ID!
     "yyyy-MM-dd HH:mm o ISO-8601. Null = ahora."
     vigenteDesde: String
+    "true = guardar aunque la cotizacion del comercio tenga mas de 30 dias. Sin confirmar, el central responde COTIZACION_VIEJA con la fecha."
+    confirmarCotizacionVieja: Boolean
 }
 
 extend type Query {

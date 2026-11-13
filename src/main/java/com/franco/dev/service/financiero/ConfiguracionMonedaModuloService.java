@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
@@ -32,6 +33,10 @@ public class ConfiguracionMonedaModuloService {
     private final SucursalService sucursalService;
     private final CotizacionService cotizacionService;
     private final ControlVersionMoneda controlVersionMoneda;
+
+    /** Una cotizacion del comercio mas vieja que esto pide confirmacion al asignarla a un modulo. */
+    static final int DIAS_COTIZACION_VIEJA = 30;
+    private static final DateTimeFormatter FORMATO_FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     public List<ConfiguracionMonedaModulo> listar(ModuloMoneda modulo) {
         return modulo != null
@@ -71,6 +76,18 @@ public class ConfiguracionMonedaModuloService {
         if (!cotizacionService.delComercio(moneda, controlCotizacion).isPresent()) {
             throw new GraphQLException("SIN_COTIZACION: " + moneda.getDenominacion()
                     + " no tiene cotizacion cargada. Cargala antes de asignarla a un modulo.");
+        }
+        // Una cotizacion del comercio de hace meses no bloquea, pero el usuario la tiene que ver y
+        // confirmar: el PDV y la factura convierten con ella. La de la empresa no se convierte.
+        if (!Boolean.TRUE.equals(input.getConfirmarCotizacionVieja())
+                && !MonedaService.misma(moneda, monedaService.empresa())) {
+            cotizacionService.fechaDelComercio(moneda, controlCotizacion)
+                    .filter(f -> f.isBefore(controlCotizacion.minusDays(DIAS_COTIZACION_VIEJA)))
+                    .ifPresent(f -> {
+                        throw new GraphQLException("COTIZACION_VIEJA: La ultima cotizacion de "
+                                + moneda.getDenominacion() + " es del " + f.format(FORMATO_FECHA)
+                                + ". Confirma para asignarla igual o carga una nueva.");
+                    });
         }
 
         // Un escritorio viejo cobra y factura todo en la moneda de la empresa: el PDV o la factura en

@@ -40,6 +40,17 @@ public class CotizacionService {
     }
 
     /**
+     * Cuando cargo el comercio la cotizacion que {@link #delComercio} usaria en {@code instante}.
+     * Vacio para el guarani, sin fila o si la fila no tiene fecha.
+     */
+    public Optional<LocalDateTime> fechaDelComercio(Moneda moneda, LocalDateTime instante) {
+        if (moneda == null || moneda.getId() == null || MonedaService.esGuarani(moneda)) return Optional.empty();
+        Cambio c = cambioRepository.findVigenteDelComercio(moneda.getId(),
+                instante != null ? instante : LocalDateTime.now());
+        return c == null ? Optional.empty() : Optional.ofNullable(c.getCreadoEn());
+    }
+
+    /**
      * Guaranies por una unidad de {@code moneda} para compras: de la ultima fila de cambio, el
      * mercado de compra, si no el de venta, si no {@code valor_en_gs}. Es el orden que tenian copiado
      * {@code RecepcionDocumentalService} y {@code ComprasMobileService}. Sin {@code instante}, la

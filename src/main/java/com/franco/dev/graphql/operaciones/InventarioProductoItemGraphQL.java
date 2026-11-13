@@ -37,6 +37,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.data.domain.Sort;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
@@ -455,17 +456,17 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
     }
 
     public Page<ProductoSaldoDto> productosConCantidadPositiva(Long sucursalId, Long productoId, Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         return movimientoStockService.findProductosConCantidadPositiva(sucursalId, productoId, pageable);
     }
 
     public Page<ProductoSaldoDto> productosConCantidadNegativa(Long sucursalId, Long productoId, Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         return movimientoStockService.findProductosConCantidadNegativa(sucursalId, productoId, pageable);
     }
 
     public Page<ProductoSaldoDto> productosFaltantes(Long sucursalId, Long productoId, String fechaInicio, String fechaFin, Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         return movimientoStockService.findProductosFaltantes(sucursalId, productoId, stringToDate(fechaInicio), stringToDate(fechaFin), pageable);
     }
 

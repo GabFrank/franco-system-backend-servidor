@@ -20,6 +20,7 @@ import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.operaciones.SolicitudPagoDetalleService;
 import com.franco.dev.service.operaciones.SolicitudPagoNotaRecepcionService;
 import com.franco.dev.service.operaciones.SolicitudPagoService;
+import com.franco.dev.service.operaciones.ReporteSolicitudesPagoService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.impresion.ImpresionService;
@@ -86,6 +87,9 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     @Autowired
     private RrhhSecurityService rrhhSecurityService;
 
+    @Autowired
+    private ReporteSolicitudesPagoService reporteSolicitudesPagoService;
+
     // ========== QUERIES ==========
 
     /**
@@ -119,8 +123,26 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             String fechaHasta,
             List<Long> monedaIds) {
         exigirRolCompras();
-        PageRequest pageRequest = PageRequest.of(page, size);
-        Specification<SolicitudPago> spec = (root, query, cb) -> {
+        return solicitudPagoService.getRepository().findAll(
+                specCompras(proveedorId, estado, numero, fechaDesde, fechaHasta, monedaIds), PageRequest.of(page, size));
+    }
+
+    /**
+     * PDF (base64) de la lista de solicitudes con los mismos filtros que {@link #solicitudesPagoPaginated}, sin paginar.
+     * Usado en: Desktop (lista de solicitudes de pago, «Generar reporte»).
+     */
+    public String imprimirReporteSolicitudesPago(Long proveedorId, SolicitudPagoEstado estado, String numero,
+                                                 String fechaDesde, String fechaHasta, List<Long> monedaIds) {
+        exigirRolCompras();
+        return reporteSolicitudesPagoService.generar(
+                specCompras(proveedorId, estado, numero, fechaDesde, fechaHasta, monedaIds),
+                proveedorId, estado, numero, fechaDesde, fechaHasta, monedaIds);
+    }
+
+    /** Filtro de la lista de Compras: lo comparten la tabla paginada y su reporte PDF. */
+    static Specification<SolicitudPago> specCompras(Long proveedorId, SolicitudPagoEstado estado, String numero,
+                                                    String fechaDesde, String fechaHasta, List<Long> monedaIds) {
+        return (root, query, cb) -> {
             java.util.List<Predicate> predicates = new java.util.ArrayList<>();
             // Esta lista es la vista de Compras: excluir GASTO/RRHH (tienen su propia query
             // gastosPendientes). Sin esto, las solicitudes de tesorería se filtran en Compras.
@@ -147,7 +169,6 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             }
             return predicates.isEmpty() ? cb.conjunction() : cb.and(predicates.toArray(new Predicate[0]));
         };
-        return solicitudPagoService.getRepository().findAll(spec, pageRequest);
     }
 
     /**

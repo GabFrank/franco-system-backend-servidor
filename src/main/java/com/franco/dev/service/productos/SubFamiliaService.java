@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -28,15 +29,15 @@ public class SubFamiliaService extends CrudService<Subfamilia, SubFamiliaReposit
         return repository;
     }
 
-    public Page<Subfamilia> findByDescripcion(Long familiaId, String texto, int page, int size) {
+    public Page<Subfamilia> findByDescripcion(Long familiaId, String texto, Integer page, Integer size) {
         texto = texto != null ? texto.replace(' ', '%').toUpperCase() : "";
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         return repository.findByDescripcion(familiaId, texto, pageable);
     }
 
-    public Page<Subfamilia> findByDescripcionSinFamilia(String texto, int page, int size) {
+    public Page<Subfamilia> findByDescripcionSinFamilia(String texto, Integer page, Integer size) {
         texto = texto != null ? texto.replace(' ', '%').toUpperCase() : "";
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         return repository.findByDescripcionSinFamilia(texto, pageable);
     }
 

@@ -10,6 +10,7 @@ import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.financiero.ReporteMovimientosCajaService;
 import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.personas.ProveedorService;
+import com.franco.dev.service.utils.ImageService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -77,6 +78,7 @@ public class ReporteSolicitudesPagoService {
     private final ProveedorService proveedorService;
     private final MonedaService monedaService;
     private final TesoreriaSecurityService seguridad;
+    private final ImageService imageService;
 
     private volatile JasperReport plantilla;
 
@@ -152,6 +154,8 @@ public class ReporteSolicitudesPagoService {
 
         Map<String, Object> p = new HashMap<>();
         p.put("titulo", "Solicitudes de pago");
+        // null si el servidor no tiene logo: la plantilla lo omite y el reporte sale igual.
+        p.put("logo", imageService != null ? imageService.getLogoReporte() : null);
         p.put("numeroFiltro", numero != null && !numero.trim().isEmpty() ? numero.trim().toUpperCase() : "Todos");
         p.put("proveedorFiltro", proveedor != null ? nombre(proveedor) : "Todos");
         p.put("estadoFiltro", estado != null ? ESTADO_LABELS.getOrDefault(estado, estado.name()) : "Todos");

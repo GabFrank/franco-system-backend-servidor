@@ -7,12 +7,14 @@ import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
 import net.sf.jasperreports.engine.JRPrintFrame;
+import net.sf.jasperreports.engine.JRPrintImage;
 import net.sf.jasperreports.engine.JRPrintPage;
 import net.sf.jasperreports.engine.JRPrintText;
 import net.sf.jasperreports.engine.JasperExportManager;
 import net.sf.jasperreports.engine.JasperPrint;
 import org.junit.jupiter.api.Test;
 
+import java.awt.image.BufferedImage;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
@@ -26,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class ReporteSolicitudesPagoServiceTest {
 
-    private final ReporteSolicitudesPagoService service = new ReporteSolicitudesPagoService(null, null, null, null);
+    private final ReporteSolicitudesPagoService service = new ReporteSolicitudesPagoService(null, null, null, null, null);
 
     private static final LocalDateTime FECHA = LocalDateTime.of(2026, 11, 10, 9, 15);
     private static final String PROVEEDOR_LARGO = "DISTRIBUIDORA DE BEBIDAS Y ALIMENTOS DEL PARAGUAY SOCIEDAD ANONIMA";
@@ -116,14 +118,44 @@ class ReporteSolicitudesPagoServiceTest {
         for (String esperado : new String[]{
                 "Solicitudes de pago", "Filtros aplicados", "| Solicitado |", "| GUARANI (Gs.), DOLAR (US$) |",
                 "01/11/2026", "Sin límite", "Resumen", "| JUAN PEREZ |", "Generado el:", "| 2 |",
-                "Total solicitado por moneda (sin canceladas)", "| GUARANI: Gs. 123.456.789 |",
+                "Total solicitado:", "| GUARANI: Gs. 123.456.789 |",
                 "N.º", "Proveedor", "Fecha", "Monto", "Estado",
                 "| SP-0001234 |", "| Gs. 123.456.789 |", "| US$ 9.876,54 |", "| Cancelada |", "10/11/26 09:15",
                 "Página 1 de"}) {
             assertTrue(textos.contains(esperado), "Falta '" + esperado + "' en el reporte. Textos: " + textos);
         }
         assertFalse(textos.contains("DOLAR: US$"), "la cancelada no suma. Textos: " + textos);
+        assertFalse(textos.toLowerCase().contains("sin canceladas"), "el rótulo ya no dice «sin canceladas». Textos: " + textos);
         assertTrue(textos.contains("| " + PROVEEDOR_LARGO + " |"), "El proveedor salió cortado. Textos: " + textos);
+    }
+
+    /** Con logo la plantilla lo dibuja; sin logo (servidor sin logo.png) sale igual, como en el resto de los tests. */
+    @Test
+    void plantillaImprimeElLogoCuandoHay() throws Exception {
+        // Tres monedas: el total vive dentro del cuadro Resumen y tiene que crecer, no cortarse.
+        ReporteSolicitudesPagoService.Contenido c = service.armar(Arrays.asList(
+                        solicitud("SP-1", 123456789d, gs, SolicitudPagoEstado.SOLICITADO),
+                        solicitud("SP-2", 1250.5d, us, SolicitudPagoEstado.SOLICITADO),
+                        solicitud("SP-3", 80.25d, moneda(3L, "REAL", "R$", 2), SolicitudPagoEstado.SOLICITADO)),
+                null, null, null, null, null, Collections.emptyList(), usuario());
+        assertNull(c.parametros.get("logo"), "sin ImageService no hay logo");
+        c.parametros.put("logo", new BufferedImage(40, 20, BufferedImage.TYPE_INT_RGB));
+
+        JasperPrint print = service.llenar(c);
+        assertTrue(imagenes(print.getPages().get(0).getElements()) > 0, "el logo no se dibujó");
+        assertTrue(JasperExportManager.exportReportToPdf(print).length > 0);
+        String textos = textos(print);
+        assertTrue(textos.contains("| GUARANI: Gs. 123.456.789\nDOLAR: US$ 1.250,50\nREAL: R$ 80,25 |"),
+                "el total por moneda salió cortado. Textos: " + textos);
+    }
+
+    private static int imagenes(List<?> elementos) {
+        int n = 0;
+        for (Object o : elementos) {
+            if (o instanceof JRPrintImage) n++;
+            else if (o instanceof JRPrintFrame) n += imagenes(((JRPrintFrame) o).getElements());
+        }
+        return n;
     }
 
     @Test

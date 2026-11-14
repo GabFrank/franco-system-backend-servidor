@@ -8,6 +8,7 @@
 			<style forecolor="#8A8A8A" isStrikeThrough="true"/>
 		</conditionalStyle>
 	</style>
+	<parameter name="logo" class="java.awt.Image"/>
 	<parameter name="titulo" class="java.lang.String"/>
 	<parameter name="numeroFiltro" class="java.lang.String"/>
 	<parameter name="proveedorFiltro" class="java.lang.String"/>
@@ -26,16 +27,24 @@
 	<field name="estado" class="java.lang.String"/>
 	<field name="cancelada" class="java.lang.Boolean"/>
 	<title>
-		<band height="184" splitType="Stretch">
+		<band height="164" splitType="Stretch">
+			<!-- Sin logo en el servidor, getLogoReporte da null y el reporte sale sin él. -->
+			<image hAlign="Left" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="0" y="0" width="100" height="50" uuid="5b2a9c41-0001-4000-8000-000000000002">
+					<printWhenExpression><![CDATA[$P{logo} != null]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
 			<textField isBlankWhenNull="true">
-				<reportElement x="0" y="0" width="555" height="22" uuid="5b2a9c41-0001-4000-8000-000000000001"/>
+				<reportElement x="105" y="0" width="345" height="50" uuid="5b2a9c41-0001-4000-8000-000000000001"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="14" isBold="true"/>
 				</textElement>
 				<textFieldExpression><![CDATA[$P{titulo}]]></textFieldExpression>
 			</textField>
+			<!-- Los dos cuadros crecen juntos cuando el total por moneda ocupa varias líneas. -->
 			<frame>
-				<reportElement x="0" y="30" width="272" height="100" uuid="5b2a9c41-0002-4000-8000-000000000000"/>
+				<reportElement stretchType="RelativeToTallestObject" x="0" y="58" width="272" height="100" uuid="5b2a9c41-0002-4000-8000-000000000000"/>
 				<box>
 					<pen lineWidth="0.5" lineColor="#9E9E9E"/>
 				</box>
@@ -132,7 +141,7 @@
 				</textField>
 			</frame>
 			<frame>
-				<reportElement x="283" y="30" width="272" height="100" uuid="5b2a9c41-0003-4000-8000-000000000000"/>
+				<reportElement stretchType="RelativeToTallestObject" x="283" y="58" width="272" height="100" uuid="5b2a9c41-0003-4000-8000-000000000000"/>
 				<box>
 					<pen lineWidth="0.5" lineColor="#9E9E9E"/>
 				</box>
@@ -185,23 +194,17 @@
 					</textElement>
 					<textFieldExpression><![CDATA[$P{cantidad}]]></textFieldExpression>
 				</textField>
-			</frame>
-			<frame>
-				<reportElement positionType="Float" x="0" y="136" width="555" height="40" uuid="5b2a9c41-0004-4000-8000-000000000000"/>
-				<box>
-					<pen lineWidth="0.5" lineColor="#9E9E9E"/>
-				</box>
 				<staticText>
-					<reportElement x="6" y="3" width="543" height="14" uuid="5b2a9c41-0004-4000-8000-000000000001"/>
+					<reportElement positionType="Float" x="6" y="58" width="80" height="13" uuid="5b2a9c41-0003-4000-8000-000000000021"/>
 					<textElement verticalAlignment="Middle">
-						<font fontName="SansSerif" size="9" isBold="true"/>
+						<font fontName="SansSerif" size="8" isBold="true"/>
 					</textElement>
-					<text><![CDATA[Total solicitado por moneda (sin canceladas)]]></text>
+					<text><![CDATA[Total solicitado:]]></text>
 				</staticText>
 				<textField textAdjust="StretchHeight" isBlankWhenNull="true">
-					<reportElement x="6" y="19" width="543" height="16" uuid="5b2a9c41-0004-4000-8000-000000000002"/>
-					<textElement verticalAlignment="Top">
-						<font fontName="SansSerif" size="9" isBold="true"/>
+					<reportElement positionType="Float" x="86" y="58" width="180" height="13" uuid="5b2a9c41-0003-4000-8000-000000000022"/>
+					<textElement verticalAlignment="Middle">
+						<font fontName="SansSerif" size="8" isBold="true"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$P{totales}]]></textFieldExpression>
 				</textField>
@@ -218,35 +221,35 @@
 			</rectangle>
 			<!-- Anchos: N.º 85 | Proveedor 200 | Fecha 70 | Monto 110 | Estado 90 = 555. -->
 			<staticText>
-				<reportElement x="0" y="2" width="85" height="14" uuid="5b2a9c41-0005-4000-8000-000000000021"/>
+				<reportElement x="0" y="2" width="85" height="14" uuid="5b2a9c41-0005-4000-8000-000000000023"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="8" isBold="true"/>
 				</textElement>
 				<text><![CDATA[N.º]]></text>
 			</staticText>
 			<staticText>
-				<reportElement x="85" y="2" width="200" height="14" uuid="5b2a9c41-0005-4000-8000-000000000023"/>
+				<reportElement x="85" y="2" width="200" height="14" uuid="5b2a9c41-0005-4000-8000-000000000025"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="8" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Proveedor]]></text>
 			</staticText>
 			<staticText>
-				<reportElement x="285" y="2" width="70" height="14" uuid="5b2a9c41-0005-4000-8000-000000000025"/>
+				<reportElement x="285" y="2" width="70" height="14" uuid="5b2a9c41-0005-4000-8000-000000000027"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="8" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Fecha]]></text>
 			</staticText>
 			<staticText>
-				<reportElement x="355" y="2" width="110" height="14" uuid="5b2a9c41-0005-4000-8000-000000000027"/>
+				<reportElement x="355" y="2" width="110" height="14" uuid="5b2a9c41-0005-4000-8000-000000000029"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="8" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Monto]]></text>
 			</staticText>
 			<staticText>
-				<reportElement x="465" y="2" width="90" height="14" uuid="5b2a9c41-0005-4000-8000-000000000029"/>
+				<reportElement x="465" y="2" width="90" height="14" uuid="5b2a9c41-0005-4000-8000-000000000031"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="8" isBold="true"/>
 				</textElement>
@@ -258,35 +261,35 @@
 		<band height="16" splitType="Stretch">
 			<!-- Todo crece en alto: un proveedor largo baja de línea en vez de cortarse. -->
 			<textField textAdjust="StretchHeight" isBlankWhenNull="true">
-				<reportElement style="fila" x="0" y="1" width="85" height="14" uuid="5b2a9c41-0006-4000-8000-000000000022"/>
+				<reportElement style="fila" x="0" y="1" width="85" height="14" uuid="5b2a9c41-0006-4000-8000-000000000024"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="7"/>
 				</textElement>
 				<textFieldExpression><![CDATA[$F{numero}]]></textFieldExpression>
 			</textField>
 			<textField textAdjust="StretchHeight" isBlankWhenNull="true">
-				<reportElement style="fila" x="85" y="1" width="200" height="14" uuid="5b2a9c41-0006-4000-8000-000000000024"/>
+				<reportElement style="fila" x="85" y="1" width="200" height="14" uuid="5b2a9c41-0006-4000-8000-000000000026"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="7"/>
 				</textElement>
 				<textFieldExpression><![CDATA[$F{proveedor}]]></textFieldExpression>
 			</textField>
 			<textField textAdjust="StretchHeight" isBlankWhenNull="true">
-				<reportElement style="fila" x="285" y="1" width="70" height="14" uuid="5b2a9c41-0006-4000-8000-000000000026"/>
+				<reportElement style="fila" x="285" y="1" width="70" height="14" uuid="5b2a9c41-0006-4000-8000-000000000028"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="7"/>
 				</textElement>
 				<textFieldExpression><![CDATA[$F{fecha}]]></textFieldExpression>
 			</textField>
 			<textField textAdjust="StretchHeight" isBlankWhenNull="true">
-				<reportElement style="fila" x="355" y="1" width="110" height="14" uuid="5b2a9c41-0006-4000-8000-000000000028"/>
+				<reportElement style="fila" x="355" y="1" width="110" height="14" uuid="5b2a9c41-0006-4000-8000-000000000030"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="7"/>
 				</textElement>
 				<textFieldExpression><![CDATA[$F{monto}]]></textFieldExpression>
 			</textField>
 			<textField textAdjust="StretchHeight" isBlankWhenNull="true">
-				<reportElement style="fila" x="465" y="1" width="90" height="14" uuid="5b2a9c41-0006-4000-8000-000000000030"/>
+				<reportElement style="fila" x="465" y="1" width="90" height="14" uuid="5b2a9c41-0006-4000-8000-000000000032"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="7"/>
 				</textElement>

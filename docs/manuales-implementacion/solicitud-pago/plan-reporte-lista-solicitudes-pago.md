@@ -17,8 +17,10 @@ Patrón que se copia: el reporte de movimientos de caja (`ReporteMovimientosCaja
   que usa `imprimirSolicitudPagoPDF`.
 - Sin paginar, ordenado por fecha de solicitud y después por id. La tabla no ordena (`PageRequest` sin
   `Sort`), así que el orden puede no coincidir con lo que se ve en pantalla.
-- Un **total por moneda** al pie, rotulado «Total solicitado (sin canceladas)». Las monedas no se suman
-  entre sí.
+- Un **total por moneda** dentro del cuadro «Resumen», rotulado «Total solicitado:» (Franco, 14/11: sin la
+  aclaración «sin canceladas»). Las monedas no se suman entre sí.
+- El **logo de la empresa** arriba a la izquierda (`ImageService.getLogoReporte()`, como el KuDE). Si el servidor
+  no tiene `logo.png`, el reporte sale sin logo y no falla.
   - **Las CANCELADO aparecen en la lista pero no suman al total**, igual que los anulados del reporte de
     caja. Confirmado por Franco el 14/11.
   - Una PARCIAL suma su monto completo, no lo que le falta pagar. Por eso el pie no se rotula como deuda.
@@ -44,7 +46,7 @@ Patrón que se copia: el reporte de movimientos de caja (`ReporteMovimientosCaja
    - Un `JRException` se convierte en `GraphQLException`.
    - Montos con `ReporteMovimientosCajaService.monto` (decimales de la moneda y locale GERMANY). Ese
      método pasa de package-private a `public`.
-4. Plantilla `reports/solicitudes-pago-lista.jrxml`, A4 vertical, sin logo, como `movimientos-caja`.
+4. Plantilla `reports/solicitudes-pago-lista.jrxml`, A4 vertical, con el layout de `movimientos-caja` más el logo.
 5. `.graphqls`: declarar la query nueva en `solicitud-pago.graphqls`.
 
 Tests de la fase 1:

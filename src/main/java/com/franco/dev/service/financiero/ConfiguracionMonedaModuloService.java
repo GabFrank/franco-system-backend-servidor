@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
@@ -70,6 +71,20 @@ public class ConfiguracionMonedaModuloService {
         }
         LocalDateTime ahora = LocalDateTime.now();
         if (vigenteDesde == null) vigenteDesde = ahora;
+
+        // Una fila con la moneda que ya rige en su clave no cambia nada: solo repite el historial.
+        // COSTOS no: una fila nueva re-fija la cotizacion de partida, que es lo que lee CosteoMoneda.
+        if (input.getModulo() != ModuloMoneda.COSTOS) {
+            Long sucursalId = sucursal != null ? sucursal.getId() : null;
+            Optional<ConfiguracionMonedaModulo> rige = MonedaModuloLector.fila(
+                    repository.findByModuloOrderByVigenteDesdeDescIdDesc(input.getModulo()), sucursalId, vigenteDesde);
+            if (rige.isPresent() && MonedaService.misma(rige.get().getMoneda(), moneda)) {
+                String clave = input.getModulo() + (sucursal != null ? " de la sucursal "
+                        + (sucursal.getNombre() != null ? sucursal.getNombre() : sucursal.getId()) : "");
+                throw new GraphQLException(clave + " ya usa " + moneda.getDenominacion() + " desde el "
+                        + rige.get().getVigenteDesde().format(FORMATO_FECHA) + ": no hace falta otra configuracion igual.");
+            }
+        }
 
         // Un modulo en una moneda sin cotizacion no puede convertir nada a la de la empresa.
         LocalDateTime controlCotizacion = vigenteDesde.isAfter(ahora) ? ahora : vigenteDesde;

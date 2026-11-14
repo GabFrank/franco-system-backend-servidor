@@ -57,3 +57,17 @@ Verificado en DB: solicitud → CONCLUIDO, N cheques DIFERIDO con números conse
 ## 5. Campo `firmantes` en chequera
 
 Texto libre en `financiero.chequera.firmantes` (migración `V193.5`) — personas autorizadas a firmar. Editable en el diálogo de chequera. `saveChequera` preserva `creado_en/fecha_retiro/usuario` al actualizar (el ModelMapper los dejaba en null).
+
+## 6. Reporte PDF de la lista (`imprimirReporteSolicitudesPago`)
+
+- Botón «Generar reporte» en `list-solicitud-pago` del desktop. Imprime la lista **sin paginar** con los
+  filtros con que se cargó la tabla (`filtrosAplicados`), no con lo tocado en el formulario sin «Buscar».
+- El filtro es el mismo de `solicitudesPagoPaginated`: `SolicitudPagoGraphQL.specCompras` (siempre
+  `tipo = COMPRA`). Pide los mismos roles (`exigirRolCompras`). Sin límite de filas.
+- `ReporteSolicitudesPagoService` + `reports/solicitudes-pago-lista.jrxml`. El monto es `montoTotal` (el de la
+  tabla, no la suma por notas del PDF individual). El total por moneda va en el cuadro «Resumen»: las
+  **CANCELADO se listan tachadas y no suman**. Las PARCIAL suman su monto completo, por eso no se rotula
+  como deuda.
+- Las etiquetas de estado (`ESTADO_LABELS`) son copia de `getEstadoDisplayName` de
+  `solicitud-pago.service.ts` del desktop: cambiar las dos.
+- Logo: `ImageService.getLogoReporte()`. Sin `logo.png` en el servidor, el reporte sale sin logo.

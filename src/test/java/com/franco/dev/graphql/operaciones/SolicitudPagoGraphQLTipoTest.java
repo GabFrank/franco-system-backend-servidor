@@ -7,6 +7,7 @@ import com.franco.dev.graphql.operaciones.input.SolicitudPagoDetalleInput;
 import com.franco.dev.repository.operaciones.SolicitudPagoDetalleRepository;
 import com.franco.dev.repository.operaciones.SolicitudPagoRepository;
 import com.franco.dev.service.financiero.TesoreriaSecurityService;
+import com.franco.dev.service.operaciones.ReporteSolicitudesPagoService;
 import com.franco.dev.service.operaciones.SolicitudPagoDetalleService;
 import com.franco.dev.service.operaciones.SolicitudPagoNotaRecepcionService;
 import com.franco.dev.service.operaciones.SolicitudPagoService;
@@ -44,6 +45,7 @@ class SolicitudPagoGraphQLTipoTest {
     @Mock private RrhhSecurityService rrhhSecurityService;
     @Mock private SolicitudPagoRepository solicitudRepo;
     @Mock private SolicitudPagoDetalleRepository detalleRepo;
+    @Mock private ReporteSolicitudesPagoService reporteService;
 
     @InjectMocks private SolicitudPagoGraphQL resolver;
 
@@ -160,6 +162,7 @@ class SolicitudPagoGraphQLTipoTest {
 
         rechaza(() -> resolver.solicitudesPagoPorPedido(5L), msg);
         rechaza(() -> resolver.solicitudesPagoPaginated(0, 10, null, null, null, null, null, null), msg);
+        rechaza(() -> resolver.imprimirReporteSolicitudesPago(null, null, null, null, null, null), msg);
         rechaza(() -> resolver.notasDisponiblesParaPago(5L), msg);
         rechaza(() -> resolver.isNotaIncludedInSolicitud(10L), msg);
         rechaza(() -> resolver.notaRecepcionDisponibleParaPagoPorNumero(1, 5L), msg);
@@ -176,12 +179,23 @@ class SolicitudPagoGraphQLTipoTest {
         rechaza(() -> resolver.agregarSolicitudPagoDetalle(COMPRA, new SolicitudPagoDetalleInput()), msg);
         rechaza(() -> resolver.eliminarSolicitudPagoDetalle(50L), msg);
 
-        verifyNoInteractions(notaService);
+        verifyNoInteractions(notaService, reporteService);
         verify(solicitudPagoService, never()).getSolicitudesPorPedido(anyLong());
         verify(solicitudPagoService, never()).cancelar(anyLong(), any(), any());
         verify(solicitudPagoService, never()).eliminarSolicitud(anyLong());
         verify(solicitudPagoService, never()).actualizarEstado(anyLong(), any());
         verify(detalleService, never()).eliminarDetalle(anyLong());
+    }
+
+    @Test
+    void el_reporte_de_la_lista_con_rol_delega_los_filtros() {
+        when(reporteService.generar(any(), any(), any(), any(), any(), any(), any())).thenReturn("PDF");
+
+        assertEquals("PDF", resolver.imprimirReporteSolicitudesPago(5L, SolicitudPagoEstado.SOLICITADO, "SP",
+                "2026-11-01", "2026-11-14", java.util.Collections.singletonList(2L)));
+
+        verify(reporteService).generar(notNull(), eq(5L), eq(SolicitudPagoEstado.SOLICITADO), eq("SP"),
+                eq("2026-11-01"), eq("2026-11-14"), eq(java.util.Collections.singletonList(2L)));
     }
 
     @Test

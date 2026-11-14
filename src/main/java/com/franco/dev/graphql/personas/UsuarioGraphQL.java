@@ -123,6 +123,11 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             return false;
         }
         Usuario yo = seg.requireUsuarioDeSesion();
+        // Un bot con token de servicio no edita su propio usuario: podria fijarse una clave conocida y
+        // sacar por /login un JWT que no vence y que revocar el token no corta (#579).
+        if (yo.getId().equals(guardado.getId()) && com.franco.dev.security.TokenServicioFormato.sesionEsDeServicio()) {
+            throw new GraphQLException("Un usuario de servicio no puede modificar su propio usuario ni su clave.");
+        }
         if (esSuperusuario(guardado)) seg.requireSuperusuario();
         if (seg.hasAnyRole(EDITAR_USUARIOS)) return false;
         if (yo.getId().equals(guardado.getId())) return true;

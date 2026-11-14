@@ -12,6 +12,7 @@ import org.springframework.security.authentication.dao.AbstractUserDetailsAuthen
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
@@ -23,6 +24,9 @@ public class JwtAuthenticationProvider extends AbstractUserDetailsAuthentication
 
     @Autowired
     private JwtValidator validator;
+
+    @Autowired
+    private TokenServicioValidator tokenServicioValidator;
 
     @Autowired
     private final UsuarioService usuarioService;
@@ -43,6 +47,17 @@ public class JwtAuthenticationProvider extends AbstractUserDetailsAuthentication
 
         JwtAuthenticationToken jwtAuthenticationToken = (JwtAuthenticationToken) usernamePasswordAuthenticationToken;
         String token = jwtAuthenticationToken.getToken();
+
+        // Token de servicio de un bot (#579). Un JWT empieza con "eyJ", asi que nunca entra aca, y un
+        // "frcsvc_" invalido nunca cae al validador de JWT. El token en claro no se guarda en el
+        // principal, para que no termine en un log o un volcado del SecurityContext.
+        if (TokenServicioFormato.esTokenDeServicio(token)) {
+            TokenServicioValidator.Valido servicio = tokenServicioValidator.validar(token)
+                    .orElseThrow(() -> new BadCredentialsException("Token de servicio invalido"));
+            List<GrantedAuthority> marca = new ArrayList<>();
+            marca.add(new SimpleGrantedAuthority(TokenServicioFormato.AUTORIDAD_SESION));
+            return new JwtUserDetails(servicio.getNickname(), null, null, marca);
+        }
 
         JwtUser jwtUser = validator.validate(token);
 

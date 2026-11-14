@@ -41,9 +41,9 @@ public class SubfamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     public Optional<Subfamilia> subfamilia(Long id) {return service.findById(id);}
 
-    public Page<Subfamilia> subfamiliaSearch(Long familiaId, String texto, int page, int size) {return service.findByDescripcion(familiaId, texto, page, size);}
+    public Page<Subfamilia> subfamiliaSearch(Long familiaId, String texto, Integer page, Integer size) {return service.findByDescripcion(familiaId, texto, page, size);}
 
-    public Page<Subfamilia> findByDescripcionSinFamilia(String texto, int page, int size) {return service.findByDescripcionSinFamilia(texto, page, size);}
+    public Page<Subfamilia> findByDescripcionSinFamilia(String texto, Integer page, Integer size) {return service.findByDescripcionSinFamilia(texto, page, size);}
 
 //    public List<Subfamilia> subfamilias(int page, int size){
 //        Pageable pageable = PageRequest.of(page,size);

@@ -34,6 +34,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Component;
 
 import java.io.FileNotFoundException;
@@ -125,8 +126,8 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     public Page<Producto> searchProductoWithFilters(String texto, String codigo, Boolean activo, Boolean stock,
             Boolean balanza, Long familia, Long subfamilia, Boolean vencimiento, Boolean costoCero, String stockFiltro,
-            Long sucursalId, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+            Long sucursalId, Integer page, Integer size) {
+        Pageable pageable = Paginacion.of(page, size);
 
         return service.findWithFilters(texto, codigo, activo, stock, balanza, subfamilia, familia, vencimiento, costoCero,
                 stockFiltro, sucursalId, pageable);

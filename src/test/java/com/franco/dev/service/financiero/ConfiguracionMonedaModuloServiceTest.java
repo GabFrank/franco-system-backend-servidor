@@ -240,6 +240,85 @@ class ConfiguracionMonedaModuloServiceTest {
         assertNotNull(service.crear(input(ModuloMoneda.COMPRAS, null, 2L, null), autor));
     }
 
+    // Sin repetidos: una fila con la moneda que ya rige en su clave no se crea.
+
+    private ConfiguracionMonedaModulo fila(long id, ModuloMoneda m, Long sucursalId, Moneda moneda,
+                                           LocalDateTime desde, boolean activo) {
+        ConfiguracionMonedaModulo f = new ConfiguracionMonedaModulo();
+        f.setId(id);
+        f.setModulo(m);
+        if (sucursalId != null) {
+            Sucursal s = new Sucursal();
+            s.setId(sucursalId);
+            f.setSucursal(s);
+        }
+        f.setMoneda(moneda);
+        f.setVigenteDesde(desde);
+        f.setActivo(activo);
+        return f;
+    }
+
+    private void filasDe(ModuloMoneda m, ConfiguracionMonedaModulo... filas) {
+        when(repository.findByModuloOrderByVigenteDesdeDescIdDesc(m)).thenReturn(java.util.Arrays.asList(filas));
+    }
+
+    private Moneda guarani() {
+        Moneda g = new Moneda();
+        g.setId(1L);
+        g.setDenominacion("GUARANI");
+        when(monedaService.findById(1L)).thenReturn(Optional.of(g));
+        return g;
+    }
+
+    @Test
+    void igualALaQueRige_seRechazaConLaFecha() {
+        filasDe(ModuloMoneda.PDV, fila(10, ModuloMoneda.PDV, 7L, dolar, LocalDateTime.of(2026, 11, 10, 15, 0), true));
+        GraphQLException ex = assertThrows(GraphQLException.class,
+                () -> service.crear(input(ModuloMoneda.PDV, 7L, 2L, null), autor));
+        assertTrue(ex.getMessage().contains("PDV de la sucursal"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("ya usa DOLAR desde el 10/11/2026"), ex.getMessage());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void costos_igualALaQueRige_seGuarda_paraReFijarLaPartida() {
+        filasDe(ModuloMoneda.COSTOS, fila(10, ModuloMoneda.COSTOS, null, dolar, LocalDateTime.of(2026, 11, 10, 15, 0), true));
+        assertNotNull(service.crear(input(ModuloMoneda.COSTOS, null, 2L, null), autor));
+        verify(repository).save(any());
+    }
+
+    @Test
+    void otraMonedaQueLaQueRige_seGuarda() {
+        filasDe(ModuloMoneda.COMPRAS, fila(10, ModuloMoneda.COMPRAS, null, guarani(), LocalDateTime.of(2026, 11, 10, 15, 0), true));
+        assertNotNull(service.crear(input(ModuloMoneda.COMPRAS, null, 2L, null), autor));
+    }
+
+    @Test
+    void igualAUnaDesactivada_seGuarda() {
+        filasDe(ModuloMoneda.COMPRAS, fila(10, ModuloMoneda.COMPRAS, null, dolar, LocalDateTime.of(2026, 11, 10, 15, 0), false));
+        assertNotNull(service.crear(input(ModuloMoneda.COMPRAS, null, 2L, null), autor));
+    }
+
+    @Test
+    void sucursalIgualALaDeTodaLaEmpresa_seGuarda() {
+        // La clave es exacta: la fila de la sucursal la fija ante un cambio futuro de la global.
+        filasDe(ModuloMoneda.PDV, fila(10, ModuloMoneda.PDV, null, dolar, LocalDateTime.of(2026, 11, 10, 15, 0), true));
+        assertNotNull(service.crear(input(ModuloMoneda.PDV, 7L, 2L, null), autor));
+    }
+
+    @Test
+    void conUnaProgramadaDistintaEnElMedio_sePuedeVolverDespues() {
+        Moneda g = guarani();
+        filasDe(ModuloMoneda.PRECIOS,
+                fila(11, ModuloMoneda.PRECIOS, null, g, LocalDateTime.of(2030, 1, 1, 0, 0), true),
+                fila(10, ModuloMoneda.PRECIOS, null, dolar, LocalDateTime.of(2026, 11, 10, 15, 0), true));
+        // Despues de la programada en guaranies, volver a dolar es un cambio real.
+        assertNotNull(service.crear(input(ModuloMoneda.PRECIOS, null, 2L, "2030-02-01 00:00"), autor));
+        // Antes de ella rige el dolar: repetirlo se rechaza aunque la fecha sea futura.
+        assertThrows(GraphQLException.class,
+                () -> service.crear(input(ModuloMoneda.PRECIOS, null, 2L, "2029-06-01 00:00"), autor));
+    }
+
     private static ConfiguracionMonedaModuloInput input(ModuloMoneda m, Long sucursalId, Long monedaId, String desde) {
         ConfiguracionMonedaModuloInput i = new ConfiguracionMonedaModuloInput();
         i.setModulo(m);

@@ -120,6 +120,46 @@ Con sus tests.
 Desktop viejo contra central nuevo: funciona, porque los campos son aditivos. Desktop nuevo contra
 central viejo: falla por campos desconocidos. Por eso va primero el central.
 
+## Registro de implementación
+
+### Fase 1
+
+Desvíos del plan:
+
+- **Paso 2, sin clase pura nueva.** Ya existían `ConversorMoneda` / `CotizacionService` (pivote en
+  guaraní, `DECIMAL128`, vacío si falta cotización) y `MonedaService.decimales` / `esGuarani` /
+  `empresa()`. Se reusan. Lo único nuevo es `MonedaItemRrhh`: una conversión por documento, con caché
+  de factores, y `CotizacionFaltante`. El finiquito la reusa en la Fase 2.
+- **Cotización `delComercio`.** Es la `valor_en_gs` vigente, la misma regla del PDV, en lugar de
+  `findLastValorEnGsByMonedaId`. Es la misma columna, pero filtra las filas inactivas o en 0.
+- **Moneda por defecto.** Se usa `MonedaService.empresa()`, que es la principal o, si no hay, el
+  guaraní. Tesorería usa la principal y, si no hay, null.
+- **`liquidacion_sueldo.salario_base`.** También queda en la moneda de la liquidación, igual que el
+  ítem SALARIO_BASE.
+- **Recibos.** El sufijo lleva solo el monto original, `(R$ 110,00)`, sin el factor: en Gs→R$ el
+  factor sería 0,00069 y no le dice nada a quien firma. El factor se ve en el desktop.
+- **Escritor extra.** `agregarItemProgramado` / `quitarItemProgramado` arman ítems fuera de
+  `generarBorrador`; también convierten.
+- **Tests.** Cinco tests arman `LiquidacionSueldoService` con el constructor y llevan el conversor
+  como parámetro nuevo.
+
+Tests nuevos:
+
+- `MonedaItemRrhhTest` (5);
+- `LiquidacionMonedaTest` (6), con `generarBorrador`, `pagar` y `anular` reales, más el servicio de
+  cuotas de préstamo y el conversor reales.
+
+Verificación contra el código viejo, con dos mutaciones:
+
+- **Factor siempre 1** (el bug de hoy): fallan 4 tests (vale en 110, sin cotización, lote, editar).
+- **`montoEnOrigen()` = `monto`** (el crítico de la auditoría): falla el pago.
+
+Lo que esta fase no prueba con test unitario:
+
+- **`sumConvenioCobrado`.** Es JPQL y necesita base: va en la prueba por pantalla 6.
+- **«En letras».** El texto «en letras» del recibo sigue diciendo GUARANIES aunque la liquidación
+  sea en R$. Ya pasaba antes y queda fuera de alcance.
+
 ## Pruebas por pantalla (paso 9)
 
 Central propio desde el worktree en un puerto libre y desktop `ng serve -c web`, con `MR`:

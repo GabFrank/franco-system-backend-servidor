@@ -109,7 +109,7 @@ public class ReciboLiquidacionService {
             filas.add(new ReciboLiquidacionItemDto(
                     operacion(it, cacheCatalogo),
                     it.getTipo() == LiquidacionItemTipo.HABER ? "ENTRADA" : "SALIDA",
-                    it.getDescripcion(),
+                    conMonedaOrigen(it.getDescripcion(), it),
                     fechaItem(it, liq),
                     formatear(it.getMonto())));
         }
@@ -163,11 +163,11 @@ public class ReciboLiquidacionService {
         }
         BigDecimal bruto = montoDeclarado(liq);
         rows.add(new com.franco.dev.utilitarios.print.ReciboTicketEscPos.Row(
-                "NETO A COBRAR", formatoGs.format(netoACobrar(liq))));
+                "NETO A COBRAR", formatoTicket(liq, netoACobrar(liq))));
         return ReciboTicketEscPos.build(
                 razonSocial(), tituloTicket(liq),
                 nombreFuncionario(liq), documentoFuncionario(liq), LocalDate.now().toString(),
-                rows, formatoGs.format(bruto), enLetras(bruto),
+                rows, formatoTicket(liq, bruto), enLetras(bruto),
                 "Recibi conforme, en concepto de haberes del periodo,",
                 ReciboTicketEscPos.textoEnUnaLinea(liq.getObservacion()), anchoMm);
     }
@@ -186,7 +186,7 @@ public class ReciboLiquidacionService {
             filas.add(new ReporteRrhhService.FiniquitoRow(conceptoTicket(it, cacheCatalogo), montoTicket(it)));
         }
         if (filas.isEmpty()) filas.add(new ReporteRrhhService.FiniquitoRow("SIN ITEMS", "0"));
-        filas.add(new ReporteRrhhService.FiniquitoRow("NETO A COBRAR", formatoGs.format(netoACobrar(liq))));
+        filas.add(new ReporteRrhhService.FiniquitoRow("NETO A COBRAR", formatoTicket(liq, netoACobrar(liq))));
 
         BigDecimal bruto = montoDeclarado(liq);
         Map<String, Object> params = new HashMap<>();
@@ -197,7 +197,7 @@ public class ReciboLiquidacionService {
         params.put("documento", documentoFuncionario(liq));
         params.put("fecha", LocalDate.now().toString());
         params.put("clausula", "Recibí conforme, en concepto de haberes del período,");
-        params.put("total", formatoGs.format(bruto));
+        params.put("total", formatoTicket(liq, bruto));
         params.put("totalEnLetras", enLetras(bruto));
 
         String tpl = anchoMm >= 80 ? "reports/recibo-ticket-80.jrxml" : "reports/recibo-ticket-58.jrxml";
@@ -249,12 +249,46 @@ public class ReciboLiquidacionService {
 
     /** Concepto de una fila de ticket: la descripcion del item, o su categoria si no tiene. */
     private String conceptoTicket(LiquidacionItem it, Map<String, String> cacheCatalogo) {
-        return it.getDescripcion() != null ? it.getDescripcion() : operacion(it, cacheCatalogo);
+        return conMonedaOrigen(it.getDescripcion() != null ? it.getDescripcion() : operacion(it, cacheCatalogo), it);
+    }
+
+    /**
+     * El texto del item con su monto original cuando vino de otra moneda: "VALE (R$ 110,00)". El monto del
+     * recibo ya esta convertido a la moneda de la liquidacion; sin esto no se sabe de donde salio.
+     */
+    static String conMonedaOrigen(String texto, LiquidacionItem it) {
+        com.franco.dev.domain.financiero.Moneda m = it.getMoneda();
+        LiquidacionSueldo liq = it.getLiquidacion();
+        if (texto == null || m == null || it.getMontoMoneda() == null || liq == null
+                || com.franco.dev.service.financiero.MonedaService.misma(m, liq.getMoneda())) {
+            return texto;
+        }
+        return texto + " (" + montoConMoneda(it.getMontoMoneda(), m) + ")";
+    }
+
+    /** "R$ 110,00" / "Gs 159.500": separadores fijos de Paraguay, no los del locale de la JVM. */
+    static String montoConMoneda(BigDecimal v, com.franco.dev.domain.financiero.Moneda m) {
+        java.text.DecimalFormatSymbols sy = new java.text.DecimalFormatSymbols(Locale.ROOT);
+        sy.setGroupingSeparator('.');
+        sy.setDecimalSeparator(',');
+        int d = com.franco.dev.service.financiero.MonedaService.decimales(m);
+        DecimalFormat df = new DecimalFormat(d > 0 ? "#,##0." + "0".repeat(d) : "#,##0", sy);
+        String simbolo = m.getSimbolo() != null && !m.getSimbolo().trim().isEmpty()
+                ? m.getSimbolo().trim() : m.getDenominacion();
+        return simbolo + " " + df.format(v != null ? v : BigDecimal.ZERO);
+    }
+
+    /** Monto de ticket: sin decimales en guaranies (lo de siempre); con los suyos en otra moneda. */
+    private String formatoTicket(LiquidacionSueldo liq, BigDecimal v) {
+        BigDecimal x = v != null ? v : BigDecimal.ZERO;
+        return liq == null || liq.getMoneda() == null
+                || com.franco.dev.service.financiero.MonedaService.esGuarani(liq.getMoneda())
+                ? formatoGs.format(x) : formato.format(x);
     }
 
     /** Monto de una fila de ticket. Los descuentos van entre parentesis (no hay columna de signo). */
     private String montoTicket(LiquidacionItem it) {
-        String monto = formatoGs.format(it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO);
+        String monto = formatoTicket(it.getLiquidacion(), it.getMonto());
         return it.getTipo() == LiquidacionItemTipo.DESCUENTO ? "(" + monto + ")" : monto;
     }
 

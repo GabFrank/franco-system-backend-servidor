@@ -142,7 +142,8 @@ class LiquidacionSueldoNetoNegativoTest {
                 mock(PlatformTransactionManager.class),
                 descuento,
                 mock(ValeCuotaDescuentoService.class), mock(com.franco.dev.service.rrhh.ItemProgramadoAplicacionService.class),
-                mock(javax.persistence.EntityManager.class));
+                mock(javax.persistence.EntityManager.class),
+                mock(com.franco.dev.service.financiero.ConversorMoneda.class));
 
         liq = new LiquidacionSueldo();
         liq.setId(486L);

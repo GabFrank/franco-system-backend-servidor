@@ -498,7 +498,7 @@ public class ReporteRrhhService {
         LiquidacionSueldo liq = it.getLiquidacion();
         if (liq == null) throw new GraphQLException("El item no pertenece a ninguna liquidacion");
         validarEstadoParaReciboItem(liq.getEstado() != null ? liq.getEstado().name() : null);
-        String concepto = conceptoItem(it.getDescripcion(), it.getCodigo());
+        String concepto = ReciboLiquidacionService.conMonedaOrigen(conceptoItem(it.getDescripcion(), it.getCodigo()), it);
         String origen = "Liquidacion de sueldo" + (liq.getPeriodo() != null ? " " + liq.getPeriodo() : "");
         return reciboItem(it.getTipo(), concepto, it.getMonto(), liq.getId(), liq.getFuncionario(), origen,
                 anchoMm, escpos);

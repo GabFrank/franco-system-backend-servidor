@@ -80,7 +80,7 @@ public class ValeCuotaDescuentoService {
     public void validarLiquidacion(Long liquidacionId) {
         Map<Long, BigDecimal> porCuota = new TreeMap<>();
         for (LiquidacionItem it : liquidacionItemRepository.findByLiquidacionIdOrderByIdAsc(liquidacionId)) {
-            acumular(porCuota, it.getReferenciaTipo(), it.getReferenciaId(), it.getMonto());
+            acumular(porCuota, it.getReferenciaTipo(), it.getReferenciaId(), it.montoEnOrigen());
         }
         validar(porCuota, "la liquidacion #" + liquidacionId, liquidacionId, null);
     }

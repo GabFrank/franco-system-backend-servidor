@@ -66,7 +66,7 @@ public class ItemProgramadoAplicacionService {
     public void validarLiquidacion(Long liquidacionId) {
         Map<Long, BigDecimal> porProgramado = new TreeMap<>();
         for (LiquidacionItem it : liquidacionItemRepository.findByLiquidacionIdOrderByIdAsc(liquidacionId)) {
-            acumular(porProgramado, it.getReferenciaTipo(), it.getReferenciaId(), it.getMonto());
+            acumular(porProgramado, it.getReferenciaTipo(), it.getReferenciaId(), it.montoEnOrigen());
         }
         validar(porProgramado, "la liquidacion #" + liquidacionId, liquidacionId, null);
     }

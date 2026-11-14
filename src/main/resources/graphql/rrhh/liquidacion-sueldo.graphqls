@@ -23,6 +23,10 @@ type LiquidacionItem {
     editadoPor: Usuario
     editadoEn: Date
     montoOriginal: Float
+    # Moneda del origen del item (vale, prestamo, sueldo). monto sigue en la moneda de la liquidacion.
+    moneda: Moneda
+    montoMoneda: Float
+    cotizacion: Float
 }
 
 type LiquidacionSueldo {

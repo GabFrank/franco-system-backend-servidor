@@ -311,7 +311,7 @@ public class ReporteMovimientosCajaService {
      * Decimales de la moneda con el mismo fallback que el dashboard (formatoDe): el guaraní no lleva
      * fracción, las demás sí. Separadores paraguayos: punto de miles, coma decimal.
      */
-    static String monto(BigDecimal valor, Moneda moneda) {
+    public static String monto(BigDecimal valor, Moneda moneda) {
         int decimales = moneda != null && moneda.getDecimales() != null
                 ? moneda.getDecimales()
                 : (moneda != null && moneda.getDenominacion() != null

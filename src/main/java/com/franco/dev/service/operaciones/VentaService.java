@@ -602,7 +602,9 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
     public Page<Venta> findWithFiltersCriteria(Long idVenta, Long id, Long sucId, Long formaPagoId, VentaEstado estado,
             Pageable pageable, Boolean isDelivery, Long monedaId, Boolean isAsc, Boolean conDescuento,
             Boolean conAumento) {
-        Sort sort = isAsc == false ? Sort.by("id").descending() : Sort.by("id").ascending();
+        // asc es opcional en el schema: sin asc, la mas reciente primero, como manda el desktop (#628).
+        // Antes "isAsc == false" desempaquetaba el Boolean y con null daba NullPointerException.
+        Sort sort = Boolean.TRUE.equals(isAsc) ? Sort.by("id").ascending() : Sort.by("id").descending();
         Pageable newPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
 
         return this.repository.findAll((root, query, cb) -> {

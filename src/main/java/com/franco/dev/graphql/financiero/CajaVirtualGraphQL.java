@@ -12,6 +12,7 @@ import com.franco.dev.repository.financiero.CajaVirtualConfiguracionRepository;
 import com.franco.dev.repository.financiero.CajaVirtualSaldoRepository;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.CajaVirtualService;
+import com.franco.dev.service.financiero.OrdenConfigurable;
 import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -71,9 +72,21 @@ public class CajaVirtualGraphQL implements GraphQLQueryResolver, GraphQLMutation
     public List<CajaVirtualSaldoItem> cajaVirtualSaldos(Long cajaVirtualId) {
         seg.requireVerCaja();
         seg.requireLecturaCaja(cajaVirtualId);
-        return cajaSaldoRepository.findByCajaVirtualId(cajaVirtualId).stream()
+        // Orden fijo (issue #540): sin ORDER BY, Postgres devolvía primero la fila que no se había tocado
+        // y las cards de moneda cambiaban de lugar con cada movimiento. Primero el orden configurado en la
+        // caja, después por id de moneda.
+        String orden = configRepository.findByCajaVirtualId(cajaVirtualId)
+                .map(CajaVirtualConfiguracion::getMonedasOrden).orElse(null);
+        List<CajaVirtualSaldoItem> items = cajaSaldoRepository.findByCajaVirtualId(cajaVirtualId).stream()
                 .map(s -> new CajaVirtualSaldoItem(s.getMoneda(), s.getSaldo()))
                 .collect(Collectors.toList());
+        return OrdenConfigurable.ordenar(items, CajaVirtualGraphQL::monedaId, orden,
+                java.util.Comparator.comparing(CajaVirtualGraphQL::monedaId,
+                        java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())));
+    }
+
+    private static Long monedaId(CajaVirtualSaldoItem item) {
+        return item.getMoneda() != null ? item.getMoneda().getId() : null;
     }
 
     /** Cuentas bancarias visibles (según config) con saldo actual/reservado/futuro, ordenadas. */
@@ -112,29 +125,8 @@ public class CajaVirtualGraphQL implements GraphQLQueryResolver, GraphQLMutation
 
     /** Ordena las cuentas según el JSON de ids persistido; las faltantes van al final por id ascendente. */
     private List<CuentaBancaria> ordenarCuentas(java.util.Set<CuentaBancaria> visibles, String ordenJson) {
-        List<CuentaBancaria> lista = new ArrayList<>(visibles);
-        final List<Long> orden = parseOrden(ordenJson);
-        lista.sort((a, b) -> {
-            int ia = orden.indexOf(a.getId());
-            int ib = orden.indexOf(b.getId());
-            if (ia < 0 && ib < 0) return Long.compare(a.getId(), b.getId());
-            if (ia < 0) return 1;
-            if (ib < 0) return -1;
-            return Integer.compare(ia, ib);
-        });
-        return lista;
-    }
-
-    /** Parsea un JSON array simple de ids ("[3,1,2]") a List<Long>. Tolerante a null/vacío. */
-    private List<Long> parseOrden(String ordenJson) {
-        List<Long> out = new ArrayList<>();
-        if (ordenJson == null) return out;
-        String s = ordenJson.replaceAll("[\\[\\]\\s]", "");
-        if (s.isEmpty()) return out;
-        for (String part : s.split(",")) {
-            try { out.add(Long.parseLong(part)); } catch (NumberFormatException ignored) { }
-        }
-        return out;
+        return OrdenConfigurable.ordenar(visibles, CuentaBancaria::getId, ordenJson,
+                java.util.Comparator.comparing(CuentaBancaria::getId));
     }
 
     public List<CajaVirtual> cajaVirtualesPorTipo(CajaVirtualTipo tipo) {
@@ -241,9 +233,13 @@ public class CajaVirtualGraphQL implements GraphQLQueryResolver, GraphQLMutation
                     .orElseThrow(() -> new GraphQLException("Caja virtual no encontrada: " + input.getId()));
         }
         entity.setNombre(input.getNombre());
-        entity.setTipo(input.getTipo());
+        // CAJA_CHICA se retiró (issue #220): toda caja es CAJA_MAYOR, aunque un desktop viejo mande
+        // CAJA_CHICA. El valor sigue en el enum por compatibilidad (V274.5 guarda el tipo anterior).
+        entity.setTipo(CajaVirtualTipo.CAJA_MAYOR);
         entity.setDescripcion(input.getDescripcion());
-        entity.setLimiteGs(input.getLimiteGs());
+        // limite_gs quedó sin uso con la caja chica. Solo se pisa si llega, para no perder el valor
+        // de las cajas viejas mientras se decide su futuro (#620).
+        if (input.getLimiteGs() != null) entity.setLimiteGs(input.getLimiteGs());
         entity.setActivo(input.getActivo());
         if (input.getSucursalId() != null) {
             entity.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));

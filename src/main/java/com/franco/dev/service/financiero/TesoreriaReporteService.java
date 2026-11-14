@@ -41,7 +41,11 @@ public class TesoreriaReporteService {
         private BigDecimal efectivo = BigDecimal.ZERO;
         private BigDecimal banco = BigDecimal.ZERO;
         private BigDecimal bancoReservado = BigDecimal.ZERO;
+        /** Saldo bancario libre: banco − reservado (cheques diferidos y al día emitidos, issue #601). */
+        private BigDecimal bancoDisponible = BigDecimal.ZERO;
         private BigDecimal total = BigDecimal.ZERO;
+        /** Total libre: efectivo + banco disponible. */
+        private BigDecimal totalDisponible = BigDecimal.ZERO;
     }
 
     /** Saldo consolidado (efectivo + banco) por moneda. */
@@ -57,7 +61,13 @@ public class TesoreriaReporteService {
             s.setBancoReservado(toBig(row[3]));
         }
         List<SaldoPorMoneda> out = new ArrayList<>(map.values());
-        for (SaldoPorMoneda s : out) s.setTotal(s.getEfectivo().add(s.getBanco()));
+        for (SaldoPorMoneda s : out) {
+            s.setTotal(s.getEfectivo().add(s.getBanco()));
+            // Con el cheque al día EMITIDO el saldo contable ya no baja al entregarlo: el disponible es el que dice
+            // cuánto queda libre (decidido 2026-11-12, mostrar los dos).
+            s.setBancoDisponible(s.getBanco().subtract(s.getBancoReservado()));
+            s.setTotalDisponible(s.getEfectivo().add(s.getBancoDisponible()));
+        }
         return out;
     }
 
@@ -106,7 +116,10 @@ public class TesoreriaReporteService {
             v.setDiasRestantes(ChronoUnit.DAYS.between(ahora.toLocalDate(), f.toLocalDate()));
             out.add(v);
         }
-        for (Cheque ch : chequeRepository.findByEstado(EstadoCheque.DIFERIDO)) {
+        // Lo que todavía no se debitó: los diferidos y los al día emitidos (issue #601).
+        List<Cheque> pendientes = new ArrayList<>(chequeRepository.findByEstado(EstadoCheque.DIFERIDO));
+        pendientes.addAll(chequeRepository.findByEstado(EstadoCheque.EMITIDO));
+        for (Cheque ch : pendientes) {
             LocalDateTime f = ch.getFechaPago();
             if (f == null || f.isAfter(hasta)) continue;
             Vencimiento v = new Vencimiento();

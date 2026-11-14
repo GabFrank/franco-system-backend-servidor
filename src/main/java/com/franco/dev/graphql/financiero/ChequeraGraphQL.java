@@ -71,4 +71,43 @@ public class ChequeraGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         seg.requireVer();
         return service.count();
     }
-} 
+
+    // ── Inutilizar números (issue #603) ── mismo rol que gestiona chequeras.
+
+    @Autowired
+    private com.franco.dev.service.financiero.ChequeGestionService chequeGestionService;
+
+    @Autowired
+    private com.franco.dev.repository.financiero.ChequeraNumeroInutilizadoRepository inutilizadoRepository;
+
+    @Autowired
+    private com.franco.dev.repository.financiero.ChequeraRepository chequeraRepository;
+
+    public List<Double> proximosNumerosCheque(Long chequeraId, Integer cantidad) {
+        seg.requireVer();
+        Chequera ch = chequeraRepository.findById(chequeraId)
+                .orElseThrow(() -> new graphql.GraphQLException("Chequera no encontrada"));
+        int n = Math.max(1, Math.min(cantidad != null ? cantidad : 1, 50));
+        List<Double> out = new java.util.ArrayList<>();
+        for (Long numero : chequeGestionService.proximosLibres(ch, n)) out.add(numero.doubleValue());
+        return out;
+    }
+
+    public List<com.franco.dev.domain.financiero.ChequeraNumeroInutilizado> numerosInutilizados(Long chequeraId) {
+        seg.requireVer();
+        return chequeraId != null ? inutilizadoRepository.findByChequeraIdOrderByIdDesc(chequeraId)
+                : inutilizadoRepository.findByRevertidoEnIsNullOrderByIdDesc();
+    }
+
+    public com.franco.dev.domain.financiero.ChequeraNumeroInutilizado inutilizarNumeroCheque(Long chequeraId, Double numero,
+            String motivo, com.franco.dev.domain.financiero.enums.AccionChequeInutilizado accionCheque, Double numeroNuevo) {
+        seg.requireGestionar();
+        return chequeGestionService.inutilizar(chequeraId, numero != null ? numero.longValue() : null, motivo, accionCheque,
+                numeroNuevo != null ? numeroNuevo.longValue() : null, seg.currentUsuario());
+    }
+
+    public com.franco.dev.domain.financiero.ChequeraNumeroInutilizado revertirInutilizacion(Long id) {
+        seg.requireGestionar();
+        return chequeGestionService.revertirInutilizacion(id, seg.currentUsuario());
+    }
+}

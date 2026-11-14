@@ -119,6 +119,28 @@ CAMBIO_DIVISA (egreso+ingreso caja), DEPOSITO_BANCARIO (egreso caja + entrada ba
 - **POS** (`AcreditacionPosService` + `AcreditacionPosScheduler`): crea PENDIENTE (comisión + minutos),
   scheduler acredita las vencidas (idempotente por estado + lock), verificación con ajuste diferencial.
 
+### 6.1 Cheques desde 2026-11 (srv #601/#603, desk #708/#720)
+
+- **Al día EMITIDO** detrás de `configuracion_sistema.cheque.al_dia_emitido` (apagada): reserva como un diferido
+  hasta `cobrar()`. El código libera la reserva **por estado** (DIFERIDO o EMITIDO) en cobrar, anular y
+  `anularPorPago`, prendida o no la bandera. Con la bandera prendida, un rollback del central exige apagarla y correr
+  `reconciliar-saldo-reservado.sql`.
+- **Emisión completa y en lote**: `emitirCheque` con proveedor, beneficiario, nominal y fecha de emisión (siempre
+  completa); `emitirCheques` emite N en una transacción con una clave (`cheque.lote_id`).
+- **Números inutilizados** (`chequera_numero_inutilizado`): la emisión, el lote y las hojas disponibles los saltean;
+  un número con cheque se anula (solo suelto) o se renumera. Orden de locks: chequera → cheque → cuenta.
+- **Un cheque de un pago no se anula suelto**: se anula el pago.
+- Tablero: filtro por fecha de emisión, pago o cobro, varios estados, texto y proveedor, con tope de 500.
+- Panel de saldos del tablero: las chequeras activas y las no activas que tengan cheques pendientes (con cualquier
+  fecha de pago); el saldo y lo reservado se suman una vez por cuenta.
+- La numeración no vuelve atrás del correlativo: revertir un número que ya quedó atrás le quita la marca, pero no lo
+  reusa (las hojas anteriores pudieron usarse fuera del sistema).
+- El aviso de fondos de un `EMITIDO` compara contra el saldo real, igual que el control del cobro: lo reservado por
+  otros cheques no bloquea a propósito.
+
+Prueba manual: [PRUEBA-MANUAL-CAJA-MAYOR-CHEQUES.md](PRUEBA-MANUAL-CAJA-MAYOR-CHEQUES.md). Más detalle en la skill
+`frc-financiero-expert`.
+
 ## 7. Concurrencia (regla del módulo)
 
 **Todo servicio que muta un saldo toma lock pesimista** (`lockById`/`lockByCajaVirtualIdAndMonedaId`)

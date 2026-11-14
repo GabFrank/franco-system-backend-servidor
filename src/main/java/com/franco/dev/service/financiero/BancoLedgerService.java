@@ -134,7 +134,17 @@ public class BancoLedgerService {
     public void ajustarReservado(Long cuentaId, BigDecimal delta) {
         CuentaBancaria cuenta = cuentaConLock(cuentaId);
         BigDecimal actual = cuenta.getSaldoReservado() != null ? cuenta.getSaldoReservado() : BigDecimal.ZERO;
-        cuenta.setSaldoReservado(actual.add(delta));
+        BigDecimal nuevo = actual.add(delta);
+        // Nunca negativo. Liberar más de lo reservado es una reserva liberada dos veces, o un desvío viejo del saldo
+        // reservado: no se rechaza (bloquearía el cobro de un cheque legítimo), se deja en 0 y queda en el log para
+        // reconciliarlo con reconciliar-saldo-reservado.sql.
+        if (nuevo.signum() < 0) {
+            org.slf4j.LoggerFactory.getLogger(BancoLedgerService.class).warn(
+                    "Saldo reservado de la cuenta {} quedaba en {} (tenía {}, ajuste {}): se deja en 0",
+                    cuentaId, nuevo, actual, delta);
+            nuevo = BigDecimal.ZERO;
+        }
+        cuenta.setSaldoReservado(nuevo);
         cuentaRepository.save(cuenta);
         eventos.publishEvent(TesoreriaCambio.deCuenta(cuentaId));
     }

@@ -27,7 +27,9 @@ type OperacionFinanciera {
     cuentaBancariaDestino: CuentaBancaria
     monedaDestino: Moneda
     montoDestino: Float
+    # En un cambio de divisa: unidades de la moneda menor por 1 de cotizacionMoneda (la de mayor valor).
     cotizacion: Float
+    cotizacionMoneda: Moneda
     numeroComprobante: String
     diferencia: Float
     diferenciaDestinoTipo: DiferenciaDestinoTipo
@@ -55,6 +57,9 @@ input OperacionFinancieraInput {
     monedaDestinoId: Int
     montoDestino: Float
     cotizacion: Float
+    # La moneda que vale 1 en la cotización. Con ella el central valida que la cotización cierre con los
+    # montos; sin ella (desktop anterior) la normaliza sin rechazar.
+    cotizacionMonedaId: Int
     numeroComprobante: String
     diferencia: Float
     diferenciaDestinoTipo: DiferenciaDestinoTipo

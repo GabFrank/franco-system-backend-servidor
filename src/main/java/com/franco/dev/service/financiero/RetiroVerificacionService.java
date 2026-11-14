@@ -136,6 +136,12 @@ public class RetiroVerificacionService {
             ConteoMoneda c = contadoPorMoneda.get(monedaId);
             Moneda moneda = monedaService.findById(monedaId)
                     .orElseThrow(() -> new GraphQLException("La moneda " + monedaId + " no existe."));
+            // Una moneda que el cajero no declaró (sobrante en otra moneda, desk #670) tiene que estar
+            // activa. Una declarada se acepta igual: el retiro ya existe y no se le puede cambiar.
+            if (!declaradoPorMoneda.containsKey(monedaId) && Boolean.FALSE.equals(moneda.getActivo())) {
+                throw new GraphQLException("La moneda " + moneda.getDenominacion()
+                        + " está inactiva: no se puede contar en un retiro que no la declaró.");
+            }
             BigDecimal contado = contadoValido(
                     c != null && c.getContado() != null ? c.getContado() : BigDecimal.ZERO, moneda, retiroId);
             BigDecimal diferencia = contado.subtract(declarado);
@@ -230,7 +236,7 @@ public class RetiroVerificacionService {
         String nombreSucursal = sucursalService.findById(retiro.getSucursalId())
                 .map(com.franco.dev.domain.empresarial.Sucursal::getNombre)
                 .orElse("Sucursal " + retiro.getSucursalId());
-        String descripcion = "Retiro #" + retiro.getId() + " - " + nombreSucursal;
+        String descripcion = RetiroDescripcion.de(retiro, nombreSucursal);
 
         Long ultimoMovId = null;
         for (RetiroVerificacionDetalle d : verificacion.getDetalles()) {

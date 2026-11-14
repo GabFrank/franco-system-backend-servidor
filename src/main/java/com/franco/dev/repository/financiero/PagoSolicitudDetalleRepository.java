@@ -14,4 +14,7 @@ public interface PagoSolicitudDetalleRepository extends JpaRepository<PagoSolici
 
     /** Un detalle del evento de pago que posteo el movimiento: todos los que lo comparten son del mismo pago. */
     Optional<PagoSolicitudDetalle> findFirstByMovimientoBancarioId(Long movimientoBancarioId);
+
+    /** El detalle de pago que emitió este cheque (el vínculo cheque→pago vive acá, no en el cheque). */
+    Optional<PagoSolicitudDetalle> findFirstByChequeIdOrderByIdAsc(Long chequeId);
 }

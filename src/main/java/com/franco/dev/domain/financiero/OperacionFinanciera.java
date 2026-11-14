@@ -74,7 +74,20 @@ public class OperacionFinanciera implements Serializable {
     @Column(name = "monto_destino")
     private BigDecimal montoDestino;
 
+    /** Siempre «moneda menor por 1 de {@link #cotizacionMoneda}» en un cambio de divisa (issue #603). */
     private BigDecimal cotizacion;
+
+    /** La moneda que vale 1 en la cotización: la de mayor valor del par. Null fuera del cambio de divisa. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cotizacion_moneda_id")
+    private Moneda cotizacionMoneda;
+
+    /**
+     * Lo que había antes de normalizar la cotización (backfill de V276.5, o lo que mandó un desktop anterior que no
+     * cerraba con los montos). Solo auditoría: la aplicación no lo lee.
+     */
+    @Column(name = "cotizacion_original")
+    private BigDecimal cotizacionOriginal;
 
     @Column(name = "numero_comprobante")
     private String numeroComprobante;

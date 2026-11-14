@@ -49,8 +49,15 @@ class ChequeGestionServiceTest {
         idempotenciaService = mock(IdempotenciaService.class);
         when(idempotenciaService.ejecutar(any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(inv -> inv.<java.util.function.Supplier<Object>>getArgument(4).get());
+        inutilizadoRepository = mock(com.franco.dev.repository.financiero.ChequeraNumeroInutilizadoRepository.class);
+        when(inutilizadoRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        pagoDetalleRepository = mock(com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository.class);
+        configuracionSistema = mock(com.franco.dev.service.empresarial.ConfiguracionSistemaService.class);
+        when(configuracionSistema.valor(any())).thenReturn(Optional.empty());
+        when(pagoDetalleRepository.findFirstByChequeIdOrderByIdAsc(any())).thenReturn(Optional.empty());
         service = new ChequeGestionService(chequeService, chequeraService, chequeRepository, chequeraRepository,
-                movBancarioRepo, bancoLedgerService, idempotenciaService, entityManager);
+                movBancarioRepo, bancoLedgerService, idempotenciaService, entityManager, pagoDetalleRepository,
+                configuracionSistema, inutilizadoRepository);
 
         cuenta = new CuentaBancaria(); cuenta.setId(4L);
         chequera = new Chequera(); chequera.setId(1L); chequera.setSiguienteNumero(100L);
@@ -62,6 +69,9 @@ class ChequeGestionServiceTest {
     }
 
     private javax.persistence.EntityManager entityManager;
+    private com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository pagoDetalleRepository;
+    private com.franco.dev.repository.financiero.ChequeraNumeroInutilizadoRepository inutilizadoRepository;
+    private com.franco.dev.service.empresarial.ConfiguracionSistemaService configuracionSistema;
     /** Lo que el refresh le pone a la chequera: simula lo que otra transacción dejó en la base. */
     private java.util.function.Consumer<Object> enLaBase;
 
@@ -334,5 +344,254 @@ class ChequeGestionServiceTest {
                 new RuntimeException("ERROR: null value in column \"total\"")));
 
         assertThrows(org.springframework.dao.DataIntegrityViolationException.class, () -> service.emitir(nuevo(false), null));
+    }
+
+    // ── Cheque al día EMITIDO, detrás de la bandera (issue #601) ──
+
+    private void prenderAlDiaEmitido() {
+        when(configuracionSistema.valor(ChequeGestionService.CLAVE_AL_DIA_EMITIDO)).thenReturn(Optional.of("true"));
+    }
+
+    @Test
+    void con_la_bandera_apagada_el_cheque_al_dia_se_debita_como_siempre() {
+        Cheque c = service.emitir(nuevo(false), null);
+        assertEquals(EstadoCheque.COBRADO, c.getEstado());
+        verify(bancoLedgerService, never()).ajustarReservado(anyLong(), any());
+    }
+
+    @Test
+    void con_la_bandera_el_cheque_al_dia_queda_emitido_y_reserva_sin_debitar() {
+        prenderAlDiaEmitido();
+        cuenta.setSaldo(new BigDecimal("1000000"));
+        Cheque c = service.emitir(nuevo(false), null);
+        assertEquals(EstadoCheque.EMITIDO, c.getEstado());
+        verify(bancoLedgerService).ajustarReservado(eq(4L), eq(new BigDecimal("500000.0")));
+        verify(bancoLedgerService, never()).registrar(anyLong(), any(), any(), any(), any(), any(), any());
+        assertNull(c.getAvisoFondos());
+    }
+
+    @Test
+    void emitido_sin_fondos_se_emite_igual_con_aviso() {
+        prenderAlDiaEmitido();
+        cuenta.setSaldo(new BigDecimal("100"));
+        Cheque c = service.emitir(nuevo(false), null);
+        assertEquals(EstadoCheque.EMITIDO, c.getEstado());
+        assertNotNull(c.getAvisoFondos());
+    }
+
+    @Test
+    void cobrar_un_emitido_libera_la_reserva_antes_de_debitar_y_enlaza_el_pago() {
+        Cheque c = nuevo(false); c.setId(9L); c.setEstado(EstadoCheque.EMITIDO); c.setCuentaBancaria(cuenta);
+        c.setNumero(1010d);
+        when(chequeRepository.lockById(9L)).thenReturn(Optional.of(c));
+        com.franco.dev.domain.financiero.MovimientoBancario mov = new com.franco.dev.domain.financiero.MovimientoBancario();
+        mov.setId(55L);
+        when(bancoLedgerService.registrar(anyLong(), any(), any(), any(), any(), any(), any())).thenReturn(mov);
+        com.franco.dev.domain.financiero.PagoSolicitudDetalle d = new com.franco.dev.domain.financiero.PagoSolicitudDetalle();
+        when(pagoDetalleRepository.findFirstByChequeIdOrderByIdAsc(9L)).thenReturn(Optional.of(d));
+
+        Cheque r = service.cobrar(9L, null);
+
+        assertEquals(EstadoCheque.COBRADO, r.getEstado());
+        org.mockito.InOrder orden = inOrder(bancoLedgerService);
+        orden.verify(bancoLedgerService).ajustarReservado(eq(4L), eq(new BigDecimal("500000.0").negate()));
+        // El número es Double en la entidad: sin longValue la fila del banco decía «Cobro cheque 1010.0».
+        orden.verify(bancoLedgerService).registrar(eq(4L), eq(MovimientoBancarioTipo.SALIDA_MANUAL), any(),
+                eq("Cobro cheque 1010"), any(), any(), any());
+        assertEquals(55L, d.getMovimientoBancarioId(), "la fila del banco sigue diciendo de qué pago es");
+    }
+
+    @Test
+    void anular_un_emitido_suelto_libera_la_reserva() {
+        Cheque c = nuevo(false); c.setId(9L); c.setEstado(EstadoCheque.EMITIDO); c.setCuentaBancaria(cuenta);
+        when(chequeRepository.lockById(9L)).thenReturn(Optional.of(c));
+        Cheque r = service.anular(9L, "hoja dañada", null);
+        assertEquals(EstadoCheque.ANULADO, r.getEstado());
+        verify(bancoLedgerService).ajustarReservado(eq(4L), eq(new BigDecimal("500000.0").negate()));
+    }
+
+    @Test
+    void anular_un_emitido_por_el_pago_libera_la_reserva_sin_reversa() {
+        Cheque c = nuevo(false); c.setId(9L); c.setEstado(EstadoCheque.EMITIDO); c.setCuentaBancaria(cuenta);
+        when(chequeRepository.lockById(9L)).thenReturn(Optional.of(c));
+        service.anularPorPago(9L, "anulación del pago", null);
+        verify(bancoLedgerService).ajustarReservado(eq(4L), eq(new BigDecimal("500000.0").negate()));
+        verify(bancoLedgerService, never()).revertir(any(), any(), any());
+    }
+
+    @Test
+    void un_cheque_de_un_pago_no_se_anula_suelto() {
+        Cheque c = nuevo(true); c.setId(9L); c.setEstado(EstadoCheque.DIFERIDO); c.setCuentaBancaria(cuenta);
+        when(chequeRepository.lockById(9L)).thenReturn(Optional.of(c));
+        com.franco.dev.domain.financiero.PagoSolicitudDetalle d = new com.franco.dev.domain.financiero.PagoSolicitudDetalle();
+        d.setPagoId(31L);
+        when(pagoDetalleRepository.findFirstByChequeIdOrderByIdAsc(9L)).thenReturn(Optional.of(d));
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anular(9L, "x", null));
+        assertTrue(e.getMessage().contains("pago #31"), e.getMessage());
+        verify(bancoLedgerService, never()).ajustarReservado(anyLong(), any());
+    }
+
+    @Test
+    void la_fecha_de_emision_siempre_queda() {
+        Cheque c = service.emitir(nuevo(true), null);
+        assertNotNull(c.getFechaEntrega());
+    }
+
+    // ── Emisión en lote ──
+
+    private ChequeGestionService.DatosLote lote() {
+        ChequeGestionService.DatosLote d = new ChequeGestionService.DatosLote();
+        d.setChequeraId(1L);
+        d.setDiferido(true);
+        d.setBeneficiario("AGUA SALTO");
+        return d;
+    }
+
+    private java.util.List<ChequeGestionService.CuotaCheque> cuotas(int n) {
+        java.util.List<ChequeGestionService.CuotaCheque> l = new java.util.ArrayList<>();
+        for (int i = 1; i <= n; i++) l.add(new ChequeGestionService.CuotaCheque(100000.0, java.time.LocalDateTime.now().plusDays(30L * i)));
+        return l;
+    }
+
+    @Test
+    void el_lote_emite_numeros_seguidos_con_el_mismo_lote() {
+        long[] ids = {700};
+        when(chequeService.save(any())).thenAnswer(i -> { Cheque c = i.getArgument(0); if (c.getId() == null) c.setId(ids[0]++); return c; });
+        java.util.List<Cheque> out = service.emitirLote(lote(), cuotas(3), null, null);
+        assertEquals(3, out.size());
+        assertEquals(java.util.Arrays.asList(100.0, 101.0, 102.0),
+                out.stream().map(Cheque::getNumero).collect(java.util.stream.Collectors.toList()));
+        assertTrue(out.stream().allMatch(c -> Long.valueOf(700L).equals(c.getLoteId())), "todos llevan el id del primero");
+        assertTrue(out.stream().allMatch(c -> "AGUA SALTO".equals(c.getBeneficiario())));
+    }
+
+    @Test
+    void el_lote_sin_hojas_para_todos_no_emite_ninguno() {
+        // Rango hasta 105 desde el 100: 6 hojas.
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.emitirLote(lote(), cuotas(7), null, null));
+        assertTrue(e.getMessage().contains("6 hoja"), e.getMessage());
+        verify(chequeService, never()).save(any());
+    }
+
+    @Test
+    void el_lote_se_emite_bajo_su_propia_operacion_de_idempotencia() {
+        service.emitirLote(lote(), cuotas(1), null, "clave-1");
+        verify(idempotenciaService).ejecutar(eq("clave-1"), eq(ChequeGestionService.OPERACION_EMITIR_CHEQUES), any(), any(),
+                any(), any(), any());
+    }
+
+    // ── Inutilizar números (issue #603) ──
+
+    private static final com.franco.dev.domain.financiero.enums.AccionChequeInutilizado NINGUNA =
+            com.franco.dev.domain.financiero.enums.AccionChequeInutilizado.NINGUNA;
+    private static final com.franco.dev.domain.financiero.enums.AccionChequeInutilizado ANULADO =
+            com.franco.dev.domain.financiero.enums.AccionChequeInutilizado.ANULADO;
+    private static final com.franco.dev.domain.financiero.enums.AccionChequeInutilizado RENUMERADO =
+            com.franco.dev.domain.financiero.enums.AccionChequeInutilizado.RENUMERADO;
+
+    private void inutilizados(Long... numeros) {
+        when(inutilizadoRepository.numerosVigentesDesde(eq(1L), anyLong())).thenReturn(java.util.Arrays.asList(numeros));
+    }
+
+    @Test
+    void la_emision_saltea_los_inutilizados_seguidos() {
+        inutilizados(100L, 101L);
+        Cheque c = service.emitir(nuevo(true), null);
+        assertEquals(102.0, c.getNumero());
+        assertEquals(103L, chequera.getSiguienteNumero());
+    }
+
+    @Test
+    void proximos_libres_saltea_inutilizados_y_numeros_con_cheque() {
+        inutilizados(101L);
+        when(chequeRepository.numerosDesde(eq(1L), anyDouble())).thenReturn(java.util.Collections.singletonList(103.0));
+        assertEquals(java.util.Arrays.asList(100L, 102L, 104L), service.proximosLibres(chequera, 3));
+        assertEquals(4, service.hojasLibres(chequera), "100..105 son 6; menos 101 y 103 quedan 4");
+    }
+
+    @Test
+    void inutilizar_el_ultimo_libre_agota_la_chequera_y_revertir_la_reactiva() {
+        chequera.setSiguienteNumero(105L);
+        // Lo que la base devuelve una vez guardada la inutilización (el repositorio es un mock).
+        inutilizados(105L);
+        service.inutilizar(1L, 105L, "hoja dañada", null, null, null);
+        assertEquals(EstadoChequera.AGOTADA, chequera.getEstado());
+
+        com.franco.dev.domain.financiero.ChequeraNumeroInutilizado i = new com.franco.dev.domain.financiero.ChequeraNumeroInutilizado();
+        i.setId(5L); i.setChequera(chequera); i.setNumero(105L);
+        when(inutilizadoRepository.findById(5L)).thenReturn(Optional.of(i));
+        inutilizados();
+        service.revertirInutilizacion(5L, null);
+        assertNotNull(i.getRevertidoEn());
+        assertEquals(EstadoChequera.ACTIVA, chequera.getEstado());
+    }
+
+    @Test
+    void sin_motivo_o_fuera_del_rango_se_rechaza() {
+        assertThrows(GraphQLException.class, () -> service.inutilizar(1L, 101L, "  ", null, null, null));
+        assertThrows(GraphQLException.class, () -> service.inutilizar(1L, 106L, "x", null, null, null));
+    }
+
+    private Cheque chequeConNumero(long numero, EstadoCheque estado) {
+        Cheque c = nuevo(estado == EstadoCheque.DIFERIDO); c.setId(9L); c.setNumero((double) numero); c.setEstado(estado);
+        c.setCuentaBancaria(cuenta);
+        when(chequeRepository.findFirstByChequeraIdAndNumero(1L, (double) numero)).thenReturn(Optional.of(c));
+        when(chequeRepository.lockById(9L)).thenReturn(Optional.of(c));
+        return c;
+    }
+
+    @Test
+    void un_numero_con_cheque_exige_que_hacer_con_el() {
+        chequeConNumero(98, EstadoCheque.DIFERIDO);
+        chequera.setRangoDesde(90.0);
+        assertThrows(GraphQLException.class, () -> service.inutilizar(1L, 98L, "x", NINGUNA, null, null));
+    }
+
+    @Test
+    void anular_el_cheque_diferido_libera_la_reserva() {
+        chequera.setRangoDesde(90.0);
+        Cheque c = chequeConNumero(98, EstadoCheque.DIFERIDO);
+        com.franco.dev.domain.financiero.ChequeraNumeroInutilizado i = service.inutilizar(1L, 98L, "mal llenado", ANULADO, null, null);
+        assertEquals(EstadoCheque.ANULADO, c.getEstado());
+        assertEquals(ANULADO, i.getAccionCheque());
+        verify(bancoLedgerService).ajustarReservado(eq(4L), eq(new BigDecimal("500000.0").negate()));
+    }
+
+    @Test
+    void anular_el_cheque_cobrado_revierte_su_debito() {
+        chequera.setRangoDesde(90.0);
+        Cheque c = chequeConNumero(98, EstadoCheque.COBRADO);
+        c.setMovimientoBancarioId(77L);
+        service.inutilizar(1L, 98L, "hoja perdida", ANULADO, null, null);
+        assertEquals(EstadoCheque.ANULADO, c.getEstado());
+    }
+
+    @Test
+    void el_cheque_de_un_pago_no_se_anula_al_inutilizar() {
+        chequera.setRangoDesde(90.0);
+        chequeConNumero(98, EstadoCheque.DIFERIDO);
+        com.franco.dev.domain.financiero.PagoSolicitudDetalle d = new com.franco.dev.domain.financiero.PagoSolicitudDetalle();
+        d.setPagoId(31L);
+        when(pagoDetalleRepository.findFirstByChequeIdOrderByIdAsc(9L)).thenReturn(Optional.of(d));
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.inutilizar(1L, 98L, "x", ANULADO, null, null));
+        assertTrue(e.getMessage().contains("pago #31"), e.getMessage());
+    }
+
+    @Test
+    void renumerar_a_un_numero_ocupado_se_rechaza_y_a_uno_libre_mueve_el_cheque() {
+        chequera.setRangoDesde(90.0);
+        Cheque c = chequeConNumero(98, EstadoCheque.DIFERIDO);
+        when(chequeRepository.findFirstByChequeraIdAndNumero(1L, 99.0)).thenReturn(Optional.of(new Cheque()));
+        assertThrows(GraphQLException.class, () -> service.inutilizar(1L, 98L, "x", RENUMERADO, 99L, null));
+        service.inutilizar(1L, 98L, "hoja rota", RENUMERADO, 100L, null);
+        assertEquals(100.0, c.getNumero());
+    }
+
+    @Test
+    void el_cheque_sin_moneda_toma_la_de_la_cuenta_de_la_chequera() {
+        com.franco.dev.domain.financiero.Moneda gs = new com.franco.dev.domain.financiero.Moneda(); gs.setId(1L);
+        cuenta.setMoneda(gs);
+        java.util.List<Cheque> out = service.emitirLote(lote(), cuotas(2), null, null);
+        assertTrue(out.stream().allMatch(c -> c.getMoneda() == gs), "los cheques del lote llevan la moneda de la cuenta");
     }
 }

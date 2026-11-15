@@ -81,20 +81,45 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
                                       java.time.LocalDateTime desde, java.time.LocalDateTime hasta,
                                       Pageable pageable) {
         if (seguridad.esSoloCaja()) {
-            // El rol acotado solo ve los retiros de las sucursales de sus cajas. Vacío es «ninguna»:
-            // se corta acá, nunca llega una lista vacía ni un null a la consulta.
-            List<Long> operables = seguridad.sucursalesOperablesIds();
-            if (cajaVirtualDestinoId != null) {
-                // Lo que no cubre la caja destino lo rechazaría la verificación: no se lista.
-                operables = new java.util.ArrayList<>(operables);
-                operables.retainAll(seguridad.sucursalesDeCajaIds(cajaVirtualDestinoId));
-            }
-            if (sucId != null) operables = operables.contains(sucId) ? java.util.Collections.singletonList(sucId)
-                    : java.util.Collections.emptyList();
+            List<Long> operables = sucursalesDelAcotado(sucId, cajaVirtualDestinoId);
             if (operables.isEmpty()) return Page.empty(pageable);
             return repository.findFlotantesEnSucursales(operables, cajaId, desde, hasta, pageable);
         }
         return repository.findFlotantes(sucId, cajaId, desde, hasta, pageable);
+    }
+
+    /** Tope del aviso de procesados: una caja del PDV tiene pocos retiros, y el diálogo muestra cinco. */
+    static final int TOPE_INGRESADOS = 50;
+
+    /**
+     * Retiros de una caja del PDV que ya se procesaron, con el mismo recorte del rol acotado que
+     * {@link #findFlotantes}: el aviso nunca nombra un retiro que esa lista no podría mostrar.
+     */
+    public List<com.franco.dev.repository.financiero.RetiroIngresadoDto> findIngresadosDeCaja(
+            Long cajaId, Long sucId, Long cajaVirtualDestinoId) {
+        Pageable tope = org.springframework.data.domain.PageRequest.of(0, TOPE_INGRESADOS);
+        if (seguridad.esSoloCaja()) {
+            List<Long> operables = sucursalesDelAcotado(sucId, cajaVirtualDestinoId);
+            if (operables.isEmpty()) return java.util.Collections.emptyList();
+            return repository.findIngresadosDeCajaEnSucursales(cajaId, operables, tope);
+        }
+        return repository.findIngresadosDeCaja(cajaId, sucId, tope);
+    }
+
+    /**
+     * El rol acotado solo ve los retiros de las sucursales de sus cajas. Vacío es «ninguna»: quien llama
+     * corta ahí, nunca llega una lista vacía ni un null a la consulta.
+     */
+    private List<Long> sucursalesDelAcotado(Long sucId, Long cajaVirtualDestinoId) {
+        List<Long> operables = seguridad.sucursalesOperablesIds();
+        if (cajaVirtualDestinoId != null) {
+            // Lo que no cubre la caja destino lo rechazaría la verificación: no se lista.
+            operables = new java.util.ArrayList<>(operables);
+            operables.retainAll(seguridad.sucursalesDeCajaIds(cajaVirtualDestinoId));
+        }
+        if (sucId != null) operables = operables.contains(sucId) ? java.util.Collections.singletonList(sucId)
+                : java.util.Collections.emptyList();
+        return operables;
     }
 
     @Override

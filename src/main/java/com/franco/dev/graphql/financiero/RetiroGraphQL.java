@@ -212,6 +212,13 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         return service.findFlotantes(sucId, cajaId, cajaVirtualDestinoId, desdeDt, hastaDt, PageRequest.of(page, size));
     }
 
+    /** Retiros de una caja del PDV ya procesados: dónde entraron, quién y cuándo. Mismo permiso que los flotantes. */
+    public List<com.franco.dev.repository.financiero.RetiroIngresadoDto> retirosIngresadosDeCaja(
+            Long cajaId, Long sucId, Long cajaVirtualDestinoId) {
+        seg.requireVerCaja();
+        return service.findIngresadosDeCaja(cajaId, sucId, cajaVirtualDestinoId);
+    }
+
     /** Asigna una caja mayor a un retiro flotante y lo postea (INGRESO) de inmediato. */
     public Retiro ingresarRetiroACajaMayor(Long retiroId, Long sucId, Long cajaVirtualId) {
         seg.requireGestionar();

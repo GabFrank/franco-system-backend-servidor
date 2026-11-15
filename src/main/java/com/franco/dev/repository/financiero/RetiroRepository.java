@@ -143,4 +143,34 @@ public interface RetiroRepository extends HelperRepository<Retiro, EmbebedPrimar
                                            @Param("desde") java.time.LocalDateTime desde,
                                            @Param("hasta") java.time.LocalDateTime hasta, Pageable pageable);
 
+    /**
+     * Retiros de una caja del PDV que ya no flotan: tienen marcador de procesado. Se une por el marcador y
+     * no por el origen del movimiento: un retiro con varias monedas tiene un movimiento por moneda y daría
+     * filas repetidas. Todo es left join porque el marcador puede ser {@code -1} (sin movimiento) y la caja
+     * mayor puede faltar (limpieza histórica). Ver {@link RetiroIngresadoDto}. Como en los flotantes, quedan
+     * afuera los EN_PROCESO y CANCELADO: un {@code -1} de limpieza sobre ellos no es un retiro procesado.
+     */
+    String SELECT_INGRESADOS = "select new com.franco.dev.repository.financiero.RetiroIngresadoDto(" +
+            "r.id, r.sucursalId, s.nombre, r.cajaSalidaId, cv.id, cv.nombre, m.id, " +
+            "coalesce(p.nombre, u.nickname), m.creadoEn) " +
+            "from Retiro r " +
+            "left join MovimientoCajaVirtual m on m.id = r.movimientoCajaVirtualId " +
+            "left join CajaVirtual cv on cv.id = coalesce(r.cajaVirtualId, m.cajaVirtual.id) " +
+            "left join m.usuario u left join u.persona p " +
+            "left join Sucursal s on s.id = r.sucursalId " +
+            "where r.movimientoCajaVirtualId is not null and r.cajaSalidaId = :cajaId " +
+            "and (r.estado is null or r.estado not in (" +
+            "com.franco.dev.domain.financiero.enums.EstadoRetiro.EN_PROCESO, " +
+            "com.franco.dev.domain.financiero.enums.EstadoRetiro.CANCELADO)) ";
+
+    @Query(SELECT_INGRESADOS + "and (:sucId is null or r.sucursalId = :sucId) order by r.creadoEn desc")
+    List<RetiroIngresadoDto> findIngresadosDeCaja(@Param("cajaId") Long cajaId, @Param("sucId") Long sucId,
+                                                  Pageable pageable);
+
+    /** Lo mismo, limitado a las sucursales del rol acotado. {@code sucIds} no puede venir vacía. */
+    @Query(SELECT_INGRESADOS + "and r.sucursalId in :sucIds order by r.creadoEn desc")
+    List<RetiroIngresadoDto> findIngresadosDeCajaEnSucursales(@Param("cajaId") Long cajaId,
+                                                              @Param("sucIds") List<Long> sucIds,
+                                                              Pageable pageable);
+
 }

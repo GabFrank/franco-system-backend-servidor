@@ -112,7 +112,8 @@ class LiquidacionItemProgramadoGenerarTest {
                 mock(com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository.class),
                 mock(JornadaService.class), convenio, mock(LiquidacionConceptoService.class),
                 mock(PlatformTransactionManager.class), mock(PrestamoCuotaDescuentoService.class),
-                mock(ValeCuotaDescuentoService.class), aplicacion, mock(javax.persistence.EntityManager.class));
+                mock(ValeCuotaDescuentoService.class), aplicacion, mock(javax.persistence.EntityManager.class),
+                mock(com.franco.dev.service.financiero.ConversorMoneda.class));
     }
 
     private List<LiquidacionItem> programados(LiquidacionSueldo liq) {

@@ -75,6 +75,10 @@ type LiquidacionFinalItem {
     montoOriginal: Float
     # VALE, CPP_CUOTA, ITEM_PROGRAMADO... (de donde sale el item)
     referenciaTipo: String
+    # Moneda del origen del item (vale, prestamo, sueldo). monto sigue en la moneda del finiquito.
+    moneda: Moneda
+    montoMoneda: Float
+    cotizacion: Float
 }
 
 type LiquidacionFinal {

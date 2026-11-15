@@ -46,6 +46,7 @@ class LiquidacionMonedaTest {
     private Vale vale;
     private PrestamoCuota cuota;
     private Funcionario f;
+    private CreditoConvenioService convenio;
 
     @BeforeEach
     void setUp() {
@@ -137,6 +138,7 @@ class LiquidacionMonedaTest {
             return m;
         });
 
+        convenio = mock(CreditoConvenioService.class);
         service = new LiquidacionSueldoService(
                 repository, itemRepository, funcionarioService, monedaService, config,
                 mock(HoraExtraRepository.class), mock(PenalizacionRepository.class), mock(JustificativoRepository.class),
@@ -144,7 +146,7 @@ class LiquidacionMonedaTest {
                 mock(VacacionRepository.class), mock(VacacionVentaRepository.class),
                 prestamoRepository, prestamoCuotaRepository, cajaVirtualService, movimientos,
                 mock(UsuarioService.class), mock(com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository.class),
-                mock(JornadaService.class), mock(CreditoConvenioService.class), mock(LiquidacionConceptoService.class),
+                mock(JornadaService.class), convenio, mock(LiquidacionConceptoService.class),
                 mock(PlatformTransactionManager.class), prestamoCuotas, valeCuotas,
                 mock(ItemProgramadoAplicacionService.class), mock(javax.persistence.EntityManager.class), conversor);
     }
@@ -213,6 +215,19 @@ class LiquidacionMonedaTest {
     }
 
     @Test
+    void editarSoloLaDescripcionNoCorreElMontoDelOrigen() {
+        f.setMoneda(gs);
+        service.generarBorrador(7L, "2026-11", 2L);
+        LiquidacionItem cuotaGs = item("SALARIO_BASE");
+        BigDecimal antes = cuotaGs.getMontoMoneda();
+
+        // El desktop manda el mismo monto (R$ 2.068,97) junto con la descripcion nueva.
+        service.editarItem(cuotaGs.getId(), "SALARIO", cuotaGs.getMonto(), null, null);
+
+        assertEquals(0, antes.compareTo(cuotaGs.getMontoMoneda()), "en Gs: " + cuotaGs.getMontoMoneda());
+    }
+
+    @Test
     void sinCotizacionNoSeGeneraConUno() {
         when(cambioRepository.findVigenteDelComercio(eq(2L), any())).thenReturn(null);
 
@@ -227,6 +242,48 @@ class LiquidacionMonedaTest {
         GraphQLException e = assertThrows(GraphQLException.class,
                 () -> service.generarLote(List.of(7L), "2026-11", 1L));
         assertTrue(e.getMessage().contains("Quedaron sin generar: 1"), e.getMessage());
+    }
+
+    @Test
+    void unFuncionarioSinMonedaCobraEnLaDeLaEmpresaAunqueLaLiquidacionSeaEnReales() {
+        f.setMoneda(null);
+
+        service.generarBorrador(7L, "2026-11", 2L);
+
+        LiquidacionItem salario = item("SALARIO_BASE");
+        assertEquals(gs.getId(), salario.getMoneda().getId());
+        // 3.000.000 Gs / 1.450 = R$ 2.068,97 (antes: R$ 3.000.000)
+        assertEquals(new BigDecimal("2068.97"), salario.getMonto());
+        // El vale ya esta en reales: entra tal cual.
+        assertEquals(0, new BigDecimal("110.00").compareTo(item("VALE_DESCUENTO").getMonto()));
+    }
+
+    @Test
+    void elConvenioEnUnaLiquidacionEnRealesGuardaLaCuotaEnGuaraniesYSaltaLasQueDanCero() {
+        vale.setMoneda(real);
+        f.setPersona(new com.franco.dev.domain.personas.Persona());
+        f.getPersona().setId(70L);
+        com.franco.dev.domain.financiero.VentaCreditoCuota grande = new com.franco.dev.domain.financiero.VentaCreditoCuota();
+        grande.setId(1L);
+        com.franco.dev.domain.financiero.VentaCreditoCuota chica = new com.franco.dev.domain.financiero.VentaCreditoCuota();
+        chica.setId(2L);
+        when(convenio.planificar(eq(70L), any(), any(), any(), any())).thenReturn(List.of(
+                new CreditoConvenioService.CobroCuota(grande, new BigDecimal("60000"), false),
+                new CreditoConvenioService.CobroCuota(chica, new BigDecimal("10"), false)));
+
+        service.generarBorrador(7L, "2026-11", 2L);
+
+        List<LiquidacionItem> cuotas = new ArrayList<>();
+        for (LiquidacionItem it : guardados) if ("CREDITO_CONVENIO_CUOTA".equals(it.getCodigo())) cuotas.add(it);
+        assertEquals(1, cuotas.size(), "la de 10 Gs da R$ 0,00 y no entra");
+        // 60.000 / 1.450 = 41,379... hacia abajo: no se pasa del neto.
+        assertEquals(new BigDecimal("41.37"), cuotas.get(0).getMonto());
+        // Lo cobrado de la cuota queda en su moneda (Gs): lo suma sumConvenioCobrado.
+        assertEquals(0, new BigDecimal("60000").compareTo(cuotas.get(0).getMontoMoneda()));
+        // El tope se planifica en guaranies: neto en R$ pasado a Gs, hacia abajo.
+        org.mockito.ArgumentCaptor<BigDecimal> tope = org.mockito.ArgumentCaptor.forClass(BigDecimal.class);
+        verify(convenio).planificar(eq(70L), any(), tope.capture(), any(), any());
+        assertTrue(tope.getValue().compareTo(new BigDecimal("2000000")) > 0, "tope en Gs: " + tope.getValue());
     }
 
     @Test

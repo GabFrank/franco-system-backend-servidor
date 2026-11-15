@@ -180,6 +180,71 @@ Tests:
 - Las mismas dos mutaciones: con el factor en 1 fallan 3; con `montoEnOrigen` = `monto` falla el
   pago.
 
+### Fase 3 (desktop) y pruebas por pantalla (15/11)
+
+Entorno de prueba:
+
+- Central de esta rama en `:8091`; el `:8081` era de otra sesión.
+- Desktop `web-production` en `127.0.0.1:4201`, con la sesión de MR y el `localStorage` respaldado y
+  restaurado.
+- Base `bodega` local con la cotización de REAL en 1.150.
+
+Resultado por punto:
+
+1. **Vale y préstamo en reales.** Vale R$ 110 → Gs. 126.500 y cuota R$ 100 → Gs. 115.000. En el
+   detalle se ve `R$ 110,00 · cot. 1.150` debajo del monto, y los totales llevan `Gs.`.
+2. **Pagar y anular desde la pantalla.**
+   - Al pagar, la cuota queda con `monto_pagado` 100,00 y PAGADA, y el vale DESCONTADO.
+   - Al anular, la cuota vuelve a 0,00 PENDIENTE y el vale a CONFIRMADO.
+3. **Editar y recibos.**
+   - Editar el VALE a 115.000 deja `monto_moneda` en 100,00.
+   - El recibo A4 y la constancia del ítem muestran `VALE (R$ 100,00)`.
+4. **Sin cotización** (PESO ARG desactivada y restaurada).
+   - Generación individual: «No hay cotización cargada para pasar de PESO ARG a GUARANI», y el
+     borrador queda intacto.
+   - Lote: «Se generaron 0 liquidaciones. Quedaron sin generar: 1 (…)».
+5. **Liquidación vieja** (la 495, con ítems sin moneda): se ve igual, con el símbolo `Gs.`.
+6. **Liquidación en R$ con convenio.**
+   - La cuota de Gs. 59.987 entra como R$ 52,16 y guarda `monto_moneda` 59.987.
+   - Una liquidación del mes siguiente ya no la cobra: el remanente da 0 porque se suma en Gs.
+   - Pagar en R$ desde la caja RRHH no se pudo: «Saldo insuficiente», la caja no tiene saldo en
+     reales. El pago y la anulación con efectos sobre el convenio quedan cubiertos por la prueba
+     de la liquidación en Gs.
+7. **Finiquito.**
+   - Vale y cuotas convertidos.
+   - Pagar aplica R$ 100 a cada cuota y anular las revierte.
+   - Editar recalcula `monto_moneda`.
+   - El recibo completo y la constancia del ítem llevan el sufijo.
+
+Dos arreglos que salieron de la prueba:
+
+- **Origen con moneda vacía.** Funcionario, vale, préstamo o liquidación de origen con `moneda_id`
+  null ahora toman la moneda de la empresa, no la del documento. En la base local casi todos los
+  funcionarios tienen moneda null: una liquidación en R$ tomaba el sueldo de 2.550.000 como
+  R$ 2.550.000. Bono, penalización y manual siguen en la moneda del documento.
+- **Cuota de convenio que da 0.** Si al convertirla hacia abajo da 0, no entra: antes registraba
+  Gs cobrados sin descontar nada. La pérdida de redondeo que queda es menor a 0,01 de la moneda
+  del documento por cuota, a favor del funcionario.
+
+Fuera de alcance, visto en la prueba:
+
+- La lista de liquidaciones y el diálogo «¿Pagar el neto de 2165.23…?» muestran montos sin
+  moneda. Es anterior a este cambio.
+- El recibo dice «en letras … GUARANIES» y usa coma de miles: es el locale de la JVM.
+
+### Auditoría del diff (paso 8, 15/11)
+
+Tres ejes fijos; los condicionales no aplican porque no hay release ni tablas replicadas.
+
+| Eje | Veredicto | Hallazgo → qué se hizo |
+|---|---|---|
+| Fijo 1, autorización | Sin hallazgos | Sin endpoints nuevos. Los campos nuevos viajan por queries que ya exigían rol y alcance. |
+| Fijo 2, esquema | Con reservas | **MAJOR:** `editarItem` recalculaba `monto_moneda` aunque el monto no cambiara (el cliente lo manda siempre). Con un destino de menor resolución corría el origen y trababa el pago. → Solo se recalcula si el monto cambió, con test. **Menor:** el ítem agrupado de convenio del recibo no lleva moneda; afecta solo cómo se muestra. |
+| Fijo 3, contrato | Con reservas | **MAJOR:** guardar `salario_base` convertido cambiaba lo que suma el resumen IPS. → Se revirtió: sigue siendo el sueldo sin convertir. Que el resumen IPS mezcle monedas ya pasaba antes y queda fuera de alcance. **Menor:** el ticket en otra moneda usaba el locale de la JVM → separadores fijos. Los cambios visibles van en la descripción del PR. |
+
+Desvío anotado: los ítems programados del detalle siguen sin símbolo, porque pueden estar en la moneda
+de otra liquidación.
+
 ## Pruebas por pantalla (paso 9)
 
 Central propio desde el worktree en un puerto libre y desktop `ng serve -c web`, con `MR`:

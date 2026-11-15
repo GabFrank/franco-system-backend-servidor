@@ -186,8 +186,8 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         if (monedaId != null) liq.setMoneda(monedaService.findById(monedaId).orElse(null));
         MonedaItemRrhh m = monedas(liq);
         BigDecimal salarioBase = calcularSalarioBase(f, inicio, fin);
-        // salario_base queda en la moneda de la liquidacion, como el item SALARIO_BASE.
-        liq.setSalarioBase(m.cotizar(salarioBase, f.getMoneda(), RoundingMode.HALF_UP).monto);
+        // salario_base sigue siendo el sueldo del funcionario, sin convertir: lo lee el resumen IPS.
+        liq.setSalarioBase(salarioBase);
         liq = repository.save(liq);
 
         List<LiquidacionItem> items = new ArrayList<>(manuales);
@@ -256,7 +256,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
                                                             LocalDate fin, int mes) {
         List<LiquidacionItem> items = new ArrayList<>();
         Long fid = f.getId();
-        com.franco.dev.domain.financiero.Moneda mf = f.getMoneda();
+        com.franco.dev.domain.financiero.Moneda mf = origen(f.getMoneda());
 
         // SALARIO_BASE (HABER)
         items.add(item(m, mf, liq, "SALARIO_BASE", "SALARIO BASE", salarioBase, LiquidacionItemTipo.HABER, null, null));
@@ -332,16 +332,16 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
                 String codigo = Boolean.TRUE.equals(v.getEsAdelanto()) ? "ADELANTO_DESCUENTO" : "VALE_DESCUENTO";
                 for (com.franco.dev.domain.rrhh.ValeCuota c
                         : valeCuotaDescuentoService.cuotasParaLiquidacion(v, fin, liq.getId())) {
-                    items.add(item(m, v.getMoneda(), liq, codigo, ValeCuotaDescuentoService.descripcion(v, c), c.getMonto(),
+                    items.add(item(m, origen(v.getMoneda()), liq, codigo, ValeCuotaDescuentoService.descripcion(v, c), c.getMonto(),
                             LiquidacionItemTipo.DESCUENTO, c.getId(), ValeService.REFERENCIA_CUOTA));
                 }
                 continue;
             }
             BigDecimal monto = v.getMonto() != null ? v.getMonto() : BigDecimal.ZERO;
             if (Boolean.TRUE.equals(v.getEsAdelanto())) {
-                items.add(item(m, v.getMoneda(), liq, "ADELANTO_DESCUENTO", "ADELANTO DE SUELDO", monto, LiquidacionItemTipo.DESCUENTO, v.getId(), "ADELANTO"));
+                items.add(item(m, origen(v.getMoneda()), liq, "ADELANTO_DESCUENTO", "ADELANTO DE SUELDO", monto, LiquidacionItemTipo.DESCUENTO, v.getId(), "ADELANTO"));
             } else {
-                items.add(item(m, v.getMoneda(), liq, "VALE_DESCUENTO", "VALE", monto, LiquidacionItemTipo.DESCUENTO, v.getId(), "VALE"));
+                items.add(item(m, origen(v.getMoneda()), liq, "VALE_DESCUENTO", "VALE", monto, LiquidacionItemTipo.DESCUENTO, v.getId(), "VALE"));
             }
         }
 
@@ -356,7 +356,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
                 BigDecimal pend = (c.getMonto() != null ? c.getMonto() : BigDecimal.ZERO)
                         .subtract(c.getMontoPagado() != null ? c.getMontoPagado() : BigDecimal.ZERO);
                 if (pend.signum() <= 0) continue;
-                items.add(item(m, pr.getMoneda(), liq, "PRESTAMO_CUOTA", "CUOTA #" + c.getNumero() + " PRESTAMO #" + pr.getId(),
+                items.add(item(m, origen(pr.getMoneda()), liq, "PRESTAMO_CUOTA", "CUOTA #" + c.getNumero() + " PRESTAMO #" + pr.getId(),
                         pend, LiquidacionItemTipo.DESCUENTO, c.getId(), "CPP_CUOTA"));
             }
         }
@@ -405,6 +405,8 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
             LiquidacionItem it = item(liq, "CREDITO_CONVENIO_CUOTA", desc, cc.monto,
                     LiquidacionItemTipo.DESCUENTO, cc.cuota.getId(), "CREDITO_CONVENIO_CUOTA");
             aplicar(it, m.cotizar(cc.monto, gs, RoundingMode.DOWN));
+            // Convertida hacia abajo da 0: no se descuenta nada, asi que tampoco se cuenta como cobrada.
+            if (it.getMonto().signum() <= 0) continue;
             it.setReferenciaSucursalId(cc.cuota.getSucursalId());
             it.setReferenciaEstadoPrevio(cc.ventaCredito != null && cc.ventaCredito.getEstado() != null
                     ? cc.ventaCredito.getEstado().name() : null);
@@ -463,6 +465,15 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
      * La conversion de los items de {@code liq}. Una liquidacion sin moneda (las hay viejas) toma la de la
      * empresa, el mismo respaldo que tesoreria al pagarla, y queda guardada asi.
      */
+    /**
+     * Moneda de un origen que TIENE campo de moneda (funcionario, vale, prestamo, liquidacion de origen) pero
+     * lo dejo vacio: nacio en la de la empresa, el mismo respaldo que tesoreria. No es lo mismo que un origen
+     * sin moneda propia (bono, penalizacion, manual), que va en la del documento (null en cotizar).
+     */
+    private com.franco.dev.domain.financiero.Moneda origen(com.franco.dev.domain.financiero.Moneda m) {
+        return m != null ? m : monedaService.empresa();
+    }
+
     private MonedaItemRrhh monedas(LiquidacionSueldo liq) {
         if (liq.getMoneda() == null) liq.setMoneda(monedaService.empresa());
         return new MonedaItemRrhh(conversorMoneda, liq.getMoneda(), LocalDateTime.now());
@@ -582,7 +593,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     private LiquidacionItem itemProgramado(MonedaItemRrhh m, LiquidacionSueldo liq, LiquidacionItemProgramado p) {
         // El programado no tiene moneda: esta en la de la liquidacion donde se programo.
         com.franco.dev.domain.financiero.Moneda origen = p.getOrigenLiquidacionId() == null ? null
-                : repository.findById(p.getOrigenLiquidacionId()).map(LiquidacionSueldo::getMoneda).orElse(null);
+                : repository.findById(p.getOrigenLiquidacionId()).map(l -> origen(l.getMoneda())).orElse(null);
         return item(m, origen, liq, p.getCodigo(), p.getDescripcion(), p.getMonto(), p.getTipo(), p.getId(),
                 LiquidacionItemProgramado.REFERENCIA_TIPO);
     }
@@ -661,7 +672,9 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         exigirNoProgramado(it);
         if (!Boolean.TRUE.equals(it.getEditado())) it.setMontoOriginal(it.getMonto());
         if (descripcion != null) it.setDescripcion(descripcion.toUpperCase());
-        if (monto != null) {
+        // El cliente manda el monto aunque solo cambie la descripcion: recalcular el del origen desde un monto
+        // ya redondeado lo correria (Gs 100.000 -> R$ 68,97 -> Gs 100.007) y trabaria el pago de la cuota.
+        if (monto != null && (it.getMonto() == null || monto.compareTo(it.getMonto()) != 0)) {
             it.setMonto(monto);
             if (it.getMontoMoneda() != null) {
                 it.setMontoMoneda(MonedaItemRrhh.aOrigen(monto, it.getCotizacion(), it.getMoneda()));

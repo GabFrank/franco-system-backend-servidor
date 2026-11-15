@@ -292,7 +292,7 @@ public class ReciboLiquidacionService {
         BigDecimal x = v != null ? v : BigDecimal.ZERO;
         return liq == null || liq.getMoneda() == null
                 || com.franco.dev.service.financiero.MonedaService.esGuarani(liq.getMoneda())
-                ? formatoGs.format(x) : formato.format(x);
+                ? formatoGs.format(x) : numeroEnMoneda(x, liq.getMoneda());
     }
 
     /** Monto de una fila de ticket. Los descuentos van entre parentesis (no hay columna de signo). */

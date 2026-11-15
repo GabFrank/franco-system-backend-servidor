@@ -177,12 +177,12 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         int diasTrabajadosMes = in.getDiasTrabajadosMes() != null ? Math.max(0, in.getDiasTrabajadosMes()) : egreso.getDayOfMonth();
         BigDecimal salarioDelMes = salarioPorDiasTrabajados(sueldoMensual, diasTrabajadosMes, diasMes);
         if (salarioDelMes.signum() > 0) {
-            items.add(en(m, f.getMoneda(), item(lf, LiquidacionFinalConcepto.SALARIO_MES,
+            items.add(en(m, origen(f.getMoneda()), item(lf, LiquidacionFinalConcepto.SALARIO_MES,
                     "SALARIO DEL MES (" + diasTrabajadosMes + " DIAS TRABAJADOS)", salarioDelMes)));
         }
         // El salario del mes sale del sueldo (moneda del funcionario); el resto de los haberes, de la base
         // remunerativa o del dialogo, ya en la del finiquito (sin conversion: ver el plan, fuera de alcance).
-        BigDecimal salarioDelMesDoc = m.cotizar(salarioDelMes, f.getMoneda(), RoundingMode.HALF_UP).monto;
+        BigDecimal salarioDelMesDoc = m.cotizar(salarioDelMes, origen(f.getMoneda()), RoundingMode.HALF_UP).monto;
         if (r.isIndemnizacionAplica() && r.getIndemnizacionMonto().signum() > 0) {
             items.add(en(m, null, item(lf, LiquidacionFinalConcepto.INDEMNIZACION,
                     "INDEMNIZACION POR DESPIDO INJUSTIFICADO", r.getIndemnizacionMonto())));
@@ -333,6 +333,15 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     }
 
     /** La conversion de los items del finiquito. Sin moneda (ni la del funcionario), la de la empresa. */
+    /**
+     * Moneda de un origen que TIENE campo de moneda (funcionario, vale, prestamo, liquidacion de origen) pero
+     * lo dejo vacio: nacio en la de la empresa, el mismo respaldo que tesoreria. No es lo mismo que un origen
+     * sin moneda propia (bono, penalizacion, manual), que va en la del documento (null en cotizar).
+     */
+    private com.franco.dev.domain.financiero.Moneda origen(com.franco.dev.domain.financiero.Moneda m) {
+        return m != null ? m : monedaService.empresa();
+    }
+
     private MonedaItemRrhh monedas(LiquidacionFinal lf) {
         if (lf.getMoneda() == null) lf.setMoneda(monedaService.empresa());
         return new MonedaItemRrhh(conversorMoneda, lf.getMoneda(), LocalDateTime.now());
@@ -382,7 +391,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                 if (ValeService.tieneCuotas(v)) {
                     // Vale en cuotas: todas las que falten, cada una con su item; nunca el vale entero.
                     for (com.franco.dev.domain.rrhh.ValeCuota c : valeCuotaDescuentoService.cuotasParaFiniquito(v, lf.getId())) {
-                        itemRepository.save(en(m, v.getMoneda(), descItem(lf, ValeCuotaDescuentoService.descripcion(v, c), c.getMonto(),
+                        itemRepository.save(en(m, origen(v.getMoneda()), descItem(lf, ValeCuotaDescuentoService.descripcion(v, c), c.getMonto(),
                                 c.getId(), ValeService.REFERENCIA_CUOTA)));
                     }
                     continue;
@@ -390,9 +399,9 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                 BigDecimal monto = v.getMonto() != null ? v.getMonto() : BigDecimal.ZERO;
                 if (monto.signum() <= 0) continue;
                 if (Boolean.TRUE.equals(v.getEsAdelanto())) {
-                    itemRepository.save(en(m, v.getMoneda(), descItem(lf, "ADELANTO DE SUELDO", monto, v.getId(), "ADELANTO")));
+                    itemRepository.save(en(m, origen(v.getMoneda()), descItem(lf, "ADELANTO DE SUELDO", monto, v.getId(), "ADELANTO")));
                 } else {
-                    itemRepository.save(en(m, v.getMoneda(), descItem(lf, "VALE", monto, v.getId(), "VALE")));
+                    itemRepository.save(en(m, origen(v.getMoneda()), descItem(lf, "VALE", monto, v.getId(), "VALE")));
                 }
             }
         }
@@ -409,7 +418,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                     BigDecimal pagado = c.getMontoPagado() != null ? c.getMontoPagado() : BigDecimal.ZERO;
                     BigDecimal pend = monto.subtract(pagado);
                     if (pend.signum() <= 0) continue;
-                    itemRepository.save(en(m, pr.getMoneda(), descItem(lf, "CUOTA #" + c.getNumero() + " PRESTAMO #" + pr.getId(),
+                    itemRepository.save(en(m, origen(pr.getMoneda()), descItem(lf, "CUOTA #" + c.getNumero() + " PRESTAMO #" + pr.getId(),
                             pend, c.getId(), "CPP_CUOTA")));
                 }
             }
@@ -445,7 +454,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
             // El programado no tiene moneda: esta en la de la liquidacion mensual donde se programo.
             com.franco.dev.domain.financiero.Moneda origen = p.getOrigenLiquidacionId() == null ? null
                     : liquidacionSueldoRepository.findById(p.getOrigenLiquidacionId())
-                    .map(com.franco.dev.domain.rrhh.LiquidacionSueldo::getMoneda).orElse(null);
+                    .map(l -> origen(l.getMoneda())).orElse(null);
             itemRepository.save(en(m, origen, it));
         }
 
@@ -468,6 +477,8 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                 it.setReferenciaEstadoPrevio(cc.ventaCredito != null && cc.ventaCredito.getEstado() != null
                         ? cc.ventaCredito.getEstado().name() : null);
                 aplicar(it, m.cotizar(cc.monto, gs, RoundingMode.DOWN));
+                // Convertida hacia abajo da 0: no se descuenta nada, asi que tampoco se cuenta como cobrada.
+                if (it.getMonto().signum() <= 0) continue;
                 itemRepository.save(it);
             }
         }
@@ -556,7 +567,9 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         // Guardar el monto original en la primera edición (delta negociado).
         if (!Boolean.TRUE.equals(it.getEditado())) it.setMontoOriginal(it.getMonto());
         if (descripcion != null) it.setDescripcion(descripcion.toUpperCase());
-        if (monto != null) {
+        // El cliente manda el monto aunque solo cambie la descripcion: recalcular el del origen desde un monto
+        // ya redondeado lo correria (Gs 100.000 -> R$ 68,97 -> Gs 100.007) y trabaria el pago de la cuota.
+        if (monto != null && (it.getMonto() == null || monto.compareTo(it.getMonto()) != 0)) {
             it.setMonto(monto);
             if (it.getMontoMoneda() != null) {
                 it.setMontoMoneda(MonedaItemRrhh.aOrigen(monto, it.getCotizacion(), it.getMoneda()));

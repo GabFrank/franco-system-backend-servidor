@@ -86,6 +86,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     private final ValeCuotaDescuentoService valeCuotaDescuentoService;
     private final ItemProgramadoAplicacionService itemProgramadoAplicacionService;
     private final LiquidacionItemProgramadoService itemProgramadoService;
+    private final com.franco.dev.service.financiero.ConversorMoneda conversorMoneda;
 
     @Override
     public LiquidacionFinalRepository getRepository() {
@@ -161,6 +162,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         else if (lf.getMoneda() == null) lf.setMoneda(f.getMoneda());
         lf.setEstado(LiquidacionFinalEstado.BORRADOR);
         if (lf.getCreadoEn() == null) lf.setCreadoEn(LocalDateTime.now());
+        MonedaItemRrhh m = monedas(lf);
         lf = repository.save(lf);
 
         // reconstruir items automáticos
@@ -175,25 +177,28 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         int diasTrabajadosMes = in.getDiasTrabajadosMes() != null ? Math.max(0, in.getDiasTrabajadosMes()) : egreso.getDayOfMonth();
         BigDecimal salarioDelMes = salarioPorDiasTrabajados(sueldoMensual, diasTrabajadosMes, diasMes);
         if (salarioDelMes.signum() > 0) {
-            items.add(item(lf, LiquidacionFinalConcepto.SALARIO_MES,
-                    "SALARIO DEL MES (" + diasTrabajadosMes + " DIAS TRABAJADOS)", salarioDelMes));
+            items.add(en(m, f.getMoneda(), item(lf, LiquidacionFinalConcepto.SALARIO_MES,
+                    "SALARIO DEL MES (" + diasTrabajadosMes + " DIAS TRABAJADOS)", salarioDelMes)));
         }
+        // El salario del mes sale del sueldo (moneda del funcionario); el resto de los haberes, de la base
+        // remunerativa o del dialogo, ya en la del finiquito (sin conversion: ver el plan, fuera de alcance).
+        BigDecimal salarioDelMesDoc = m.cotizar(salarioDelMes, f.getMoneda(), RoundingMode.HALF_UP).monto;
         if (r.isIndemnizacionAplica() && r.getIndemnizacionMonto().signum() > 0) {
-            items.add(item(lf, LiquidacionFinalConcepto.INDEMNIZACION,
-                    "INDEMNIZACION POR DESPIDO INJUSTIFICADO", r.getIndemnizacionMonto()));
+            items.add(en(m, null, item(lf, LiquidacionFinalConcepto.INDEMNIZACION,
+                    "INDEMNIZACION POR DESPIDO INJUSTIFICADO", r.getIndemnizacionMonto())));
         }
         // Preaviso HABER (despido injustificado sin preaviso otorgado).
         if (r.isPreavisoAplica() && !r.isPreavisoEsDescuento() && r.getPreavisoMonto().signum() > 0) {
-            items.add(item(lf, LiquidacionFinalConcepto.PREAVISO,
-                    "PREAVISO NO OTORGADO (" + r.getPreavisoDias() + " DIAS)", r.getPreavisoMonto()));
+            items.add(en(m, null, item(lf, LiquidacionFinalConcepto.PREAVISO,
+                    "PREAVISO NO OTORGADO (" + r.getPreavisoDias() + " DIAS)", r.getPreavisoMonto())));
         }
         if (r.getMontoVacacionesNoGozadas().signum() > 0) {
-            items.add(item(lf, LiquidacionFinalConcepto.VACACIONES_NO_GOZADAS,
-                    "VACACIONES NO GOZADAS (" + r.getDiasNoGozados() + " DIAS)", r.getMontoVacacionesNoGozadas()));
+            items.add(en(m, null, item(lf, LiquidacionFinalConcepto.VACACIONES_NO_GOZADAS,
+                    "VACACIONES NO GOZADAS (" + r.getDiasNoGozados() + " DIAS)", r.getMontoVacacionesNoGozadas())));
         }
         if (r.getAguinaldoProporcional().signum() > 0) {
-            items.add(item(lf, LiquidacionFinalConcepto.AGUINALDO_PROPORCIONAL,
-                    "AGUINALDO PROPORCIONAL", r.getAguinaldoProporcional()));
+            items.add(en(m, null, item(lf, LiquidacionFinalConcepto.AGUINALDO_PROPORCIONAL,
+                    "AGUINALDO PROPORCIONAL", r.getAguinaldoProporcional())));
         }
         for (LiquidacionFinalItem it : items) itemRepository.save(it);
 
@@ -208,7 +213,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
             pre.setManual(false);
             pre.setEditado(false);
             pre.setReferenciaTipo("PREAVISO");
-            itemRepository.save(pre);
+            itemRepository.save(en(m, null, pre));
         }
 
         // Descuentos automáticos del funcionario (IPS, vales, cuotas, convenio, penalizaciones),
@@ -222,14 +227,14 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         // sin las vacaciones ni el aguinaldo que se le pagan en el mismo acto.
         BigDecimal ipsBase = in.getIpsBase() != null
                 ? in.getIpsBase()
-                : baseIpsFiniquito(salarioDelMes, r.getMontoVacacionesNoGozadas(), r.getAguinaldoProporcional());
+                : baseIpsFiniquito(salarioDelMesDoc, r.getMontoVacacionesNoGozadas(), r.getAguinaldoProporcional());
         // IPS: override del diálogo, o por defecto según ipsActivo del funcionario.
         boolean descontarIps = in.getDescontarIps() != null ? in.getDescontarIps() : !Boolean.FALSE.equals(f.getIpsActivo());
         boolean cobrarVales = in.getCobrarVales() == null || in.getCobrarVales();
         boolean cobrarConvenios = in.getCobrarConvenios() == null || in.getCobrarConvenios();
         boolean cobrarPrestamos = in.getCobrarPrestamos() == null || in.getCobrarPrestamos();
         boolean descontarPenal = in.getDescontarPenalizaciones() == null || in.getDescontarPenalizaciones();
-        agregarDescuentosAutomaticos(lf, f, ipsBase, egreso, descontarIps, cobrarVales, cobrarConvenios, cobrarPrestamos, descontarPenal);
+        agregarDescuentosAutomaticos(m, lf, f, ipsBase, egreso, descontarIps, cobrarVales, cobrarConvenios, cobrarPrestamos, descontarPenal);
 
         // El total sigue a los items (fuente única de verdad para la edición negociada).
         recalcularTotal(lf);
@@ -313,6 +318,26 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         return it;
     }
 
+    /** El item con su monto en {@code origen} (null = la moneda del finiquito), pasado a la del finiquito. */
+    private static LiquidacionFinalItem en(MonedaItemRrhh m, com.franco.dev.domain.financiero.Moneda origen,
+                                           LiquidacionFinalItem it) {
+        aplicar(it, m.cotizar(it.getMonto(), origen, RoundingMode.HALF_UP));
+        return it;
+    }
+
+    private static void aplicar(LiquidacionFinalItem it, MonedaItemRrhh.Cotizado c) {
+        it.setMoneda(c.moneda);
+        it.setMontoMoneda(c.montoMoneda);
+        it.setCotizacion(c.cotizacion);
+        it.setMonto(c.monto);
+    }
+
+    /** La conversion de los items del finiquito. Sin moneda (ni la del funcionario), la de la empresa. */
+    private MonedaItemRrhh monedas(LiquidacionFinal lf) {
+        if (lf.getMoneda() == null) lf.setMoneda(monedaService.empresa());
+        return new MonedaItemRrhh(conversorMoneda, lf.getMoneda(), LocalDateTime.now());
+    }
+
     /** Ítem DESCUENTO automático (obligaciones del funcionario). refTipo/refId permiten saldar al pagar. */
     private LiquidacionFinalItem descItem(LiquidacionFinal lf, String desc, BigDecimal monto, Long refId, String refTipo) {
         LiquidacionFinalItem it = new LiquidacionFinalItem();
@@ -335,7 +360,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
      * desde el diálogo. Se agregan como ítems DESCUENTO editables; el total los resta
      * vía recalcularTotal().
      */
-    private void agregarDescuentosAutomaticos(LiquidacionFinal lf, Funcionario f, BigDecimal ipsBase, LocalDate egreso,
+    private void agregarDescuentosAutomaticos(MonedaItemRrhh m, LiquidacionFinal lf, Funcionario f, BigDecimal ipsBase, LocalDate egreso,
                                               boolean descontarIps, boolean cobrarVales, boolean cobrarConvenios,
                                               boolean cobrarPrestamos, boolean descontarPenalizaciones) {
         Long fid = f.getId();
@@ -347,7 +372,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
             BigDecimal base = ipsBase != null ? ipsBase : BigDecimal.ZERO;
             BigDecimal ips = base.multiply(ipsPct).divide(new BigDecimal("100"), 0, RoundingMode.HALF_UP);
             if (ips.signum() > 0) {
-                itemRepository.save(descItem(lf, "DESCUENTO IPS", ips, null, "IPS"));
+                itemRepository.save(en(m, null, descItem(lf, "DESCUENTO IPS", ips, null, "IPS")));
             }
         }
 
@@ -357,17 +382,17 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                 if (ValeService.tieneCuotas(v)) {
                     // Vale en cuotas: todas las que falten, cada una con su item; nunca el vale entero.
                     for (com.franco.dev.domain.rrhh.ValeCuota c : valeCuotaDescuentoService.cuotasParaFiniquito(v, lf.getId())) {
-                        itemRepository.save(descItem(lf, ValeCuotaDescuentoService.descripcion(v, c), c.getMonto(),
-                                c.getId(), ValeService.REFERENCIA_CUOTA));
+                        itemRepository.save(en(m, v.getMoneda(), descItem(lf, ValeCuotaDescuentoService.descripcion(v, c), c.getMonto(),
+                                c.getId(), ValeService.REFERENCIA_CUOTA)));
                     }
                     continue;
                 }
                 BigDecimal monto = v.getMonto() != null ? v.getMonto() : BigDecimal.ZERO;
                 if (monto.signum() <= 0) continue;
                 if (Boolean.TRUE.equals(v.getEsAdelanto())) {
-                    itemRepository.save(descItem(lf, "ADELANTO DE SUELDO", monto, v.getId(), "ADELANTO"));
+                    itemRepository.save(en(m, v.getMoneda(), descItem(lf, "ADELANTO DE SUELDO", monto, v.getId(), "ADELANTO")));
                 } else {
-                    itemRepository.save(descItem(lf, "VALE", monto, v.getId(), "VALE"));
+                    itemRepository.save(en(m, v.getMoneda(), descItem(lf, "VALE", monto, v.getId(), "VALE")));
                 }
             }
         }
@@ -384,8 +409,8 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                     BigDecimal pagado = c.getMontoPagado() != null ? c.getMontoPagado() : BigDecimal.ZERO;
                     BigDecimal pend = monto.subtract(pagado);
                     if (pend.signum() <= 0) continue;
-                    itemRepository.save(descItem(lf, "CUOTA #" + c.getNumero() + " PRESTAMO #" + pr.getId(),
-                            pend, c.getId(), "CPP_CUOTA"));
+                    itemRepository.save(en(m, pr.getMoneda(), descItem(lf, "CUOTA #" + c.getNumero() + " PRESTAMO #" + pr.getId(),
+                            pend, c.getId(), "CPP_CUOTA")));
                 }
             }
         }
@@ -400,7 +425,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                 if (p.getMonto() != null) totalPenal = totalPenal.add(p.getMonto());
             }
             if (totalPenal.signum() > 0) {
-                itemRepository.save(descItem(lf, "PENALIZACIONES DEL MES", totalPenal, null, "PENALIZACION"));
+                itemRepository.save(en(m, null, descItem(lf, "PENALIZACIONES DEL MES", totalPenal, null, "PENALIZACION")));
             }
         }
 
@@ -417,7 +442,11 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
             it.setEditado(false);
             it.setReferenciaId(p.getId());
             it.setReferenciaTipo(LiquidacionItemProgramado.REFERENCIA_TIPO);
-            itemRepository.save(it);
+            // El programado no tiene moneda: esta en la de la liquidacion mensual donde se programo.
+            com.franco.dev.domain.financiero.Moneda origen = p.getOrigenLiquidacionId() == null ? null
+                    : liquidacionSueldoRepository.findById(p.getOrigenLiquidacionId())
+                    .map(com.franco.dev.domain.rrhh.LiquidacionSueldo::getMoneda).orElse(null);
+            itemRepository.save(en(m, origen, it));
         }
 
         // Crédito por convenio (compras a crédito) — cuotas impagas del funcionario,
@@ -426,7 +455,9 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         // se va → se toman TODAS las cuotas impagas (no solo las vencidas). Al pagar, si
         // la venta queda 100% saldada se la marca FINALIZADO (reversible al anular).
         if (cobrarConvenios) {
-            BigDecimal disponible = disponibleFiniquito(lf);
+            // Las cuotas son en guaranies: el tope se pasa a Gs y cada cuota vuelve hacia abajo, para no pasarse.
+            com.franco.dev.domain.financiero.Moneda gs = monedaService.guarani();
+            BigDecimal disponible = m.aGuaranies(disponibleFiniquito(lf), gs);
             Long personaId = f.getPersona() != null ? f.getPersona().getId() : null;
             for (CreditoConvenioService.CobroCuota cc :
                     creditoConvenioService.planificar(personaId, null, disponible, null, lf.getId())) {
@@ -436,6 +467,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                 it.setReferenciaSucursalId(cc.cuota.getSucursalId());
                 it.setReferenciaEstadoPrevio(cc.ventaCredito != null && cc.ventaCredito.getEstado() != null
                         ? cc.ventaCredito.getEstado().name() : null);
+                aplicar(it, m.cotizar(cc.monto, gs, RoundingMode.DOWN));
                 itemRepository.save(it);
             }
         }
@@ -494,7 +526,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         it.setTipo(tipo != null ? tipo : LiquidacionItemTipo.HABER);
         it.setManual(true);
         it.setEditado(false);
-        it = itemRepository.save(it);
+        it = itemRepository.save(en(monedas(lf), null, it));
         recalcularTotal(lf);
         return it;
     }
@@ -524,7 +556,12 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         // Guardar el monto original en la primera edición (delta negociado).
         if (!Boolean.TRUE.equals(it.getEditado())) it.setMontoOriginal(it.getMonto());
         if (descripcion != null) it.setDescripcion(descripcion.toUpperCase());
-        if (monto != null) it.setMonto(monto);
+        if (monto != null) {
+            it.setMonto(monto);
+            if (it.getMontoMoneda() != null) {
+                it.setMontoMoneda(MonedaItemRrhh.aOrigen(monto, it.getCotizacion(), it.getMoneda()));
+            }
+        }
         if (tipo != null) it.setTipo(tipo);
         it.setEditado(true);
         it.setEditadoEn(LocalDateTime.now());
@@ -740,15 +777,15 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                     break;
                 case PrestamoCuotaDescuentoService.REFERENCIA_CUOTA:
                     // Con lock, actualiza tambien el prestamo y, al revertir, recalcula el estado (issue #300).
-                    if (pagar) prestamoCuotaDescuentoService.aplicar(refId, it.getMonto());
-                    else prestamoCuotaDescuentoService.revertir(refId, it.getMonto());
+                    if (pagar) prestamoCuotaDescuentoService.aplicar(refId, it.montoEnOrigen());
+                    else prestamoCuotaDescuentoService.revertir(refId, it.montoEnOrigen());
                     break;
                 case ValeService.REFERENCIA_CUOTA:
-                    if (pagar) valeCuotaDescuentoService.aplicarFiniquito(refId, it.getMonto(), lf.getId());
+                    if (pagar) valeCuotaDescuentoService.aplicarFiniquito(refId, it.montoEnOrigen(), lf.getId());
                     else valeCuotaDescuentoService.revertirFiniquito(refId, lf.getId());
                     break;
                 case LiquidacionItemProgramado.REFERENCIA_TIPO:
-                    if (pagar) itemProgramadoAplicacionService.aplicarFiniquito(refId, it.getMonto(), lf.getId());
+                    if (pagar) itemProgramadoAplicacionService.aplicarFiniquito(refId, it.montoEnOrigen(), lf.getId());
                     else itemProgramadoAplicacionService.revertirFiniquito(refId, lf.getId());
                     break;
                 case "CREDITO_CONVENIO_CUOTA":

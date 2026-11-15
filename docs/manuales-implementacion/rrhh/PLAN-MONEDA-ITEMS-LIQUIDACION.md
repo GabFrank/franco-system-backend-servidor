@@ -160,6 +160,26 @@ Lo que esta fase no prueba con test unitario:
 - **«En letras».** El texto «en letras» del recibo sigue diciendo GUARANIES aunque la liquidación
   sea en R$. Ya pasaba antes y queda fuera de alcance.
 
+### Fase 2
+
+Desvíos y precisiones:
+
+- **Moneda del finiquito por defecto.** Se mantiene la del funcionario, como ya hacía el código;
+  solo si falta, la de la empresa.
+- **Base del IPS.** Usa el salario del mes ya convertido. Antes sumaba ese salario, que está en la
+  moneda del funcionario, con vacaciones y aguinaldo, que están en la del finiquito.
+- **Preaviso.** El descuento por preaviso queda en la moneda del finiquito, como indemnización,
+  vacaciones y aguinaldo, que vienen de la base remunerativa o del diálogo.
+- **Programados.** Toman la moneda de su liquidación mensual de origen.
+- **Recibos.** `finiquitoBase64` y `reciboItemLiquidacionFinalBase64` llevan el sufijo del monto
+  original. Un finiquito que no está en Gs se imprime con sus decimales.
+
+Tests:
+
+- `LiquidacionFinalMonedaTest` (4), con generar, pagar, anular y editar reales.
+- Las mismas dos mutaciones: con el factor en 1 fallan 3; con `montoEnOrigen` = `monto` falla el
+  pago.
+
 ## Pruebas por pantalla (paso 9)
 
 Central propio desde el worktree en un puerto libre y desktop `ng serve -c web`, con `MR`:

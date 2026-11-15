@@ -75,7 +75,7 @@ public class ItemProgramadoAplicacionService {
     public void validarFiniquito(Long liquidacionFinalId) {
         Map<Long, BigDecimal> porProgramado = new TreeMap<>();
         for (LiquidacionFinalItem it : liquidacionFinalItemRepository.findByLiquidacionFinalIdOrderByIdAsc(liquidacionFinalId)) {
-            acumular(porProgramado, it.getReferenciaTipo(), it.getReferenciaId(), it.getMonto());
+            acumular(porProgramado, it.getReferenciaTipo(), it.getReferenciaId(), it.montoEnOrigen());
         }
         validar(porProgramado, "el finiquito #" + liquidacionFinalId, null, liquidacionFinalId);
     }

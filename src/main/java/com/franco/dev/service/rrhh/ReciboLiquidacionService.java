@@ -257,25 +257,34 @@ public class ReciboLiquidacionService {
      * recibo ya esta convertido a la moneda de la liquidacion; sin esto no se sabe de donde salio.
      */
     static String conMonedaOrigen(String texto, LiquidacionItem it) {
-        com.franco.dev.domain.financiero.Moneda m = it.getMoneda();
         LiquidacionSueldo liq = it.getLiquidacion();
-        if (texto == null || m == null || it.getMontoMoneda() == null || liq == null
-                || com.franco.dev.service.financiero.MonedaService.misma(m, liq.getMoneda())) {
-            return texto;
-        }
-        return texto + " (" + montoConMoneda(it.getMontoMoneda(), m) + ")";
+        return conMonedaOrigen(texto, it.getMoneda(), it.getMontoMoneda(), liq != null ? liq.getMoneda() : null);
     }
 
-    /** "R$ 110,00" / "Gs 159.500": separadores fijos de Paraguay, no los del locale de la JVM. */
-    static String montoConMoneda(BigDecimal v, com.franco.dev.domain.financiero.Moneda m) {
+    /** Lo mismo para cualquier item: {@code doc} es la moneda del documento (liquidacion o finiquito). */
+    static String conMonedaOrigen(String texto, com.franco.dev.domain.financiero.Moneda m, BigDecimal montoMoneda,
+                                  com.franco.dev.domain.financiero.Moneda doc) {
+        if (texto == null || m == null || montoMoneda == null || doc == null
+                || com.franco.dev.service.financiero.MonedaService.misma(m, doc)) {
+            return texto;
+        }
+        return texto + " (" + montoConMoneda(montoMoneda, m) + ")";
+    }
+
+    /** El numero con los decimales de la moneda y separadores de Paraguay, sin simbolo. */
+    static String numeroEnMoneda(BigDecimal v, com.franco.dev.domain.financiero.Moneda m) {
         java.text.DecimalFormatSymbols sy = new java.text.DecimalFormatSymbols(Locale.ROOT);
         sy.setGroupingSeparator('.');
         sy.setDecimalSeparator(',');
         int d = com.franco.dev.service.financiero.MonedaService.decimales(m);
-        DecimalFormat df = new DecimalFormat(d > 0 ? "#,##0." + "0".repeat(d) : "#,##0", sy);
+        return new DecimalFormat(d > 0 ? "#,##0." + "0".repeat(d) : "#,##0", sy).format(v != null ? v : BigDecimal.ZERO);
+    }
+
+    /** "R$ 110,00" / "Gs 159.500": separadores fijos de Paraguay, no los del locale de la JVM. */
+    static String montoConMoneda(BigDecimal v, com.franco.dev.domain.financiero.Moneda m) {
         String simbolo = m.getSimbolo() != null && !m.getSimbolo().trim().isEmpty()
                 ? m.getSimbolo().trim() : m.getDenominacion();
-        return simbolo + " " + df.format(v != null ? v : BigDecimal.ZERO);
+        return simbolo + " " + numeroEnMoneda(v, m);
     }
 
     /** Monto de ticket: sin decimales en guaranies (lo de siempre); con los suyos en otra moneda. */

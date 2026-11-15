@@ -61,7 +61,7 @@ class LiquidacionFinalEliminarItemProgramadoTest {
                 mock(CreditoConvenioService.class), mock(AguinaldoRepository.class),
                 mock(BaseRemunerativaService.class), mock(PrestamoCuotaDescuentoService.class),
                 mock(ValeCuotaDescuentoService.class), mock(ItemProgramadoAplicacionService.class),
-                programadoService);
+                programadoService, mock(com.franco.dev.service.financiero.ConversorMoneda.class));
 
         finiquito = new LiquidacionFinal();
         finiquito.setId(33L);

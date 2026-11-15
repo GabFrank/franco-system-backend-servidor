@@ -206,8 +206,8 @@ public class ReporteRrhhService {
 
         List<FiniquitoRow> filas = new ArrayList<>();
         for (com.franco.dev.domain.rrhh.LiquidacionFinalItem it : liquidacionFinalService.findItems(liquidacionFinalId)) {
-            String concepto = it.getDescripcion() != null ? it.getDescripcion()
-                    : (it.getConcepto() != null ? it.getConcepto().name() : "");
+            String concepto = ReciboLiquidacionService.conMonedaOrigen(it.getDescripcion() != null ? it.getDescripcion()
+                    : (it.getConcepto() != null ? it.getConcepto().name() : ""), it.getMoneda(), it.getMontoMoneda(), lf.getMoneda());
             boolean esDescuento = it.getTipo() == com.franco.dev.domain.rrhh.enums.LiquidacionItemTipo.DESCUENTO;
             // Guaraníes sin decimales; los descuentos entre paréntesis (restan).
             String montoStr = formatoGs.format(it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO);
@@ -498,7 +498,7 @@ public class ReporteRrhhService {
         LiquidacionSueldo liq = it.getLiquidacion();
         if (liq == null) throw new GraphQLException("El item no pertenece a ninguna liquidacion");
         validarEstadoParaReciboItem(liq.getEstado() != null ? liq.getEstado().name() : null);
-        String concepto = conceptoItem(it.getDescripcion(), it.getCodigo());
+        String concepto = ReciboLiquidacionService.conMonedaOrigen(conceptoItem(it.getDescripcion(), it.getCodigo()), it);
         String origen = "Liquidacion de sueldo" + (liq.getPeriodo() != null ? " " + liq.getPeriodo() : "");
         return reciboItem(it.getTipo(), concepto, it.getMonto(), liq.getId(), liq.getFuncionario(), origen,
                 anchoMm, escpos);
@@ -512,7 +512,9 @@ public class ReporteRrhhService {
         com.franco.dev.domain.rrhh.LiquidacionFinal lf = it.getLiquidacionFinal();
         if (lf == null) throw new GraphQLException("El item no pertenece a ninguna liquidacion final");
         validarEstadoParaReciboItem(lf.getEstado() != null ? lf.getEstado().name() : null);
-        String concepto = conceptoItem(it.getDescripcion(), it.getConcepto() != null ? it.getConcepto().name() : null);
+        String concepto = ReciboLiquidacionService.conMonedaOrigen(
+                conceptoItem(it.getDescripcion(), it.getConcepto() != null ? it.getConcepto().name() : null),
+                it.getMoneda(), it.getMontoMoneda(), lf.getMoneda());
         String origen = "Liquidacion final";
         return reciboItem(it.getTipo(), concepto, it.getMonto(), lf.getId(), lf.getFuncionario(), origen,
                 anchoMm, escpos);

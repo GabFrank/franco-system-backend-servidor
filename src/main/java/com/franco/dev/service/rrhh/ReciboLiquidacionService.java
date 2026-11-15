@@ -163,11 +163,11 @@ public class ReciboLiquidacionService {
         }
         BigDecimal bruto = montoDeclarado(liq);
         rows.add(new com.franco.dev.utilitarios.print.ReciboTicketEscPos.Row(
-                "NETO A COBRAR", formatoTicket(liq, netoACobrar(liq))));
+                "NETO A COBRAR", formatoGs.format(netoACobrar(liq))));
         return ReciboTicketEscPos.build(
                 razonSocial(), tituloTicket(liq),
                 nombreFuncionario(liq), documentoFuncionario(liq), LocalDate.now().toString(),
-                rows, formatoTicket(liq, bruto), enLetras(bruto),
+                rows, formatoGs.format(bruto), enLetras(bruto),
                 "Recibi conforme, en concepto de haberes del periodo,",
                 ReciboTicketEscPos.textoEnUnaLinea(liq.getObservacion()), anchoMm);
     }
@@ -186,7 +186,7 @@ public class ReciboLiquidacionService {
             filas.add(new ReporteRrhhService.FiniquitoRow(conceptoTicket(it, cacheCatalogo), montoTicket(it)));
         }
         if (filas.isEmpty()) filas.add(new ReporteRrhhService.FiniquitoRow("SIN ITEMS", "0"));
-        filas.add(new ReporteRrhhService.FiniquitoRow("NETO A COBRAR", formatoTicket(liq, netoACobrar(liq))));
+        filas.add(new ReporteRrhhService.FiniquitoRow("NETO A COBRAR", formatoGs.format(netoACobrar(liq))));
 
         BigDecimal bruto = montoDeclarado(liq);
         Map<String, Object> params = new HashMap<>();
@@ -197,7 +197,7 @@ public class ReciboLiquidacionService {
         params.put("documento", documentoFuncionario(liq));
         params.put("fecha", LocalDate.now().toString());
         params.put("clausula", "Recibí conforme, en concepto de haberes del período,");
-        params.put("total", formatoTicket(liq, bruto));
+        params.put("total", formatoGs.format(bruto));
         params.put("totalEnLetras", enLetras(bruto));
 
         String tpl = anchoMm >= 80 ? "reports/recibo-ticket-80.jrxml" : "reports/recibo-ticket-58.jrxml";
@@ -287,17 +287,9 @@ public class ReciboLiquidacionService {
         return simbolo + " " + numeroEnMoneda(v, m);
     }
 
-    /** Monto de ticket: sin decimales en guaranies (lo de siempre); con los suyos en otra moneda. */
-    private String formatoTicket(LiquidacionSueldo liq, BigDecimal v) {
-        BigDecimal x = v != null ? v : BigDecimal.ZERO;
-        return liq == null || liq.getMoneda() == null
-                || com.franco.dev.service.financiero.MonedaService.esGuarani(liq.getMoneda())
-                ? formatoGs.format(x) : numeroEnMoneda(x, liq.getMoneda());
-    }
-
     /** Monto de una fila de ticket. Los descuentos van entre parentesis (no hay columna de signo). */
     private String montoTicket(LiquidacionItem it) {
-        String monto = formatoTicket(it.getLiquidacion(), it.getMonto());
+        String monto = formatoGs.format(it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO);
         return it.getTipo() == LiquidacionItemTipo.DESCUENTO ? "(" + monto + ")" : monto;
     }
 

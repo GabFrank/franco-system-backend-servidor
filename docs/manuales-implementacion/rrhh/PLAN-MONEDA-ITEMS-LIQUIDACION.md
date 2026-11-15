@@ -245,6 +245,22 @@ Tres ejes fijos; los condicionales no aplican porque no hay release ni tablas re
 Desvío anotado: los ítems programados del detalle siguen sin símbolo, porque pueden estar en la moneda
 de otra liquidación.
 
+### Decisión de Franco (15/11): los pagos son siempre en guaraníes
+
+La liquidación y el finiquito se generan **siempre en Gs**.
+
+- **Central:**
+  - El `monedaId` de `generarLiquidacionBorrador`, de `generarLiquidacionesMes/Lote` y del input del
+    finiquito se ignora. Sigue en el schema para no romper clientes.
+  - Una liquidación vieja que no tiene moneda toma Gs.
+  - Lo que se convierte es el origen de cada ítem (vale o préstamo en R$ → Gs).
+- **Se quitó lo que solo servía para documentos en otra moneda:**
+  - el tope del convenio pasado a Gs, el redondeo hacia abajo y el salto de la cuota que daba 0;
+  - `MonedaItemRrhh.aGuaranies`;
+  - los formatos con decimales del ticket y del recibo de finiquito.
+- **Desktop:** se sacó el selector de moneda del diálogo «Generar liquidaciones».
+- La base remunerativa del finiquito quedó como issue central #648.
+
 ## Pruebas por pantalla (paso 9)
 
 Central propio desde el worktree en un puerto libre y desktop `ng serve -c web`, con `MR`:

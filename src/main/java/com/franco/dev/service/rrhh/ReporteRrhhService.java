@@ -209,10 +209,8 @@ public class ReporteRrhhService {
             String concepto = ReciboLiquidacionService.conMonedaOrigen(it.getDescripcion() != null ? it.getDescripcion()
                     : (it.getConcepto() != null ? it.getConcepto().name() : ""), it.getMoneda(), it.getMontoMoneda(), lf.getMoneda());
             boolean esDescuento = it.getTipo() == com.franco.dev.domain.rrhh.enums.LiquidacionItemTipo.DESCUENTO;
-            // Guaraníes sin decimales (lo de siempre); otra moneda, con los suyos. Los descuentos entre paréntesis.
-            String montoStr = lf.getMoneda() == null || com.franco.dev.service.financiero.MonedaService.esGuarani(lf.getMoneda())
-                    ? formatoGs.format(it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO)
-                    : ReciboLiquidacionService.numeroEnMoneda(it.getMonto(), lf.getMoneda());
+            // Guaraníes sin decimales; los descuentos entre paréntesis (restan).
+            String montoStr = formatoGs.format(it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO);
             if (esDescuento) montoStr = "(" + montoStr + ")";
             filas.add(new FiniquitoRow(concepto, montoStr));
         }

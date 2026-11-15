@@ -183,7 +183,8 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         liq.setFechaInicio(inicio);
         liq.setFechaFin(fin);
         liq.setEstado(LiquidacionSueldoEstado.BORRADOR);
-        if (monedaId != null) liq.setMoneda(monedaService.findById(monedaId).orElse(null));
+        // Los pagos de RRHH son siempre en guaranies (Franco, 15/11): el monedaId del cliente se ignora.
+        liq.setMoneda(monedaService.guarani());
         MonedaItemRrhh m = monedas(liq);
         BigDecimal salarioBase = calcularSalarioBase(f, inicio, fin);
         // salario_base sigue siendo el sueldo del funcionario, sin convertir: lo lee el resumen IPS.
@@ -392,21 +393,16 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     private List<LiquidacionItem> itemsConvenio(MonedaItemRrhh m, LiquidacionSueldo liq, Funcionario f, LocalDate fin,
                                                 List<LiquidacionItem> items) {
         List<LiquidacionItem> out = new ArrayList<>();
-        // Las cuotas son en guaranies: el tope se pasa a Gs y cada cuota vuelve a la moneda de la
-        // liquidacion hacia abajo, para que la suma no se pase del neto (exigirNetoNoNegativo).
-        com.franco.dev.domain.financiero.Moneda gs = monedaService.guarani();
-        BigDecimal disponible = m.aGuaranies(disponibleParaConvenio(items), gs);
+        BigDecimal disponible = disponibleParaConvenio(items);
         Long personaId = f.getPersona() != null ? f.getPersona().getId() : null;
         LocalDateTime finVenc = fin.atTime(23, 59, 59);
         for (CreditoConvenioService.CobroCuota cc :
                 creditoConvenioService.planificar(personaId, finVenc, disponible, liq.getId(), null)) {
             String desc = "CUOTA CREDITO - venta #" + (cc.ventaCredito != null ? cc.ventaCredito.getId() : "?")
                     + (cc.parcial ? " (parcial)" : "");
-            LiquidacionItem it = item(liq, "CREDITO_CONVENIO_CUOTA", desc, cc.monto,
+            // Las cuotas de venta a credito son en guaranies.
+            LiquidacionItem it = item(m, monedaService.guarani(), liq, "CREDITO_CONVENIO_CUOTA", desc, cc.monto,
                     LiquidacionItemTipo.DESCUENTO, cc.cuota.getId(), "CREDITO_CONVENIO_CUOTA");
-            aplicar(it, m.cotizar(cc.monto, gs, RoundingMode.DOWN));
-            // Convertida hacia abajo da 0: no se descuenta nada, asi que tampoco se cuenta como cobrada.
-            if (it.getMonto().signum() <= 0) continue;
             it.setReferenciaSucursalId(cc.cuota.getSucursalId());
             it.setReferenciaEstadoPrevio(cc.ventaCredito != null && cc.ventaCredito.getEstado() != null
                     ? cc.ventaCredito.getEstado().name() : null);
@@ -475,7 +471,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     }
 
     private MonedaItemRrhh monedas(LiquidacionSueldo liq) {
-        if (liq.getMoneda() == null) liq.setMoneda(monedaService.empresa());
+        if (liq.getMoneda() == null) liq.setMoneda(monedaService.guarani());
         return new MonedaItemRrhh(conversorMoneda, liq.getMoneda(), LocalDateTime.now());
     }
 

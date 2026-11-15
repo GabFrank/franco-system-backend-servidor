@@ -158,8 +158,8 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         lf.setPreavisoMonto(r.getPreavisoMonto());
         lf.setPreavisoEsDescuento(r.isPreavisoEsDescuento());
         lf.setTotalLiquidado(r.getTotalLiquidado());
-        if (in.getMonedaId() != null) lf.setMoneda(monedaService.findById(in.getMonedaId()).orElse(null));
-        else if (lf.getMoneda() == null) lf.setMoneda(f.getMoneda());
+        // Los pagos de RRHH son siempre en guaranies (Franco, 15/11): el monedaId del cliente se ignora.
+        lf.setMoneda(monedaService.guarani());
         lf.setEstado(LiquidacionFinalEstado.BORRADOR);
         if (lf.getCreadoEn() == null) lf.setCreadoEn(LocalDateTime.now());
         MonedaItemRrhh m = monedas(lf);
@@ -343,7 +343,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     }
 
     private MonedaItemRrhh monedas(LiquidacionFinal lf) {
-        if (lf.getMoneda() == null) lf.setMoneda(monedaService.empresa());
+        if (lf.getMoneda() == null) lf.setMoneda(monedaService.guarani());
         return new MonedaItemRrhh(conversorMoneda, lf.getMoneda(), LocalDateTime.now());
     }
 
@@ -464,9 +464,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         // se va → se toman TODAS las cuotas impagas (no solo las vencidas). Al pagar, si
         // la venta queda 100% saldada se la marca FINALIZADO (reversible al anular).
         if (cobrarConvenios) {
-            // Las cuotas son en guaranies: el tope se pasa a Gs y cada cuota vuelve hacia abajo, para no pasarse.
-            com.franco.dev.domain.financiero.Moneda gs = monedaService.guarani();
-            BigDecimal disponible = m.aGuaranies(disponibleFiniquito(lf), gs);
+            BigDecimal disponible = disponibleFiniquito(lf);
             Long personaId = f.getPersona() != null ? f.getPersona().getId() : null;
             for (CreditoConvenioService.CobroCuota cc :
                     creditoConvenioService.planificar(personaId, null, disponible, null, lf.getId())) {
@@ -476,10 +474,8 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                 it.setReferenciaSucursalId(cc.cuota.getSucursalId());
                 it.setReferenciaEstadoPrevio(cc.ventaCredito != null && cc.ventaCredito.getEstado() != null
                         ? cc.ventaCredito.getEstado().name() : null);
-                aplicar(it, m.cotizar(cc.monto, gs, RoundingMode.DOWN));
-                // Convertida hacia abajo da 0: no se descuenta nada, asi que tampoco se cuenta como cobrada.
-                if (it.getMonto().signum() <= 0) continue;
-                itemRepository.save(it);
+                // Las cuotas de venta a credito son en guaranies.
+                itemRepository.save(en(m, monedaService.guarani(), it));
             }
         }
     }

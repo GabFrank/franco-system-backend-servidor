@@ -62,15 +62,6 @@ class MonedaItemRrhhTest {
     }
 
     @Test
-    void elTopeEnGuaraniesRedondeaHaciaAbajo() {
-        MonedaItemRrhh m = en(real);
-        // R$ 100,01 = 145.014,50 Gs: hacia abajo, para no pasarse del neto.
-        assertEquals(new BigDecimal("145014"), m.aGuaranies(new BigDecimal("100.01"), gs));
-        // Una cuota de 145.015 Gs vuelve como R$ 100,01 (hacia abajo), no 100,02.
-        assertEquals(new BigDecimal("100.01"), m.cotizar(new BigDecimal("145015"), gs, RoundingMode.DOWN).monto);
-    }
-
-    @Test
     void sinCotizacionLanza() {
         MonedaItemRrhh m = new MonedaItemRrhh(new ConversorMoneda(new CotizacionService(mock(CambioRepository.class))),
                 gs, LocalDateTime.now());

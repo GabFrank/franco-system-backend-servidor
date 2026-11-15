@@ -216,15 +216,13 @@ class LiquidacionMonedaTest {
 
     @Test
     void editarSoloLaDescripcionNoCorreElMontoDelOrigen() {
-        f.setMoneda(gs);
-        service.generarBorrador(7L, "2026-11", 2L);
-        LiquidacionItem cuotaGs = item("SALARIO_BASE");
-        BigDecimal antes = cuotaGs.getMontoMoneda();
+        service.generarBorrador(7L, "2026-11", 1L);
+        LiquidacionItem v = item("VALE_DESCUENTO");
 
-        // El desktop manda el mismo monto (R$ 2.068,97) junto con la descripcion nueva.
-        service.editarItem(cuotaGs.getId(), "SALARIO", cuotaGs.getMonto(), null, null);
+        // El desktop manda el mismo monto junto con la descripcion nueva.
+        service.editarItem(v.getId(), "VALE UNIFORME", v.getMonto(), null, null);
 
-        assertEquals(0, antes.compareTo(cuotaGs.getMontoMoneda()), "en Gs: " + cuotaGs.getMontoMoneda());
+        assertEquals(new BigDecimal("110.00"), v.getMontoMoneda());
     }
 
     @Test
@@ -245,45 +243,32 @@ class LiquidacionMonedaTest {
     }
 
     @Test
-    void unFuncionarioSinMonedaCobraEnLaDeLaEmpresaAunqueLaLiquidacionSeaEnReales() {
+    void laLiquidacionSiempreEsEnGuaraniesAunqueElClientePidaOtraMoneda() {
         f.setMoneda(null);
 
         service.generarBorrador(7L, "2026-11", 2L);
 
-        LiquidacionItem salario = item("SALARIO_BASE");
-        assertEquals(gs.getId(), salario.getMoneda().getId());
-        // 3.000.000 Gs / 1.450 = R$ 2.068,97 (antes: R$ 3.000.000)
-        assertEquals(new BigDecimal("2068.97"), salario.getMonto());
-        // El vale ya esta en reales: entra tal cual.
-        assertEquals(0, new BigDecimal("110.00").compareTo(item("VALE_DESCUENTO").getMonto()));
+        assertEquals(gs.getId(), liq.getMoneda().getId());
+        // Sin moneda cargada el sueldo es de la empresa (Gs): entra tal cual.
+        assertEquals(0, new BigDecimal("3000000").compareTo(item("SALARIO_BASE").getMonto()));
+        assertEquals(0, new BigDecimal("159500").compareTo(item("VALE_DESCUENTO").getMonto()));
     }
 
     @Test
-    void elConvenioEnUnaLiquidacionEnRealesGuardaLaCuotaEnGuaraniesYSaltaLasQueDanCero() {
-        vale.setMoneda(real);
+    void laCuotaDeConvenioEntraEnGuaraniesConSuMoneda() {
         f.setPersona(new com.franco.dev.domain.personas.Persona());
         f.getPersona().setId(70L);
-        com.franco.dev.domain.financiero.VentaCreditoCuota grande = new com.franco.dev.domain.financiero.VentaCreditoCuota();
-        grande.setId(1L);
-        com.franco.dev.domain.financiero.VentaCreditoCuota chica = new com.franco.dev.domain.financiero.VentaCreditoCuota();
-        chica.setId(2L);
+        com.franco.dev.domain.financiero.VentaCreditoCuota c = new com.franco.dev.domain.financiero.VentaCreditoCuota();
+        c.setId(1L);
         when(convenio.planificar(eq(70L), any(), any(), any(), any())).thenReturn(List.of(
-                new CreditoConvenioService.CobroCuota(grande, new BigDecimal("60000"), false),
-                new CreditoConvenioService.CobroCuota(chica, new BigDecimal("10"), false)));
+                new CreditoConvenioService.CobroCuota(c, new BigDecimal("60000"), false)));
 
-        service.generarBorrador(7L, "2026-11", 2L);
+        service.generarBorrador(7L, "2026-11", 1L);
 
-        List<LiquidacionItem> cuotas = new ArrayList<>();
-        for (LiquidacionItem it : guardados) if ("CREDITO_CONVENIO_CUOTA".equals(it.getCodigo())) cuotas.add(it);
-        assertEquals(1, cuotas.size(), "la de 10 Gs da R$ 0,00 y no entra");
-        // 60.000 / 1.450 = 41,379... hacia abajo: no se pasa del neto.
-        assertEquals(new BigDecimal("41.37"), cuotas.get(0).getMonto());
-        // Lo cobrado de la cuota queda en su moneda (Gs): lo suma sumConvenioCobrado.
-        assertEquals(0, new BigDecimal("60000").compareTo(cuotas.get(0).getMontoMoneda()));
-        // El tope se planifica en guaranies: neto en R$ pasado a Gs, hacia abajo.
-        org.mockito.ArgumentCaptor<BigDecimal> tope = org.mockito.ArgumentCaptor.forClass(BigDecimal.class);
-        verify(convenio).planificar(eq(70L), any(), tope.capture(), any(), any());
-        assertTrue(tope.getValue().compareTo(new BigDecimal("2000000")) > 0, "tope en Gs: " + tope.getValue());
+        LiquidacionItem cuotaConvenio = item("CREDITO_CONVENIO_CUOTA");
+        assertEquals(0, new BigDecimal("60000").compareTo(cuotaConvenio.getMonto()));
+        assertEquals(0, new BigDecimal("60000").compareTo(cuotaConvenio.getMontoMoneda()));
+        assertEquals(gs.getId(), cuotaConvenio.getMoneda().getId());
     }
 
     @Test

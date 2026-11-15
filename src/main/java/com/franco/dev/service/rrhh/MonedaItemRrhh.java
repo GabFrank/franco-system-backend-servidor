@@ -78,13 +78,6 @@ public final class MonedaItemRrhh {
         return new Cotizado(o, m, f, monto);
     }
 
-    /** Un monto de la moneda del documento, pasado a guaranies hacia abajo (tope del convenio). */
-    public BigDecimal aGuaranies(BigDecimal monto, Moneda guarani) {
-        BigDecimal f = factor(guarani);
-        if (monto == null || f.compareTo(BigDecimal.ONE) == 0) return monto;
-        return monto.divide(f, 0, RoundingMode.DOWN);
-    }
-
     /** De la moneda del documento a la del origen: la edicion manual de un item convertido. */
     public static BigDecimal aOrigen(BigDecimal monto, BigDecimal cotizacion, Moneda origen) {
         if (monto == null || cotizacion == null || cotizacion.compareTo(BigDecimal.ONE) == 0) return monto;

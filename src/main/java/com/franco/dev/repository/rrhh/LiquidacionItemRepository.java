@@ -29,9 +29,10 @@ public interface LiquidacionItemRepository extends HelperRepository<LiquidacionI
 
     /**
      * Suma ya cobrada de una cuota de venta a credito (CREDITO_CONVENIO_CUOTA) por las
-     * liquidaciones mensuales no ANULADAS, excluyendo la liquidacion en curso.
+     * liquidaciones mensuales no ANULADAS, excluyendo la liquidacion en curso. En guaranies, la moneda
+     * de la cuota: monto_moneda (V283.1); los items anteriores no la tienen y estan en Gs.
      */
-    @Query("select coalesce(sum(i.monto), 0) from LiquidacionItem i " +
+    @Query("select coalesce(sum(coalesce(i.montoMoneda, i.monto)), 0) from LiquidacionItem i " +
             "where i.referenciaTipo = 'CREDITO_CONVENIO_CUOTA' " +
             "and i.referenciaId = :cuotaId and i.referenciaSucursalId = :sucId " +
             "and i.liquidacion.estado <> com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.ANULADA " +

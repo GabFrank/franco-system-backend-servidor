@@ -77,7 +77,8 @@ class LiquidacionItemProgramadoServiceTest {
                 mock(PagoSolicitudDetalleRepository.class), mock(JornadaService.class),
                 convenio, conceptoService,
                 mock(PlatformTransactionManager.class), mock(PrestamoCuotaDescuentoService.class),
-                mock(ValeCuotaDescuentoService.class), mock(com.franco.dev.service.rrhh.ItemProgramadoAplicacionService.class), mock(javax.persistence.EntityManager.class));
+                mock(ValeCuotaDescuentoService.class), mock(com.franco.dev.service.rrhh.ItemProgramadoAplicacionService.class), mock(javax.persistence.EntityManager.class),
+                mock(com.franco.dev.service.financiero.ConversorMoneda.class));
         service = new LiquidacionItemProgramadoService(repository, liquidacionRepository, itemRepository,
                 finalItemRepository, liquidacionService);
 

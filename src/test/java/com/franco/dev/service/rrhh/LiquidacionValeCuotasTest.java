@@ -110,7 +110,8 @@ class LiquidacionValeCuotasTest {
                 mock(PrestamoCuotaDescuentoService.class),
                 valeCuotas,
                 mock(ItemProgramadoAplicacionService.class),
-                mock(javax.persistence.EntityManager.class));
+                mock(javax.persistence.EntityManager.class),
+                mock(com.franco.dev.service.financiero.ConversorMoneda.class));
     }
 
     private ValeCuota cuota(Long id, int numero, LocalDate fecha) {

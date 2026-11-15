@@ -79,4 +79,21 @@ public class LiquidacionFinalItem implements Identifiable<Long> {
     /** Monto automático original, antes de la primera edición manual. */
     @Column(name = "monto_original")
     private BigDecimal montoOriginal;
+
+    // --- Moneda del origen (V283.1). `monto` sigue en la moneda del finiquito. ---
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "moneda_id")
+    private com.franco.dev.domain.financiero.Moneda moneda;
+
+    /** El monto en {@link #moneda}: lo que se descuenta de la cuota o el vale de origen. */
+    @Column(name = "monto_moneda")
+    private BigDecimal montoMoneda;
+
+    /** Factor origen → moneda del finiquito, sin redondear: monto = montoMoneda × cotizacion. */
+    private BigDecimal cotizacion;
+
+    /** Cantidad contra el origen; un ítem anterior a V283.1 está en la moneda del finiquito. */
+    public BigDecimal montoEnOrigen() {
+        return montoMoneda != null ? montoMoneda : monto;
+    }
 }

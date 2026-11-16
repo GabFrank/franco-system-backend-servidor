@@ -50,6 +50,8 @@ class RolTesoreriaCajaMatrizTest {
             "EntradaVariaGraphQL.anularEntradaVaria",
             "OperacionFinancieraGraphQL.operacionFinancieraCategorias",
             "RetiroGraphQL.retirosFlotantes",
+            // El aviso de procesados del mismo diálogo: el servicio recorta igual que los flotantes.
+            "RetiroGraphQL.retirosIngresadosDeCaja",
             "RetiroVerificacionGraphQL.verificarRetiro",
             // Vueltos: la lista exige lectura de la caja y el registro escritura sobre la caja del egreso.
             "VueltoEgresoGraphQL.egresosParaVuelto",

@@ -130,4 +130,20 @@ class RetiroConsultasRolTest {
         assertThrows(GraphQLException.class, () -> resolver.retiroListPorCajaSalidaId(662L, null));
         verify(retiroService, never()).findByCajaSalidaId(any());
     }
+
+    @Test
+    void los_retiros_procesados_de_una_caja_sin_rol_de_tesoreria_se_rechazan_sin_consultar() {
+        doThrow(new GraphQLException("No autorizado")).when(seg).requireVerCaja();
+
+        assertThrows(GraphQLException.class, () -> resolver.retirosIngresadosDeCaja(662L, 24L, 19L));
+        verifyNoInteractions(retiroService);
+    }
+
+    @Test
+    void los_retiros_procesados_de_una_caja_piden_el_permiso_de_los_flotantes() {
+        resolver.retirosIngresadosDeCaja(662L, 24L, 19L);
+
+        verify(seg).requireVerCaja();
+        verify(retiroService).findIngresadosDeCaja(662L, 24L, 19L);
+    }
 }

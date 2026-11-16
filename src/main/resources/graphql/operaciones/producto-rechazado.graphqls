@@ -1,0 +1,47 @@
+"""
+Producto rechazado en una transferencia o en una compra (pantalla «Productos rechazados»).
+- fuente: TRANSFERENCIA o COMPRA.
+- etapa: PREPARACION, TRANSPORTE o RECEPCION (transferencia); RECEPCION_FISICA o RECEPCION_DOCUMENTAL (compra).
+- referenciaId: nro. de transferencia o de pedido de compra.
+- origen/destino: sucursales de la transferencia; en compras, proveedor y sucursal que recibía.
+"""
+type ProductoRechazado {
+    fuente: String
+    etapa: String
+    referenciaId: ID
+    itemId: ID
+    fecha: Date
+    productoId: ID
+    productoDescripcion: String
+    presentacion: String
+    cantidad: Float
+    motivo: String
+    observacion: String
+    origen: String
+    destino: String
+    usuario: String
+}
+
+type ProductoRechazadoPage {
+    getContent: [ProductoRechazado]
+    getTotalElements: Int
+    getTotalPages: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+}
+
+extend type Query {
+    # fuente: TRANSFERENCIA, COMPRA o null (las dos). Fechas yyyy-MM-dd, inclusivas.
+    # sucursalId: en transferencias filtra por origen o destino; en compras, por la sucursal que recibía.
+    productosRechazados(
+        fuente: String
+        fechaInicio: String
+        fechaFin: String
+        sucursalId: ID
+        referenciaId: ID
+        texto: String
+        page: Int = 0
+        size: Int = 15
+    ): ProductoRechazadoPage
+}

@@ -156,15 +156,13 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
 
     public String codigoPrincipal(Producto p){
         Presentacion presentacion = presentacionService.findByPrincipalAndProductoId(true, p.getId());
-        if(presentacion!=null){
-            if(presentacionResolver.codigoPrincipal(presentacion)!=null){
-                return presentacionResolver.codigoPrincipal(presentacion).getCodigo();
-            } else {
-                return null;
-            }
-        } else {
+        if (presentacion == null) {
             return null;
         }
+        // Una sola consulta: antes se pedía dos veces (una para el null-check), y esto corre por cada
+        // fila del buscador de productos.
+        Codigo codigo = presentacionResolver.codigoPrincipal(presentacion);
+        return codigo != null ? codigo.getCodigo() : null;
     }
 
     public String precioPrincipal(Producto p){

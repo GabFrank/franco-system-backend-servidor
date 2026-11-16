@@ -6,11 +6,11 @@ import com.franco.dev.domain.operaciones.Devolucion;
 import com.franco.dev.domain.operaciones.RetiroDevolucion;
 import com.franco.dev.domain.operaciones.dto.RetiroBloqueResultadoDto;
 import com.franco.dev.domain.operaciones.enums.DevolucionEstado;
+import com.franco.dev.domain.operaciones.enums.TipoDevolucion;
 import com.franco.dev.repository.operaciones.DevolucionRepository;
 import com.franco.dev.service.empresarial.SucursalService;
 import graphql.GraphQLException;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.ApplicationContext;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -61,9 +61,16 @@ class DevolucionOperacionesTest {
         return d;
     }
 
+    /** Con proveedor: la colecta interna solo aplica a devoluciones CON_PROVEEDOR. */
+    private Devolucion devConProveedor(long id, DevolucionEstado estado, Sucursal origen) {
+        Devolucion d = dev(id, estado, origen);
+        d.setTipo(TipoDevolucion.CON_PROVEEDOR);
+        return d;
+    }
+
     private DevolucionService build(DevolucionRepository repo, DevolucionItemService itemService,
-                                    ApplicationContext ctx) {
-        return new DevolucionService(repo, itemService, null, null, null, null, null, null, null, ctx);
+                                    DevolucionServiceDePrueba deps) {
+        return deps.con(repo).con(itemService).build();
     }
 
     // ===================== colectarEnBloque =====================
@@ -71,10 +78,11 @@ class DevolucionOperacionesTest {
     @Test
     void colecta_agrupaUnaCabeceraPorOrigen() {
         DevolucionRepository repo = mock(DevolucionRepository.class);
+        when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         Sucursal s10 = sucursal(10), s20 = sucursal(20), destino = sucursal(99);
-        when(repo.findById(1L)).thenReturn(Optional.of(dev(1L, DevolucionEstado.SEPARADO, s10)));
-        when(repo.findById(2L)).thenReturn(Optional.of(dev(2L, DevolucionEstado.SEPARADO, s10)));
-        when(repo.findById(3L)).thenReturn(Optional.of(dev(3L, DevolucionEstado.SEPARADO, s20)));
+        when(repo.findById(1L)).thenReturn(Optional.of(devConProveedor(1L, DevolucionEstado.SEPARADO, s10)));
+        when(repo.findById(2L)).thenReturn(Optional.of(devConProveedor(2L, DevolucionEstado.SEPARADO, s10)));
+        when(repo.findById(3L)).thenReturn(Optional.of(devConProveedor(3L, DevolucionEstado.SEPARADO, s20)));
 
         SucursalService sucursalService = mock(SucursalService.class);
         when(sucursalService.findById(99L)).thenReturn(Optional.of(destino));
@@ -87,28 +95,38 @@ class DevolucionOperacionesTest {
             return c;
         });
 
-        DevolucionService self = mock(DevolucionService.class);
+        DevolucionServiceDePrueba deps = new DevolucionServiceDePrueba();
+        deps.con(sucursalService);
+        deps.con(cs);
 
-        ApplicationContext ctx = mock(ApplicationContext.class);
-        when(ctx.getBean(SucursalService.class)).thenReturn(sucursalService);
-        when(ctx.getBean(ColectaDevolucionService.class)).thenReturn(cs);
-        when(ctx.getBean(DevolucionService.class)).thenReturn(self);
-
-        DevolucionService service = build(repo, null, ctx);
+        DevolucionService service = build(repo, null, deps);
         RetiroBloqueResultadoDto res = service.colectarEnBloque(Arrays.asList(1L, 2L, 3L), 99L, null);
 
         assertEquals(3, res.getResultados().size());
         assertTrue(res.getResultados().stream().allMatch(r -> r.getOk()));
         // Dos origenes distintos (10 y 20) -> dos cabeceras.
         verify(cs, times(2)).crear(any(), any(), any());
-        verify(self, times(3)).colectarLinea(anyLong(), eq(99L), anyLong(), any());
+        // Cada linea paso por colectarLinea: quedo guardada COLECTADO en el destino.
+        org.mockito.ArgumentCaptor<Devolucion> guardadas = org.mockito.ArgumentCaptor.forClass(Devolucion.class);
+        verify(repo, org.mockito.Mockito.atLeast(3)).save(guardadas.capture());
+        assertEquals(new java.util.HashSet<>(Arrays.asList(1L, 2L, 3L)), guardadas.getAllValues().stream()
+                .filter(d -> d.getEstado() == DevolucionEstado.COLECTADO
+                        && d.getSucursalUbicacion().getId() == 99L)
+                .map(Devolucion::getId)
+                .collect(java.util.stream.Collectors.toSet()));
     }
 
     @Test
     void colecta_lineaQueFallaNoAbortaResto() {
         DevolucionRepository repo = mock(DevolucionRepository.class);
+        when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         Sucursal s10 = sucursal(10), destino = sucursal(99);
-        when(repo.findById(anyLong())).thenAnswer(inv -> Optional.of(dev(inv.getArgument(0), DevolucionEstado.SEPARADO, s10)));
+        // La 2 sigue PENDIENTE: COLECTADO solo desde SEPARADO, asi que su linea falla.
+        when(repo.findById(anyLong())).thenAnswer(inv -> {
+            Long id = inv.getArgument(0);
+            return Optional.of(devConProveedor(id,
+                    id == 2L ? DevolucionEstado.PENDIENTE : DevolucionEstado.SEPARADO, s10));
+        });
 
         SucursalService sucursalService = mock(SucursalService.class);
         when(sucursalService.findById(99L)).thenReturn(Optional.of(destino));
@@ -117,16 +135,11 @@ class DevolucionOperacionesTest {
         header.setId(7L);
         when(cs.crear(any(), any(), any())).thenReturn(header);
 
-        DevolucionService self = mock(DevolucionService.class);
-        when(self.colectarLinea(eq(2L), any(), any(), any()))
-                .thenThrow(new GraphQLException("Transicion invalida"));
+        DevolucionServiceDePrueba deps = new DevolucionServiceDePrueba();
+        deps.con(sucursalService);
+        deps.con(cs);
 
-        ApplicationContext ctx = mock(ApplicationContext.class);
-        when(ctx.getBean(SucursalService.class)).thenReturn(sucursalService);
-        when(ctx.getBean(ColectaDevolucionService.class)).thenReturn(cs);
-        when(ctx.getBean(DevolucionService.class)).thenReturn(self);
-
-        DevolucionService service = build(repo, null, ctx);
+        DevolucionService service = build(repo, null, deps);
         RetiroBloqueResultadoDto res = service.colectarEnBloque(Arrays.asList(1L, 2L, 3L), 99L, null);
 
         assertTrue(res.getResultados().get(0).getOk());
@@ -139,8 +152,10 @@ class DevolucionOperacionesTest {
     @Test
     void colecta_cabeceraVaciaSeElimina() {
         DevolucionRepository repo = mock(DevolucionRepository.class);
+        when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         Sucursal s10 = sucursal(10), destino = sucursal(99);
-        when(repo.findById(1L)).thenReturn(Optional.of(dev(1L, DevolucionEstado.SEPARADO, s10)));
+        // PENDIENTE: COLECTADO solo desde SEPARADO, asi que la unica linea falla.
+        when(repo.findById(1L)).thenReturn(Optional.of(devConProveedor(1L, DevolucionEstado.PENDIENTE, s10)));
 
         SucursalService sucursalService = mock(SucursalService.class);
         when(sucursalService.findById(99L)).thenReturn(Optional.of(destino));
@@ -149,16 +164,11 @@ class DevolucionOperacionesTest {
         header.setId(77L);
         when(cs.crear(any(), any(), any())).thenReturn(header);
 
-        DevolucionService self = mock(DevolucionService.class);
-        when(self.colectarLinea(eq(1L), any(), any(), any()))
-                .thenThrow(new GraphQLException("Transicion invalida"));
+        DevolucionServiceDePrueba deps = new DevolucionServiceDePrueba();
+        deps.con(sucursalService);
+        deps.con(cs);
 
-        ApplicationContext ctx = mock(ApplicationContext.class);
-        when(ctx.getBean(SucursalService.class)).thenReturn(sucursalService);
-        when(ctx.getBean(ColectaDevolucionService.class)).thenReturn(cs);
-        when(ctx.getBean(DevolucionService.class)).thenReturn(self);
-
-        DevolucionService service = build(repo, null, ctx);
+        DevolucionService service = build(repo, null, deps);
         RetiroBloqueResultadoDto res = service.colectarEnBloque(Collections.singletonList(1L), 99L, null);
 
         assertFalse(res.getResultados().get(0).getOk());
@@ -167,14 +177,14 @@ class DevolucionOperacionesTest {
 
     @Test
     void colecta_destinoNuloFalla() {
-        DevolucionService service = build(mock(DevolucionRepository.class), null, mock(ApplicationContext.class));
+        DevolucionService service = build(mock(DevolucionRepository.class), null, new DevolucionServiceDePrueba());
         assertThrows(GraphQLException.class,
                 () -> service.colectarEnBloque(Arrays.asList(1L), null, null));
     }
 
     @Test
     void colecta_listaVaciaResultadoVacio() {
-        DevolucionService service = build(mock(DevolucionRepository.class), null, mock(ApplicationContext.class));
+        DevolucionService service = build(mock(DevolucionRepository.class), null, new DevolucionServiceDePrueba());
         assertTrue(service.colectarEnBloque(new ArrayList<>(), 99L, null).getResultados().isEmpty());
     }
 
@@ -197,10 +207,10 @@ class DevolucionOperacionesTest {
         RetiroDevolucionService rs = mock(RetiroDevolucionService.class);
         when(rs.findById(5L)).thenReturn(Optional.of(retiro));
 
-        ApplicationContext ctx = mock(ApplicationContext.class);
-        when(ctx.getBean(RetiroDevolucionService.class)).thenReturn(rs);
+        DevolucionServiceDePrueba deps = new DevolucionServiceDePrueba();
+        deps.con(rs);
 
-        DevolucionService service = build(repo, null, ctx);
+        DevolucionService service = build(repo, null, deps);
         Devolucion res = service.revertirEstado(1L, null);
 
         assertEquals(DevolucionEstado.SEPARADO, res.getEstado());
@@ -226,8 +236,8 @@ class DevolucionOperacionesTest {
         d.setRetiro(retiro);
         when(repo.findById(1L)).thenReturn(Optional.of(d));
 
-        ApplicationContext ctx = mock(ApplicationContext.class);
-        DevolucionService service = build(repo, null, ctx);
+        DevolucionServiceDePrueba deps = new DevolucionServiceDePrueba();
+        DevolucionService service = build(repo, null, deps);
         Devolucion res = service.revertirEstado(1L, null);
 
         assertEquals(DevolucionEstado.COLECTADO, res.getEstado());
@@ -253,10 +263,10 @@ class DevolucionOperacionesTest {
         ColectaDevolucionService cs = mock(ColectaDevolucionService.class);
         when(cs.findById(8L)).thenReturn(Optional.of(colecta));
 
-        ApplicationContext ctx = mock(ApplicationContext.class);
-        when(ctx.getBean(ColectaDevolucionService.class)).thenReturn(cs);
+        DevolucionServiceDePrueba deps = new DevolucionServiceDePrueba();
+        deps.con(cs);
 
-        DevolucionService service = build(repo, null, ctx);
+        DevolucionService service = build(repo, null, deps);
         Devolucion res = service.revertirEstado(1L, null);
 
         assertEquals(DevolucionEstado.SEPARADO, res.getEstado());
@@ -279,8 +289,8 @@ class DevolucionOperacionesTest {
         DevolucionItemService itemService = mock(DevolucionItemService.class);
         when(itemService.findByDevolucionId(1L)).thenReturn(new ArrayList<>()); // sin items -> no mueve stock
 
-        ApplicationContext ctx = mock(ApplicationContext.class);
-        DevolucionService service = build(repo, itemService, ctx);
+        DevolucionServiceDePrueba deps = new DevolucionServiceDePrueba();
+        DevolucionService service = build(repo, itemService, deps);
         Devolucion res = service.revertirEstado(1L, null);
 
         assertEquals(DevolucionEstado.PENDIENTE, res.getEstado());
@@ -291,7 +301,7 @@ class DevolucionOperacionesTest {
         DevolucionRepository repo = mock(DevolucionRepository.class);
         Devolucion d = dev(1L, DevolucionEstado.ACREDITADO, sucursal(10));
         when(repo.findById(1L)).thenReturn(Optional.of(d));
-        DevolucionService service = build(repo, null, mock(ApplicationContext.class));
+        DevolucionService service = build(repo, null, new DevolucionServiceDePrueba());
         assertThrows(GraphQLException.class, () -> service.revertirEstado(1L, null));
     }
 
@@ -305,22 +315,23 @@ class DevolucionOperacionesTest {
         when(rs.findById(5L)).thenReturn(Optional.of(header));
         when(rs.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
+        Devolucion d1 = dev(1L, DevolucionEstado.RETIRADO, sucursal(10));
+        Devolucion d2 = dev(2L, DevolucionEstado.RETIRADO, sucursal(10));
         DevolucionRepository repo = mock(DevolucionRepository.class);
-        when(repo.findByRetiroId(5L)).thenReturn(Arrays.asList(
-                dev(1L, DevolucionEstado.RETIRADO, sucursal(10)),
-                dev(2L, DevolucionEstado.RETIRADO, sucursal(10))));
+        when(repo.findByRetiroId(5L)).thenReturn(Arrays.asList(d1, d2));
+        when(repo.findById(1L)).thenReturn(Optional.of(d1));
+        when(repo.findById(2L)).thenReturn(Optional.of(d2));
+        when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        DevolucionService self = mock(DevolucionService.class);
+        DevolucionServiceDePrueba deps = new DevolucionServiceDePrueba();
+        deps.con(rs);
 
-        ApplicationContext ctx = mock(ApplicationContext.class);
-        when(ctx.getBean(RetiroDevolucionService.class)).thenReturn(rs);
-        when(ctx.getBean(DevolucionService.class)).thenReturn(self);
-
-        DevolucionService service = build(repo, null, ctx);
+        DevolucionService service = build(repo, null, deps);
         RetiroDevolucion res = service.revertirRetiro(5L, null);
 
-        verify(self).revertirEstado(eq(1L), any());
-        verify(self).revertirEstado(eq(2L), any());
+        // Cada linea paso por revertirEstado: RETIRADO sin colecta -> SEPARADO.
+        assertEquals(DevolucionEstado.SEPARADO, d1.getEstado());
+        assertEquals(DevolucionEstado.SEPARADO, d2.getEstado());
         assertEquals(RetiroDevolucion.ESTADO_REVERTIDO, res.getEstado());
     }
 
@@ -332,19 +343,20 @@ class DevolucionOperacionesTest {
         when(cs.findById(8L)).thenReturn(Optional.of(header));
         when(cs.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
+        Devolucion d1 = dev(1L, DevolucionEstado.COLECTADO, sucursal(10));
         DevolucionRepository repo = mock(DevolucionRepository.class);
-        when(repo.findByColectaId(8L)).thenReturn(Collections.singletonList(
-                dev(1L, DevolucionEstado.COLECTADO, sucursal(10))));
+        when(repo.findByColectaId(8L)).thenReturn(Collections.singletonList(d1));
+        when(repo.findById(1L)).thenReturn(Optional.of(d1));
+        when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        DevolucionService self = mock(DevolucionService.class);
-        ApplicationContext ctx = mock(ApplicationContext.class);
-        when(ctx.getBean(ColectaDevolucionService.class)).thenReturn(cs);
-        when(ctx.getBean(DevolucionService.class)).thenReturn(self);
+        DevolucionServiceDePrueba deps = new DevolucionServiceDePrueba();
+        deps.con(cs);
 
-        DevolucionService service = build(repo, null, ctx);
+        DevolucionService service = build(repo, null, deps);
         ColectaDevolucion res = service.revertirColecta(8L, null);
 
-        verify(self).revertirEstado(eq(1L), any());
+        // La linea paso por revertirEstado: COLECTADO -> SEPARADO.
+        assertEquals(DevolucionEstado.SEPARADO, d1.getEstado());
         assertEquals(ColectaDevolucion.ESTADO_REVERTIDO, res.getEstado());
     }
 
@@ -361,15 +373,13 @@ class DevolucionOperacionesTest {
                 dev(1L, DevolucionEstado.COLECTADO, sucursal(10)),
                 dev(2L, DevolucionEstado.RETIRADO, sucursal(10))));
 
-        DevolucionService self = mock(DevolucionService.class);
-        ApplicationContext ctx = mock(ApplicationContext.class);
-        when(ctx.getBean(ColectaDevolucionService.class)).thenReturn(cs);
-        when(ctx.getBean(DevolucionService.class)).thenReturn(self);
+        DevolucionServiceDePrueba deps = new DevolucionServiceDePrueba();
+        deps.con(cs);
 
-        DevolucionService service = build(repo, null, ctx);
+        DevolucionService service = build(repo, null, deps);
         assertThrows(GraphQLException.class, () -> service.revertirColecta(8L, null));
         // No debe revertir ninguna linea ni marcar la cabecera.
-        verify(self, never()).revertirEstado(anyLong(), any());
+        verify(repo, never()).save(any());
         verify(cs, never()).save(any());
     }
 
@@ -385,14 +395,12 @@ class DevolucionOperacionesTest {
                 dev(1L, DevolucionEstado.RETIRADO, sucursal(10)),
                 dev(2L, DevolucionEstado.CANJEADO, sucursal(10))));
 
-        DevolucionService self = mock(DevolucionService.class);
-        ApplicationContext ctx = mock(ApplicationContext.class);
-        when(ctx.getBean(RetiroDevolucionService.class)).thenReturn(rs);
-        when(ctx.getBean(DevolucionService.class)).thenReturn(self);
+        DevolucionServiceDePrueba deps = new DevolucionServiceDePrueba();
+        deps.con(rs);
 
-        DevolucionService service = build(repo, null, ctx);
+        DevolucionService service = build(repo, null, deps);
         assertThrows(GraphQLException.class, () -> service.revertirRetiro(5L, null));
-        verify(self, never()).revertirEstado(anyLong(), any());
+        verify(repo, never()).save(any());
         verify(rs, never()).save(any());
     }
 
@@ -400,7 +408,7 @@ class DevolucionOperacionesTest {
 
     @Test
     void save_rechazaSucursalServidor() {
-        DevolucionService service = build(mock(DevolucionRepository.class), null, mock(ApplicationContext.class));
+        DevolucionService service = build(mock(DevolucionRepository.class), null, new DevolucionServiceDePrueba());
         Devolucion nueva = new Devolucion(); // id null
         nueva.setSucursalOrigen(sucursal(0)); // servidor
         assertThrows(GraphQLException.class, () -> service.save(nueva));
@@ -408,7 +416,7 @@ class DevolucionOperacionesTest {
 
     @Test
     void save_rechazaSucursalNula() {
-        DevolucionService service = build(mock(DevolucionRepository.class), null, mock(ApplicationContext.class));
+        DevolucionService service = build(mock(DevolucionRepository.class), null, new DevolucionServiceDePrueba());
         Devolucion nueva = new Devolucion(); // id null, sin origen
         assertThrows(GraphQLException.class, () -> service.save(nueva));
     }

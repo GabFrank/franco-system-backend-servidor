@@ -12,7 +12,6 @@ import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.operaciones.input.NotaCreditoDevolucionItemInput;
 import com.franco.dev.repository.operaciones.DevolucionRepository;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.ApplicationContext;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -43,12 +42,11 @@ class DevolucionResolucionYMontoTest {
         DevolucionRepository repo = mock(DevolucionRepository.class);
         when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         DevolucionItemService itemService = mock(DevolucionItemService.class);
-        ApplicationContext ctx = mock(ApplicationContext.class);
+        DevolucionServiceDePrueba deps = new DevolucionServiceDePrueba();
         DevolucionConfiguracionService configService = mock(DevolucionConfiguracionService.class);
         when(configService.getConfiguracion()).thenReturn(new DevolucionConfiguracion());
-        when(ctx.getBean(DevolucionConfiguracionService.class)).thenReturn(configService);
-        DevolucionService service = new DevolucionService(repo, itemService, null, null,
-                null, null, null, null, null, ctx);
+        deps.con(configService);
+        DevolucionService service = deps.con(repo).con(itemService).build();
 
         Sucursal origen = new Sucursal();
         origen.setId(1L);

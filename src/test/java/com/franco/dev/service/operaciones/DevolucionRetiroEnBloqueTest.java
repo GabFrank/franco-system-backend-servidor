@@ -4,11 +4,12 @@ import com.franco.dev.domain.operaciones.Devolucion;
 import com.franco.dev.domain.operaciones.RetiroDevolucion;
 import com.franco.dev.domain.operaciones.dto.RetiroBloqueResultadoDto;
 import com.franco.dev.domain.operaciones.dto.RetiroDevolucionResultadoDto;
+import com.franco.dev.domain.operaciones.enums.DevolucionEstado;
+import com.franco.dev.domain.operaciones.enums.TipoDevolucion;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.repository.operaciones.DevolucionRepository;
 import graphql.GraphQLException;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.ApplicationContext;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -30,12 +31,9 @@ import static org.mockito.Mockito.when;
  * el resto; cada una se reporta por id (ok / mensaje). Ademas, retirarEnBloque
  * valida que todas sean del mismo proveedor y crea una cabecera RetiroDevolucion.
  *
- * Se mockea el repository (findById devuelve devoluciones con el mismo proveedor),
- * el RetiroDevolucionService (crea la cabecera) y el "self" proxy (retirarLinea).
- *
- * Constructor Lombok @AllArgsConstructor (orden): repository, devolucionItemService,
- * devolucionItemRepository, movimientoStockService, productoVencimientoService,
- * gastoService, gastoRepository, tipoGastoRepository, codigoService, applicationContext.
+ * Se mockean el repository (findById devuelve devoluciones con el mismo proveedor) y el
+ * RetiroDevolucionService (crea la cabecera). Cada linea corre el retirarLinea real dentro del
+ * TransactionTemplate del service; una linea falla cuando su estado no admite RETIRADO.
  */
 class DevolucionRetiroEnBloqueTest {
 
@@ -46,26 +44,31 @@ class DevolucionRetiroEnBloqueTest {
     }
 
     private Devolucion devConProveedor(long id, Proveedor p) {
+        return devConProveedor(id, p, DevolucionEstado.SEPARADO);
+    }
+
+    private Devolucion devConProveedor(long id, Proveedor p, DevolucionEstado estado) {
         Devolucion d = new Devolucion();
         d.setId(id);
         d.setProveedor(p);
+        d.setTipo(TipoDevolucion.CON_PROVEEDOR);
+        d.setEstado(estado);
         return d;
     }
 
-    private DevolucionService buildService(DevolucionService self, DevolucionRepository repository,
+    private DevolucionService buildService(DevolucionRepository repository,
                                            RetiroDevolucionService retiroService) {
-        ApplicationContext ctx = mock(ApplicationContext.class);
-        when(ctx.getBean(DevolucionService.class)).thenReturn(self);
-        when(ctx.getBean(RetiroDevolucionService.class)).thenReturn(retiroService);
-        return new DevolucionService(repository, null, null, null, null, null, null, null, null, ctx);
+        return new DevolucionServiceDePrueba().con(repository).con(retiroService).build();
     }
 
     @Test
     void unaFallaNoAbortaLasDemas() {
         Proveedor p = proveedor(1L);
         DevolucionRepository repo = mock(DevolucionRepository.class);
+        when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(repo.findById(1L)).thenReturn(Optional.of(devConProveedor(1L, p)));
-        when(repo.findById(2L)).thenReturn(Optional.of(devConProveedor(2L, p)));
+        // La 2 sigue PENDIENTE: RETIRADO solo desde SEPARADO o COLECTADO, asi que su linea falla.
+        when(repo.findById(2L)).thenReturn(Optional.of(devConProveedor(2L, p, DevolucionEstado.PENDIENTE)));
         when(repo.findById(3L)).thenReturn(Optional.of(devConProveedor(3L, p)));
 
         RetiroDevolucionService retiroService = mock(RetiroDevolucionService.class);
@@ -73,12 +76,7 @@ class DevolucionRetiroEnBloqueTest {
         header.setId(99L);
         when(retiroService.crear(any(), any())).thenReturn(header);
 
-        DevolucionService self = mock(DevolucionService.class);
-        // La devolucion 2 no tiene stock -> lanza; 1 y 3 se retiran ok.
-        when(self.retirarLinea(eq(2L), any(), any()))
-                .thenThrow(new GraphQLException("Stock insuficiente"));
-
-        DevolucionService service = buildService(self, repo, retiroService);
+        DevolucionService service = buildService(repo, retiroService);
 
         RetiroBloqueResultadoDto res =
                 service.retirarEnBloque(Arrays.asList(1L, 2L, 3L), null);
@@ -93,7 +91,7 @@ class DevolucionRetiroEnBloqueTest {
 
         assertEquals(2L, r2.getId().longValue());
         assertFalse(r2.getOk());
-        assertEquals("Stock insuficiente", r2.getMensaje());
+        assertEquals("RETIRADO solo desde SEPARADO o COLECTADO", r2.getMensaje());
 
         assertEquals(3L, r3.getId().longValue());
         assertTrue(r3.getOk());
@@ -103,6 +101,7 @@ class DevolucionRetiroEnBloqueTest {
     void todasOk() {
         Proveedor p = proveedor(5L);
         DevolucionRepository repo = mock(DevolucionRepository.class);
+        when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(repo.findById(anyLong())).thenAnswer(inv -> Optional.of(devConProveedor(inv.getArgument(0), p)));
 
         RetiroDevolucionService retiroService = mock(RetiroDevolucionService.class);
@@ -110,8 +109,7 @@ class DevolucionRetiroEnBloqueTest {
         header.setId(1L);
         when(retiroService.crear(any(), any())).thenReturn(header);
 
-        DevolucionService self = mock(DevolucionService.class);
-        DevolucionService service = buildService(self, repo, retiroService);
+        DevolucionService service = buildService(repo, retiroService);
 
         RetiroBloqueResultadoDto res =
                 service.retirarEnBloque(Arrays.asList(10L, 11L), null);
@@ -127,8 +125,7 @@ class DevolucionRetiroEnBloqueTest {
         when(repo.findById(1L)).thenReturn(Optional.of(devConProveedor(1L, proveedor(1L))));
         when(repo.findById(2L)).thenReturn(Optional.of(devConProveedor(2L, proveedor(2L))));
 
-        DevolucionService service = buildService(mock(DevolucionService.class), repo,
-                mock(RetiroDevolucionService.class));
+        DevolucionService service = buildService(repo, mock(RetiroDevolucionService.class));
 
         try {
             service.retirarEnBloque(Arrays.asList(1L, 2L), null);
@@ -140,7 +137,7 @@ class DevolucionRetiroEnBloqueTest {
 
     @Test
     void listaNulaDaResultadoVacio() {
-        DevolucionService service = buildService(mock(DevolucionService.class), null, null);
+        DevolucionService service = buildService(null, null);
 
         RetiroBloqueResultadoDto res = service.retirarEnBloque(null, null);
 

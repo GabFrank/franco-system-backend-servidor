@@ -19,6 +19,7 @@ import com.franco.dev.repository.operaciones.NotaRecepcionRepository;
 import com.franco.dev.repository.operaciones.RecepcionMercaderiaItemRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.productos.ProductoProveedorService;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -357,6 +358,19 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
         // Si hay items pendientes, asignarlos a la nota
         if (!pedidoItemIds.isEmpty()) {
             asignarItemsANota(notaRecepcionId, pedidoItemIds, usuario);
+        }
+    }
+
+    /**
+     * Recalcula el estado de las notas cuyas distribuciones cambiaron. Sincrónico: corre en la
+     * transacción de quien publica, igual que cuando el service de distribuciones llamaba directo
+     * a {@link #actualizarEstadoNota}.
+     */
+    @EventListener
+    @Transactional
+    public void alCambiarDistribucion(DistribucionNotaRecepcionCambiadaEvent evento) {
+        for (Long notaRecepcionId : evento.getNotaRecepcionIds()) {
+            actualizarEstadoNota(notaRecepcionId);
         }
     }
 

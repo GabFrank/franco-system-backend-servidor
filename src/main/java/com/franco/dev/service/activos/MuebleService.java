@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 
 import com.franco.dev.domain.activos.Ente;
 import com.franco.dev.domain.activos.enums.TipoEnte;
-import org.springframework.context.annotation.Lazy;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -21,7 +20,7 @@ public class MuebleService extends CrudService<Mueble, MuebleRepository, Long> {
     private final MuebleRepository repository;
     private final EnteService enteService;
 
-    public MuebleService(MuebleRepository repository, @Lazy EnteService enteService) {
+    public MuebleService(MuebleRepository repository, EnteService enteService) {
         this.repository = repository;
         this.enteService = enteService;
     }

@@ -13,7 +13,6 @@ import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.ActivoFinancieroSyncFacade;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -38,7 +37,7 @@ public class EquipoService extends CrudService<Equipo, EquipoRepository, Long> {
 
     public EquipoService(
             EquipoRepository repository,
-            @Lazy EnteService enteService,
+            EnteService enteService,
             PersonaService personaService,
             TipoEquipoService tipoEquipoService,
             ModeloEquipoService modeloEquipoService,

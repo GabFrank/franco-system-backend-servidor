@@ -16,10 +16,9 @@ import com.franco.dev.domain.operaciones.RecepcionMercaderiaItem;
 import com.franco.dev.graphql.operaciones.dto.AsignacionError;
 import com.franco.dev.graphql.operaciones.dto.AsignacionResult;
 import com.franco.dev.repository.operaciones.NotaRecepcionRepository;
+import com.franco.dev.repository.operaciones.RecepcionMercaderiaItemRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.productos.ProductoProveedorService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -46,11 +45,7 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
     private final PedidoItemService pedidoItemService;
     private final ProcesoEtapaService procesoEtapaService;
     private final ProductoProveedorService productoProveedorService;
-    
-    // Usar @Lazy para romper dependencia circular con RecepcionMercaderiaItemService
-    @Autowired
-    @Lazy
-    private RecepcionMercaderiaItemService recepcionMercaderiaItemService;
+    private final RecepcionMercaderiaItemRepository recepcionMercaderiaItemRepository;
 
     public NotaRecepcionService(
             NotaRecepcionRepository repository,
@@ -58,13 +53,15 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
             NotaRecepcionItemDistribucionService notaRecepcionItemDistribucionService,
             PedidoItemService pedidoItemService,
             ProcesoEtapaService procesoEtapaService,
-            ProductoProveedorService productoProveedorService) {
+            ProductoProveedorService productoProveedorService,
+            RecepcionMercaderiaItemRepository recepcionMercaderiaItemRepository) {
         this.repository = repository;
         this.notaRecepcionItemService = notaRecepcionItemService;
         this.notaRecepcionItemDistribucionService = notaRecepcionItemDistribucionService;
         this.pedidoItemService = pedidoItemService;
         this.procesoEtapaService = procesoEtapaService;
         this.productoProveedorService = productoProveedorService;
+        this.recepcionMercaderiaItemRepository = recepcionMercaderiaItemRepository;
     }
 
     @Override
@@ -653,7 +650,7 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
 
                 // Obtener cantidad recibida y rechazada desde RecepcionMercaderiaItem
                 List<RecepcionMercaderiaItem> itemsRecepcion = 
-                    recepcionMercaderiaItemService.getRepository().findByNotaRecepcionItemDistribucionId(dist.getId());
+                    recepcionMercaderiaItemRepository.findByNotaRecepcionItemDistribucionId(dist.getId());
 
                 Double cantidadRecibida = itemsRecepcion.stream()
                     .mapToDouble(rmItem -> rmItem.getCantidadRecibida() != null ? rmItem.getCantidadRecibida() : 0.0)

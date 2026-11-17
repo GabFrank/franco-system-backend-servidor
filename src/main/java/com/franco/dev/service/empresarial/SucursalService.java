@@ -1,12 +1,10 @@
 package com.franco.dev.service.empresarial;
 
-import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.repository.empresarial.SucursalRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,11 +21,9 @@ public class SucursalService extends CrudService<Sucursal, SucursalRepository, L
     private final SucursalRepository repository;
     @Autowired
     private Environment environment;
-    private MultiTenantService multiTenantService;
 
     @Autowired
-    public SucursalService(@Lazy MultiTenantService multiTenantService, SucursalRepository repository) {
-        this.multiTenantService = multiTenantService;
+    public SucursalService(SucursalRepository repository) {
         this.repository = repository;
     }
 

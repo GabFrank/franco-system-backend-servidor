@@ -27,7 +27,6 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -58,11 +57,6 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
     
     private final RecepcionMercaderiaRepository repository;
     
-    // Usar @Lazy para romper dependencia circular con RecepcionMercaderiaItemService
-    @Autowired
-    @Lazy
-    private RecepcionMercaderiaItemService recepcionMercaderiaItemService;
-
     @Autowired
     private RecepcionMercaderiaItemRepository recepcionMercaderiaItemRepository;
     
@@ -94,7 +88,6 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
     private MonedaService monedaService;
 
     @Autowired
-    @Lazy
     private NotaRecepcionService notaRecepcionService;
 
     @Autowired
@@ -180,7 +173,7 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
         }
         
         // Obtener todos los ítems de la recepción
-        List<RecepcionMercaderiaItem> items = recepcionMercaderiaItemService
+        List<RecepcionMercaderiaItem> items = recepcionMercaderiaItemRepository
             .findByRecepcionMercaderiaId(recepcionId);
         
         // Si se indica motivo de rechazo para pendientes, marcar las cantidades pendientes como rechazadas
@@ -378,7 +371,7 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
             if (pendiente > 0) {
                 item.setCantidadRechazada(cantidadRechazada + pendiente);
                 item.setMotivoRechazo(motivoRechazo);
-                recepcionMercaderiaItemService.save(item);
+                recepcionMercaderiaItemRepository.save(item);
             }
         }
     }

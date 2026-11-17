@@ -6,7 +6,6 @@ import com.franco.dev.domain.financiero.enums.EstadoVentaCredito;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.repository.financiero.VentaCreditoRepository;
-import com.franco.dev.service.operaciones.VentaService;
 import graphql.GraphQLException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -28,16 +27,14 @@ class VentaCreditoServiceCancelarTest {
     private static final Long ID = 9L;
     private static final Long SUCURSAL_ID = 1L;
 
-    private VentaService ventaService;
     private VentaCreditoRepository repository;
     private VentaCreditoService service;
     private VentaCredito ventaCredito;
 
     @BeforeEach
     void setUp() {
-        ventaService = mock(VentaService.class);
         repository = mock(VentaCreditoRepository.class);
-        service = new VentaCreditoService(ventaService, repository);
+        service = new VentaCreditoService(repository);
 
         Venta ventaDeLaVentaCredito = new Venta();
         ventaDeLaVentaCredito.setId(40L);
@@ -49,9 +46,6 @@ class VentaCreditoServiceCancelarTest {
         ventaCredito.setEstado(EstadoVentaCredito.ABIERTO);
         ventaCredito.setVenta(ventaDeLaVentaCredito);
         when(repository.findById(any(EmbebedPrimaryKey.class))).thenReturn(Optional.of(ventaCredito));
-        when(ventaService.findById(any(EmbebedPrimaryKey.class)))
-                .thenReturn(Optional.of(ventaDeLaVentaCredito));
-        when(ventaService.save(any())).thenAnswer(i -> i.getArgument(0));
     }
 
     private Venta venta(VentaEstado estado) {
@@ -71,7 +65,6 @@ class VentaCreditoServiceCancelarTest {
         assertTrue(e.getMessage().contains("Falta la venta"), e.getMessage());
         assertEquals(VentaEstado.CONCLUIDA, ventaCredito.getVenta().getEstado());
         assertEquals(EstadoVentaCredito.ABIERTO, ventaCredito.getEstado());
-        verify(ventaService, never()).save(any());
         verify(repository, never()).save(any());
     }
 
@@ -82,7 +75,6 @@ class VentaCreditoServiceCancelarTest {
 
         assertEquals(EstadoVentaCredito.CANCELADO, ventaCredito.getEstado());
         verify(repository, times(1)).save(ventaCredito);
-        verify(ventaService, never()).save(any());
     }
 
     @Test

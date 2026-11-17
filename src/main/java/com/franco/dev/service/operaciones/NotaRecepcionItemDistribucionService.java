@@ -7,8 +7,7 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.repository.operaciones.NotaRecepcionItemDistribucionRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.graphql.operaciones.dto.ProductoAgrupadoDTO;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,18 +21,15 @@ public class NotaRecepcionItemDistribucionService extends CrudService<NotaRecepc
     
     private final NotaRecepcionItemDistribucionRepository repository;
     private final com.franco.dev.service.operaciones.NotaRecepcionItemService notaRecepcionItemService;
-    
-    // Usar @Lazy para resolver dependencia circular con NotaRecepcionService
-    @Autowired
-    @Lazy
-    private com.franco.dev.service.operaciones.NotaRecepcionService notaRecepcionService;
-    
-    // Constructor con dependencias finales
+    private final ApplicationEventPublisher eventPublisher;
+
     public NotaRecepcionItemDistribucionService(
             NotaRecepcionItemDistribucionRepository repository,
-            com.franco.dev.service.operaciones.NotaRecepcionItemService notaRecepcionItemService) {
+            com.franco.dev.service.operaciones.NotaRecepcionItemService notaRecepcionItemService,
+            ApplicationEventPublisher eventPublisher) {
         this.repository = repository;
         this.notaRecepcionItemService = notaRecepcionItemService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -216,8 +212,8 @@ public class NotaRecepcionItemDistribucionService extends CrudService<NotaRecepc
                 }
             }
         }
-        for (Long notaRecepcionId : notasAActualizar) {
-            notaRecepcionService.actualizarEstadoNota(notaRecepcionId);
+        if (!notasAActualizar.isEmpty()) {
+            eventPublisher.publishEvent(new DistribucionNotaRecepcionCambiadaEvent(notasAActualizar));
         }
 
         return saved;
@@ -263,7 +259,8 @@ public class NotaRecepcionItemDistribucionService extends CrudService<NotaRecepc
         
         // Actualizar estado de la nota
         if (notaRecepcionId != null) {
-            notaRecepcionService.actualizarEstadoNota(notaRecepcionId);
+            eventPublisher.publishEvent(
+                new DistribucionNotaRecepcionCambiadaEvent(java.util.Collections.singleton(notaRecepcionId)));
         }
 
         return saved;

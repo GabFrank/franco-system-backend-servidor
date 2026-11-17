@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,6 +27,7 @@ import java.util.Optional;
 public class MarcacionService extends CrudService<Marcacion, MarcacionRepository, EmbebedPrimaryKey> {
 
     private static final Logger log = LoggerFactory.getLogger(MarcacionService.class);
+    private static final DateTimeFormatter FORMATO_NOTA = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     private final MarcacionRepository repository;
     private final JornadaService jornadaService;
@@ -160,6 +162,7 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
             }
             tardanzaCalculator.calcular(jornada);
             horasTrabajadasCalculator.calcular(jornada);
+            ajustarSalidaNocturnaOlvidada(jornada);
 
             jornadaService.save(jornada);
 
@@ -170,6 +173,35 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                     marcacion.getId(), marcacion.getSucursalId(), e);
             throw new RuntimeException("Error procesando jornada de marcación", e);
         }
+    }
+
+    /**
+     * Nocturna cuya salida se marco mucho despues (el funcionario se olvido y al dia siguiente
+     * no vino): se cierra con la marcacion real, pero las horas se ajustan a 8 sin extras, como
+     * el "ajustar a 8 horas" manual. Va despues del calculo para que reprocesar la jornada
+     * vuelva a dejarla igual.
+     */
+    private void ajustarSalidaNocturnaOlvidada(Jornada jornada) {
+        Marcacion salida = jornada.getMarcacionSalida();
+        if (salida == null) {
+            return;
+        }
+        LocalDateTime fechaSalida = salida.getFechaSalida() != null ? salida.getFechaSalida() : salida.getFechaEntrada();
+        if (!jornadaMarcacionRules.esNocturnaConSalidaOlvidada(jornada, fechaSalida)) {
+            return;
+        }
+        jornada.setMinutosTrabajados(JornadaMarcacionRules.MINUTOS_JORNADA_AJUSTADA);
+        jornada.setMinutosExtras(0L);
+        String nota = "Salida nocturna olvidada (marcada el "
+                + fechaSalida.format(FORMATO_NOTA) + "): ajustada a 8 horas automaticamente.";
+        String observacion = jornada.getObservacion();
+        if (observacion == null || observacion.isBlank()) {
+            jornada.setObservacion(nota);
+        } else if (!observacion.contains("Salida nocturna olvidada")) {
+            jornada.setObservacion(observacion + " | " + nota);
+        }
+        log.info("Jornada {} (usuario {}): salida nocturna olvidada, ajustada a 8 horas",
+                jornada.getId(), jornada.getUsuario() != null ? jornada.getUsuario().getId() : null);
     }
 
     private void validarMarcacion(Marcacion marcacion) {

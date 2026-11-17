@@ -22,7 +22,7 @@ duplicado y hubo que cancelarlo por SQL.
 | Gasto espejo (`financiero.gasto`, sucursal 0) | Se llama `GastoTesoreriaService.sincronizarDesdeSolicitudPago(sp)` **como defensa**: con la regla de sin pagos el espejo, si existe, ya quedó `cancelado = true` al anular el pago, así que hoy es no-op y no emite un segundo `gasto.cancelado` | Reusar el camino de la anulación sin duplicar lógica |
 | PreGasto vinculado | `PreGastoService.cancelarDesdeSolicitudPago(sp, motivo, usuario)`: solo desde ENVIADO_A_TESORERIA (otro estado: no-op con log). Pasa a **RECHAZADO**, `motivoRechazo` = solo el texto de esta cancelación (no todo `observaciones`), `rechazadoEn` = ahora, `rechazadoPor` = persona del usuario. **No** toca `autorizadoPor`/`autorizadoEn` ni `solicitudPagoId` (queda como rastro). Guarda con `repository.save`, no con `save()` del servicio (que revalida el monto contra la cuota del activo y podría trabar la cancelación). No escribe `administrativo.autorizacion`: no es un rechazo del autorizador | RECHAZADO ya existe en Java, `.graphqls` y PG: sin migración ni enum nuevo (lo que rompió la PWA con PAGADO). `sincronizarDesdeSolicitudPago` lo devolvería a ENVIADO_A_TESORERIA, por eso va aparte |
 | RECHAZADO por cancelación es terminal | Guarda en `PreGastoService.autorizar`: rechaza `RECHAZADO && solicitudPagoId != null` («Esta solicitud se canceló en tesorería: cargá un gasto nuevo») | Hoy `autorizar` no mira el estado: por API se podría reautorizar, retirar con QR o reenviar y crear otra solicitud. Un rechazo normal ocurre antes de enviar a tesorería, sin `solicitudPagoId`, así que no lo afecta |
-| Anular un pago de una solicitud cancelada | Guarda en `anularPagoCpp`: si alguna solicitud del evento está CANCELADO, rechaza sin revertir nada | Con el código actual la reabriría a SOLICITADO en silencio (y su PreGasto a ENVIADO_A_TESORERIA). Solo puede pasar con datos tocados por SQL; mejor que lo revise una persona |
+| Anular un pago de un gasto cancelado | Guarda en `anularPagoCpp`: si algún **gasto** del evento está CANCELADO, rechaza sin revertir nada. Lee solo los números (consulta escalar), sin cargar la entidad | Con el código actual lo reabriría a SOLICITADO en silencio (y su PreGasto a ENVIADO_A_TESORERIA). Solo gastos: hasta 2026-09 se cancelaban compras PARCIAL sin revertir y esos pagos se siguen anulando como antes. Sin cargar la entidad porque el `lockById` posterior la devolvería sin refrescar |
 | Seguridad | Resolver: `seg.requireGestionar()` primera línea. Servicio, con el lock tomado: si `cajaVirtualAsignadaId != null`, `seguridad.requireEscrituraCaja(id)` | Lo que pide la issue. El rol acotado TESORERIA CAJA no cancela: qué se debe lo decide tesorería |
 | Tipo | Rechaza si `tipo != GASTO` | Compras se cancela desde compras; RRHH desde su documento |
 | Errores | El servicio lanza `IllegalStateException`/`IllegalArgumentException` (reusa `exigirSinPagos`/`exigirMotivo`); el resolver las atrapa y las relanza como `GraphqlErrorException` con el mensaje, igual que `cancelarSolicitudPago` | `PagoProveedorGraphQL` no tiene ese `catch` hoy: sin él, el desktop mostraría el error genérico |
@@ -148,3 +148,14 @@ UPDATE financiero.pre_gasto SET estado = 'ENVIADO_A_TESORERIA', motivo_rechazo =
   (A7), sin auditoría en `administrativo.autorizacion` (A8), estados alcanzables (A9), detalles vivos y
   guarda en `anularPagoCpp` (B1), PreGasto por `repository.save` sin borrar la autorización (B2),
   estado de origen en la observación y SQL de reversión (B3), botón deshabilitado en curso (B4).
+- Paso 7 (17/11): fase 1 central (3794 tests, 0 fallos) y fase 2 desktop (`npm run check` sin errores).
+  Las guardas de `anularPagoCpp` y `autorizar` se probaron sacándolas: sus tests fallan.
+- Paso 9 (17/11): por API, 15 casos contra central local; por pantalla, cancelar con motivo, botón oculto
+  en PARCIAL y sin TESORERIA GESTIONAR, rechazo de caja ajena con el mensaje limpio. Roles de MR
+  restaurados.
+- Paso 8 (17/11): Fijo 2 N/A (sin migraciones, enums ni columnas; solo una mutation nueva). Condicionales A
+  y B N/A (no toca release ni tablas replicadas). Fijo 1: la guarda de `anularPagoCpp` cargaba la solicitud
+  antes del `lockById` (saldo viejo ante un pago concurrente) → consulta escalar; tipo antes que pagos en
+  `cancelarGasto`. Fuera de alcance: un agujero previo en la edición de PreGasto, anotado aparte. Fijo 3:
+  la guarda bloqueaba anular pagos de compras canceladas antes de 2026-09 → acotada a gastos; el PR del
+  desktop dice que necesita el central nuevo.

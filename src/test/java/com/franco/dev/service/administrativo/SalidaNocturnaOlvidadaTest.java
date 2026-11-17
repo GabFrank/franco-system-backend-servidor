@@ -69,7 +69,7 @@ class SalidaNocturnaOlvidadaTest {
         noche.setTurno(Turno.NOCHE);
         noche.setDias(new HashSet<>(Collections.singletonList(Dia.TODOS)));
         HorarioRepository horarioRepository = mock(HorarioRepository.class);
-        when(horarioRepository.findByUsuarioIdOrderByIdDesc(USUARIO_ID))
+        when(horarioRepository.findAsignadosAUsuario(USUARIO_ID))
                 .thenReturn(Collections.singletonList(noche));
 
         jornadaService = mock(JornadaService.class);

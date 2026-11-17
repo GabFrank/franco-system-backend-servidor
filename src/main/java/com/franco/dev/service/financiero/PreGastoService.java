@@ -240,6 +240,11 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         PreGasto preGasto = repository.findByIdAndSucursalId(id, sucId);
         if (preGasto == null)
             return null;
+        // Un rechazo normal es antes de enviar a tesorería (sin solicitud). Con solicitud, lo rechazó la
+        // cancelación del gasto (#599) y es terminal: reautorizarlo dejaría retirar o reenviar algo cancelado.
+        if (preGasto.getEstado() == EstadoPreGasto.RECHAZADO && preGasto.getSolicitudPagoId() != null) {
+            throw new RuntimeException("Esta solicitud se canceló en tesorería: cargá un gasto nuevo.");
+        }
         Persona autorizador = autorizadorId != null ? personaService.findById(autorizadorId).orElse(null) : null;
         preGasto.setEstado(EstadoPreGasto.AUTORIZADO);
         preGasto.setAutorizadoPor(autorizador);
@@ -378,6 +383,26 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
             }
             repository.save(pg);
         }
+    }
+
+    /**
+     * Tesorería canceló la solicitud GASTO de este PreGasto (#599): queda RECHAZADO con el texto de la
+     * cancelación. Solo desde ENVIADO_A_TESORERIA; en otro estado no se toca. Conserva la autorización y el
+     * solicitudPagoId como rastro, y guarda por el repositorio: el save del servicio revalida el monto contra
+     * la cuota del activo y podría trabar la cancelación. No es un rechazo del autorizador, así que no va a
+     * administrativo.autorizacion.
+     */
+    @Transactional
+    public void cancelarDesdeSolicitudPago(com.franco.dev.domain.operaciones.SolicitudPago sp, String motivo,
+                                           Usuario usuario) {
+        if (sp == null) return;
+        PreGasto pg = repository.findBySolicitudPagoId(sp.getId());
+        if (pg == null || pg.getEstado() != EstadoPreGasto.ENVIADO_A_TESORERIA) return;
+        pg.setEstado(EstadoPreGasto.RECHAZADO);
+        pg.setMotivoRechazo(motivo);
+        pg.setRechazadoEn(LocalDateTime.now());
+        pg.setRechazadoPor(usuario != null ? usuario.getPersona() : null);
+        repository.save(pg);
     }
 
     /**

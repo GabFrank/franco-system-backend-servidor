@@ -8,6 +8,7 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.ProductoProveedor;
 import com.franco.dev.repository.operaciones.NotaRecepcionRepository;
+import com.franco.dev.repository.operaciones.RecepcionMercaderiaItemRepository;
 import com.franco.dev.repository.productos.ProductoProveedorRepository;
 import com.franco.dev.service.productos.ProductoProveedorService;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +35,7 @@ class VinculoProductoProveedorTest {
     @Mock ProcesoEtapaService procesoEtapaService;
     @Mock ProductoProveedorService productoProveedorService;
     @Mock ProductoProveedorRepository vinculoRepo;
+    @Mock RecepcionMercaderiaItemRepository recepcionItemRepository;
 
     NotaRecepcionService service;
     Proveedor proveedor;
@@ -43,7 +45,7 @@ class VinculoProductoProveedorTest {
     @BeforeEach
     void init() {
         service = new NotaRecepcionService(repository, itemService, distribucionService, pedidoItemService,
-                procesoEtapaService, productoProveedorService);
+                procesoEtapaService, productoProveedorService, recepcionItemRepository);
         proveedor = new Proveedor();
         proveedor.setId(7L);
         pedido = new Pedido();

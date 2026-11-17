@@ -36,13 +36,15 @@ import com.franco.dev.repository.financiero.TipoGastoRepository;
 import com.franco.dev.repository.operaciones.DevolucionRepository;
 import com.franco.dev.service.CrudService;
 import graphql.GraphQLException;
-import lombok.AllArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
+import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.financiero.CajaVirtualService;
+import com.franco.dev.service.financiero.TesoreriaService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -67,40 +69,70 @@ import java.util.Map;
  * - Mobile: Si (carga de devolucion por escaneo)
  */
 @Service
-@AllArgsConstructor
 public class DevolucionService extends CrudService<Devolucion, DevolucionRepository, Long> {
 
     /** Descripcion del TipoGasto semilla (V147.0) usado para la merma. */
     public static final String TIPO_GASTO_MERMA = "MERMA/AVERIA DE PRODUCTO";
 
     private final DevolucionRepository repository;
+    private final DevolucionItemService devolucionItemService;
+    private final com.franco.dev.repository.operaciones.DevolucionItemRepository devolucionItemRepository;
+    private final MovimientoStockService movimientoStockService;
+    private final ProductoVencimientoService productoVencimientoService;
+    private final com.franco.dev.service.financiero.GastoService gastoService;
+    private final GastoRepository gastoRepository;
+    private final TipoGastoRepository tipoGastoRepository;
+    private final CodigoService codigoService;
+    private final RetiroDevolucionService retiroDevolucionService;
+    private final ColectaDevolucionService colectaDevolucionService;
+    private final DevolucionLoteService devolucionLoteService;
+    private final DevolucionConfiguracionService devolucionConfiguracionService;
+    private final SucursalService sucursalService;
+    private final CajaVirtualService cajaVirtualService;
+    private final TesoreriaService tesoreriaService;
+    /**
+     * Las operaciones en bloque (retirar/colectar varias devoluciones) corren cada linea en su
+     * propia transaccion para que el fallo de una no aborte el resto. Antes se lograba pidiendo
+     * este mismo service al contexto de Spring para pasar por su proxy; el TransactionTemplate lo
+     * hace explicito, con la misma propagacion (REQUIRED) que el @Transactional de cada linea.
+     */
+    private final TransactionTemplate transactionTemplate;
 
-    @Autowired
-    private DevolucionItemService devolucionItemService;
-
-    @Autowired
-    private com.franco.dev.repository.operaciones.DevolucionItemRepository devolucionItemRepository;
-
-    @Autowired
-    private MovimientoStockService movimientoStockService;
-
-    @Autowired
-    private ProductoVencimientoService productoVencimientoService;
-
-    @Autowired
-    private com.franco.dev.service.financiero.GastoService gastoService;
-
-    @Autowired
-    private GastoRepository gastoRepository;
-
-    @Autowired
-    private TipoGastoRepository tipoGastoRepository;
-
-    @Autowired
-    private CodigoService codigoService;
-
-    @Autowired
-    private ApplicationContext applicationContext;
+    public DevolucionService(DevolucionRepository repository,
+                             DevolucionItemService devolucionItemService,
+                             com.franco.dev.repository.operaciones.DevolucionItemRepository devolucionItemRepository,
+                             MovimientoStockService movimientoStockService,
+                             ProductoVencimientoService productoVencimientoService,
+                             com.franco.dev.service.financiero.GastoService gastoService,
+                             GastoRepository gastoRepository,
+                             TipoGastoRepository tipoGastoRepository,
+                             CodigoService codigoService,
+                             RetiroDevolucionService retiroDevolucionService,
+                             ColectaDevolucionService colectaDevolucionService,
+                             DevolucionLoteService devolucionLoteService,
+                             DevolucionConfiguracionService devolucionConfiguracionService,
+                             SucursalService sucursalService,
+                             CajaVirtualService cajaVirtualService,
+                             TesoreriaService tesoreriaService,
+                             PlatformTransactionManager transactionManager) {
+        this.repository = repository;
+        this.devolucionItemService = devolucionItemService;
+        this.devolucionItemRepository = devolucionItemRepository;
+        this.movimientoStockService = movimientoStockService;
+        this.productoVencimientoService = productoVencimientoService;
+        this.gastoService = gastoService;
+        this.gastoRepository = gastoRepository;
+        this.tipoGastoRepository = tipoGastoRepository;
+        this.codigoService = codigoService;
+        this.retiroDevolucionService = retiroDevolucionService;
+        this.colectaDevolucionService = colectaDevolucionService;
+        this.devolucionLoteService = devolucionLoteService;
+        this.devolucionConfiguracionService = devolucionConfiguracionService;
+        this.sucursalService = sucursalService;
+        this.cajaVirtualService = cajaVirtualService;
+        this.tesoreriaService = tesoreriaService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+    }
 
     @Override
     public DevolucionRepository getRepository() {
@@ -235,7 +267,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                     if (d.getProveedor() == null) {
                         throw new GraphQLException("La devolucion no tiene proveedor; no se puede retirar");
                     }
-                    d.setRetiro(applicationContext.getBean(RetiroDevolucionService.class)
+                    d.setRetiro(retiroDevolucionService
                             .crear(d.getProveedor(), ejecutor));
                 }
                 break;
@@ -330,7 +362,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         // Si la cabecera de la operacion quedo sin lineas, marcarla REVERTIDA.
         if (actual == DevolucionEstado.RETIRADO && retiroPrevio != null
                 && repository.countByRetiroId(retiroPrevio.getId()) == 0) {
-            RetiroDevolucionService rs = applicationContext.getBean(RetiroDevolucionService.class);
+            RetiroDevolucionService rs = retiroDevolucionService;
             rs.findById(retiroPrevio.getId()).ifPresent(h -> {
                 h.setEstado(RetiroDevolucion.ESTADO_REVERTIDO);
                 rs.save(h);
@@ -338,7 +370,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         }
         if (actual == DevolucionEstado.COLECTADO && colectaPrevio != null
                 && repository.countByColectaId(colectaPrevio.getId()) == 0) {
-            ColectaDevolucionService cs = applicationContext.getBean(ColectaDevolucionService.class);
+            ColectaDevolucionService cs = colectaDevolucionService;
             cs.findById(colectaPrevio.getId()).ifPresent(h -> {
                 h.setEstado(ColectaDevolucion.ESTADO_REVERTIDO);
                 cs.save(h);
@@ -353,7 +385,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
      */
     @Transactional
     public RetiroDevolucion revertirRetiro(Long retiroId, Usuario usuario) {
-        RetiroDevolucionService rs = applicationContext.getBean(RetiroDevolucionService.class);
+        RetiroDevolucionService rs = retiroDevolucionService;
         RetiroDevolucion header = rs.findById(retiroId).orElseThrow(
                 () -> new GraphQLException("Operacion de retiro no encontrada: " + retiroId));
         List<Devolucion> lineas = repository.findByRetiroId(retiroId);
@@ -365,9 +397,8 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             throw new GraphQLException("No se puede revertir el retiro: " + finalizadas
                     + " devolucion(es) ya fueron canjeadas o acreditadas. Si fue un canje, reverti el canje primero.");
         }
-        DevolucionService self = applicationContext.getBean(DevolucionService.class);
         for (Devolucion d : lineas) {
-            self.revertirEstado(d.getId(), usuario);
+            revertirEstado(d.getId(), usuario);
         }
         header.setEstado(RetiroDevolucion.ESTADO_REVERTIDO);
         return rs.save(header);
@@ -379,7 +410,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
      */
     @Transactional
     public ColectaDevolucion revertirColecta(Long colectaId, Usuario usuario) {
-        ColectaDevolucionService cs = applicationContext.getBean(ColectaDevolucionService.class);
+        ColectaDevolucionService cs = colectaDevolucionService;
         ColectaDevolucion header = cs.findById(colectaId).orElseThrow(
                 () -> new GraphQLException("Operacion de colecta no encontrada: " + colectaId));
         List<Devolucion> lineas = repository.findByColectaId(colectaId);
@@ -392,9 +423,8 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             throw new GraphQLException("No se puede revertir la colecta: " + retiradas
                     + " devolucion(es) ya fueron retiradas por el proveedor. Reverti el retiro primero.");
         }
-        DevolucionService self = applicationContext.getBean(DevolucionService.class);
         for (Devolucion d : lineas) {
-            self.revertirEstado(d.getId(), usuario);
+            revertirEstado(d.getId(), usuario);
         }
         header.setEstado(ColectaDevolucion.ESTADO_REVERTIDO);
         return cs.save(header);
@@ -417,7 +447,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         if (sucursalDestinoId == null) {
             throw new GraphQLException("La sucursal destino es requerida para colectar");
         }
-        Sucursal destino = applicationContext.getBean(com.franco.dev.service.empresarial.SucursalService.class)
+        Sucursal destino = sucursalService
                 .findById(sucursalDestinoId)
                 .orElseThrow(() -> new GraphQLException("Sucursal destino no encontrada: " + sucursalDestinoId));
         if (d.getSucursalOrigen() != null && destino.getId().equals(d.getSucursalOrigen().getId())) {
@@ -426,7 +456,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         // Cabecera de colecta (1 linea) para que la colecta individual tambien quede
         // en el historial de operaciones, igual que la colecta en bloque.
         if (d.getColecta() == null) {
-            d.setColecta(applicationContext.getBean(ColectaDevolucionService.class)
+            d.setColecta(colectaDevolucionService
                     .crear(d.getSucursalOrigen(), destino, usuario));
         }
         d.setSucursalUbicacion(destino);
@@ -470,8 +500,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         if (items.isEmpty()) {
             throw new GraphQLException("No se puede procesar una devolucion sin items");
         }
-        boolean permiteNegativo = Boolean.TRUE.equals(applicationContext
-                .getBean(DevolucionConfiguracionService.class).getConfiguracion().getPermitirStockNegativo());
+        boolean permiteNegativo = Boolean.TRUE.equals(devolucionConfiguracionService.getConfiguracion().getPermitirStockNegativo());
         Long sucId = d.getSucursalOrigen().getId();
         for (DevolucionItem item : items) {
             double cantidadBase = cantidadEnUnidadBase(item);
@@ -501,7 +530,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
     }
 
     private DevolucionLoteService lotes() {
-        return applicationContext.getBean(DevolucionLoteService.class);
+        return devolucionLoteService;
     }
 
     /**
@@ -617,8 +646,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                 if (cantidadBase > 0) {
                     Long sucId = pv.getSucursal().getId();
                     if (permiteNegativo == null) {
-                        permiteNegativo = Boolean.TRUE.equals(applicationContext
-                                .getBean(DevolucionConfiguracionService.class).getConfiguracion()
+                        permiteNegativo = Boolean.TRUE.equals(devolucionConfiguracionService.getConfiguracion()
                                 .getPermitirStockNegativo());
                     }
                     if (!permiteNegativo) {
@@ -671,8 +699,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
      * fd-93 (modulo caja mayor) este mergeada en develop.
      */
     private void generarGastoMerma(Devolucion d, Usuario usuario) {
-        DevolucionConfiguracion config = applicationContext
-                .getBean(DevolucionConfiguracionService.class).getConfiguracion();
+        DevolucionConfiguracion config = devolucionConfiguracionService.getConfiguracion();
         boolean respetaMotivo = Boolean.TRUE.equals(config.getMermaRespetaMotivo());
 
         List<DevolucionItem> items = devolucionItemService.findByDevolucionId(d.getId());
@@ -718,7 +745,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         // Si la devolución tiene una caja mayor asignada, la merma egresa de tesorería.
         if (d.getCajaVirtualId() != null) {
             com.franco.dev.service.financiero.CajaVirtualService cvService =
-                    applicationContext.getBean(com.franco.dev.service.financiero.CajaVirtualService.class);
+                    cajaVirtualService;
             com.franco.dev.domain.financiero.CajaVirtual caja = cvService.findById(d.getCajaVirtualId()).orElse(null);
             if (caja != null) {
                 com.franco.dev.domain.financiero.MovimientoCajaVirtual mov =
@@ -731,7 +758,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                 mov.setReferenciaId(d.getId());
                 mov.setOrigenTipo(com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo.DEVOLUCION);
                 mov.setOrigenId(d.getId());
-                applicationContext.getBean(com.franco.dev.service.financiero.TesoreriaService.class).registrar(mov);
+                tesoreriaService.registrar(mov);
             }
         }
     }
@@ -936,13 +963,13 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         // Una operacion de retiro = un unico proveedor. Se crea la cabecera y cada
         // linea se procesa en su propia transaccion (via proxy) sin arrastrar fallos.
         Proveedor proveedor = validarMismoProveedor(devolucionIds);
-        RetiroDevolucionService rs = applicationContext.getBean(RetiroDevolucionService.class);
+        RetiroDevolucionService rs = retiroDevolucionService;
         RetiroDevolucion header = rs.crear(proveedor, usuario);
-        DevolucionService self = applicationContext.getBean(DevolucionService.class);
         int ok = 0;
         for (Long id : devolucionIds) {
             try {
-                self.retirarLinea(id, header.getId(), usuario);
+                Long retiroId = header.getId();
+                transactionTemplate.executeWithoutResult(estado -> retirarLinea(id, retiroId, usuario));
                 resultados.add(new RetiroDevolucionResultadoDto(id, true, "RETIRADO"));
                 ok++;
             } catch (Exception e) {
@@ -990,7 +1017,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                 () -> new GraphQLException("Devolucion no encontrada: " + devolucionId));
         validarTransicion(d, DevolucionEstado.RETIRADO);
         d.setEstado(DevolucionEstado.RETIRADO); // el retiro no mueve stock
-        RetiroDevolucion retiro = applicationContext.getBean(RetiroDevolucionService.class)
+        RetiroDevolucion retiro = retiroDevolucionService
                 .findById(retiroId).orElse(null);
         d.setRetiro(retiro);
         return save(d);
@@ -1010,11 +1037,10 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         if (sucursalDestinoId == null) {
             throw new GraphQLException("La sucursal destino es requerida para colectar");
         }
-        Sucursal destino = applicationContext.getBean(com.franco.dev.service.empresarial.SucursalService.class)
+        Sucursal destino = sucursalService
                 .findById(sucursalDestinoId)
                 .orElseThrow(() -> new GraphQLException("Sucursal destino no encontrada: " + sucursalDestinoId));
-        ColectaDevolucionService cs = applicationContext.getBean(ColectaDevolucionService.class);
-        DevolucionService self = applicationContext.getBean(DevolucionService.class);
+        ColectaDevolucionService cs = colectaDevolucionService;
         Map<Long, Long> colectaIdPorOrigen = new HashMap<>();
         Map<Long, Integer> okPorColecta = new HashMap<>();
         for (Long id : devolucionIds) {
@@ -1028,7 +1054,9 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                     colectaIdPorOrigen.put(origenId, colectaId);
                     okPorColecta.put(colectaId, 0);
                 }
-                self.colectarLinea(id, sucursalDestinoId, colectaId, usuario);
+                Long colectaDeLaLinea = colectaId;
+                transactionTemplate.executeWithoutResult(
+                        estado -> colectarLinea(id, sucursalDestinoId, colectaDeLaLinea, usuario));
                 okPorColecta.merge(colectaId, 1, Integer::sum);
                 resultados.add(new RetiroDevolucionResultadoDto(id, true, "COLECTADO"));
             } catch (Exception e) {
@@ -1050,7 +1078,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         Devolucion d = findById(devolucionId).orElseThrow(
                 () -> new GraphQLException("Devolucion no encontrada: " + devolucionId));
         validarTransicion(d, DevolucionEstado.COLECTADO);
-        Sucursal destino = applicationContext.getBean(com.franco.dev.service.empresarial.SucursalService.class)
+        Sucursal destino = sucursalService
                 .findById(sucursalDestinoId)
                 .orElseThrow(() -> new GraphQLException("Sucursal destino no encontrada: " + sucursalDestinoId));
         if (d.getSucursalOrigen() != null && destino.getId().equals(d.getSucursalOrigen().getId())) {
@@ -1059,7 +1087,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         d.setSucursalUbicacion(destino);
         d.setColectadoEn(LocalDateTime.now());
         d.setEstado(DevolucionEstado.COLECTADO);
-        ColectaDevolucion colecta = applicationContext.getBean(ColectaDevolucionService.class)
+        ColectaDevolucion colecta = colectaDevolucionService
                 .findById(colectaId).orElse(null);
         d.setColecta(colecta);
         return save(d);
@@ -1142,7 +1170,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
      */
     @Transactional(readOnly = true)
     public List<DevolucionEstancadaDto> getEstancadas(Integer diasMinimos, Long sucursalId, int limite) {
-        Integer defaultDias = applicationContext.getBean(DevolucionConfiguracionService.class)
+        Integer defaultDias = devolucionConfiguracionService
                 .getConfiguracion().getDiasEstancada();
         int dias = diasMinimos != null ? diasMinimos : (defaultDias != null ? defaultDias : 30);
         LocalDateTime limiteFecha = LocalDateTime.now().minusDays(dias);

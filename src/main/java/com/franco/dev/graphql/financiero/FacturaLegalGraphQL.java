@@ -124,10 +124,6 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private FacturaLegalItemGraphQL facturaLegalItemGraphQL;
 
-    private PrintService printService;
-
-    private PrinterOutputStream printerOutputStream;
-
     @Autowired
     private ImageService imageService;
 
@@ -360,6 +356,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             facturaLegalItemList = facturaLegalItemService.findByFacturaLegalId(facturaLegal.getId());
         }
 
+        PrintService printService = null;
         if (destino == null) {
             printService = PrinterOutputStream.getPrintServiceByName(printerName);
         }
@@ -398,8 +395,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (destino != null || printService != null) {
             OutputStream salida = destino;
             if (salida == null) {
-                printerOutputStream = new PrinterOutputStream(printService);
-                salida = printerOutputStream;
+                salida = new PrinterOutputStream(printService);
             }
             // creating the EscPosImage, need buffered image and algorithm.
             // Styles
@@ -665,11 +661,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             // escpos.write( "Conservar este papel ");
             escpos.feed(5);
 
-            // Cierra la salida de este request (no el campo, que puede ser de otro) y avisa si el envio fallo.
+            // Cierra la salida de este request y avisa si el envio fallo.
             escpos.close();
-            if (destino == null) {
-                this.printerOutputStream = null;
-            }
         }
     }
 
@@ -707,6 +700,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             facturaLegalItemList = facturaLegalItemService.findByFacturaLegalId(facturaLegal.getId());
         }
 
+        PrintService printService = null;
         if (destino == null) {
             printService = PrinterOutputStream.getPrintServiceByName(printerName);
         }
@@ -737,8 +731,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (destino != null || printService != null) {
             OutputStream salida = destino;
             if (salida == null) {
-                printerOutputStream = new PrinterOutputStream(printService);
-                salida = printerOutputStream;
+                salida = new PrinterOutputStream(printService);
             }
             // Styles
             Style center = new Style().setJustification(EscPosConst.Justification.Center);
@@ -1157,11 +1150,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             escpos.writeLF(center.setBold(true), "GRACIAS POR LA PREFERENCIA");
             escpos.feed(5);
 
-            // Cierra la salida de este request (no el campo, que puede ser de otro) y avisa si el envio fallo.
+            // Cierra la salida de este request y avisa si el envio fallo.
             escpos.close();
-            if (destino == null) {
-                this.printerOutputStream = null;
-            }
         }
     }
 

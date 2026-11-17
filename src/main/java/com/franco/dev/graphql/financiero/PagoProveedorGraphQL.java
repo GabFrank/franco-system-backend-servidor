@@ -66,6 +66,17 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
                 input.getSucursalId(), usuario, responsable));
     }
 
+    /** Tesorería cancela un gasto sin pagos, con motivo (#599). Las reglas viven en el servicio. */
+    public SolicitudPago cancelarGastoParaPago(Long solicitudId, String motivo) {
+        seg.requireGestionar();
+        try {
+            return service.cancelarGasto(solicitudId, motivo, seg.currentUsuario());
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            // Mensaje limpio para el cliente, como cancelarSolicitudPago: sin el prefijo "Exception while fetching data".
+            throw graphql.GraphqlErrorException.newErrorException().message(e.getMessage()).build();
+        }
+    }
+
     public Pago pagarSolicitudesLoteCajaMayor(Long cajaVirtualId, List<PagoLoteWrapper> pagos) {
         seg.requirePagarCpp();
         List<PagoProveedorService.PagoLote> ls = new ArrayList<>();

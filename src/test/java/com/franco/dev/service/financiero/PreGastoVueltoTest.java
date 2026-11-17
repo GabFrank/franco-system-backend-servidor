@@ -61,7 +61,6 @@ class PreGastoVueltoTest {
                 mock(GastoRepository.class),
                 rendiciones,
                 mock(PreGastoDetalleFinanzasService.class),
-                mock(PdvCajaService.class),
                 mock(MonedaService.class),
                 mock(TipoGastoService.class),
                 mock(TipoGastoModuloReglasService.class));

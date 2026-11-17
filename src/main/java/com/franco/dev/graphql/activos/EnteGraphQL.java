@@ -36,6 +36,10 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     @Autowired
     private EnteService service;
 
+    /** Ente con su resumen financiero y sucursales (vista de pantalla). */
+    @Autowired
+    private com.franco.dev.service.activos.EnteConsultaService consultaService;
+
     @Autowired
     private EnteSucursalService enteSucursalService;
 
@@ -52,13 +56,13 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     private ModelMapper modelMapper;
 
     public Optional<Ente> ente(Long id) {
-        return service.findById(id).map(service::populateTransientFields);
+        return service.findById(id).map(consultaService::populateTransientFields);
     }
 
     public List<Ente> entes(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         List<Ente> res = service.findAll(pageable);
-        if (res != null) res.forEach(service::populateTransientFields);
+        if (res != null) res.forEach(consultaService::populateTransientFields);
         return res;
     }
 
@@ -68,12 +72,12 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
 
     public List<Ente> entesByTipoEnte(TipoEnte tipoEnte) {
         List<Ente> res = service.findByTipoEnte(tipoEnte);
-        if (res != null) res.forEach(service::populateTransientFields);
+        if (res != null) res.forEach(consultaService::populateTransientFields);
         return res;
     }
 
     public Ente enteByReferenciaId(TipoEnte tipoEnte, Long referenciaId) {
-        return service.findByTipoEnteAndReferenciaId(tipoEnte, referenciaId).map(service::populateTransientFields).orElse(null);
+        return service.findByTipoEnteAndReferenciaId(tipoEnte, referenciaId).map(consultaService::populateTransientFields).orElse(null);
     }
 
     public CustomPage<Ente> enteSearchPage(String texto, Long sucursalId, Integer page, Integer size) {
@@ -81,20 +85,20 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         int s = (size == null || size <= 0) ? 15 : size;
 
         Pageable pageable = PageRequest.of(p, s);
-        Page<Ente> pageResult = service.findAllWithFilters(texto, sucursalId, p, s);
+        Page<Ente> pageResult = consultaService.findAllWithFilters(texto, sucursalId, p, s);
         return new CustomPageImpl<>(pageResult.getContent(), pageable, pageResult.getTotalElements(), null);
     }
 
     public EnteSearchResponse enteSearchWithSummary(String texto, Long sucursalId, TipoEnte tipoEnte, String situacionPago, String estadoCuota, Integer page, Integer size) {
         int p = (page == null || page < 0) ? 0 : page;
         int s = (size == null || size <= 0) ? 15 : size;
-        return service.searchWithSummary(texto, sucursalId, tipoEnte, situacionPago, estadoCuota, p, s);
+        return consultaService.searchWithSummary(texto, sucursalId, tipoEnte, situacionPago, estadoCuota, p, s);
     }
 
     public Optional<EnteSucursal> enteSucursal(Long id) {
         Optional<EnteSucursal> res = enteSucursalService.findById(id);
         res.ifPresent(a -> {
-            if (a.getEnte() != null) service.populateTransientFields(a.getEnte());
+            if (a.getEnte() != null) consultaService.populateTransientFields(a.getEnte());
         });
         return res;
     }
@@ -103,7 +107,7 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         List<EnteSucursal> res = enteSucursalService.findByEnteId(enteId);
         if (res != null) {
             res.forEach(a -> {
-                if (a.getEnte() != null) service.populateTransientFields(a.getEnte());
+                if (a.getEnte() != null) consultaService.populateTransientFields(a.getEnte());
             });
         }
         return res;
@@ -113,7 +117,7 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         List<EnteSucursal> res = enteSucursalService.findBySucursalId(sucursalId);
         if (res != null) {
             res.forEach(a -> {
-                if (a.getEnte() != null) service.populateTransientFields(a.getEnte());
+                if (a.getEnte() != null) consultaService.populateTransientFields(a.getEnte());
             });
         }
         return res;
@@ -126,7 +130,7 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         Pageable pageable = PageRequest.of(p, s);
         Page<EnteSucursal> pageResult = enteSucursalService.findAllWithFilters(texto, sucursalId, tipoEnte, responsableId, p, s);
         pageResult.getContent().forEach(a -> {
-            if (a.getEnte() != null) service.populateTransientFields(a.getEnte());
+            if (a.getEnte() != null) consultaService.populateTransientFields(a.getEnte());
         });
         return new CustomPageImpl<>(pageResult.getContent(), pageable, pageResult.getTotalElements(), null);
     }
@@ -171,7 +175,7 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
                 // idempotente: un duplicado de (tipo, referencia) rompe ensureEnteForReferencia
                 Optional<Ente> existente = service.findByTipoEnteAndReferenciaId(e.getTipoEnte(), input.getReferenciaId());
                 if (existente.isPresent()) {
-                    service.populateTransientFields(existente.get());
+                    consultaService.populateTransientFields(existente.get());
                     return existente.get();
                 }
             }
@@ -181,7 +185,7 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         }
         try {
             e = service.save(e);
-            service.populateTransientFields(e);
+            consultaService.populateTransientFields(e);
         } catch (Exception err) {
             err.printStackTrace();
             throw new GraphQLException("No se pudo guardar el ente: " + err.getMessage());
@@ -214,7 +218,7 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         }
         try {
             e = enteSucursalService.save(e);
-            if (e.getEnte() != null) service.populateTransientFields(e.getEnte());
+            if (e.getEnte() != null) consultaService.populateTransientFields(e.getEnte());
         } catch (Exception err) {
             err.printStackTrace();
             throw new GraphQLException("No se pudo guardar la asignación: " + err.getMessage());

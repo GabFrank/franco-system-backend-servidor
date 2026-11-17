@@ -56,7 +56,6 @@ class PreGastoRetiroServidorTest {
                 mock(GastoRepository.class),
                 mock(GastoRendicionRepository.class),
                 mock(PreGastoDetalleFinanzasService.class),
-                mock(PdvCajaService.class),
                 mock(MonedaService.class),
                 mock(TipoGastoService.class),
                 mock(TipoGastoModuloReglasService.class));

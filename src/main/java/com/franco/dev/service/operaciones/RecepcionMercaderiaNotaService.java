@@ -3,10 +3,10 @@ package com.franco.dev.service.operaciones;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.RecepcionMercaderia;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaNota;
+import com.franco.dev.repository.operaciones.NotaRecepcionRepository;
 import com.franco.dev.repository.operaciones.RecepcionMercaderiaNotaRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,9 +17,7 @@ import java.util.List;
 public class RecepcionMercaderiaNotaService extends CrudService<RecepcionMercaderiaNota, RecepcionMercaderiaNotaRepository, Long> {
     
     private final RecepcionMercaderiaNotaRepository repository;
-    
-    @Autowired
-    private NotaRecepcionService notaRecepcionService;
+    private final NotaRecepcionRepository notaRecepcionRepository;
 
     @Override
     public RecepcionMercaderiaNotaRepository getRepository() {
@@ -57,7 +55,7 @@ public class RecepcionMercaderiaNotaService extends CrudService<RecepcionMercade
      */
     @Transactional
     public RecepcionMercaderiaNota asociarNotaARecepcion(RecepcionMercaderia recepcion, Long notaId) {
-        NotaRecepcion nota = notaRecepcionService.findById(notaId)
+        NotaRecepcion nota = notaRecepcionRepository.findById(notaId)
             .orElseThrow(() -> new RuntimeException("Nota de recepción no encontrada: " + notaId));
         
         RecepcionMercaderiaNota asociacion = new RecepcionMercaderiaNota();

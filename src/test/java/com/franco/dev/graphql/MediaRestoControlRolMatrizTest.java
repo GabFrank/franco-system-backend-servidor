@@ -87,6 +87,8 @@ class MediaRestoControlRolMatrizTest {
     static EnteGraphQL enteResolver(com.franco.dev.service.activos.EnteService service) {
         EnteGraphQL r = new org.springframework.objenesis.ObjenesisStd().newInstance(EnteGraphQL.class);
         org.springframework.test.util.ReflectionTestUtils.setField(r, "service", service);
+        org.springframework.test.util.ReflectionTestUtils.setField(r, "consultaService",
+                org.mockito.Mockito.mock(com.franco.dev.service.activos.EnteConsultaService.class));
         org.springframework.test.util.ReflectionTestUtils.setField(r, "seg", new com.franco.dev.service.financiero.TesoreriaSecurityFalso(1L));
         return r;
     }

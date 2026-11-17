@@ -51,7 +51,7 @@ class PreGastoCancelarDesdeSolicitudTest {
                 mock(PersonaService.class), mock(FuncionarioService.class), audit, mock(MuebleService.class),
                 mock(EnteService.class), mock(InmuebleService.class), mock(VehiculoService.class),
                 mock(EquipoService.class), mock(GastoRepository.class), mock(GastoRendicionRepository.class),
-                mock(PreGastoDetalleFinanzasService.class), mock(PdvCajaService.class), mock(MonedaService.class),
+                mock(PreGastoDetalleFinanzasService.class), mock(MonedaService.class),
                 mock(TipoGastoService.class), mock(TipoGastoModuloReglasService.class)));
 
         sp = new SolicitudPago();

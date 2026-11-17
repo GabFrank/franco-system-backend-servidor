@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -18,6 +20,14 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class JornadaMarcacionRules {
+
+    /**
+     * Una jornada nocturna cuya salida llega mas de esto despues de la entrada no es una jornada
+     * larga con extras: el funcionario se olvido de marcar la salida (por ejemplo, al dia
+     * siguiente era su libre). Se cierra igual, pero ajustada a {@link #MINUTOS_JORNADA_AJUSTADA}.
+     */
+    public static final long HORAS_SALIDA_NOCTURNA_OLVIDADA = 16;
+    public static final long MINUTOS_JORNADA_AJUSTADA = 8 * 60;
 
     private final JornadaService jornadaService;
 
@@ -35,6 +45,20 @@ public class JornadaMarcacionRules {
             return jornada.getHoraSalidaHorario().isBefore(jornada.getHoraEntradaHorario());
         }
         return false;
+    }
+
+    /**
+     * Jornada nocturna cuya salida se olvido: pasaron mas de {@link #HORAS_SALIDA_NOCTURNA_OLVIDADA}
+     * horas entre la entrada y {@code momento} (la salida marcada o la hora de la consulta).
+     */
+    public boolean esNocturnaConSalidaOlvidada(Jornada jornada, LocalDateTime momento) {
+        if (momento == null || !cruzaMedianoche(jornada)
+                || jornada.getMarcacionEntrada() == null
+                || jornada.getMarcacionEntrada().getFechaEntrada() == null) {
+            return false;
+        }
+        long minutos = ChronoUnit.MINUTES.between(jornada.getMarcacionEntrada().getFechaEntrada(), momento);
+        return minutos > HORAS_SALIDA_NOCTURNA_OLVIDADA * 60;
     }
 
     /**
@@ -111,6 +135,15 @@ public class JornadaMarcacionRules {
     }
 
     public AccionMarcacionPendiente resolverAccionPendiente(Jornada jornada, LocalDate fechaConsulta) {
+        return resolverAccionPendiente(jornada, fechaConsulta, null);
+    }
+
+    /**
+     * Con {@code ahora}, una nocturna con la salida olvidada solo ofrece la salida definitiva:
+     * marcar almuerzo dias despues no tiene sentido y dejaria la jornada colgada.
+     */
+    public AccionMarcacionPendiente resolverAccionPendiente(Jornada jornada, LocalDate fechaConsulta,
+                                                            LocalDateTime ahora) {
         if (jornada == null
                 || !esJornadaActiva(jornada, fechaConsulta)
                 || jornada.getEstado() == EstadoJornada.NORMAL
@@ -121,6 +154,9 @@ public class JornadaMarcacionRules {
             return AccionMarcacionPendiente.ENTRADA;
         }
         if (jornada.getMarcacionSalidaAlmuerzo() == null) {
+            if (esNocturnaConSalidaOlvidada(jornada, ahora)) {
+                return AccionMarcacionPendiente.SALIDA_DEFINITIVA;
+            }
             return AccionMarcacionPendiente.SALIDA;
         }
         if (jornada.getMarcacionEntradaAlmuerzo() == null) {
@@ -156,8 +192,13 @@ public class JornadaMarcacionRules {
     }
 
     public EstadoMarcacionUsuario construirEstado(List<Jornada> jornadas, LocalDate fechaConsulta) {
+        return construirEstado(jornadas, fechaConsulta, null);
+    }
+
+    public EstadoMarcacionUsuario construirEstado(List<Jornada> jornadas, LocalDate fechaConsulta,
+                                                  LocalDateTime ahora) {
         Jornada relevante = seleccionarJornadaRelevante(jornadas, fechaConsulta);
-        AccionMarcacionPendiente accion = resolverAccionPendiente(relevante, fechaConsulta);
+        AccionMarcacionPendiente accion = resolverAccionPendiente(relevante, fechaConsulta, ahora);
         boolean activa = relevante != null && esJornadaActiva(relevante, fechaConsulta);
 
         EstadoMarcacionUsuario estado = new EstadoMarcacionUsuario();

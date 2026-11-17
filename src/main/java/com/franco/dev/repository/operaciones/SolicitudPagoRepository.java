@@ -33,6 +33,12 @@ public interface SolicitudPagoRepository extends HelperRepository<SolicitudPago,
     @Query("select s.tipo from SolicitudPago s where s.id = :id")
     Optional<TipoSolicitudPago> findTipoById(@Param("id") Long id);
 
+    /** Números de las solicitudes de la lista con ese tipo y estado, sin cargarlas (mismo motivo que findTipoById). */
+    @Query("select s.numeroSolicitud from SolicitudPago s where s.id in :ids and s.tipo = :tipo and s.estado = :estado")
+    List<String> findNumerosByIdInAndTipoAndEstado(@Param("ids") java.util.Collection<Long> ids,
+                                                   @Param("tipo") TipoSolicitudPago tipo,
+                                                   @Param("estado") SolicitudPagoEstado estado);
+
     java.util.List<SolicitudPago> findByEstadoIn(java.util.List<com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado> estados);
 
     /**

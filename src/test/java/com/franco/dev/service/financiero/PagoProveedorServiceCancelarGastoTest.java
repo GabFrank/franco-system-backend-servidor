@@ -212,14 +212,18 @@ class PagoProveedorServiceCancelarGastoTest {
         d.setMonto(new BigDecimal("2500000"));
         d.setAnulado(false);
         when(detalleRepo.findByPagoIdOrderByCreadoEnAsc(500L)).thenReturn(Collections.singletonList(d));
+        when(spRepo.findNumerosByIdInAndTipoAndEstado(Collections.singleton(30L), TipoSolicitudPago.GASTO,
+                SolicitudPagoEstado.CANCELADO)).thenReturn(Collections.singletonList("SP-000030"));
 
         String msg = assertThrows(GraphQLException.class, () -> service.anularPagoCpp(500L, "x", usuario)).getMessage();
 
-        assertTrue(msg.contains("SP-000030") && msg.contains("cancelada"), msg);
+        assertTrue(msg.contains("SP-000030") && msg.contains("cancelado"), msg);
         assertEquals(SolicitudPagoEstado.CANCELADO, sp.getEstado());
         verify(tesoreriaService, never()).revertir(any(), anyString(), any());
         verify(detalleRepo, never()).save(any());
         verify(spRepo, never()).save(any());
+        // Sin cargar la entidad: quedaría en el contexto y el lockById posterior la devolvería sin refrescar.
+        verify(spRepo, never()).findById(any());
         verifyNoInteractions(preGastoService, gastoTesoreriaService);
     }
 }

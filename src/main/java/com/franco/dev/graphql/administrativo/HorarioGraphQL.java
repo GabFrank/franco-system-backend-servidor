@@ -40,6 +40,11 @@ public class HorarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findByUsuarioId(usuarioId);
     }
 
+    /** Todos los horarios que se pueden asignar, sin importar a quien (V284.3). */
+    public List<Horario> horariosCatalogo() {
+        return service.catalogo();
+    }
+
     /** Los horarios que rigen para el funcionario, los mismos que usa la marcacion (#523). */
     public List<Horario> horariosPorFuncionario(Long funcionarioId) {
         return service.deFuncionario(funcionarioId);
@@ -72,16 +77,22 @@ public class HorarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
                 horarios.stream().map(this::toEntity).collect(java.util.stream.Collectors.toList()));
     }
 
-    /** "Asignar a otros": copia el horario a cada funcionario como horario propio (#523). */
-    public com.franco.dev.service.administrativo.dto.CopiaHorarioResultado copiarHorario(
+    /** "Asignar a otros": le asigna el mismo horario a cada funcionario, sin copiarlo (V284.3). */
+    public com.franco.dev.service.administrativo.dto.CopiaHorarioResultado asignarHorario(
             Long horarioId, List<Integer> funcionarioIds) {
         seg.requireAnyRole(com.franco.dev.service.rrhh.RrhhSecurityService.GESTIONAR, "EDITAR FUNCIONARIOS");
         // [Int] del schema llega como Integer: con List<Long> el borrado de tipos deja pasar
-        // Integer y revienta al iterar (ClassCastException). Se convierte acá.
+        // Integer y revienta al iterar (ClassCastException). Se convierte aca.
         List<Long> ids = funcionarioIds == null ? java.util.Collections.emptyList()
                 : funcionarioIds.stream().filter(java.util.Objects::nonNull).map(Integer::longValue)
                         .collect(java.util.stream.Collectors.toList());
-        return service.copiar(horarioId, ids);
+        return service.asignar(horarioId, ids);
+    }
+
+    /** Nombre de antes de V284.3 (desktop sin actualizar): ahora asigna, ya no copia. */
+    public com.franco.dev.service.administrativo.dto.CopiaHorarioResultado copiarHorario(
+            Long horarioId, List<Integer> funcionarioIds) {
+        return asignarHorario(horarioId, funcionarioIds);
     }
 
     public Boolean deleteHorario(Long id) {

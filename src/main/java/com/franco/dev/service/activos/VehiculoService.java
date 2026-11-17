@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 
 import com.franco.dev.domain.activos.Ente;
 import com.franco.dev.domain.activos.enums.TipoEnte;
-import org.springframework.context.annotation.Lazy;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -21,7 +20,7 @@ public class VehiculoService extends CrudService<Vehiculo, VehiculoRepository, L
     private final VehiculoRepository repository;
     private final EnteService enteService;
 
-    public VehiculoService(VehiculoRepository repository, @Lazy EnteService enteService) {
+    public VehiculoService(VehiculoRepository repository, EnteService enteService) {
         this.repository = repository;
         this.enteService = enteService;
     }

@@ -100,7 +100,6 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
     private final GastoRepository gastoRepository;
     private final GastoRendicionRepository gastoRendicionRepository;
     private final PreGastoDetalleFinanzasService preGastoDetalleFinanzasService;
-    private final PdvCajaService pdvCajaService;
     private final MonedaService monedaService;
     private final TipoGastoService tipoGastoService;
     private final TipoGastoModuloReglasService moduloReglasService;

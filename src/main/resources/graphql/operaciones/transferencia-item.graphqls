@@ -133,6 +133,9 @@ extend type Query {
     transferenciaItensPorTransferenciaId(id: ID!, page:Int = 0, size:Int = 10):TransferenciaItemPage!
     transferenciaItensPorTransferenciaIdWithFilter(id: ID, name: String, page:Int = 0, size:Int = 10):TransferenciaItemPage!
     alertasTransferenciaItems(transferenciaId: ID!, itemIds: [ID!]!): [TransferenciaItemAlerta]!
+    # Items rechazados con ese motivo (FALTA_PRODUCTO por defecto) en cualquier etapa, por fecha de la transferencia.
+    # Sin fechas: ultimos 30 dias. Rango maximo 366 dias; size maximo 100.
+    transferenciaItemsRechazados(motivo: TransferenciaItemMotivoRechazo, sucursalOrigenId: ID, sucursalDestinoId: ID, productoId: ID, creadoDesde: String, creadoHasta: String, page: Int = 0, size: Int = 20): TransferenciaItemPage!
 }
 
 extend type Mutation {

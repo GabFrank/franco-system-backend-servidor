@@ -12,6 +12,8 @@ import com.franco.dev.domain.operaciones.enums.EtapaAsignacionLote;
 import com.franco.dev.domain.operaciones.enums.EtapaTransferencia;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
+import com.franco.dev.domain.operaciones.enums.TransferenciaItemMotivoRechazo;
+import com.franco.dev.utilitarios.Paginacion;
 import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.domain.productos.Producto;
@@ -116,6 +118,35 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
             Integer size) {
         Page<TransferenciaItem> res = service.findByTransferenciaItemIdWithFilter(id, name, page, size);
         return res;
+    }
+
+    static final int RECHAZADOS_DIAS_POR_DEFECTO = 30;
+    static final int RECHAZADOS_DIAS_MAXIMO = 366;
+    static final int RECHAZADOS_SIZE_MAXIMO = 100;
+
+    /**
+     * Items rechazados por {@code motivo} (FALTA_PRODUCTO si no viene), por fecha de la transferencia:
+     * no se guarda la fecha del rechazo. El rango es obligatorio y acotado porque la consulta recorre
+     * transferencia_item entera.
+     */
+    public Page<TransferenciaItem> transferenciaItemsRechazados(TransferenciaItemMotivoRechazo motivo,
+            Long sucursalOrigenId, Long sucursalDestinoId, Long productoId, String creadoDesde, String creadoHasta,
+            Integer page, Integer size) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
+        LocalDateTime hasta = stringToDate(creadoHasta);
+        if (hasta == null) hasta = LocalDateTime.now();
+        // Una fecha sin hora es el dia entero (si no, se pierde el ultimo dia). Microsegundos: la
+        // precision de Postgres; con nanos el driver redondea a las 00:00 del dia siguiente.
+        else if (creadoHasta.trim().length() == 10) hasta = hasta.with(java.time.LocalTime.of(23, 59, 59, 999_999_000));
+        LocalDateTime desde = stringToDate(creadoDesde);
+        if (desde == null) desde = hasta.toLocalDate().minusDays(RECHAZADOS_DIAS_POR_DEFECTO).atStartOfDay();
+        if (desde.isAfter(hasta))
+            throw new GraphQLException("La fecha desde no puede ser posterior a la fecha hasta.");
+        if (java.time.temporal.ChronoUnit.DAYS.between(desde.toLocalDate(), hasta.toLocalDate()) > RECHAZADOS_DIAS_MAXIMO)
+            throw new GraphQLException("El rango de fechas no puede superar los " + RECHAZADOS_DIAS_MAXIMO + " días.");
+        int s = size != null && size > 0 ? Math.min(size, RECHAZADOS_SIZE_MAXIMO) : 20;
+        return service.findRechazados(motivo != null ? motivo : TransferenciaItemMotivoRechazo.FALTA_PRODUCTO,
+                sucursalOrigenId, sucursalDestinoId, productoId, desde, hasta, Paginacion.of(page, s));
     }
 
     public List<TransferenciaItemAlertaDTO> alertasTransferenciaItems(Long transferenciaId, List<Long> itemIds) {

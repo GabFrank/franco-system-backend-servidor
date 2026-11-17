@@ -120,7 +120,6 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     @Autowired
     private MovimientoCajaService movimientoCajaService;
 
-    private PrinterOutputStream printerOutputStream;
     @Autowired
     private ProductoService productoService;
     @Autowired
@@ -273,7 +272,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             selectedPrintService = printingService.setPrintService(printerName);
         }
         if (selectedPrintService != null) {
-            printerOutputStream = new PrinterOutputStream(selectedPrintService);
+            PrinterOutputStream printerOutputStream = new PrinterOutputStream(selectedPrintService);
 
             // creating the EscPosImage, need buffered image and algorithm.
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");

@@ -562,6 +562,37 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
     }
 
     /**
+     * Tesorería cancela un gasto que ya no corresponde (#599). Recibe la solicitud ya lockeada por el
+     * llamador (PagoProveedorService.cancelarGasto). No pasa por cambiarEstado: ese camino es de compras
+     * y pone el monto en 0 al liberar las notas; un gasto no tiene notas y el monto queda como rastro.
+     *
+     * @return el texto de la cancelación agregado a las observaciones (lo usa el PreGasto vinculado).
+     */
+    public String cancelarGasto(SolicitudPago solicitud, String motivo, Usuario usuario) {
+        String motivoLimpio = exigirMotivo(motivo, "cancelar");
+        if (solicitud.getTipo() != TipoSolicitudPago.GASTO) {
+            throw new IllegalStateException("La solicitud " + solicitud.getNumeroSolicitud()
+                + " no es un gasto: se cancela desde su propio módulo.");
+        }
+        SolicitudPagoEstado origen = solicitud.getEstado();
+        if (origen == SolicitudPagoEstado.CANCELADO) {
+            throw new IllegalStateException("El gasto " + solicitud.getNumeroSolicitud() + " ya está cancelado.");
+        }
+        // Antes que el estado: un PARCIAL tiene que leer «primero anulá el pago», no «no se puede».
+        exigirSinPagos(solicitud, SolicitudPagoEstado.CANCELADO);
+        if (origen != SolicitudPagoEstado.PENDIENTE && origen != SolicitudPagoEstado.SOLICITADO
+                && origen != SolicitudPagoEstado.DEVUELTO) {
+            throw new IllegalStateException("El gasto " + solicitud.getNumeroSolicitud() + " está " + origen
+                + ": no se puede cancelar.");
+        }
+        String texto = "CANCELADA" + firma(usuario) + " (estaba " + origen + "): " + motivoLimpio;
+        agregarObservacion(solicitud, texto);
+        solicitud.setEstado(SolicitudPagoEstado.CANCELADO);
+        save(solicitud);
+        return texto;
+    }
+
+    /**
      * Tesorería devuelve a compras una solicitud que no va a pagar (falta la factura, monto mal
      * cargado): queda DEVUELTO, sale del diálogo de pago y conserva sus notas. Compras la corrige
      * y la reenvía (DEVUELTO → SOLICITADO), o la cancela. Tesorería no cancela: el que paga no

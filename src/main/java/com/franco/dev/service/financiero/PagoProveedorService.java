@@ -350,6 +350,36 @@ public class PagoProveedorService {
     }
 
     /**
+     * Tesorería cancela un gasto que ya no corresponde (#599): solicitud GASTO sin pagos, con motivo.
+     * Toma el mismo lock que el pago, así cancelar y pagar a la vez no pueden pasar los dos. Las reglas de
+     * estado y motivo viven en {@link SolicitudPagoService#cancelarGasto}; lanzan IllegalState/IllegalArgument.
+     */
+    @Transactional
+    public SolicitudPago cancelarGasto(Long solicitudId, String motivo, Usuario usuario) {
+        SolicitudPago sp = solicitudPagoService.getRepository().lockById(solicitudId)
+                .orElseThrow(() -> new IllegalArgumentException("Solicitud de pago no encontrada: " + solicitudId));
+        if (sp.getCajaVirtualAsignadaId() != null) seguridad.requireEscrituraCaja(sp.getCajaVirtualAsignadaId());
+        // El tipo antes que los pagos: de una compra no se dice «el gasto tiene un pago sin anular».
+        if (sp.getTipo() != com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO) {
+            throw new IllegalStateException("La solicitud " + sp.getNumeroSolicitud()
+                    + " no es un gasto: se cancela desde su propio módulo.");
+        }
+        // montoPagado puede quedar desfasado de los detalles (datos arreglados a mano): con un detalle vivo,
+        // anular ese pago después reabriría la solicitud cancelada.
+        boolean detalleVivo = detalleRepository.findBySolicitudPagoIdOrderByCreadoEnAsc(solicitudId).stream()
+                .anyMatch(d -> !Boolean.TRUE.equals(d.getAnulado()));
+        if (detalleVivo) {
+            throw new IllegalStateException("El gasto " + sp.getNumeroSolicitud() + " tiene un pago sin anular."
+                    + " Primero hay que anular el pago desde la caja mayor y después cancelarlo.");
+        }
+        String texto = solicitudPagoService.cancelarGasto(sp, motivo, usuario);
+        // Defensa: sin pagos, el gasto espejo (si existe) ya quedó cancelado al anular el pago.
+        gastoTesoreriaService.sincronizarDesdeSolicitudPago(sp);
+        preGastoService.cancelarDesdeSolicitudPago(sp, texto, usuario);
+        return sp;
+    }
+
+    /**
      * Asigna una solicitud pagable a una caja para que la pague su operador; {@code cajaVirtualId} nulo
      * quita la asignación. No mueve plata ni cambia el estado: solo decide quién la ve para pagar.
      */
@@ -863,6 +893,17 @@ public class PagoProveedorService {
         List<PagoSolicitudDetalle> detalles = todos
                 .stream().filter(d -> !Boolean.TRUE.equals(d.getAnulado())).collect(Collectors.toList());
         if (detalles.isEmpty()) throw new GraphQLException("El pago no tiene detalles activos para anular");
+        // Un gasto cancelado con un pago vivo solo sale de datos tocados a mano: anular lo reabriría en silencio (y a
+        // su PreGasto). Solo gastos: hasta 2026-09 se cancelaban compras PARCIAL sin revertir, y esos pagos se siguen
+        // anulando como antes. Sin lock: cancelarGasto rechaza mientras haya detalles vivos (#599). Sin cargar la
+        // entidad: si quedara en el contexto, el lockById de abajo la devolvería sin refrescar (saldo viejo).
+        List<String> canceladas = solicitudPagoService.getRepository().findNumerosByIdInAndTipoAndEstado(
+                detalles.stream().map(PagoSolicitudDetalle::getSolicitudPagoId).collect(Collectors.toSet()),
+                com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO, SolicitudPagoEstado.CANCELADO);
+        if (!canceladas.isEmpty()) {
+            throw new GraphQLException("El gasto " + canceladas.get(0) + " de este pago está cancelado y el pago"
+                    + " sigue vigente: avisá a sistemas antes de anularlo.");
+        }
         exigirAnulacionPermitidaEnModoAcotado(detalles);
         String razon = (motivo != null && !motivo.trim().isEmpty()) ? motivo : "Anulación pago #" + pagoId;
 

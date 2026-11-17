@@ -32,8 +32,8 @@ import java.util.List;
 public class PrintingService {
 
     private Logger log = LoggerFactory.getLogger(PrintingService.class);
-    private java.util.List<PrintService> printServiceList = new ArrayList<>();
-    private PrinterOutputStream printerOutputStream;
+    // compartida entre requests: se recorre mientras otro hilo puede agregar
+    private final java.util.List<PrintService> printServiceList = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     PrintingService(){
     }
@@ -77,6 +77,7 @@ public class PrintingService {
     //    tamanho de papel 58mm entran 32 caracteres
     public Boolean printTicketCaja58mm(String image, String printerName){
         PrintService selectedPrintService = null;
+        PrinterOutputStream printerOutputStream;
 //        LocalDateTime date = data.getVenta().getCreadoEn();
 //        String fecha = date.getDayOfMonth()+"/"+date.getMonthValue()+"/"+date.getYear();
 //        StringBuilder stringBuilder = new StringBuilder();

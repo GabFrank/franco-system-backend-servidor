@@ -19,6 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Horarios compartidos (V284.3): un horario es uno solo y se asigna a varios funcionarios por
+ * administrativo.horario_usuario (la cuenta que marca). Editarlo lo cambia para todos los que
+ * lo tienen; borrarlo solo se puede cuando ya nadie lo usa.
+ */
 @Service
 @AllArgsConstructor
 public class HorarioService extends CrudService<Horario, HorarioRepository, Long> {
@@ -33,24 +38,66 @@ public class HorarioService extends CrudService<Horario, HorarioRepository, Long
         return repository;
     }
 
+    /** Los horarios asignados al usuario. */
     public List<Horario> findByUsuarioId(Long usuarioId) {
-        return repository.findByUsuarioIdOrderByIdDesc(usuarioId);
+        return repository.findAsignadosAUsuario(usuarioId);
+    }
+
+    /** Todos los horarios que se pueden asignar, sin importar a quien. */
+    @Transactional(readOnly = true)
+    public List<Horario> catalogo() {
+        return repository.findCatalogo();
     }
 
     /**
-     * Guarda un horario suelto (mutation saveHorario). No se compara con los otros del usuario:
-     * pueden pisarse (#523), al marcar gana el de entrada mas cercana.
+     * Cuantos funcionarios usan el horario: los que lo tienen asignado o, si nadie, los que
+     * todavia lo tienen como principal (funcionario.horario_id, respaldo de la marcacion).
+     */
+    @Transactional(readOnly = true)
+    public int cantidadAsignados(Long horarioId) {
+        if (horarioId == null) return 0;
+        long asignados = repository.contarAsignados(horarioId);
+        if (asignados > 0) return (int) asignados;
+        return funcionarioRepository.findByHorarioId(horarioId).size();
+    }
+
+    /**
+     * Crea o edita un horario del catalogo. Editar cambia el horario para todos los que lo
+     * tienen. No se permiten dos iguales: para darselo a otro se asigna el que ya existe.
      */
     @Transactional
     public Horario saveValidado(Horario horario) {
         validarDatos(horario);
-        return save(horario);
+        Horario igual = buscarIgual(horario, horario.getId());
+        if (igual != null) {
+            throw new GraphQLException("Ese horario ya existe (Reg. H. " + igual.getId()
+                    + "): asignalo desde la lista en vez de crear otro igual");
+        }
+        Horario guardado;
+        if (horario.getId() != null) {
+            guardado = repository.findById(horario.getId())
+                    .orElseThrow(() -> new GraphQLException("Horario no encontrado: " + horario.getId()));
+            copiarDatos(horario, guardado);
+            if (horario.getToleranciaMinutos() != null) guardado.setToleranciaMinutos(horario.getToleranciaMinutos());
+            if (horario.getInicioDescanso() != null) guardado.setInicioDescanso(horario.getInicioDescanso());
+            if (horario.getFinDescanso() != null) guardado.setFinDescanso(horario.getFinDescanso());
+            guardado = repository.save(guardado);
+        } else {
+            horario.setActivo(true);
+            guardado = repository.save(horario);
+        }
+        // saveHorario con usuarioId (pantallas viejas): ademas se lo asigna.
+        if (horario.getUsuario() != null && horario.getUsuario().getId() != null) {
+            vincular(horario.getUsuario(), funcionarioDe(horario.getUsuario()), guardado);
+        }
+        repository.flush();
+        return guardado;
     }
 
     /**
-     * Guarda la tabla de horarios del usuario de una vez (#523): los que traen id se
-     * actualizan, los nuevos se crean y los del usuario que ya no vienen se quitan. Se valida
-     * Los horarios pueden pisarse entre si: es a proposito, ver HorarioSemanal.
+     * Guarda la tabla de horarios de un usuario (pantalla de antes de V284.3): los que traen
+     * id se editan (para todos los que los tienen), los nuevos se asignan reusando uno igual
+     * si existe, y los que ya no vienen se le quitan, sin borrarlos.
      */
     @Transactional
     public List<Horario> saveDeUsuario(Long usuarioId, List<Horario> horarios) {
@@ -60,174 +107,122 @@ public class HorarioService extends CrudService<Horario, HorarioRepository, Long
         List<Horario> lista = horarios == null ? new ArrayList<>() : horarios;
         lista.forEach(this::validarDatos);
 
-        List<Horario> existentes = repository.findByUsuarioIdOrderByIdDesc(usuarioId);
-        Map<Long, Horario> porId = existentes.stream().collect(Collectors.toMap(Horario::getId, h -> h));
+        List<Horario> asignados = repository.findAsignadosAUsuario(usuarioId);
+        Map<Long, Horario> porId = asignados.stream().collect(Collectors.toMap(Horario::getId, h -> h));
         Set<Long> conservados = new HashSet<>();
-        List<Horario> guardados = new ArrayList<>();
         for (Horario h : lista) {
             Horario actual = h.getId() != null ? porId.get(h.getId()) : null;
-            if (actual != null && !compartido(actual, funcionario)) {
+            Horario destino;
+            if (actual != null) {
                 copiarDatos(h, actual);
-                conservados.add(actual.getId());
-                guardados.add(repository.save(actual));
+                destino = repository.save(actual);
             } else {
-                // Nuevo, o uno que comparten otros funcionarios (cargado antes de #523): se
-                // crea uno propio para no cambiarle el horario a nadie mas.
-                Horario nuevo = new Horario();
-                if (actual != null) {
-                    nuevo.setToleranciaMinutos(actual.getToleranciaMinutos());
-                    nuevo.setInicioDescanso(actual.getInicioDescanso());
-                    nuevo.setFinDescanso(actual.getFinDescanso());
-                }
-                copiarDatos(h, nuevo);
-                nuevo.setUsuario(usuario);
-                guardados.add(repository.save(nuevo));
+                destino = igualOCrear(h);
             }
+            repository.asignar(destino.getId(), usuarioId);
+            conservados.add(destino.getId());
         }
-
-        Horario principal = principal(guardados);
-        for (Horario viejo : existentes) {
-            if (!conservados.contains(viejo.getId())) quitar(viejo, funcionario, principal);
+        for (Horario viejo : asignados) {
+            if (!conservados.contains(viejo.getId())) repository.desasignar(viejo.getId(), usuarioId);
         }
-        apuntarFuncionario(funcionario, principal);
         repository.flush();
-        return repository.findByUsuarioIdOrderByIdDesc(usuarioId);
+        List<Horario> resultado = repository.findAsignadosAUsuario(usuarioId);
+        apuntarFuncionario(funcionario, principal(resultado));
+        return resultado;
     }
 
-    /** Borra un horario de la tabla. Quien lo tenia como principal pasa a otro suyo, o a ninguno. */
+    /**
+     * Borra un horario del catalogo. Si alguien lo usa no se borra: hay que quitarselo antes,
+     * asi nadie se queda sin horario por accidente.
+     */
     @Transactional
     public Boolean eliminar(Long id) {
         Horario horario = repository.findById(id).orElse(null);
         if (horario == null) return false;
-        List<Horario> otros = horario.getUsuario() == null ? Collections.emptyList()
-                : repository.findByUsuarioIdOrderByIdDesc(horario.getUsuario().getId()).stream()
-                        .filter(h -> !h.getId().equals(id)).collect(Collectors.toList());
-        Horario reemplazo = principal(otros);
-        for (Funcionario f : funcionarioRepository.findByHorarioId(id)) {
-            f.setHorario(reemplazo);
-            funcionarioRepository.save(f);
+        int usan = cantidadAsignados(id);
+        if (usan > 0) {
+            throw new GraphQLException("No se puede borrar: lo usa" + (usan == 1 ? " 1 funcionario" : "n " + usan
+                    + " funcionarios") + ". Quitáselo desde la lista de funcionarios antes de borrarlo.");
         }
         repository.delete(horario);
         return true;
     }
 
     /**
-     * "Asignar a otros": copia el horario a cada funcionario como horario propio. El destino
-     * es la cuenta que marca, por la persona (funcionario.usuario_id es "creado por"). Si ya
-     * tiene uno igual no se duplica.
+     * "Asignar a otros": le asigna el mismo horario a cada funcionario, sin copiarlo. El destino
+     * es la cuenta que marca, por la persona (funcionario.usuario_id es "creado por").
      */
     @Transactional
-    public CopiaHorarioResultado copiar(Long horarioId, List<Long> funcionarioIds) {
-        Horario origen = repository.findById(horarioId)
+    public CopiaHorarioResultado asignar(Long horarioId, List<Long> funcionarioIds) {
+        Horario horario = repository.findById(horarioId)
                 .orElseThrow(() -> new GraphQLException("Horario no encontrado: " + horarioId));
         CopiaHorarioResultado resultado = new CopiaHorarioResultado();
         for (Long funcionarioId : new LinkedHashSet<>(funcionarioIds)) {
             Funcionario f = funcionarioId == null ? null : funcionarioRepository.findById(funcionarioId).orElse(null);
             if (f == null) continue;
             String nombre = f.getPersona() != null ? f.getPersona().getNombre() : "Funcionario " + f.getId();
-            Usuario usuario = f.getPersona() != null ? usuarioService.findByPersonaId(f.getPersona().getId()) : null;
+            Usuario usuario = usuarioDe(f);
             if (usuario == null) {
                 resultado.getErrores().add(nombre + ": no tiene usuario para marcar");
                 continue;
             }
-            List<Horario> suyos = repository.findByUsuarioIdOrderByIdDesc(usuario.getId());
-            if (suyos.stream().anyMatch(h -> mismoHorario(h, origen))) {
-                resultado.setCopiados(resultado.getCopiados() + 1);
-                continue;
-            }
-            Horario copia = new Horario();
-            copiarDatos(origen, copia);
-            copia.setToleranciaMinutos(origen.getToleranciaMinutos());
-            copia.setInicioDescanso(origen.getInicioDescanso());
-            copia.setFinDescanso(origen.getFinDescanso());
-            copia.setUsuario(usuario);
-            copia = repository.save(copia);
-            if (f.getHorario() == null) {
-                f.setHorario(copia);
-                funcionarioRepository.save(f);
-            }
+            vincular(usuario, f, horario);
             resultado.setCopiados(resultado.getCopiados() + 1);
         }
+        repository.flush();
         return resultado;
     }
 
     /**
-     * Los horarios que rigen para el funcionario: los mismos que usa la marcacion (los propios
-     * de su usuario, o el principal si todavia no tiene ninguno propio).
+     * Los horarios que rigen para el funcionario: los mismos que usa la marcacion (los
+     * asignados a su usuario, o el principal si todavia no tiene ninguno asignado).
      */
     @Transactional(readOnly = true)
     public List<Horario> deFuncionario(Long funcionarioId) {
         Funcionario f = funcionarioRepository.findById(funcionarioId)
                 .orElseThrow(() -> new GraphQLException("Funcionario no encontrado: " + funcionarioId));
-        Usuario usuario = f.getPersona() != null ? usuarioService.findByPersonaId(f.getPersona().getId()) : null;
+        Usuario usuario = usuarioDe(f);
         return horarioResolver.horariosVigentes(usuario != null ? usuario.getId() : null, f);
     }
 
     /**
-     * Crea un horario y se lo deja asignado al funcionario: queda como horario propio de su
-     * usuario (la cuenta que marca, por la persona).
+     * "Nuevo horario" desde la lista de funcionarios: si ya hay uno igual se le asigna ese; si
+     * no, se crea en el catalogo y se le asigna.
      */
     @Transactional
     public Funcionario agregarAFuncionario(Long funcionarioId, Horario horario) {
         Funcionario f = funcionarioRepository.findById(funcionarioId)
                 .orElseThrow(() -> new GraphQLException("Funcionario no encontrado: " + funcionarioId));
-        Usuario usuario = f.getPersona() != null ? usuarioService.findByPersonaId(f.getPersona().getId()) : null;
+        Usuario usuario = usuarioDe(f);
         if (usuario == null) {
             throw new GraphQLException("El funcionario no tiene usuario para marcar: no se le puede asignar horario");
         }
         validarDatos(horario);
-
-        // Si todavia usa el principal compartido (sin horarios propios), al tener uno propio el
-        // compartido dejaria de regir: se lo copia como propio para que lo conserve.
-        boolean sinPropios = repository.findByUsuarioIdOrderByIdDesc(usuario.getId()).stream()
-                .noneMatch(h -> h.getHoraEntrada() != null);
-        Horario principal = f.getHorario();
-        if (sinPropios && principal != null && principal.getHoraEntrada() != null) {
-            Horario copia = new Horario();
-            copiarDatos(principal, copia);
-            copia.setToleranciaMinutos(principal.getToleranciaMinutos());
-            copia.setInicioDescanso(principal.getInicioDescanso());
-            copia.setFinDescanso(principal.getFinDescanso());
-            copia.setUsuario(usuario);
-            f.setHorario(repository.save(copia));
-            funcionarioRepository.save(f);
-        }
-
-        Horario nuevo = new Horario();
-        copiarDatos(horario, nuevo);
-        nuevo.setUsuario(usuario);
-        nuevo = repository.save(nuevo);
-        if (f.getHorario() == null) {
-            f.setHorario(nuevo);
-            funcionarioRepository.save(f);
-        }
+        vincular(usuario, f, igualOCrear(horario));
         repository.flush();
         return f;
     }
 
-    /**
-     * Le quita un horario al funcionario. Si es propio de su usuario se borra; si es el
-     * principal compartido de antes de #523, solo se lo desvincula y los demas lo conservan.
-     */
+    /** Le quita un horario al funcionario. El horario sigue existiendo para los demas. */
     @Transactional
     public Funcionario quitarDeFuncionario(Long funcionarioId, Long horarioId) {
         Funcionario f = funcionarioRepository.findById(funcionarioId)
                 .orElseThrow(() -> new GraphQLException("Funcionario no encontrado: " + funcionarioId));
-        Horario h = repository.findById(horarioId)
+        repository.findById(horarioId)
                 .orElseThrow(() -> new GraphQLException("Horario no encontrado: " + horarioId));
-        Usuario usuario = f.getPersona() != null ? usuarioService.findByPersonaId(f.getPersona().getId()) : null;
-        boolean propio = usuario != null && h.getUsuario() != null && h.getUsuario().getId().equals(usuario.getId());
-        if (propio && !compartido(h, f)) {
-            eliminar(horarioId);
-        } else if (f.getHorario() != null && f.getHorario().getId().equals(horarioId)) {
-            f.setHorario(null);
-            funcionarioRepository.save(f);
-        } else if (propio) {
-            // Propio pero tambien lo usan otros funcionarios: deja de ser de este usuario.
-            h.setUsuario(null);
-            repository.save(h);
-        } else {
+        Usuario usuario = usuarioDe(f);
+        int quitados = usuario != null ? repository.desasignar(horarioId, usuario.getId()) : 0;
+        boolean eraPrincipal = f.getHorario() != null && f.getHorario().getId().equals(horarioId);
+        if (quitados == 0 && !eraPrincipal) {
             throw new GraphQLException("Ese horario no está asignado a este funcionario");
+        }
+        if (eraPrincipal) {
+            List<Horario> restantes = usuario != null
+                    ? repository.findAsignadosAUsuario(usuario.getId()).stream()
+                            .filter(h -> !h.getId().equals(horarioId)).collect(Collectors.toList())
+                    : Collections.emptyList();
+            f.setHorario(principal(restantes));
+            funcionarioRepository.save(f);
         }
         repository.flush();
         return funcionarioRepository.findById(funcionarioId).orElse(f);
@@ -236,11 +231,50 @@ public class HorarioService extends CrudService<Horario, HorarioRepository, Long
     /** Horario por dia del funcionario, ej. "L-Mi Día 08:00-17:00 · J Madrugada 17:00-01:00". */
     @Transactional(readOnly = true)
     public String resumen(Funcionario funcionario) {
-        Usuario usuario = funcionario.getPersona() != null
-                ? usuarioService.findByPersonaId(funcionario.getPersona().getId())
-                : null;
+        Usuario usuario = usuarioDe(funcionario);
         return HorarioSemanal.resumen(
                 horarioResolver.horariosVigentes(usuario != null ? usuario.getId() : null, funcionario));
+    }
+
+    /**
+     * Le asigna el horario al usuario. Si todavia no tenia ninguno asignado y se regia por el
+     * principal (funcionario.horario_id), ese tambien se le asigna: al tener uno asignado el
+     * principal deja de regir y lo perderia.
+     */
+    private void vincular(Usuario usuario, Funcionario f, Horario horario) {
+        boolean sinAsignados = repository.findAsignadosAUsuario(usuario.getId()).stream()
+                .noneMatch(h -> h.getHoraEntrada() != null);
+        Horario principal = f != null ? f.getHorario() : null;
+        if (sinAsignados && principal != null && principal.getHoraEntrada() != null
+                && !principal.getId().equals(horario.getId())) {
+            repository.asignar(principal.getId(), usuario.getId());
+        }
+        repository.asignar(horario.getId(), usuario.getId());
+        if (f != null && f.getHorario() == null) {
+            f.setHorario(horario);
+            funcionarioRepository.save(f);
+        }
+    }
+
+    private Horario igualOCrear(Horario datos) {
+        Horario igual = buscarIgual(datos, null);
+        if (igual != null) return igual;
+        Horario nuevo = new Horario();
+        copiarDatos(datos, nuevo);
+        nuevo.setToleranciaMinutos(datos.getToleranciaMinutos());
+        nuevo.setInicioDescanso(datos.getInicioDescanso());
+        nuevo.setFinDescanso(datos.getFinDescanso());
+        nuevo.setActivo(true);
+        return repository.save(nuevo);
+    }
+
+    /** Otro horario activo con la misma entrada, salida, turno y dias (sin contar {@code salvoId}). */
+    private Horario buscarIgual(Horario datos, Long salvoId) {
+        return repository.findCatalogo().stream()
+                .filter(h -> salvoId == null || !h.getId().equals(salvoId))
+                .filter(h -> mismoHorario(h, datos))
+                .findFirst()
+                .orElse(null);
     }
 
     private void validarDatos(Horario h) {
@@ -277,27 +311,13 @@ public class HorarioService extends CrudService<Horario, HorarioRepository, Long
     }
 
     /**
-     * funcionario.horario_id ya no decide nada (#523), pero lo leen pantallas viejas: apunta
-     * al horario que cubre mas dias.
+     * funcionario.horario_id solo es el respaldo de quien no tiene horarios asignados, pero lo
+     * leen pantallas viejas: apunta al horario que cubre mas dias.
      */
     private Horario principal(List<Horario> horarios) {
         return horarios.stream()
                 .max(Comparator.comparingInt(h -> HorarioSemanal.esGeneral(h) ? 7 : h.getDias().size()))
                 .orElse(null);
-    }
-
-    private void quitar(Horario viejo, Funcionario propio, Horario reemplazo) {
-        if (compartido(viejo, propio)) {
-            // Lo usan otros funcionarios: se lo saca de este usuario sin borrarlo.
-            viejo.setUsuario(null);
-            repository.save(viejo);
-            return;
-        }
-        for (Funcionario f : funcionarioRepository.findByHorarioId(viejo.getId())) {
-            f.setHorario(reemplazo);
-            funcionarioRepository.save(f);
-        }
-        repository.delete(viejo);
     }
 
     private void apuntarFuncionario(Funcionario funcionario, Horario principal) {
@@ -310,10 +330,8 @@ public class HorarioService extends CrudService<Horario, HorarioRepository, Long
         }
     }
 
-    private boolean compartido(Horario horario, Funcionario propio) {
-        if (horario.getId() == null) return false;
-        return funcionarioRepository.findByHorarioId(horario.getId()).stream()
-                .anyMatch(f -> propio == null || !f.getId().equals(propio.getId()));
+    private Usuario usuarioDe(Funcionario f) {
+        return f != null && f.getPersona() != null ? usuarioService.findByPersonaId(f.getPersona().getId()) : null;
     }
 
     private Funcionario funcionarioDe(Usuario usuario) {

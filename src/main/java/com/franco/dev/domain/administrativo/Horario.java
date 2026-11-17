@@ -56,6 +56,14 @@ public class Horario implements Identifiable<Long>, Serializable {
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 
+    /**
+     * false = repetido unificado por V284.3: no se lista ni se asigna. Los horarios se comparten
+     * entre funcionarios por administrativo.horario_usuario; {@link #usuario} quedo de antes y
+     * ya no se lee.
+     */
+    @Column(name = "activo")
+    private Boolean activo = true;
+
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 

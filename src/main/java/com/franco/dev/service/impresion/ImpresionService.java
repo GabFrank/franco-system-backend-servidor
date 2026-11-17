@@ -88,13 +88,10 @@ public class ImpresionService {
      */
     private static final Map<String, JasperReport> REPORT_CACHE = new ConcurrentHashMap<>();
 
-    PrintService selectedPrintService = null;
     @Autowired
     private ImageService imageService;
     @Autowired
     private PrintingService printingService;
-    private PrintService printService;
-    private PrinterOutputStream printerOutputStream;
     @Autowired
     private CodigoService codigoService;
     @Autowired
@@ -178,7 +175,7 @@ public class ImpresionService {
         exporter.setExporterInput(new SimpleExporterInput(jasperPrint));
         exporter.setConfiguration(configuration);
 
-        printService = PrinterOutputStream.getPrintServiceByName(printerName);
+        PrintService printService = PrinterOutputStream.getPrintServiceByName(printerName);
 
         if (printService != null) {
             try {
@@ -454,9 +451,9 @@ public class ImpresionService {
 
     public void printGasto(GastoDto gastoDto, String printerName, String local) {
         try {
-            selectedPrintService = printingService.getPrintService(printerName);
+            PrintService selectedPrintService = printingService.getPrintService(printerName);
             if (selectedPrintService != null) {
-                printerOutputStream = new PrinterOutputStream(selectedPrintService);
+                PrinterOutputStream printerOutputStream = new PrinterOutputStream(selectedPrintService);
                 // creating the EscPosImage, need buffered image and algorithm.
                 // Styles
                 Style center = new Style().setJustification(EscPosConst.Justification.Center);
@@ -546,9 +543,9 @@ public class ImpresionService {
 
     public void printVueltoGasto(GastoDto gastoDto) {
         try {
-            printService = PrinterOutputStream.getPrintServiceByName("TICKET58");
+            PrintService printService = PrinterOutputStream.getPrintServiceByName("TICKET58");
             if (printService != null) {
-                printerOutputStream = new PrinterOutputStream(printService);
+                PrinterOutputStream printerOutputStream = new PrinterOutputStream(printService);
                 // creating the EscPosImage, need buffered image and algorithm.
                 // Styles
                 Style center = new Style().setJustification(EscPosConst.Justification.Center);
@@ -770,9 +767,9 @@ public class ImpresionService {
 
     public void printRetiro(RetiroDto retiroDto, String printerName, String local, Boolean reimpresion) {
         try {
-            selectedPrintService = printingService.getPrintService(printerName);
+            PrintService selectedPrintService = printingService.getPrintService(printerName);
             if (selectedPrintService != null) {
-                printerOutputStream = new PrinterOutputStream(selectedPrintService);
+                PrinterOutputStream printerOutputStream = new PrinterOutputStream(selectedPrintService);
                 // creating the EscPosImage, need buffered image and algorithm.
                 // Styles
                 Style center = new Style().setJustification(EscPosConst.Justification.Center);

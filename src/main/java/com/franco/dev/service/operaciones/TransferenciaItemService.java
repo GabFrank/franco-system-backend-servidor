@@ -5,6 +5,7 @@ import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
+import com.franco.dev.domain.operaciones.enums.TransferenciaItemMotivoRechazo;
 import com.franco.dev.repository.operaciones.TransferenciaItemRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
@@ -52,6 +53,13 @@ public class TransferenciaItemService extends CrudService<TransferenciaItem, Tra
     public Page<TransferenciaItem> findByTransferenciaItemIdWithFilter(Long id, String name, Integer page, Integer size) {
         Pageable pageable = Paginacion.of(page, size);
         return repository.findByTransferenciaIdWithFilters(id, name != null ? "%"+name.toUpperCase()+"%" : null, pageable);
+    }
+
+    public Page<TransferenciaItem> findRechazados(TransferenciaItemMotivoRechazo motivo, Long sucursalOrigenId,
+            Long sucursalDestinoId, Long productoId, Long transferenciaId, LocalDateTime desde, LocalDateTime hasta,
+            Pageable pageable) {
+        return repository.findRechazados(motivo, sucursalOrigenId, sucursalDestinoId, productoId, transferenciaId, desde,
+                hasta, pageable);
     }
 
     public List<TransferenciaItem> findByTransferenciaId(Long id) {

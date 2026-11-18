@@ -65,11 +65,13 @@ class ReporteTransferenciaItemsRechazadosTest {
         when(impresion.imprimirProductosFaltantesTransferencia(anyList(), anyMap())).thenReturn("PDF");
     }
 
-    private static Usuario usuario(String nombre) {
+    /** Con persona de nombre distinto: el reporte tiene que mostrar el nickname, no el nombre. */
+    private static Usuario usuario(String nickname) {
         Persona p = new Persona();
-        p.setNombre(nombre);
+        p.setNombre("NOMBRE DE " + nickname);
         Usuario u = new Usuario();
         u.setPersona(p);
+        u.setNickname(nickname);
         return u;
     }
 

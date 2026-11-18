@@ -59,7 +59,7 @@ public class ProductoFaltanteReporteItem {
 
     private void etapa(String nombre, Usuario usuario) {
         this.etapa = nombre;
-        this.responsable = usuario != null && usuario.getPersona() != null ? usuario.getPersona().getNombre() : "-";
+        this.responsable = usuario != null && usuario.getNickname() != null ? usuario.getNickname() : "-";
     }
 
     private static String nombre(Sucursal s) {

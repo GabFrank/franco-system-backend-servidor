@@ -201,7 +201,7 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         cabecera.put("filtroProducto", productoId == null ? "TODOS"
                 : productoService.findById(productoId).map(Producto::getDescripcion).orElse("ID " + productoId));
         Usuario usuario = seg.currentUsuario();
-        cabecera.put("usuario", usuario != null && usuario.getPersona() != null ? usuario.getPersona().getNombre() : "");
+        cabecera.put("usuario", usuario != null && usuario.getNickname() != null ? usuario.getNickname() : "");
         cabecera.put("aviso", res.getTotalElements() > LIMITE_REPORTE_RECHAZADOS
                 ? "Resultado truncado: se muestran los primeros " + LIMITE_REPORTE_RECHAZADOS + " de "
                 + res.getTotalElements() + " ítems. Acotá los filtros."

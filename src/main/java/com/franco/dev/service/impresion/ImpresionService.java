@@ -1356,6 +1356,29 @@ public class ImpresionService {
         }
     }
 
+    /**
+     * PDF (base64) de productos faltantes en transferencias. {@code cabecera} trae los textos de los filtros
+     * (periodo, motivo, origen, destino, producto, usuario, aviso); aca se agregan la fecha y el logo.
+     */
+    public String imprimirProductosFaltantesTransferencia(List<ProductoFaltanteReporteItem> items,
+            Map<String, Object> cabecera) {
+        try {
+            JasperReport jasperReport = compileReportFromClasspath("reports/productos-faltantes-transferencia.jrxml");
+            Map<String, Object> parameters = new HashMap<>(cabecera);
+            parameters.put("fechaReporte", DateUtils.dateToStringWithFormat(LocalDateTime.now(), "dd/MM/yyyy HH:mm"));
+            parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+            // Sin esto las cantidades salen con el locale de la JVM (alpha corre en en_US: «1.5»).
+            parameters.put(net.sf.jasperreports.engine.JRParameter.REPORT_LOCALE, new java.util.Locale("es", "PY"));
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters,
+                    new JRBeanCollectionDataSource(items));
+            return Base64.getEncoder().encodeToString(JasperExportManager.exportReportToPdf(jasperPrint));
+        } catch (JRException e) {
+            log.error("Error generando el reporte de productos faltantes en transferencias", e);
+            // Null quiere decir «sin resultados» para el cliente: un error de Jasper tiene que llegar como error.
+            throw new GraphQLException("No se pudo generar el reporte de productos faltantes.");
+        }
+    }
+
     private String defaultTexto(String valor, String porDefecto) {
         return valor != null && !valor.trim().isEmpty() ? valor : porDefecto;
     }

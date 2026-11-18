@@ -232,6 +232,17 @@ Los dos PR van hacia `develop`. Se abren después de la prueba y del OK de Franc
   `transferencia_id`.
 - Filtros en dos filas, con más ancho para las sucursales de origen y destino.
 
+## Reporte PDF (18/11)
+
+- Botón «Generar PDF» en la ventana: los mismos filtros, sin paginar, abre el PDF en «Reportes».
+- Central: `reporteTransferenciaItemsRechazados` (mismo rol y mismas reglas de fechas que la lista),
+  `reports/productos-faltantes-transferencia.jrxml` en A4 apaisado, `REPORT_LOCALE` es_PY, hasta
+  5000 filas con aviso de truncado (como productos vencidos); null si no hay resultados.
+- Sin código de barras: lo calcula un resolver con una consulta por fila.
+- Jasper mide con la fuente del sistema y el PDF dibuja en Helvetica, más ancha: un nombre que «entra»
+  según Jasper sale en dos líneas en el PDF y se perdía la segunda («SUC. NUEVA ESPERANZA CENTRO»). Los
+  textos largos reservan alto para dos líneas; un test lee el PDF exportado.
+
 ## Qué queda sin verificar
 
 - **Rendimiento en producción.** Se midió en la base local: cada consulta tarda ~120 ms, y la página

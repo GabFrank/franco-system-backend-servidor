@@ -33,6 +33,8 @@ class TransferenciasControlRolMatrizTest {
                 f(TransferenciaItemGraphQL.class, "deleteTransferenciaItem", VER, CREAR),
                 f(TransferenciaItemGraphQL.class, "desconfirmarTransferenciaItem", VER, CREAR),
                 f(TransferenciaItemGraphQL.class, "verificarProducto"),
+                f(TransferenciaItemGraphQL.class, "transferenciaItemsRechazados", VER, CREAR),
+                f(TransferenciaItemGraphQL.class, "reporteTransferenciaItemsRechazados", VER, CREAR),
                 f(ConfiguracionTransferenciaGraphQL.class, "saveConfiguracionTransferencia"),
                 f(HojaRutaGraphQL.class, "saveHojaRuta", VER, CREAR),
                 f(HojaRutaGraphQL.class, "deleteHojaRuta"),

@@ -58,13 +58,16 @@ public interface TransferenciaItemRepository extends HelperRepository<Transferen
             "and (:sucursalOrigenId is null or t.sucursalOrigen.id = :sucursalOrigenId) " +
             "and (:sucursalDestinoId is null or t.sucursalDestino.id = :sucursalDestinoId) " +
             "and (:productoId is null or pp.producto.id = :productoId) " +
-            "and t.creadoEn >= :desde and t.creadoEn <= :hasta ";
+            "and (:transferenciaId is null or t.id = :transferenciaId) " +
+            "and (t.creadoEn >= :desde or cast(:desde as timestamp) is null) " +
+            "and (t.creadoEn <= :hasta or cast(:hasta as timestamp) is null) ";
 
     /**
      * Items rechazados con {@code motivo} en cualquier etapa: el motivo se copia hacia adelante y una
      * etapa posterior lo puede cambiar, asi que no alcanza con el primero no nulo. Sin indice que la
      * cubra, recorre transferencia_item entera (~120 ms con 808k): el resolver obliga a un rango y el
-     * timeout corta el peor caso.
+     * timeout corta el peor caso. Con {@code transferenciaId} las fechas llegan nulas: va por el indice
+     * de transferencia_id.
      */
     @QueryHints(@QueryHint(name = "javax.persistence.query.timeout", value = "10000"))
     @Query(value = "select ti from TransferenciaItem ti " +
@@ -82,6 +85,7 @@ public interface TransferenciaItemRepository extends HelperRepository<Transferen
             @Param("sucursalOrigenId") Long sucursalOrigenId,
             @Param("sucursalDestinoId") Long sucursalDestinoId,
             @Param("productoId") Long productoId,
+            @Param("transferenciaId") Long transferenciaId,
             @Param("desde") LocalDateTime desde,
             @Param("hasta") LocalDateTime hasta,
             Pageable pageable);

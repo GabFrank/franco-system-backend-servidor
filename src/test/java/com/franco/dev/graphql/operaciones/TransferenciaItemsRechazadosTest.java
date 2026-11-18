@@ -16,6 +16,7 @@ import java.time.LocalTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 /** Defaults y topes de transferenciaItemsRechazados: la consulta recorre transferencia_item entera. */
@@ -38,8 +39,16 @@ class TransferenciaItemsRechazadosTest {
     }
 
     private void consultar(TransferenciaItemMotivoRechazo m, String d, String h, Integer page, Integer size) {
-        resolver.transferenciaItemsRechazados(m, 1L, 2L, 3L, d, h, page, size);
-        verify(service).findRechazados(motivo.capture(), eq(1L), eq(2L), eq(3L), desde.capture(), hasta.capture(), pageable.capture());
+        resolver.transferenciaItemsRechazados(m, 1L, 2L, 3L, null, d, h, page, size);
+        verify(service).findRechazados(motivo.capture(), eq(1L), eq(2L), eq(3L), isNull(), desde.capture(), hasta.capture(),
+                pageable.capture());
+    }
+
+    @Test
+    void conTransferenciaIdIgnoraLasFechasAunqueElRangoSeaInvalido() {
+        resolver.transferenciaItemsRechazados(null, null, null, null, 58208L, "2020-01-01", "2026-01-01", 0, 20);
+        verify(service).findRechazados(eq(TransferenciaItemMotivoRechazo.FALTA_PRODUCTO), isNull(), isNull(), isNull(),
+                eq(58208L), isNull(), isNull(), any());
     }
 
     @Test
@@ -84,15 +93,15 @@ class TransferenciaItemsRechazadosTest {
     void rangoDe366DiasPasaYDe367SeRechaza() {
         consultar(null, "2025-01-01", "2026-01-02", 0, 20);
         GraphQLException e = assertThrows(GraphQLException.class,
-                () -> resolver.transferenciaItemsRechazados(null, null, null, null, "2025-01-01", "2026-01-03", 0, 20));
+                () -> resolver.transferenciaItemsRechazados(null, null, null, null, null, "2025-01-01", "2026-01-03", 0, 20));
         assertTrue(e.getMessage().contains("366"));
     }
 
     @Test
     void desdePosteriorAHastaSeRechaza() {
         assertThrows(GraphQLException.class,
-                () -> resolver.transferenciaItemsRechazados(null, null, null, null, "2026-11-02", "2026-11-01", 0, 20));
-        verify(service, never()).findRechazados(any(), any(), any(), any(), any(), any(), any());
+                () -> resolver.transferenciaItemsRechazados(null, null, null, null, null, "2026-11-02", "2026-11-01", 0, 20));
+        verify(service, never()).findRechazados(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test

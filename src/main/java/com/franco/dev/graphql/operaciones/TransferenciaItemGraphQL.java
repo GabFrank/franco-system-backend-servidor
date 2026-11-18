@@ -127,12 +127,18 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
     /**
      * Items rechazados por {@code motivo} (FALTA_PRODUCTO si no viene), por fecha de la transferencia:
      * no se guarda la fecha del rechazo. El rango es obligatorio y acotado porque la consulta recorre
-     * transferencia_item entera.
+     * transferencia_item entera, salvo con {@code transferenciaId}: ahi se ignoran las fechas (una
+     * transferencia vieja quedaria afuera de los 30 dias) y la consulta va por indice.
      */
     public Page<TransferenciaItem> transferenciaItemsRechazados(TransferenciaItemMotivoRechazo motivo,
-            Long sucursalOrigenId, Long sucursalDestinoId, Long productoId, String creadoDesde, String creadoHasta,
-            Integer page, Integer size) {
+            Long sucursalOrigenId, Long sucursalDestinoId, Long productoId, Long transferenciaId, String creadoDesde,
+            String creadoHasta, Integer page, Integer size) {
         seg.requireAnyRole(TransferenciaRoles.ROLES);
+        int s = size != null && size > 0 ? Math.min(size, RECHAZADOS_SIZE_MAXIMO) : 20;
+        TransferenciaItemMotivoRechazo m = motivo != null ? motivo : TransferenciaItemMotivoRechazo.FALTA_PRODUCTO;
+        if (transferenciaId != null)
+            return service.findRechazados(m, sucursalOrigenId, sucursalDestinoId, productoId, transferenciaId, null, null,
+                    Paginacion.of(page, s));
         LocalDateTime hasta = stringToDate(creadoHasta);
         if (hasta == null) hasta = LocalDateTime.now();
         // Una fecha sin hora es el dia entero (si no, se pierde el ultimo dia). Microsegundos: la
@@ -144,9 +150,8 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
             throw new GraphQLException("La fecha desde no puede ser posterior a la fecha hasta.");
         if (java.time.temporal.ChronoUnit.DAYS.between(desde.toLocalDate(), hasta.toLocalDate()) > RECHAZADOS_DIAS_MAXIMO)
             throw new GraphQLException("El rango de fechas no puede superar los " + RECHAZADOS_DIAS_MAXIMO + " días.");
-        int s = size != null && size > 0 ? Math.min(size, RECHAZADOS_SIZE_MAXIMO) : 20;
-        return service.findRechazados(motivo != null ? motivo : TransferenciaItemMotivoRechazo.FALTA_PRODUCTO,
-                sucursalOrigenId, sucursalDestinoId, productoId, desde, hasta, Paginacion.of(page, s));
+        return service.findRechazados(m, sucursalOrigenId, sucursalDestinoId, productoId, null, desde, hasta,
+                Paginacion.of(page, s));
     }
 
     public List<TransferenciaItemAlertaDTO> alertasTransferenciaItems(Long transferenciaId, List<Long> itemIds) {

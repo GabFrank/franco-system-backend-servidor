@@ -224,6 +224,14 @@ Los dos PR van hacia `develop`. Se abren después de la prueba y del OK de Franc
 | B | Desktop publicado antes que el central | menor | Se mantiene el orden central → desktop; el error se muestra como aviso, no como estado vacío, y se prueba |
 | B | Rollback | menor | Confirmado sin estado: no hay migración ni escrituras |
 
+## Cambios pedidos tras la primera prueba (18/11)
+
+- Se sacan las columnas «Motivo final» y «Observación».
+- Filtro nuevo por id de transferencia (`transferenciaId` en la query). Con id se ignoran las fechas:
+  una transferencia de hace más de 30 días quedaría afuera, y la consulta va por el índice de
+  `transferencia_id`.
+- Filtros en dos filas, con más ancho para las sucursales de origen y destino.
+
 ## Qué queda sin verificar
 
 - **Rendimiento en producción.** Se midió en la base local: cada consulta tarda ~120 ms, y la página

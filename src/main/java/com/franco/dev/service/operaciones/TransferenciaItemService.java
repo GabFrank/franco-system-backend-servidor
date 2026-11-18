@@ -56,8 +56,10 @@ public class TransferenciaItemService extends CrudService<TransferenciaItem, Tra
     }
 
     public Page<TransferenciaItem> findRechazados(TransferenciaItemMotivoRechazo motivo, Long sucursalOrigenId,
-            Long sucursalDestinoId, Long productoId, LocalDateTime desde, LocalDateTime hasta, Pageable pageable) {
-        return repository.findRechazados(motivo, sucursalOrigenId, sucursalDestinoId, productoId, desde, hasta, pageable);
+            Long sucursalDestinoId, Long productoId, Long transferenciaId, LocalDateTime desde, LocalDateTime hasta,
+            Pageable pageable) {
+        return repository.findRechazados(motivo, sucursalOrigenId, sucursalDestinoId, productoId, transferenciaId, desde,
+                hasta, pageable);
     }
 
     public List<TransferenciaItem> findByTransferenciaId(Long id) {

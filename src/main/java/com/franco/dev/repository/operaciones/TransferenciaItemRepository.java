@@ -1,14 +1,18 @@
 package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.operaciones.TransferenciaItem;
+import com.franco.dev.domain.operaciones.enums.TransferenciaItemMotivoRechazo;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
 
 import javax.persistence.LockModeType;
+import javax.persistence.QueryHint;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,6 +50,44 @@ public interface TransferenciaItemRepository extends HelperRepository<Transferen
     public Page<TransferenciaItem> findByTransferenciaIdWithFilters(
             @Param("id") Long id,
             @Param("name") String name,
+            Pageable pageable);
+
+    String RECHAZADOS_WHERE = "where (ti.motivoRechazoPreTransferencia = :motivo or ti.motivoRechazoPreparacion = :motivo " +
+            "or ti.motivoRechazoTransporte = :motivo or ti.motivoRechazoRecepcion = :motivo) " +
+            "and (ti.activo is null or ti.activo = true) " +
+            "and (:sucursalOrigenId is null or t.sucursalOrigen.id = :sucursalOrigenId) " +
+            "and (:sucursalDestinoId is null or t.sucursalDestino.id = :sucursalDestinoId) " +
+            "and (:productoId is null or pp.producto.id = :productoId) " +
+            "and (:transferenciaId is null or t.id = :transferenciaId) " +
+            "and (t.creadoEn >= :desde or cast(:desde as timestamp) is null) " +
+            "and (t.creadoEn <= :hasta or cast(:hasta as timestamp) is null) ";
+
+    /**
+     * Items rechazados con {@code motivo} en cualquier etapa: el motivo se copia hacia adelante y una
+     * etapa posterior lo puede cambiar, asi que no alcanza con el primero no nulo. Sin indice que la
+     * cubra, recorre transferencia_item entera (~120 ms con 808k): el resolver obliga a un rango y el
+     * timeout corta el peor caso. Con {@code transferenciaId} las fechas llegan nulas: va por el indice
+     * de transferencia_id.
+     */
+    @QueryHints(@QueryHint(name = "javax.persistence.query.timeout", value = "10000"))
+    @Query(value = "select ti from TransferenciaItem ti " +
+            "join fetch ti.transferencia t " +
+            "join fetch ti.presentacionPreTransferencia pp " +
+            "join fetch pp.producto " +
+            RECHAZADOS_WHERE +
+            "order by t.creadoEn desc, ti.id desc",
+            countQuery = "select count(ti) from TransferenciaItem ti " +
+                    "join ti.transferencia t " +
+                    "join ti.presentacionPreTransferencia pp " +
+                    RECHAZADOS_WHERE)
+    Page<TransferenciaItem> findRechazados(
+            @Param("motivo") TransferenciaItemMotivoRechazo motivo,
+            @Param("sucursalOrigenId") Long sucursalOrigenId,
+            @Param("sucursalDestinoId") Long sucursalDestinoId,
+            @Param("productoId") Long productoId,
+            @Param("transferenciaId") Long transferenciaId,
+            @Param("desde") LocalDateTime desde,
+            @Param("hasta") LocalDateTime hasta,
             Pageable pageable);
 
     public List<TransferenciaItem> findByTransferenciaIdOrderByIdDesc(Long id);//

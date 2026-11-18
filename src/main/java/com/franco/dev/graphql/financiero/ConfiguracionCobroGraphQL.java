@@ -37,13 +37,8 @@ public class ConfiguracionCobroGraphQL implements GraphQLQueryResolver, GraphQLM
     public ConfiguracionCobro saveConfiguracionCobro(ConfiguracionCobroInput input) {
         seg.requireGestionar();
         // A la escala de la columna (NUMERIC(6,2)) antes de validar: 0.004 pasaria el > 0 y se guardaria 0.00.
-        BigDecimal pct = input.getAumentoTopePorcentaje() == null ? null
-                : input.getAumentoTopePorcentaje().setScale(2, RoundingMode.HALF_UP);
-        // Se valida aca y no se deja llegar al CHECK: la violacion subiria como un error opaco.
-        if (pct != null && (pct.signum() <= 0 || pct.compareTo(CIEN) > 0)) {
-            throw new GraphQLException("El tope del aumento es un porcentaje del total: tiene que ser mayor a 0"
-                    + " y hasta 100. Para no limitar el aumento, elegí «sin tope».");
-        }
+        BigDecimal pct = porcentaje(input.getAumentoTopePorcentaje(), "aumento");
+        BigDecimal pctDescuento = porcentaje(input.getDescuentoTopePorcentaje(), "descuento");
         ConfiguracionCobro config = service.findOrNew();
         if (input.getAumentoConTope() != null) {
             config.setAumentoConTope(input.getAumentoConTope());
@@ -51,8 +46,28 @@ public class ConfiguracionCobroGraphQL implements GraphQLQueryResolver, GraphQLM
         if (pct != null) {
             config.setAumentoTopePorcentaje(pct);
         }
+        if (input.getDescuentoConTope() != null) {
+            config.setDescuentoConTope(input.getDescuentoConTope());
+        }
+        if (pctDescuento != null) {
+            config.setDescuentoTopePorcentaje(pctDescuento);
+        }
         config.setUsuario(seg.currentUsuario());
         config.setModificadoEn(LocalDateTime.now());
         return service.save(config);
+    }
+
+    /**
+     * A la escala de la columna (NUMERIC(6,2)) antes de validar: 0.004 pasaria el > 0 y se guardaria 0.00.
+     * Se valida aca y no se deja llegar al CHECK: la violacion subiria como un error opaco.
+     */
+    private static BigDecimal porcentaje(BigDecimal valor, String que) {
+        if (valor == null) return null;
+        BigDecimal pct = valor.setScale(2, RoundingMode.HALF_UP);
+        if (pct.signum() <= 0 || pct.compareTo(CIEN) > 0) {
+            throw new GraphQLException("El tope del " + que + " es un porcentaje del total: tiene que ser mayor a 0"
+                    + " y hasta 100. Para no limitar el " + que + ", elegí «sin tope».");
+        }
+        return pct;
     }
 }

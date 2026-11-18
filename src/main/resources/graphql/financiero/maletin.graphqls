@@ -9,6 +9,18 @@ type Maletin {
     sucursal: Sucursal
 }
 
+type MaletinPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Maletin]
+    getPageable: Pageable
+}
+
 input MaletinInput {
     id:ID
     descripcion: String
@@ -23,6 +35,8 @@ extend type Query {
     maletin(id:ID!, sucursalId:ID!):Maletin
     maletines(page:Int = 0, size:Int = 10):[Maletin]!
     countMaletin: Int
+    # Lista paginada con filtros para la pantalla de maletines (sucursal, código, abierto)
+    maletinesConFiltros(sucursalId: ID, texto: String, abierto: Boolean, page: Int, size: Int): MaletinPage
     maletinPorDescripcion(texto: String):Maletin
     maletinPorDescripcionPorSucursal(texto: String, sucId: Int!):Maletin
     searchMaletin(texto: String, sucId:ID):[Maletin]

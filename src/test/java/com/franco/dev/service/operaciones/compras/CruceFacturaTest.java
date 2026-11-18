@@ -316,4 +316,41 @@ class CruceFacturaTest {
         CruceFactura.Resultado res = CruceFactura.sinPedido(Collections.singletonList(r)).get(0);
         assertEquals(90.0, res.precioBase, 0.0001);
     }
+
+    private static CruceFactura.Renglon vinculado(CruceFactura.Renglon r, Long pedidoItemId) {
+        r.pedidoItemId = pedidoItemId;
+        return r;
+    }
+
+    @Test
+    void dosRenglonesDelMismoProductoUsanSuItemVinculado() {
+        // Mismas cantidades pendientes: sin vínculo el cruce no podría distinguirlos
+        List<CruceFactura.Resultado> r = CruceFactura.cruzar(
+                Arrays.asList(vinculado(renglon(1, 7L, 10, 1000, 0), 2L), vinculado(renglon(2, 7L, 10, 1000, 0), 1L)),
+                Arrays.asList(item(1, 7, 10, 1000.0, false), item(2, 7, 10, 1000.0, false)), true);
+        assertEquals(CruceFactura.Estado.OK, r.get(0).estado);
+        assertEquals(CruceFactura.Estado.OK, r.get(1).estado);
+        assertEquals(2L, r.get(0).pedidoItemId);
+        assertEquals(1L, r.get(1).pedidoItemId);
+    }
+
+    @Test
+    void vinculoConCantidadesDistintasTambienCruza() {
+        List<CruceFactura.Resultado> r = CruceFactura.cruzar(
+                Arrays.asList(vinculado(renglon(1, 7L, 10, 1000, 0), 1L), vinculado(renglon(2, 7L, 5, 1000, 0), 2L)),
+                Arrays.asList(item(1, 7, 10, 1000.0, false), item(2, 7, 5, 1000.0, false)), true);
+        assertEquals(1L, r.get(0).pedidoItemId);
+        assertEquals(2L, r.get(1).pedidoItemId);
+        assertEquals(CruceFactura.Estado.OK, r.get(0).estado);
+        assertEquals(CruceFactura.Estado.OK, r.get(1).estado);
+    }
+
+    @Test
+    void vinculoAUnItemDeOtroProductoSeIgnora() {
+        List<CruceFactura.Resultado> r = CruceFactura.cruzar(
+                Collections.singletonList(vinculado(renglon(1, 7L, 10, 1000, 0), 3L)),
+                Arrays.asList(item(1, 7, 10, 1000.0, false), item(3, 8, 10, 1000.0, false)), true);
+        assertEquals(1L, r.get(0).pedidoItemId);
+        assertEquals(CruceFactura.Estado.OK, r.get(0).estado);
+    }
 }

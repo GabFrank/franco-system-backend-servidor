@@ -13,6 +13,10 @@ import java.util.List;
 public class FacturaIaLeida {
     private String emisorRuc;
     private String emisorNombre;
+    /** Del membrete del proveedor: para darlo de alta desde la factura. */
+    private String emisorDireccion;
+    private String emisorTelefono;
+    private String emisorEmail;
     private String receptorRuc;
     private String receptorNombre;
     private String timbrado;

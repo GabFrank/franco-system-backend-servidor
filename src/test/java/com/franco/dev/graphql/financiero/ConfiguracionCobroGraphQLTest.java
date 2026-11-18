@@ -103,6 +103,48 @@ class ConfiguracionCobroGraphQLTest {
     }
 
     @Test
+    void descuentoPorDefectoSinTope() {
+        when(repository.findAllByOrderByIdAsc()).thenReturn(Collections.emptyList());
+
+        ConfiguracionCobro def = resolver.configuracionCobro();
+
+        assertFalse(def.getDescuentoConTope());
+        assertEquals(0, new BigDecimal("15").compareTo(def.getDescuentoTopePorcentaje()));
+    }
+
+    @Test
+    void descuentoSeGuardaSinPisarElAumento() {
+        ConfiguracionCobro existente = new ConfiguracionCobro();
+        existente.setId(1L);
+        existente.setAumentoConTope(true);
+        existente.setAumentoTopePorcentaje(new BigDecimal("35"));
+        conFila(existente);
+        ConfiguracionCobroInput in = new ConfiguracionCobroInput();
+        in.setDescuentoConTope(true);
+        in.setDescuentoTopePorcentaje(new BigDecimal("12.345"));
+
+        ConfiguracionCobro out = resolver.saveConfiguracionCobro(in);
+
+        assertTrue(out.getDescuentoConTope());
+        assertEquals(new BigDecimal("12.35"), out.getDescuentoTopePorcentaje());
+        assertTrue(out.getAumentoConTope());
+        assertEquals(0, new BigDecimal("35").compareTo(out.getAumentoTopePorcentaje()));
+    }
+
+    @Test
+    void descuentoFueraDeRangoSeRechaza() {
+        when(repository.findAllByOrderByIdAsc()).thenReturn(Collections.emptyList());
+        for (String pct : new String[]{"0", "-1", "100.01"}) {
+            ConfiguracionCobroInput in = new ConfiguracionCobroInput();
+            in.setDescuentoConTope(true);
+            in.setDescuentoTopePorcentaje(new BigDecimal(pct));
+            GraphQLException e = assertThrows(GraphQLException.class, () -> resolver.saveConfiguracionCobro(in), pct);
+            assertTrue(e.getMessage().contains("descuento"), e.getMessage());
+        }
+        verify(service, never()).save(any());
+    }
+
+    @Test
     void guardaElUsuarioDeLaSesion() {
         when(repository.findAllByOrderByIdAsc()).thenReturn(Collections.emptyList());
 

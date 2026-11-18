@@ -85,4 +85,6 @@ extend type Mutation {
     # cajaVirtualId null = quitar la asignación.
     asignarSolicitudPagoACaja(solicitudPagoId: ID!, cajaVirtualId: ID): SolicitudPago!
     crearGastoParaPago(input: GastoParaPagoInput!, claveIdempotencia: String): SolicitudPago!
+    # Tesorería cancela un gasto sin pagos, con motivo (#599).
+    cancelarGastoParaPago(solicitudId: ID!, motivo: String!): SolicitudPago!
 }

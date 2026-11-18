@@ -17,6 +17,7 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -55,8 +56,8 @@ public class TimbradoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.findByAll(texto);
     }
 
-    public Page<Timbrado> findTimbradoByNumero(String numero, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+    public Page<Timbrado> findTimbradoByNumero(String numero, Integer page, Integer size) {
+        Pageable pageable = Paginacion.of(page, size);
         return service.findByNumeroLike(numero, pageable);
     }
 

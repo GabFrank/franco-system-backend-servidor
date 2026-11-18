@@ -13,4 +13,6 @@ public class EjecutarRetiroPreGastoInput {
     private Long usuarioId;
     private Long gastoRegistroId;
     private List<RetiroPreGastoLineaInput> lineas;
+    /** El cajero entrega sin que el funcionario escanee el QR. Null = false (clientes viejos). */
+    private Boolean sinQr;
 }

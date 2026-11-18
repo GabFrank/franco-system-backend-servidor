@@ -104,6 +104,14 @@ public class PreGasto extends EmbeddedEntity implements Serializable {
     @Column(name = "saldo_devolver")
     private BigDecimal saldoDevolver;
 
+    /**
+     * Vuelto devuelto en la caja, en la moneda de la solicitud. Null = sin vuelto: la rendición sale
+     * del teléfono. Con valor manda el vuelto (rendido = retirado - vuelto), porque es lo que de verdad
+     * volvió a la caja.
+     */
+    @Column(name = "monto_vuelto")
+    private BigDecimal montoVuelto;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;

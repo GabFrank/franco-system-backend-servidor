@@ -2,7 +2,6 @@ package com.franco.dev.service.productos;
 
 import com.franco.dev.domain.dto.ProductoIdAndCantidadDto;
 import com.franco.dev.domain.dto.ProductoReportDto;
-import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.domain.productos.Familia;
@@ -97,9 +96,20 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
 
     public List<Producto> findByAll(String texto, Integer offset, Long sucursalId, Boolean conStock, Boolean isEnvase,
             Boolean activo) {
+        return findByAll(texto, offset, sucursalId, conStock, isEnvase, activo, null, null);
+    }
+
+    /**
+     * Con {@code ordenStockSucursalId}, los productos salen ordenados por su stock en esa sucursal antes de paginar:
+     * de mayor a menor si {@code ordenStockMayor} no es {@code false}, si no de menor a mayor (#673, buscador de
+     * transferencias). Sin él, el orden de siempre.
+     */
+    public List<Producto> findByAll(String texto, Integer offset, Long sucursalId, Boolean conStock, Boolean isEnvase,
+            Boolean activo, Long ordenStockSucursalId, Boolean ordenStockMayor) {
         if (offset == null) {
             offset = 0;
         }
+        boolean mayor = !Boolean.FALSE.equals(ordenStockMayor);
 
         // Convertimos el Long a String para evitar el error 'bytea'
         String sucursalIdStr = (sucursalId != null) ? String.valueOf(sucursalId) : "0";
@@ -109,7 +119,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             if (isEnvase != null && isEnvase == true) {
                 return repository.findEnvases("", offset, true);
             } else {
-                return repository.findbyAll("%", offset, sucursalIdStr, conStockStr);
+                return buscarPorSql("%", offset, sucursalIdStr, conStockStr, ordenStockSucursalId, mayor);
             }
         }
 
@@ -120,11 +130,21 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
 
         if (productoSearchEnabled && productoSearchService.textoBusquedaValido(texto)) {
             Boolean activoFiltro = activo != null ? activo : true;
-            return buscarPorTextoLucene(texto, offset, sucursalIdStr, conStockStr, activoFiltro);
+            return buscarPorTextoLucene(texto, offset, sucursalIdStr, conStockStr, activoFiltro, ordenStockSucursalId,
+                    mayor);
         }
 
         String textoSql = texto.replace(' ', '%').toUpperCase();
-        return repository.findbyAll(textoSql, offset, sucursalIdStr, conStockStr);
+        return buscarPorSql(textoSql, offset, sucursalIdStr, conStockStr, ordenStockSucursalId, mayor);
+    }
+
+    private List<Producto> buscarPorSql(String textoSql, int offset, String sucursalIdStr, String conStockStr,
+            Long ordenStockSucursalId, boolean mayor) {
+        if (ordenStockSucursalId == null) {
+            return repository.findbyAll(textoSql, offset, sucursalIdStr, conStockStr);
+        }
+        return repository.findbyAllOrdenStock(textoSql, offset, sucursalIdStr, conStockStr,
+                String.valueOf(ordenStockSucursalId), String.valueOf(mayor));
     }
 
     private List<Producto> buscarPorTextoLucene(
@@ -132,8 +152,12 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             int offset,
             String sucursalIdStr,
             String conStockStr,
-            Boolean activo) {
-        int fetchSize = Math.min(Math.max(offset + 10, 50), 200);
+            Boolean activo,
+            Long ordenStockSucursalId,
+            boolean mayor) {
+        // Ordenando por stock se toman siempre los mismos candidatos (el tope): si crecieran con el offset,
+        // al pasar de página cambiaría el conjunto ordenado y se repetirían o saltearían productos.
+        int fetchSize = ordenStockSucursalId != null ? 200 : Math.min(Math.max(offset + 10, 50), 200);
         // Lucene solo indexa descripción: el código de barras se resuelve aparte y se antepone.
         List<Long> ids = unirIds(
                 codigoSearchService.buscarProductoIdsPorCoincidencia(texto, fetchSize),
@@ -170,6 +194,15 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 .map(porId::get)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+
+        if (ordenStockSucursalId != null && !ordenados.isEmpty()) {
+            Map<Long, Double> stock = movimientoStockService.stockPorProductosEnSucursal(
+                    ordenados.stream().map(Producto::getId).collect(Collectors.toList()), ordenStockSucursalId);
+            Comparator<Producto> porStock = Comparator.comparingDouble(p -> stock.getOrDefault(p.getId(), 0d));
+            // Estable: a igual stock queda el orden de relevancia de la búsqueda
+            ordenados = new ArrayList<>(ordenados);
+            ordenados.sort(mayor ? porStock.reversed() : porStock);
+        }
 
         int from = Math.min(offset, ordenados.size());
         int to = Math.min(from + 10, ordenados.size());
@@ -361,7 +394,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 if (!Boolean.FALSE.equals(pps.getActivo())) {
                     precioPorSucursalService.save(new PrecioPorSucursal(pps.getId(), pps.getPrincipal(),
                             pps.getPresentacion(), pps.getTipoPrecio(), pps.getSucursal(), pps.getPrecio(),
-                            pps.getCreadoEn(), pps.getUsuario(), false));
+                            pps.getCreadoEn(), pps.getUsuario(), false, pps.getMoneda()));
                 }
             }
             if (!Boolean.FALSE.equals(pre.getActivo())) {
@@ -763,103 +796,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         List<ProductoIdAndCantidadDto> productoIdAndCantidadDtoList = repository
                 .findProductosAndCantidadVendidaPorPeriodoAndSucursal(sucId, stringToDate(inicio), stringToDate(fin));
         return productoIdAndCantidadDtoList;
-    }
-
-    public List<LucroPorProductosDto> findLucroPorProductos(String inicio, String fin, List<Long> sucIdList,
-            List<Long> usuarioIdList, List<Long> productoIdList, Long subfamiliaId, Long familiaId) {
-        List<LucroPorProductosDto> aggregatedResult = new ArrayList<>();
-        Map<Long, Double> totalVentaPacksMap = new HashMap<>();
-
-        // Obtener datos de todas las sucursales
-        for (Long sucId : sucIdList) {
-            boolean filtrarUsuario = usuarioIdList != null && !usuarioIdList.isEmpty();
-            boolean filtrarProducto = productoIdList != null && !productoIdList.isEmpty();
-
-            List<Long> finalUsuarioIdList = filtrarUsuario ? usuarioIdList : Arrays.asList(-1L);
-            List<Long> finalProductoIdList = filtrarProducto ? productoIdList : Arrays.asList(-1L);
-
-            List<LucroPorProductosDto> lucroPorProductosDtoList = repository.findLucroPorProducto(sucId,
-                    stringToDate(inicio), stringToDate(fin), finalUsuarioIdList, finalProductoIdList, subfamiliaId, familiaId, filtrarUsuario,
-                    filtrarProducto);
-            aggregatedResult.addAll(lucroPorProductosDtoList);
-
-            // Obtener totalVentaPacks (SUM(vi.precio * vi.cantidad)) para calcular
-            // ventaMedia correctamente
-            List<Object[]> totalVentaPacksList = repository.findTotalVentaPacksPorProducto(sucId, stringToDate(inicio),
-                    stringToDate(fin), finalUsuarioIdList, finalProductoIdList, subfamiliaId, familiaId, filtrarUsuario, filtrarProducto);
-            for (Object[] row : totalVentaPacksList) {
-                Long productoId = ((Number) row[0]).longValue();
-                Double totalVentaPacks = ((Number) row[1]).doubleValue();
-                totalVentaPacksMap.merge(productoId, totalVentaPacks, Double::sum);
-            }
-        }
-
-        Map<Long, LucroPorProductosDto> combinedResults = new HashMap<>();
-        for (LucroPorProductosDto dto : aggregatedResult) {
-            combinedResults.merge(dto.getProductoId(), dto, (oldDto, newDto) -> {
-                oldDto.aggregate(newDto);
-                return oldDto;
-            });
-        }
-        List<LucroPorProductosDto> result = new ArrayList<>(combinedResults.values());
-
-        // Calcular todos los campos derivados después de la agregación
-        for (LucroPorProductosDto dto : result) {
-
-            if (dto.getCantidad() != null && dto.getCantidad() > 0) {
-                // Calcular costo unitario
-                dto.setCostoUnitario(dto.getCostoTotal() / dto.getCantidad());
-
-                Double totalVentaPacks = totalVentaPacksMap.get(dto.getProductoId());
-
-                if (totalVentaPacks != null) {
-                    dto.setTotalVenta(totalVentaPacks);
-                }
-
-                if (totalVentaPacks != null && totalVentaPacks > 0 && dto.getCantidad() > 0) {
-                    dto.setVentaMedia(totalVentaPacks / dto.getCantidad());
-                } else {
-                    dto.setVentaMedia(0.0);
-                }
-
-                if (dto.getTotalDescuento() != null) {
-                    dto.setTotalDescuento((double) Math.round(dto.getTotalDescuento()));
-                }
-                if (dto.getTotalAumento() != null) {
-                    dto.setTotalAumento((double) Math.round(dto.getTotalAumento()));
-                }
-
-                // Calcular lucro (total venta - total costo - descuento + aumento)
-                dto.setLucro((double) Math.round(dto.getTotalVenta() - dto.getCostoTotal()
-                        - (dto.getTotalDescuento() != null ? dto.getTotalDescuento() : 0.0)
-                        + (dto.getTotalAumento() != null ? dto.getTotalAumento() : 0.0)));
-
-                // Calcular margen (lucro / costo total * 100) - porcentaje sobre costo
-                if (dto.getCostoTotal() > 0) {
-                    dto.setMargen((dto.getLucro() / dto.getCostoTotal()) * 100);
-                } else {
-                    dto.setMargen(0.0);
-                }
-
-                // Calcular porcentaje (lucro / total venta * 100) - porcentaje sobre venta
-                if (dto.getTotalVenta() > 0) {
-                    dto.setPercent((dto.getLucro() / dto.getTotalVenta()) * 100);
-                } else {
-                    dto.setPercent(0.0);
-                }
-
-            } else {
-                // Si no hay cantidad, todos los valores son 0
-                dto.setCostoUnitario(0.0);
-                dto.setVentaMedia(0.0);
-                dto.setLucro(0.0);
-                dto.setMargen(0.0);
-                dto.setPercent(0.0);
-            }
-        }
-
-        result.sort((dto1, dto2) -> dto2.getTotalVenta().compareTo(dto1.getTotalVenta()));
-        return result;
     }
 
     public Double findPrecioVentaPorProducto(Long productoId, Long sucursalId) {

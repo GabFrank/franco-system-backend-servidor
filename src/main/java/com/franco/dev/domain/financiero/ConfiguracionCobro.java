@@ -25,6 +25,9 @@ public class ConfiguracionCobro implements Identifiable<Long> {
     /** El 20% que estaba clavado en el boton de aumento del desktop. */
     public static final BigDecimal TOPE_DEFAULT = new BigDecimal("20");
 
+    /** Lo que se propone al activar el tope del descuento: la opcion mas alta del dialogo de descuento. */
+    public static final BigDecimal TOPE_DESCUENTO_DEFAULT = new BigDecimal("15");
+
     @Id
     @GenericGenerator(name = "assigned-identity", strategy = "com.franco.dev.config.AssignedIdentityGenerator")
     @GeneratedValue(generator = "assigned-identity", strategy = GenerationType.IDENTITY)
@@ -35,6 +38,13 @@ public class ConfiguracionCobro implements Identifiable<Long> {
 
     @Column(name = "aumento_tope_porcentaje", nullable = false)
     private BigDecimal aumentoTopePorcentaje = TOPE_DEFAULT;
+
+    /** Sin tope por defecto (V272.3): el descuento se comporta como antes hasta que Tesoreria lo active. */
+    @Column(name = "descuento_con_tope", nullable = false)
+    private Boolean descuentoConTope = false;
+
+    @Column(name = "descuento_tope_porcentaje", nullable = false)
+    private BigDecimal descuentoTopePorcentaje = TOPE_DESCUENTO_DEFAULT;
 
     /**
      * EAGER a proposito: GraphQL resuelve {@link #getUsuarioNickname()} fuera de la sesion de

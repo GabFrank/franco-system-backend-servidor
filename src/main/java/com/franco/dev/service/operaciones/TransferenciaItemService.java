@@ -5,6 +5,7 @@ import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
+import com.franco.dev.domain.operaciones.enums.TransferenciaItemMotivoRechazo;
 import com.franco.dev.repository.operaciones.TransferenciaItemRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -44,13 +46,20 @@ public class TransferenciaItemService extends CrudService<TransferenciaItem, Tra
     }
 
     public Page<TransferenciaItem> findByTransferenciaItemId(Long id, Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         return repository.findByTransferenciaIdOrderByIdDesc(id, pageable);
     }
 
     public Page<TransferenciaItem> findByTransferenciaItemIdWithFilter(Long id, String name, Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         return repository.findByTransferenciaIdWithFilters(id, name != null ? "%"+name.toUpperCase()+"%" : null, pageable);
+    }
+
+    public Page<TransferenciaItem> findRechazados(TransferenciaItemMotivoRechazo motivo, Long sucursalOrigenId,
+            Long sucursalDestinoId, Long productoId, Long transferenciaId, LocalDateTime desde, LocalDateTime hasta,
+            Pageable pageable) {
+        return repository.findRechazados(motivo, sucursalOrigenId, sucursalDestinoId, productoId, transferenciaId, desde,
+                hasta, pageable);
     }
 
     public List<TransferenciaItem> findByTransferenciaId(Long id) {

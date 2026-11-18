@@ -34,13 +34,13 @@ public class HorarioResolver {
 
     /**
      * Los horarios de la cuenta que marca. Desde #523 la fuente es una sola: los horarios
-     * propios del usuario (horario.usuario_id). funcionario.horario_id queda solo como
+     * asignados al usuario (horario_usuario, desde V284.3 compartidos). funcionario.horario_id queda solo como
      * respaldo de quien todavia no tiene ninguno propio; antes ganaba siempre y, como casi
      * todos eran de TODOS, tapaba los horarios de un dia puntual.
      */
     public List<Horario> horariosVigentes(Long usuarioId, Funcionario funcionario) {
         List<Horario> propios = usuarioId == null ? Collections.emptyList()
-                : horarioRepository.findByUsuarioIdOrderByIdDesc(usuarioId).stream()
+                : horarioRepository.findAsignadosAUsuario(usuarioId).stream()
                         .filter(h -> h.getHoraEntrada() != null)
                         .collect(Collectors.toList());
         if (!propios.isEmpty()) return propios;

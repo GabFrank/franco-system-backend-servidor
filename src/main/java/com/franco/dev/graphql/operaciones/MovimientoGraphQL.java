@@ -25,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Component;
 
 import java.text.DecimalFormat;
@@ -79,7 +80,7 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             List<TipoMovimiento> tipoMovimientoList,
             Long usuarioId,
             Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         if (productoId == null || inicio == null || fin == null)
             return null;
         return service.findMovimientoStockWithFilters(stringToDate(inicio), stringToDate(fin), sucursalList, productoId,

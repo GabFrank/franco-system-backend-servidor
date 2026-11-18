@@ -79,4 +79,34 @@ class ConversionPrecioServiceTest {
 
         assertEquals(Arrays.asList(5d, null, 1d), r.get(0).getMontos());
     }
+
+    @Test
+    void desdeOtraMoneda_pasaPorElGuarani() {
+        Moneda gs = moneda(1, "GUARANI", true, 0, 1d);
+        Moneda rs = moneda(2, "REAL", true, 2, 1300d);
+        Moneda ds = moneda(3, "DOLAR", true, 2, 6500d);
+        when(monedaService.findAll2()).thenReturn(Arrays.asList(gs, rs, ds));
+
+        // 4,39 USD a 6.500 = 28.535 Gs = 21,95 BRL; en dolares queda igual
+        List<PreciosEnMonedaDto> r = service.convertir(Arrays.asList(4.39d), ds);
+
+        assertEquals(28535d, r.get(0).getMontos().get(0));
+        assertEquals(21.95d, r.get(1).getMontos().get(0));
+        assertEquals(4.39d, r.get(2).getMontos().get(0));
+    }
+
+    @Test
+    void desdeGuaranies_esLoDeSiempre() {
+        Moneda gs = moneda(1, "GUARANI", true, null, 1d);
+        Moneda ds = moneda(3, "DOLAR", true, 2, 7800d);
+        when(monedaService.findAll2()).thenReturn(Arrays.asList(gs, ds));
+        assertEquals(service.convertir(Arrays.asList(3500d)).get(1).getMontos(),
+                service.convertir(Arrays.asList(3500d), gs).get(1).getMontos());
+    }
+
+    @Test
+    void origenSinCotizacion_noConvierte() {
+        Moneda ds = moneda(3, "DOLAR", true, 2, null);
+        assertTrue(service.convertir(Arrays.asList(4.39d), ds).isEmpty());
+    }
 }

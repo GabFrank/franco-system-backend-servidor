@@ -57,7 +57,7 @@ class MarcacionTurnoPorDiaTest {
         usuario.setPersona(persona);
 
         HorarioRepository horarioRepository = mock(HorarioRepository.class);
-        when(horarioRepository.findByUsuarioIdOrderByIdDesc(USUARIO_ID)).thenReturn(Arrays.asList(
+        when(horarioRepository.findAsignadosAUsuario(USUARIO_ID)).thenReturn(Arrays.asList(
                 horario(21L, 17, 1, Turno.MADRUGADA, Dia.JUEVES),
                 horario(20L, 8, 17, Turno.DIA, Dia.LUNES, Dia.MARTES, Dia.MIERCOLES, Dia.VIERNES)));
         HorarioResolver horarioResolver = new HorarioResolver(mock(FuncionarioService.class), horarioRepository);
@@ -170,7 +170,7 @@ class MarcacionTurnoPorDiaTest {
         // la madrugada. La salida del jueves 06:30 queda mas cerca de las 07:00 del turno Dia,
         // pero el horario se elige por la hora de la entrada: sigue siendo madrugada.
         HorarioRepository repo = mock(HorarioRepository.class);
-        when(repo.findByUsuarioIdOrderByIdDesc(USUARIO_ID)).thenReturn(Arrays.asList(
+        when(repo.findAsignadosAUsuario(USUARIO_ID)).thenReturn(Arrays.asList(
                 horario(31L, 7, 12, Turno.DIA, Dia.MIERCOLES),
                 horario(32L, 17, 1, Turno.MADRUGADA, Dia.MIERCOLES)));
         JornadaService jornadaService = mock(JornadaService.class);
@@ -198,7 +198,7 @@ class MarcacionTurnoPorDiaTest {
     @Test
     void conDosTurnosElMismoDia_laEntradaTempranaEsDelTurnoDia() {
         HorarioRepository repo = mock(HorarioRepository.class);
-        when(repo.findByUsuarioIdOrderByIdDesc(USUARIO_ID)).thenReturn(Arrays.asList(
+        when(repo.findAsignadosAUsuario(USUARIO_ID)).thenReturn(Arrays.asList(
                 horario(31L, 7, 12, Turno.DIA, Dia.MIERCOLES),
                 horario(32L, 17, 1, Turno.MADRUGADA, Dia.MIERCOLES)));
         JornadaService jornadaService = mock(JornadaService.class);

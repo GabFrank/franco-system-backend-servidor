@@ -13,6 +13,7 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -41,8 +42,8 @@ public class PuntoDeVentaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.findById(id);
     }
 
-    public List<PuntoDeVenta> puntoDeVentas(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+    public List<PuntoDeVenta> puntoDeVentas(Integer page, Integer size) {
+        Pageable pageable = Paginacion.of(page, size);
         return service.findAll(pageable);
     }
 

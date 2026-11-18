@@ -219,6 +219,7 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
     public Boolean saveUserImage(Long id, String type, String image, List<Double> embedding, String embeddingGaleriaJson)
             throws IOException {
         System.out.println("Saving user image for id: " + id + ", type: " + type);
+        validarEnrolamientoFacial(id, embeddingGaleriaJson);
         try {
             String directoryPath = imageService.getImagePath() + File.separator + "personas" + File.separator + type
                     + File.separator;
@@ -306,6 +307,17 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
                     "No se encontró galería facial válida para actualizar.");
         }
 
+        // Anti-contaminacion: una captura que se parece mas a otra persona no ensena nada,
+        // aunque haya pasado la verificacion. Si entrara, la galeria empezaria a parecerse a
+        // ese otro y la proxima vez lo aceptaria a el.
+        com.franco.dev.graphql.personas.UsuarioSimilitudResult mejor =
+                embeddingCacheService.findBestMatch(embedding, null);
+        if (mejor != null && mejor.getUsuario() != null && !usuarioId.equals(mejor.getUsuario().getId())) {
+            return new IncorporarEmbeddingMarcacionResult(
+                    ResultadoIncorporacionEmbedding.RECHAZADO_SIMILITUD,
+                    "La captura se parece más a otra persona registrada: no se usa para actualizar el perfil.");
+        }
+
         IncorporarCapturaMarcacionResult resultado = embeddingGaleriaService
                 .incorporarCapturaMarcacion(galeria, embedding, score);
         if (resultado.getResultado() != ResultadoIncorporacionEmbedding.OK) {
@@ -324,6 +336,27 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
         personaRepository.saveAndFlush(persona);
         embeddingCacheService.refreshUsuario(usuarioId, embeddingJson);
         return new IncorporarEmbeddingMarcacionResult(resultado.getResultado(), resultado.getMensaje());
+    }
+
+    /**
+     * Rechaza un enrolamiento que no sirve para reconocer, antes de tocar la foto o la galeria.
+     * Ver {@link EmbeddingGaleriaService#motivoEnrolamientoNoConfiable}.
+     */
+    void validarEnrolamientoFacial(Long usuarioId, String embeddingGaleriaJson) {
+        if (embeddingGaleriaJson == null || embeddingGaleriaJson.isBlank()) {
+            return;
+        }
+        com.franco.dev.graphql.personas.dto.EmbeddingGaleriaDto galeria =
+                embeddingGaleriaService.parsearDesdeJson(embeddingGaleriaJson);
+        if (galeria == null) {
+            return; // el formato lo valida normalizarJsonEntrada, con su propio mensaje
+        }
+        double[] promedio = embeddingGaleriaService.promedioNormalizado(galeria);
+        String motivo = embeddingGaleriaService.motivoEnrolamientoNoConfiable(
+                promedio, embeddingCacheService.maximaSimilitudConOtrosMasters(promedio, usuarioId));
+        if (motivo != null) {
+            throw new graphql.GraphQLException(motivo);
+        }
     }
 
     private String resolverEmbeddingJson(String embeddingGaleriaJson) {

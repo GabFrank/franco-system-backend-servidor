@@ -291,16 +291,19 @@ public class OperacionFinancieraService {
         // cargada en la request, con el anulado de antes de esperar.
         OperacionFinanciera op = repository.lockById(operacionId)
                 .orElseThrow(() -> new GraphQLException("Operación financiera no encontrada: " + operacionId));
-        if (repository.findAnuladoById(operacionId).orElse(Boolean.TRUE.equals(op.getAnulado()))) {
-            throw new GraphQLException("La operación financiera #" + operacionId + " ya está anulada");
-        }
-        exigirPermitidaEnModoAcotado(op);
+        // El acceso a las cajas va antes del estado y del límite, igual que en TesoreriaService.revertir.
         // Un envío a una caja receptora lo anula quien puede mover esa caja: revertirlo le saca plata.
         if (op.getTipoOperacion() == TipoOperacionFinanciera.TRANSFERENCIA_ENTRE_CAJAS && op.getCajaMayorDestino() != null
                 && !seguridad.esProcesoDeSistema() && !seguridad.puedeEscribirCaja(op.getCajaMayorDestino().getId())) {
             throw new GraphQLException("No autorizado: este envío lo anula quien administra la caja que lo recibió ("
                     + op.getCajaMayorDestino().getNombre() + ").");
         }
+        if (op.getCajaMayorOrigen() != null) seguridad.requireEscrituraCaja(op.getCajaMayorOrigen().getId());
+        if (op.getCajaMayorDestino() != null) seguridad.requireEscrituraCaja(op.getCajaMayorDestino().getId());
+        if (repository.findAnuladoById(operacionId).orElse(Boolean.TRUE.equals(op.getAnulado()))) {
+            throw new GraphQLException("La operación financiera #" + operacionId + " ya está anulada");
+        }
+        exigirPermitidaEnModoAcotado(op);
         // Límite de antigüedad sobre la fecha de la operación, antes de revertir ninguna pata (issue #370).
         tesoreriaService.requireDentroDelLimiteDeAnulacion(op.getCreadoEn(), "La operación financiera #" + operacionId);
         String razon = (motivo != null && !motivo.trim().isEmpty())

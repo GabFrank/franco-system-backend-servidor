@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Component;
 
 import com.franco.dev.config.multitenant.CustomPage;
@@ -44,8 +45,8 @@ public class ImpresoraGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         return service.findById(id);
     }
 
-    public List<Impresora> impresoras(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+    public List<Impresora> impresoras(Integer page, Integer size) {
+        Pageable pageable = Paginacion.of(page, size);
         return service.findAll(pageable);
     }
 

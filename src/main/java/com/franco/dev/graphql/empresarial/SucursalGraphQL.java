@@ -15,6 +15,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Component;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
@@ -89,7 +90,7 @@ public class SucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Page<Sucursal> findByNombre(String nombre, Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         // Si nombre es null, vacío o '%', retornar todos los resultados
         if (nombre == null || nombre.trim().isEmpty() || "%".equals(nombre.trim())) {
             return service.getRepository().findAll(pageable);

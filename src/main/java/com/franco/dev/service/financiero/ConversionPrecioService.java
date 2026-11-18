@@ -11,7 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Convierte importes en guaranies a las demas monedas, con la ultima cotizacion cargada.
+ * Convierte importes (en guaranies, o en la moneda del precio) a las demas monedas, con la ultima
+ * cotizacion cargada.
  *
  * Lo usa el kiosco de precios de la PWA. Antes de esto, `frc-mobile` multiplicaba el precio por
  * `1 / cambio` en el cliente, con el redondeo que le tocara al navegador.
@@ -36,10 +37,28 @@ public class ConversionPrecioService {
      * cliente arma el selector con una sola lista.
      */
     public List<PreciosEnMonedaDto> convertir(List<Double> montosGs) {
+        return convertir(montosGs, null);
+    }
+
+    /**
+     * Lo mismo con los importes en {@code origen} (null = guaranies, lo de siempre): un precio en
+     * dolares (V260.5) se lleva a cada moneda pasando por el guarani, con un solo redondeo al final.
+     * Sin cotizacion del origen no se convierte nada: vacio.
+     */
+    public List<PreciosEnMonedaDto> convertir(List<Double> montos, Moneda origen) {
         List<PreciosEnMonedaDto> resultado = new ArrayList<>();
-        if (montosGs == null) {
+        if (montos == null) {
             return resultado;
         }
+        BigDecimal gsPorUnidadOrigen = BigDecimal.ONE;
+        if (origen != null && !MonedaService.esGuarani(origen)) {
+            Double c = cambioService.findLastValorEnGsByMonedaId(origen.getId());
+            if (c == null || c <= 0) {
+                return resultado;
+            }
+            gsPorUnidadOrigen = BigDecimal.valueOf(c);
+        }
+        List<Double> montosGs = montos;
         for (Moneda moneda : monedaService.findAll2()) {
             if (Boolean.FALSE.equals(moneda.getActivo())) {
                 continue;
@@ -50,13 +69,14 @@ public class ConversionPrecioService {
             }
             int decimales = decimalesDe(moneda, cambio);
             BigDecimal divisor = BigDecimal.valueOf(cambio);
-            List<Double> montos = new ArrayList<>();
+            List<Double> enMoneda = new ArrayList<>();
             for (Double monto : montosGs) {
-                montos.add(monto == null
+                enMoneda.add(monto == null
                         ? null
-                        : BigDecimal.valueOf(monto).divide(divisor, decimales, RoundingMode.HALF_UP).doubleValue());
+                        : BigDecimal.valueOf(monto).multiply(gsPorUnidadOrigen)
+                            .divide(divisor, decimales, RoundingMode.HALF_UP).doubleValue());
             }
-            resultado.add(new PreciosEnMonedaDto(moneda, decimales, montos));
+            resultado.add(new PreciosEnMonedaDto(moneda, decimales, enMoneda));
         }
         return resultado;
     }

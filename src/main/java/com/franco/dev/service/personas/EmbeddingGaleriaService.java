@@ -15,11 +15,35 @@ import java.util.List;
 public class EmbeddingGaleriaService {
 
     private static final double MIN_SCORE_MARCACION = 0.7;
-    private static final double MIN_SIMILITUD_MASTER = 0.55;
+    /**
+     * Coseno minimo contra la galeria propia para que una marcacion ensene algo.
+     *
+     * Calibrado con las galerias de produccion (2026-11-12, 58 personas, 650 capturas
+     * de marcacion): con 0,75 un impostor pasa el 0,13 % de las veces y la persona
+     * correcta queda afuera el 1,4 %. El 0,55 anterior estaba por debajo de la mediana
+     * de dos personas distintas (0,53): dejaba entrar capturas de cualquiera.
+     */
+    public static final double MIN_SIMILITUD_PROPIA = 0.75;
     private static final double MAX_SIMILITUD_DUPLICADO = 0.93;
     private static final int MAX_GALLERY_SIZE = 15;
     private static final double SCORE_MINIMO_MASTER = 0.5;
     private static final java.util.Set<String> POSES_ENROLLMENT = java.util.Set.of("left", "right", "front");
+
+    /**
+     * Tope de dimensiones en cero del promedio de las fotos de un enrolamiento.
+     *
+     * En las galerias de produccion (2026-11-12) las rotas por el WebGL de algunos celulares
+     * (frc-mobile-pwa#144) dan 0,38 o mas: la red devolvia casi el mismo vector para cualquier
+     * cara. Las sanas suelen quedar por debajo de 0,27, pero una de desktop con tres fotos casi
+     * identicas llego a 0,31 (el promedio conserva los ceros que comparten). 0,35 deja pasar
+     * esa y frena todas las rotas; la regla de parecido con otra persona es la segunda red.
+     */
+    public static final double MAX_CEROS_ENROLAMIENTO = 0.35;
+    /**
+     * Tope de coseno entre el promedio de un enrolamiento nuevo y el de otra persona.
+     * Entre personas distintas sanas el maximo medido fue 0,80; las rotas, 0,95 o mas entre si.
+     */
+    public static final double MAX_SIMILITUD_CON_OTRA_PERSONA = 0.90;
 
     private final ObjectMapper objectMapper;
 
@@ -63,6 +87,63 @@ public class EmbeddingGaleriaService {
             throw new IllegalArgumentException("embeddingGaleriaJson debe incluir al menos un item en gallery");
         }
         return serializar(galeria);
+    }
+
+    /**
+     * El promedio de las fotos de la galeria, cada una normalizada. Es el "centro" del rostro
+     * enrolado, sin depender del master que mando el cliente.
+     */
+    public double[] promedioNormalizado(EmbeddingGaleriaDto galeria) {
+        if (galeria == null || galeria.getGallery() == null) {
+            return new double[0];
+        }
+        double[] suma = null;
+        for (EmbeddingGaleriaItemDto item : galeria.getGallery()) {
+            if (item == null || item.getEmbedding() == null || item.getEmbedding().isEmpty()) {
+                continue;
+            }
+            double[] v = unitario(toArray(item.getEmbedding()));
+            if (suma == null) {
+                suma = new double[v.length];
+            }
+            if (v.length != suma.length) {
+                continue;
+            }
+            for (int i = 0; i < v.length; i++) {
+                suma[i] += v[i];
+            }
+        }
+        return suma == null ? new double[0] : unitario(suma);
+    }
+
+    /**
+     * Por que un enrolamiento no sirve para reconocer, o null si sirve.
+     *
+     * Detecta las galerias "aplastadas": la red neuronal devolvio casi el mismo vector para
+     * cualquier cara (pasa con el WebGL de algunos celulares, frc-mobile-pwa#144). Una galeria
+     * asi se parece a todas las otras galerias aplastadas y el 1:N no distingue a esas personas
+     * entre si: una puede marcar por otra.
+     *
+     * @param maximaSimilitudConOtros coseno maximo del promedio contra el master de cualquier
+     *                                otra persona enrolada (0 si no hay otras).
+     */
+    public String motivoEnrolamientoNoConfiable(double[] promedio, double maximaSimilitudConOtros) {
+        if (promedio == null || promedio.length == 0) {
+            return "El registro facial no trae fotos válidas.";
+        }
+        int ceros = 0;
+        for (double x : promedio) {
+            if (x == 0.0) {
+                ceros++;
+            }
+        }
+        if ((double) ceros / promedio.length >= MAX_CEROS_ENROLAMIENTO) {
+            return "Este dispositivo no generó un rostro confiable. Actualizá la aplicación o registrá el rostro desde otro equipo.";
+        }
+        if (maximaSimilitudConOtros >= MAX_SIMILITUD_CON_OTRA_PERSONA) {
+            return "El rostro registrado se parece demasiado al de otra persona enrolada. Actualizá la aplicación o registrá el rostro desde otro equipo.";
+        }
+        return null;
     }
 
     public List<double[]> extraerVectores(EmbeddingGaleriaDto galeria) {
@@ -131,10 +212,15 @@ public class EmbeddingGaleriaService {
                     "El perfil facial registrado no es compatible con esta captura.");
         }
 
-        double similitudMaster = cosineSimilarity(candidato, master);
-        if (similitudMaster < MIN_SIMILITUD_MASTER) {
-            int pct = (int) Math.round(similitudMaster * 100);
-            int umbralPct = (int) Math.round(MIN_SIMILITUD_MASTER * 100);
+        // Contra toda la galeria y no solo el master: el master es un promedio de poses,
+        // y una captura buena de frente puede quedar lejos de el y cerca de la foto de frente.
+        double similitudPropia = 0.0;
+        for (double[] referencia : extraerVectores(galeria)) {
+            similitudPropia = Math.max(similitudPropia, cosineSimilarity(candidato, referencia));
+        }
+        if (similitudPropia < MIN_SIMILITUD_PROPIA) {
+            int pct = (int) Math.round(similitudPropia * 100);
+            int umbralPct = (int) Math.round(MIN_SIMILITUD_PROPIA * 100);
             return IncorporarCapturaMarcacionResult.rechazadoSimilitud(
                     "Similitud insuficiente (" + pct + "%). Se requiere al menos " + umbralPct + "%.");
         }
@@ -179,33 +265,45 @@ public class EmbeddingGaleriaService {
         return IncorporarCapturaMarcacionResult.ok(actualizada);
     }
 
-    private void podarGaleria(EmbeddingGaleriaDto galeria) {
-        if (galeria.getGallery() == null || galeria.getGallery().size() <= MAX_GALLERY_SIZE) {
+    /**
+     * Saca de a una la captura de marcacion mas redundante (la que mas se parece a otra
+     * de la galeria) hasta volver al tope. Las fotos del enrolamiento no se tocan.
+     *
+     * Antes salia la de menor score, pero todas las capturas de marcacion llegan con
+     * score 1,0: en la practica salia la primera de la lista, y la galeria se llenaba de
+     * capturas casi iguales. Sacar la redundante deja variedad (luz, lentes, barba), que
+     * es lo que hace que la persona se reconozca en condiciones nuevas.
+     */
+    void podarGaleria(EmbeddingGaleriaDto galeria) {
+        if (galeria.getGallery() == null) {
             return;
         }
+        galeria.getGallery().removeIf(item -> item == null || item.getEmbedding() == null || item.getEmbedding().isEmpty());
         while (galeria.getGallery().size() > MAX_GALLERY_SIZE) {
+            List<EmbeddingGaleriaItemDto> items = galeria.getGallery();
             int indiceRemover = -1;
-            double peorScore = Double.MAX_VALUE;
-            for (int i = 0; i < galeria.getGallery().size(); i++) {
-                EmbeddingGaleriaItemDto item = galeria.getGallery().get(i);
-                if (item == null) {
-                    indiceRemover = i;
-                    break;
-                }
-                String pose = item.getPose() != null ? item.getPose().toLowerCase() : "";
+            double mayorRedundancia = -2.0;
+            for (int i = 0; i < items.size(); i++) {
+                String pose = items.get(i).getPose() != null ? items.get(i).getPose().toLowerCase() : "";
                 if (POSES_ENROLLMENT.contains(pose)) {
                     continue;
                 }
-                double itemScore = item.getScore() != null ? item.getScore() : 0.0;
-                if (itemScore < peorScore) {
-                    peorScore = itemScore;
+                double[] vi = toArray(items.get(i).getEmbedding());
+                double redundancia = -1.0;
+                for (int j = 0; j < items.size(); j++) {
+                    if (j != i) {
+                        redundancia = Math.max(redundancia, cosineSimilarity(vi, toArray(items.get(j).getEmbedding())));
+                    }
+                }
+                if (redundancia > mayorRedundancia) {
+                    mayorRedundancia = redundancia;
                     indiceRemover = i;
                 }
             }
             if (indiceRemover < 0) {
                 break;
             }
-            galeria.getGallery().remove(indiceRemover);
+            items.remove(indiceRemover);
         }
     }
 
@@ -234,7 +332,7 @@ public class EmbeddingGaleriaService {
 
         for (EmbeddingGaleriaItemDto item : validas) {
             double peso = item.getScore() != null ? item.getScore() : 1.0;
-            double[] vector = toArray(item.getEmbedding());
+            double[] vector = unitario(toArray(item.getEmbedding()));
             if (vector.length != dim) {
                 continue;
             }
@@ -290,7 +388,28 @@ public class EmbeddingGaleriaService {
         return arr;
     }
 
-    private static double cosineSimilarity(double[] v1, double[] v2) {
+    /**
+     * El vector con largo 1. Las fotos del enrolamiento llegan crudas de Human (largo ~11)
+     * y las capturas de marcacion ya normalizadas (largo 1): sin esto, al promediar, las
+     * tres fotos del enrolamiento pesaban once veces mas y el master no aprendia nada.
+     */
+    private static double[] unitario(double[] v) {
+        double norma = 0.0;
+        for (double x : v) {
+            norma += x * x;
+        }
+        norma = Math.sqrt(norma);
+        if (norma == 0) {
+            return v;
+        }
+        double[] r = new double[v.length];
+        for (int i = 0; i < v.length; i++) {
+            r[i] = v[i] / norma;
+        }
+        return r;
+    }
+
+    static double cosineSimilarity(double[] v1, double[] v2) {
         if (v1.length != v2.length || v1.length == 0) {
             return 0.0;
         }

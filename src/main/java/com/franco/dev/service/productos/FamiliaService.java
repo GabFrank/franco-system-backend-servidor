@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -28,8 +29,8 @@ public class FamiliaService extends CrudService<Familia, FamiliaRepository, Long
         return  repository.findByAll(texto);
     }
 
-    public Page<Familia> findByAllWithPage(String texto, int index, int size){
-        Pageable page = PageRequest.of(index, size);
+    public Page<Familia> findByAllWithPage(String texto, Integer index, Integer size){
+        Pageable page = Paginacion.of(index, size);
         texto = texto != null ? texto.replace(' ', '%').toUpperCase() : "";
         return  repository.findByAllWithPage(texto, page);
     }

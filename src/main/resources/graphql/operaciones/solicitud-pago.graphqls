@@ -127,8 +127,19 @@ extend type Query {
         numero: String
         fechaDesde: String
         fechaHasta: String
+        monedaIds: [ID]
     ): SolicitudPagoPage
-    
+
+    # PDF (base64) de la lista de solicitudes con los mismos filtros de solicitudesPagoPaginated, sin paginar
+    imprimirReporteSolicitudesPago(
+        proveedorId: ID
+        estado: SolicitudPagoEstado
+        numero: String
+        fechaDesde: String
+        fechaHasta: String
+        monedaIds: [ID]
+    ): String
+
     # Get notas de recepcion available for payment for a specific pedido
     notasDisponiblesParaPago(pedidoId: ID!): [NotaRecepcion]
     

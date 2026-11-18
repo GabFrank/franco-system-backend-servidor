@@ -42,14 +42,17 @@ public class CajaObservacionGraphQL implements GraphQLQueryResolver, GraphQLMuta
     private UsuarioService usuarioService;
 
     public Optional<CajaObservacion> cajaObservacion(Long cajaId) {
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
         return service.findById(cajaId);
     }
 
     public List<CajaObservacion> cajaObservaciones() {
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
         return service.findAll2();
     }
 
     public List<CajaObservacion> findByPdvCajaIdAndSucursalId(Long cajaId, Long sucursalId) {
+        PdvCajaGraphQL.exigirLecturaDeCaja(seg, pdvCajaService, cajaId, sucursalId);
         return service.findByPdvCajaIdAndSucursalId(cajaId, sucursalId);
     }
 

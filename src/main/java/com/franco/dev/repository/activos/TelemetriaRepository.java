@@ -21,9 +21,12 @@ public interface TelemetriaRepository extends HelperRepository<Telemetria, Long>
 
     List<Telemetria> findByDispositivoId(Long dispositivoId);
 
+    // Las dos fechas son obligatorias: el resolver completa el extremo que falta (#582). Con
+    // ":fecha IS NULL OR ..." PostgreSQL no puede deducir el tipo del parametro y la consulta fallaba
+    // con "could not determine data type of parameter".
     @Query("SELECT t FROM Telemetria t WHERE t.dispositivo.id = :dispositivoId " +
-            "AND (:fechaInicio IS NULL OR t.fechaGps >= :fechaInicio) " +
-            "AND (:fechaFin IS NULL OR t.fechaGps <= :fechaFin) " +
+            "AND t.fechaGps >= :fechaInicio " +
+            "AND t.fechaGps <= :fechaFin " +
             "ORDER BY t.fechaGps DESC")
     Page<Telemetria> findByDispositivoIdAndFechaGpsBetween(Long dispositivoId, LocalDateTime fechaInicio,
             LocalDateTime fechaFin, Pageable pageable);

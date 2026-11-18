@@ -86,7 +86,8 @@ extend type Query {
     producto(id:ID!):Producto
     productos(page:Int = 0, size:Int = 10):[Producto]!
     countProducto: Int
-    productoSearch(texto:String, offset:Int, sucursalId: ID, conStock: Boolean, isEnvase: Boolean, activo: Boolean):[Producto]
+    # ordenStockSucursalId: ordena por el stock en esa sucursal; ordenStockMayor false = de menor a mayor (#673, transferencias)
+    productoSearch(texto:String, offset:Int, sucursalId: ID, conStock: Boolean, isEnvase: Boolean, activo: Boolean, ordenStockSucursalId: ID, ordenStockMayor: Boolean):[Producto]
     productoPorProveedorId(id: ID!, texto: String): [Producto]
     productoPorSucursalStock(proId: ID!, sucId: ID!): Float
     # Existencia en TODAS las sucursales, en una sola consulta.

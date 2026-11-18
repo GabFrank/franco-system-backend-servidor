@@ -57,6 +57,16 @@ public interface MovimientoStockRepository
         public List<StockPorSucursalDto> stockPorSucursales(Long proId);
 
         /**
+         * Stock de varios productos en una sucursal, en UNA consulta: [producto_id, stock].
+         * Los productos sin movimientos no vienen (stock cero).
+         */
+        @Query(value = "select m.producto_id, sum(m.cantidad) from operaciones.movimiento_stock m " +
+                        "where m.estado = true and m.sucursal_id = :sucursalId and m.producto_id in (:productoIds) " +
+                        "group by m.producto_id", nativeQuery = true)
+        List<Object[]> stockPorProductosEnSucursal(@Param("productoIds") List<Long> productoIds,
+                        @Param("sucursalId") Long sucursalId);
+
+        /**
          * Cuanto se vendio del producto en cada sucursal del rango, en UNA consulta.
          *
          * Reemplaza a bajarse los movimientos de VENTA —hasta 1000 por sucursal— para que el

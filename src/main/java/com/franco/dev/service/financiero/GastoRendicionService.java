@@ -78,7 +78,9 @@ public class GastoRendicionService extends CrudService<GastoRendicion, GastoRend
     @Transactional
     public void actualizarMontoPreGasto(Long preGastoId, Long sucursalId) {
         PreGasto preGasto = preGastoService.findByIdAndSucursalId(preGastoId, sucursalId);
-        if (preGasto != null) {
+        // Con vuelto registrado en la caja manda el vuelto: la rendición del teléfono queda como
+        // comprobante pero no cambia los montos.
+        if (preGasto != null && preGasto.getMontoVuelto() == null) {
             List<GastoRendicion> rendiciones = repository.findByPreGastoIdAndSucursalId(preGastoId, sucursalId);
             BigDecimal totalGastado = rendiciones.stream()
                     .map(r -> r.getMontoTotal() != null ? r.getMontoTotal() : BigDecimal.ZERO)

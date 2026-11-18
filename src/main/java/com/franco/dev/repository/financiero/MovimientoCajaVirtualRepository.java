@@ -83,6 +83,10 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
     List<MovimientoCajaVirtual> findByOrigenTipoAndOrigenIdAndOrigenSucursalIdAndActivoTrue(
             OrigenMovimientoTipo origenTipo, Long origenId, Long origenSucursalId);
 
+    /** Igual que el anterior, también con los ya revertidos: para saber en qué cajas estuvo un retiro. */
+    List<MovimientoCajaVirtual> findByOrigenTipoAndOrigenIdAndOrigenSucursalId(
+            OrigenMovimientoTipo origenTipo, Long origenId, Long origenSucursalId);
+
     /**
      * Filtro combinado de movimientos (todos opcionales salvo la caja). soloActivos=true oculta anulados.
      * {@code tipo} llega como String (name del enum) y se compara contra la columna casteada a texto:
@@ -146,14 +150,20 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
             + "    OR (CAST(m.tipo_movimiento AS text) = 'PAGO_PROVEEDOR' AND m.origen_tipo = 'GASTO')) "
             + "  AND m.cantidad - COALESCE(v.devuelto, 0) > 0.005 "
             + "  AND (CAST(:texto AS text) IS NULL OR UPPER(m.descripcion) LIKE CAST(:texto AS text) "
-            + "       OR UPPER(p.nombre) LIKE CAST(:texto AS text)) ";
+            + "       OR UPPER(p.nombre) LIKE CAST(:texto AS text)) "
+            + "  AND m.creado_en >= :desde AND m.creado_en <= :fin ";
 
-    /** Egresos de la caja con algo pendiente de devolver, del más nuevo al más viejo. {@code texto}: patrón LIKE o null. */
+    /**
+     * Egresos de la caja con algo pendiente de devolver, del más nuevo al más viejo. {@code texto}: patrón LIKE o null;
+     * {@code desde}/{@code fin}: rango de la fecha del egreso, nunca null (en una query nativa el null de una fecha
+     * viaja como bytea y no se castea a timestamp).
+     */
     @Query(value = "SELECT m.id AS id, COALESCE(v.devuelto, 0) AS devuelto" + EGRESOS_PARA_VUELTO_FROM
             + "ORDER BY m.creado_en DESC, m.id DESC",
             countQuery = "SELECT COUNT(*)" + EGRESOS_PARA_VUELTO_FROM,
             nativeQuery = true)
     org.springframework.data.domain.Page<EgresoParaVueltoFila> findEgresosParaVuelto(
             @Param("cajaId") Long cajaId, @Param("texto") String texto,
+            @Param("desde") LocalDateTime desde, @Param("fin") LocalDateTime fin,
             org.springframework.data.domain.Pageable pageable);
 }

@@ -8,6 +8,8 @@ type PrecioPorSucursal {
     usuario: Usuario
     principal: Boolean
     activo: Boolean
+    "Moneda del precio. null = la moneda de la empresa (principal)."
+    moneda: Moneda
 }
 
 input PrecioPorSucursalInput {
@@ -19,7 +21,8 @@ input PrecioPorSucursalInput {
     usuarioId: Int
     principal: Boolean
     activo: Boolean
-
+    "null en un alta = la moneda del modulo PRECIOS; en una edicion = conserva la guardada."
+    monedaId: Int
 }
 
 extend type Query {
@@ -35,3 +38,25 @@ extend type Mutation {
 }
 
 
+
+"Un precio de venta que no esta en la moneda de la empresa (V260.5)."
+type PrecioEnOtraMoneda {
+    precioId: ID!
+    moneda: Moneda!
+}
+
+extend type Query {
+    "Los precios en otra moneda que la de la empresa. Un cliente la pide aparte y la cachea: contra un central viejo falla y todo es de la moneda de la empresa."
+    preciosEnOtraMoneda: [PrecioEnOtraMoneda]!
+}
+
+"La moneda del precio principal de un producto, cuando no es la de la empresa (V260.5)."
+type ProductoMonedaPrecio {
+    productoId: ID!
+    moneda: Moneda!
+}
+
+extend type Query {
+    "Para una pagina de productos, la moneda de su precio principal (solo los que no estan en la moneda de la empresa)."
+    monedaPrecioPrincipalDeProductos(productoIds: [ID]!): [ProductoMonedaPrecio]!
+}

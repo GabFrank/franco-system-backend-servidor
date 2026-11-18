@@ -3,6 +3,7 @@ package com.franco.dev.service.financiero;
 import com.franco.dev.domain.financiero.PreGasto;
 import com.franco.dev.domain.financiero.enums.EstadoPreGasto;
 import com.franco.dev.graphql.financiero.input.EjecutarRetiroPreGastoInput;
+import com.franco.dev.repository.financiero.GastoRendicionRepository;
 import com.franco.dev.repository.financiero.GastoRepository;
 import com.franco.dev.repository.financiero.PreGastoRepository;
 import com.franco.dev.service.activos.EnteService;
@@ -53,8 +54,8 @@ class PreGastoRetiroServidorTest {
                 mock(VehiculoService.class),
                 mock(EquipoService.class),
                 mock(GastoRepository.class),
+                mock(GastoRendicionRepository.class),
                 mock(PreGastoDetalleFinanzasService.class),
-                mock(PdvCajaService.class),
                 mock(MonedaService.class),
                 mock(TipoGastoService.class),
                 mock(TipoGastoModuloReglasService.class));

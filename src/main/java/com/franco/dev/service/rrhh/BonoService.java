@@ -55,6 +55,15 @@ public class BonoService extends CrudService<Bono, BonoRepository, Long> {
         if (opt.isEmpty()) throw new GraphQLException("Bono no encontrado");
         Bono b = opt.get();
         b.setAnulado(true);
+        // Sin esto el job vuelve a generar el bono el mes siguiente (bodega, funcionario 448, 11/2026).
+        if (b.getBonoRecurrenteId() != null) {
+            plantillaRepository.findById(b.getBonoRecurrenteId())
+                    .filter(p -> Boolean.TRUE.equals(p.getActivo()))
+                    .ifPresent(p -> {
+                        p.setActivo(false);
+                        plantillaRepository.save(p);
+                    });
+        }
         return repository.save(b);
     }
 
@@ -151,6 +160,11 @@ public class BonoService extends CrudService<Bono, BonoRepository, Long> {
      */
     public String motivoNoEditable(Bono b) {
         if (b == null || b.getId() == null) return null;
+
+        // Editarlo con el toggle encendido reactivaria la plantilla que anular() apago.
+        if (Boolean.TRUE.equals(b.getAnulado())) {
+            return "Este bono esta anulado.";
+        }
 
         if (b.getLiquidacionId() != null) {
             return "Este bono ya fue liquidado y pagado.";

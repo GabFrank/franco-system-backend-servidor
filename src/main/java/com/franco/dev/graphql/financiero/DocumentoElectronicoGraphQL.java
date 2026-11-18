@@ -20,6 +20,7 @@ import com.franco.dev.service.financiero.DocumentoElectronicoService;
 import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.sifen.SifenService;
+import com.franco.dev.utilitarios.Paginacion;
 import com.roshka.sifen.core.beans.response.RespuestaConsultaDE;
 
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -70,8 +71,8 @@ public class DocumentoElectronicoGraphQL implements GraphQLQueryResolver, GraphQ
   }
 
   public List<DocumentoElectronico> documentoElectronicosPorEstado(EstadoDE estado, int page, int size) {
-    // TODO: Implementar paginación real con service.findByFilters(estado, null, null, pageable)
-    return service.findByEstado(estado);
+    // #582: antes devolvia findByEstado entero (con APROBADO, toda la facturacion electronica)
+    return service.findByFilters(estado, null, null, null, Paginacion.of(page, size)).getContent();
   }
 
   public List<DocumentoElectronico> documentoElectronicosPorLote(Long loteId, Long sucursalId) {

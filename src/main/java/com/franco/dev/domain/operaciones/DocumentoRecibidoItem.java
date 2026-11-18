@@ -1,5 +1,6 @@
 package com.franco.dev.domain.operaciones;
 
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.domain.productos.Producto;
 import lombok.Data;
@@ -7,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import javax.persistence.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /** Un renglón de la factura del proveedor y el resultado de cruzarlo con el pedido. */
 @Data
@@ -77,6 +79,19 @@ public class DocumentoRecibidoItem {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "nota_recepcion_item_id")
     private NotaRecepcionItem notaRecepcionItem;
+
+    /** El renglón se descartó a mano: no se carga en la compra. */
+    private Boolean descartado = false;
+
+    @Column(name = "motivo_descarte")
+    private String motivoDescarte;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "descartado_por")
+    private Usuario descartadoPor;
+
+    @Column(name = "descartado_en")
+    private LocalDateTime descartadoEn;
 
     /** Campos que la IA marcó como dudosos (JSON). */
     @Column(name = "ia_dudosos", columnDefinition = "TEXT")

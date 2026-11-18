@@ -65,8 +65,7 @@ class DevolucionRetiroConsolidadoTest {
         when(itemService.findByDevolucionId(24L)).thenReturn(Arrays.asList(item(1, 4), item(2, 9), item(3, 7)));
         when(itemService.findByDevolucionId(25L)).thenReturn(Arrays.asList(item(1, 2)));
 
-        DevolucionService service = new DevolucionService(repo, itemService, null, null, null,
-                null, null, null, null, null);
+        DevolucionService service = new DevolucionServiceDePrueba().con(repo).con(itemService).build();
         RetiroProveedorConsolidadoDto res = service.getRetiroConsolidado(7L, null);
 
         assertEquals(1, res.getGrupos().size());

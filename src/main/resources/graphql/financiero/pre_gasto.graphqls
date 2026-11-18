@@ -39,6 +39,7 @@ type PreGasto {
     montoRetirado: Float
     montoGastado: Float
     saldoDevolver: Float
+    montoVuelto: Float
     montoPendienteRetiro: Float
     montoNoRendido: Float
     porcentajeRendicion: Float

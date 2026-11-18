@@ -16,6 +16,7 @@ import org.hibernate.annotations.JoinFormula;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -77,6 +78,23 @@ public class CostoPorProducto implements Identifiable<Long> {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
+
+    // El costo en la moneda de costeo (modulo COSTOS, V259.5). Las columnas de arriba siguen en la
+    // moneda de la empresa. NULL en las filas anteriores: ver CosteoMoneda.puntoDePartida.
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "moneda_costeo_id", nullable = true)
+    private Moneda monedaCosteo;
+
+    @Column(name = "costo_medio_costeo")
+    private BigDecimal costoMedioCosteo;
+
+    @Column(name = "ultimo_precio_compra_costeo")
+    private BigDecimal ultimoPrecioCompraCosteo;
+
+    /** Guaranies por unidad de la moneda de costeo con que se calculo la fila. */
+    @Column(name = "cotizacion_costeo")
+    private BigDecimal cotizacionCosteo;
 }
 
 

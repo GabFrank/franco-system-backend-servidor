@@ -56,22 +56,16 @@ public interface VentaItemRepository extends HelperRepository<VentaItem, Embebed
 
         // Primero las ventas del rango; descuentos/aumentos y el costo de respaldo se buscan solo para
         // ellas. Agrupar todo cobro_detalle y todo costo_por_producto tardaba ~23 s con 3 días.
+        // Los descuentos/aumentos se buscan por el índice (cobro_id, sucursal_id) de cada venta: juntar
+        // todos los de la historia y después filtrar por el rango crecía con la tabla (#615).
+        // Sin filtrarSucursal («Todas») no se filtra por sucursal: IN (NULL) no devolvía nada.
         @Query(value = "WITH ventas AS ( " +
                         "  SELECT v.id, v.sucursal_id, v.usuario_id, v.cobro_id, v.total_gs " +
                         "  FROM operaciones.venta v " +
                         "  WHERE v.estado = 'CONCLUIDA' " +
                         "  AND v.creado_en BETWEEN :startDate AND :endDate " +
-                        "  AND v.sucursal_id IN (:sucursalIdList) " +
+                        "  AND (:filtrarSucursal = false OR v.sucursal_id IN (:sucursalIdList)) " +
                         "  AND (:filtrarUsuario = false OR v.usuario_id IN (:usuarioIdList)) " +
-                        "), cd_agg AS ( " +
-                        "  SELECT cd.cobro_id, cd.sucursal_id, " +
-                        "    SUM(CASE WHEN cd.descuento = true THEN cd.valor * cd.cambio ELSE 0 END) AS desc_total, " +
-                        // #457: antes de 2024-10 el aumento se guardaba en negativo aunque el pago lo incluía.
-                        "    SUM(CASE WHEN cd.aumento = true THEN ABS(cd.valor * COALESCE(cd.cambio, 1)) ELSE 0 END) AS aum_total " +
-                        "  FROM operaciones.cobro_detalle cd " +
-                        "  WHERE (cd.descuento = true OR cd.aumento = true) " +
-                        "  AND (cd.cobro_id, cd.sucursal_id) IN (SELECT cobro_id, sucursal_id FROM ventas) " +
-                        "  GROUP BY cd.cobro_id, cd.sucursal_id " +
                         ") " +
                         "SELECT " +
                         "u.id AS usuario_id, " +
@@ -94,7 +88,14 @@ public interface VentaItemRepository extends HelperRepository<VentaItem, Embebed
                         "  SELECT c.ultimo_precio_compra, c.costo_medio FROM productos.costo_por_producto c " +
                         "  WHERE c.producto_id = vi.producto_id ORDER BY c.id DESC LIMIT 1 " +
                         ") cpp ON vi.costo_unitario IS NULL " +
-                        "LEFT JOIN cd_agg ON cd_agg.cobro_id = v.cobro_id AND cd_agg.sucursal_id = v.sucursal_id " +
+                        "LEFT JOIN LATERAL ( " +
+                        "  SELECT SUM(CASE WHEN cd.descuento = true THEN cd.valor * cd.cambio ELSE 0 END) AS desc_total, " +
+                        // #457: antes de 2024-10 el aumento se guardaba en negativo aunque el pago lo incluía.
+                        "    SUM(CASE WHEN cd.aumento = true THEN ABS(cd.valor * COALESCE(cd.cambio, 1)) ELSE 0 END) AS aum_total " +
+                        "  FROM operaciones.cobro_detalle cd " +
+                        "  WHERE cd.cobro_id = v.cobro_id AND cd.sucursal_id = v.sucursal_id " +
+                        "  AND (cd.descuento = true OR cd.aumento = true) " +
+                        ") cd_agg ON true " +
                         "WHERE (:filtrarProducto = false OR pro.id IN (:productoIdList)) " +
                         "AND (:subfamiliaId IS NULL OR pro.sub_familia_id = :subfamiliaId) " +
                         "AND (:familiaId IS NULL OR pro.sub_familia_id IN ( " +
@@ -111,6 +112,7 @@ public interface VentaItemRepository extends HelperRepository<VentaItem, Embebed
                         @Param("productoIdList") List<Long> productoIdList,
                         @Param("subfamiliaId") Long subfamiliaId,
                         @Param("familiaId") Long familiaId,
+                        @Param("filtrarSucursal") Boolean filtrarSucursal,
                         @Param("filtrarUsuario") Boolean filtrarUsuario,
                         @Param("filtrarProducto") Boolean filtrarProducto);
 }

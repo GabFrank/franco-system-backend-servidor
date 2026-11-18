@@ -5,6 +5,7 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.CajaBalance;
 import com.franco.dev.domain.financiero.CajaObservacion;
+import com.franco.dev.domain.financiero.Conteo;
 import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.domain.financiero.GastoDetalle;
 import com.franco.dev.domain.financiero.PdvCaja;
@@ -51,7 +52,21 @@ public class CajaResolver implements GraphQLResolver<PdvCaja> {
     private final Logger log = LoggerFactory.getLogger(CajaResolver.class);
 
     public List<CajaObservacion> cajaObservacionList(PdvCaja caja) {
+        if (!PdvCajaGraphQL.puedeLeer(seg, caja)) return java.util.Collections.emptyList();
         return cajaObservacionService.findByPdvCajaIdAndSucursalId(caja.getId(), caja.getSucursalId());
+    }
+
+    /** Al que no es dueño ni tiene rol, null (#562): la caja anidada en una venta o un retiro sigue llegando. */
+    public Conteo conteoApertura(PdvCaja e) {
+        return PdvCajaGraphQL.puedeLeer(seg, e) ? e.getConteoApertura() : null;
+    }
+
+    /** Igual que la apertura, y además el cajero que compara su apertura con el cierre de la caja anterior. */
+    public Conteo conteoCierre(PdvCaja e) {
+        if (PdvCajaGraphQL.puedeLeer(seg, e) || PdvCajaGraphQL.esCajaAnteriorDeLaSesion(seg, pdvCajaService, e)) {
+            return e.getConteoCierre();
+        }
+        return null;
     }
 
 //    @Autowired

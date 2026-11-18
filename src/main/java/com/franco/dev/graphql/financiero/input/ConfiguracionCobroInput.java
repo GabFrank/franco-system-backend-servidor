@@ -9,4 +9,6 @@ import java.math.BigDecimal;
 public class ConfiguracionCobroInput {
     private Boolean aumentoConTope;
     private BigDecimal aumentoTopePorcentaje;
+    private Boolean descuentoConTope;
+    private BigDecimal descuentoTopePorcentaje;
 }

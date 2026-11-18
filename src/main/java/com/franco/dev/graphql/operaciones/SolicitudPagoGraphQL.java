@@ -13,11 +13,14 @@ import com.franco.dev.domain.operaciones.enums.TipoSolicitudPago;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.service.financiero.FormaPagoService;
+import com.franco.dev.service.financiero.MonedaModuloLector;
 import com.franco.dev.service.financiero.MonedaService;
+import com.franco.dev.domain.financiero.enums.ModuloMoneda;
 import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.operaciones.SolicitudPagoDetalleService;
 import com.franco.dev.service.operaciones.SolicitudPagoNotaRecepcionService;
 import com.franco.dev.service.operaciones.SolicitudPagoService;
+import com.franco.dev.service.operaciones.ReporteSolicitudesPagoService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.impresion.ImpresionService;
@@ -64,6 +67,9 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     private MonedaService monedaService;
 
     @Autowired
+    private MonedaModuloLector monedaModuloLector;
+
+    @Autowired
     private FormaPagoService formaPagoService;
 
     @Autowired
@@ -80,6 +86,9 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     @Autowired
     private RrhhSecurityService rrhhSecurityService;
+
+    @Autowired
+    private ReporteSolicitudesPagoService reporteSolicitudesPagoService;
 
     // ========== QUERIES ==========
 
@@ -111,10 +120,29 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             SolicitudPagoEstado estado,
             String numero,
             String fechaDesde,
-            String fechaHasta) {
+            String fechaHasta,
+            List<Long> monedaIds) {
         exigirRolCompras();
-        PageRequest pageRequest = PageRequest.of(page, size);
-        Specification<SolicitudPago> spec = (root, query, cb) -> {
+        return solicitudPagoService.getRepository().findAll(
+                specCompras(proveedorId, estado, numero, fechaDesde, fechaHasta, monedaIds), PageRequest.of(page, size));
+    }
+
+    /**
+     * PDF (base64) de la lista de solicitudes con los mismos filtros que {@link #solicitudesPagoPaginated}, sin paginar.
+     * Usado en: Desktop (lista de solicitudes de pago, «Generar reporte»).
+     */
+    public String imprimirReporteSolicitudesPago(Long proveedorId, SolicitudPagoEstado estado, String numero,
+                                                 String fechaDesde, String fechaHasta, List<Long> monedaIds) {
+        exigirRolCompras();
+        return reporteSolicitudesPagoService.generar(
+                specCompras(proveedorId, estado, numero, fechaDesde, fechaHasta, monedaIds),
+                proveedorId, estado, numero, fechaDesde, fechaHasta, monedaIds);
+    }
+
+    /** Filtro de la lista de Compras: lo comparten la tabla paginada y su reporte PDF. */
+    static Specification<SolicitudPago> specCompras(Long proveedorId, SolicitudPagoEstado estado, String numero,
+                                                    String fechaDesde, String fechaHasta, List<Long> monedaIds) {
+        return (root, query, cb) -> {
             java.util.List<Predicate> predicates = new java.util.ArrayList<>();
             // Esta lista es la vista de Compras: excluir GASTO/RRHH (tienen su propia query
             // gastosPendientes). Sin esto, las solicitudes de tesorería se filtran en Compras.
@@ -124,6 +152,9 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             }
             if (estado != null) {
                 predicates.add(cb.equal(root.get("estado"), estado));
+            }
+            if (monedaIds != null && !monedaIds.isEmpty()) {
+                predicates.add(root.get("moneda").get("id").in(monedaIds));
             }
             if (numero != null && !numero.trim().isEmpty()) {
                 predicates.add(cb.like(cb.upper(root.get("numeroSolicitud")), "%" + numero.trim().toUpperCase() + "%"));
@@ -138,7 +169,6 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             }
             return predicates.isEmpty() ? cb.conjunction() : cb.and(predicates.toArray(new Predicate[0]));
         };
-        return solicitudPagoService.getRepository().findAll(spec, pageRequest);
     }
 
     /**
@@ -876,7 +906,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     /**
-     * Resolves Moneda from input, first detalle, or default (GUARANI).
+     * Resolves Moneda from input, first detalle, or default (la moneda de COMPRAS).
      * Usado en: save/update cuando monedaId ya no va en cabecera (va en detalle).
      */
     private Moneda resolveMoneda(SolicitudPagoInput input,
@@ -893,7 +923,9 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
                                 "Moneda no encontrada en detalle: " + first.getMonedaId()));
             }
         }
-        Moneda defaultMoneda = monedaService.findByDescripcion("GUARANI");
+        // Sin moneda en el input: la de compras (sin configurar, la de la empresa).
+        Moneda defaultMoneda = monedaModuloLector.resolver(ModuloMoneda.COMPRAS, null);
+        if (defaultMoneda == null) defaultMoneda = monedaService.findByDescripcion("GUARANI");
         if (defaultMoneda == null) {
             throw new IllegalArgumentException("Moneda por defecto GUARANI no encontrada");
         }

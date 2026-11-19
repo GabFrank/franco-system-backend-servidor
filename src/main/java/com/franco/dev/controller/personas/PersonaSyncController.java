@@ -9,6 +9,7 @@ import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.general.CiudadService;
+import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -48,6 +49,7 @@ public class PersonaSyncController {
     private final PersonaService personaService;
     private final UsuarioService usuarioService;
     private final CiudadService ciudadService;
+    private final PaisService paisService;
     private final ClienteService clienteService;
     private final SucursalService sucursalService;
     private final FuncionarioService funcionarioService;
@@ -101,6 +103,12 @@ public class PersonaSyncController {
             persona.setCiudad(ciudad);
         } else if (isCreate) {
             persona.setCiudad(null);
+        }
+
+        // Pais del receptor (#666): solo en el alta. Para una persona que ya existe va por POST /{id}/pais,
+        // que no cambia uno cargado. Un pais que no existe se ignora: no traba el alta de la caja.
+        if (isCreate && request.getPaisId() != null) {
+            persona.setPais(paisService.findById(request.getPaisId()).orElse(null));
         }
 
         if (request.getNacimiento() != null || isCreate) {
@@ -192,10 +200,24 @@ public class PersonaSyncController {
     /** Igual que {@code PersonaService.save}: sin espacios y cortado en el guion del DV. Null si no hay documento útil. */
     static String normalizarDocumento(String documento) {
         if (documento == null) return null;
-        String d = documento.trim();
-        int guion = d.indexOf('-');
-        if (guion >= 0) d = d.substring(0, guion).trim();
+        String d = PersonaService.sinDv(documento.trim()).trim();
         return d.isEmpty() || "X".equalsIgnoreCase(d) ? null : d;
+    }
+
+    /**
+     * Pais del receptor para una persona que ya existe (#666): la filial lo manda cuando el cajero lo elige en la
+     * factura. Solo si no tiene: corregir uno cargado es del admin (savePersona). 400 si el pais no existe.
+     */
+    @PostMapping("/{id}/pais")
+    public ResponseEntity<Map<String, Boolean>> asignarPais(@PathVariable Long id, @RequestBody Map<String, Long> body) {
+        Long paisId = body == null ? null : body.get("paisId");
+        if (paisId == null || !paisService.findById(paisId).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No existe el pais " + paisId);
+        }
+        if (!personaService.findById(id).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe la persona " + id);
+        }
+        return ResponseEntity.ok(Collections.singletonMap("asignado", personaService.asignarPaisSiNulo(id, paisId)));
     }
 
     /** Solo los campos que el filial copia de la respuesta: sin relaciones (nada lazy, ningún usuario). */

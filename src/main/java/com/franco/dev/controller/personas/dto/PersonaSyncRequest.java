@@ -14,6 +14,8 @@ public class PersonaSyncRequest {
     private String email;
     private String direccion;
     private Long ciudadId;
+    /** Solo en el alta (#666). */
+    private Long paisId;
     private String telefono;
     private String socialMedia;
     private String imagenes;

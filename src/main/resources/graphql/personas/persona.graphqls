@@ -8,6 +8,8 @@ type Persona {
     sexo: String,
     direccion: String,
     ciudad: Ciudad,
+    "Pais del receptor para SIFEN (#666). Nulo = Paraguay."
+    pais: Pais,
     telefono: String,
     socialMedia: String,
     imagenes: String,
@@ -30,6 +32,8 @@ input PersonaInput {
     direccion: String
     email: String
     ciudadId: Int
+    "Pais del receptor (#666). Si viene, reemplaza el guardado; sin el campo, no se toca."
+    paisId: Int
     telefono: String
     socialMedia: String
     imagenes: String

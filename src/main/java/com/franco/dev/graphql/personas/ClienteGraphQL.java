@@ -47,6 +47,9 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     private PersonaService personaService;
 
     @Autowired
+    private com.franco.dev.service.general.PaisService paisService;
+
+    @Autowired
     private ContactoService contactoService;
 
 
@@ -141,6 +144,13 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         }
         if (input.getNombre() != null && !input.getNombre().equals(e.getPersona().getNombre())) {
             e.getPersona().setNombre(input.getNombre());
+            modifPersona = true;
+        }
+        // Pais del receptor (#666): el ModelMapper no lo mapea (paisId no es un campo de Cliente).
+        if (input.getPaisId() != null && (e.getPersona().getPais() == null
+                || !input.getPaisId().equals(e.getPersona().getPais().getId()))) {
+            e.getPersona().setPais(paisService.findById(input.getPaisId())
+                    .orElseThrow(() -> new graphql.GraphQLException("No existe el pais " + input.getPaisId())));
             modifPersona = true;
         }
         if (modifPersona) {

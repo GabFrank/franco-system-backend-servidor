@@ -89,6 +89,10 @@ class PersonaPaisBackfillServiceTest {
         assertEquals(PersonaPaisBackfillService.SIN_CONEXION, filial(r, 4).getEstado());
         assertEquals(PersonaPaisBackfillService.SIN_IP, filial(r, 5).getEstado());
         assertFalse(r.isCompleto());
+        // sin la 4 (sin conexion) estaria completo: la 5 sin IP ni suscripcion no lo traba
+        filiales.put("10.0.0.4", filas());
+        filiales.put("10.0.0.3", filas());
+        assertTrue(service.ejecutar(null).isCompleto());
     }
 
     @Test

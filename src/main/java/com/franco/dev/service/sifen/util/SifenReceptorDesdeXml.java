@@ -49,6 +49,9 @@ public final class SifenReceptorDesdeXml {
             r.setdNumIDRec(texto(g, "dNumIDRec"));
             return r;
         } catch (Exception e) {
+            // La NC sale con el snapshot de la nota (sin pais): que quede por que.
+            org.slf4j.LoggerFactory.getLogger(SifenReceptorDesdeXml.class)
+                    .warn("No se pudo leer el receptor del XML de la factura: {}", e.toString());
             return null;
         }
     }

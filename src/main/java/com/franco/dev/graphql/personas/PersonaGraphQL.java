@@ -111,7 +111,8 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getCiudadId() != null)
             e.setCiudad(ciudadService.findById(input.getCiudadId()).orElse(null));
-        // Correccion del pais del receptor (#666): solo el admin, por eso aca reemplaza y la caja no.
+        // Correccion del pais del receptor (#666): desde la administracion de personas (ROLES_PERSONAS) reemplaza;
+        // la caja solo lo pone si no hay.
         if (input.getPaisId() != null)
             e.setPais(paisService.findById(input.getPaisId())
                     .orElseThrow(() -> new GraphQLException("No existe el pais " + input.getPaisId())));

@@ -56,7 +56,7 @@ class PersonaPaisTest {
         paisService = mock(PaisService.class);
         ReflectionTestUtils.setField(c, "personaService", personaService);
         ReflectionTestUtils.setField(c, "paisService", paisService);
-        ReflectionTestUtils.setField(c, "seg", new TesoreriaSecurityFalso(9L));
+        ReflectionTestUtils.setField(c, "seg", new TesoreriaSecurityFalso(9L, "VENTA TOUCH"));
         persona = new Persona();
         persona.setId(7L);
         when(personaService.findById(7L)).thenReturn(Optional.of(persona));
@@ -72,21 +72,11 @@ class PersonaPaisTest {
     }
 
     @Test
-    void elAltaGuardaElPais() {
-        PersonaSyncRequest r = new PersonaSyncRequest();
-        r.setDocumento("AB123456");
-        r.setPaisId(30L);
-        c.savePersona(r);
-        assertSame(brasil, guardada().getPais());
-    }
-
-    @Test
     void laEdicionPorIdNoTocaElPais() {
         Pais argentina = pais(10L, "ARG");
         persona.setPais(argentina);
         PersonaSyncRequest r = new PersonaSyncRequest();
         r.setId(7L);
-        r.setPaisId(30L);
         c.savePersona(r);
         assertSame(argentina, guardada().getPais());
     }
@@ -113,8 +103,20 @@ class PersonaPaisTest {
     }
 
     @Test
+    void elEndpointSinRolSeRechazaAntesDeTocarNada() {
+        ReflectionTestUtils.setField(c, "seg", new TesoreriaSecurityFalso(9L, "VER CAJA"));
+        assertThrows(GraphQLException.class, () -> c.asignarPais(7L, Collections.singletonMap("paisId", 30L)));
+        verify(personaService, never()).asignarPaisSiNulo(anyLong(), anyLong());
+        // con un rol de administracion de personas tambien pasa
+        ReflectionTestUtils.setField(c, "seg", new TesoreriaSecurityFalso(9L, "VER PERSONAS"));
+        when(personaService.asignarPaisSiNulo(7L, 30L)).thenReturn(true);
+        assertEquals(true, c.asignarPais(7L, Collections.singletonMap("paisId", 30L)).getBody().get("asignado"));
+    }
+
+    @Test
     void unPasaporteConGuionNoSeCortaYUnRucSi() {
         assertEquals("AB-12345", PersonaService.sinDv("AB-12345"));
+        assertEquals("FX987654", PersonaService.sinDv("fx987654"));
         assertEquals("AB-12345", PersonaSyncController.normalizarDocumento(" AB-12345 "));
         assertEquals("4043581", PersonaService.sinDv("4043581-2"));
         assertEquals("4043581", PersonaSyncController.normalizarDocumento("4043581-2"));
@@ -159,5 +161,25 @@ class PersonaPaisTest {
         Cliente guardado = r.saveCliente(in);
         assertSame(brasil, guardado.getPersona().getPais());
         assertSame(brasil, guardada().getPais());
+    }
+
+    /** El ModelMapper de saveCliente no confunde paisId con la persona: alta sin personaId. */
+    @Test
+    void saveClienteNuevoLleveElPaisALaPersonaNueva() {
+        ClienteGraphQL r = new ObjenesisStd().newInstance(ClienteGraphQL.class);
+        ClienteService clienteService = mock(ClienteService.class);
+        when(clienteService.save(any())).thenAnswer(i -> i.getArgument(0));
+        ReflectionTestUtils.setField(r, "seg", new TesoreriaSecurityFalso(9L, "VER PERSONAS"));
+        ReflectionTestUtils.setField(r, "service", clienteService);
+        ReflectionTestUtils.setField(r, "personaService", personaService);
+        ReflectionTestUtils.setField(r, "funcionarioService", mock(FuncionarioService.class));
+        ReflectionTestUtils.setField(r, "paisService", paisService);
+        ClienteInput in = new ClienteInput();
+        in.setNombre("JOAO");
+        in.setDocumento("FX1");
+        in.setPaisId(30L);
+        Cliente guardado = r.saveCliente(in);
+        assertSame(brasil, guardado.getPersona().getPais());
+        assertNull(guardado.getPersona().getId());
     }
 }

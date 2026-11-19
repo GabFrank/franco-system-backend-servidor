@@ -227,7 +227,7 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
         // Un pasaporte (#666) no se reduce a sus digitos ("FX987654" traeria a la persona o al RUC 987654):
         // se busca tal cual, sin consultar SET ni crear.
-        if (tieneLetras(texto)) return service.findByPersonaDocumento(texto.trim());
+        if (tieneLetras(texto)) return service.findByPersonaDocumento(texto.trim().toUpperCase());
 
         // Limpiar documento (remover guiones y caracteres especiales)
         String documentoLimpio = texto.trim().replaceAll("[^0-9]", "");
@@ -258,7 +258,7 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         }
 
         if (tieneLetras(texto)) {
-            Cliente cliente = service.findByPersonaDocumento(texto.trim());
+            Cliente cliente = service.findByPersonaDocumento(texto.trim().toUpperCase());
             if (cliente != null) {
                 response.setCliente(cliente);
                 response.setExito(true);

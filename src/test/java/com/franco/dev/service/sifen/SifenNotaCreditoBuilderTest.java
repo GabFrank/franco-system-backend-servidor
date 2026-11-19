@@ -153,6 +153,12 @@ class SifenNotaCreditoBuilderTest {
         assertTrue(gDatRec.contains("<dDirRec>RUA 1</dDirRec>"), gDatRec);
         assertFalse(gDatRec.contains("dRucRec"), gDatRec);
         assertTrue(xml.contains("SignatureValue"));
+        // ida y vuelta: el lector entiende el XML que genera la libreria (no solo uno escrito a mano)
+        com.roshka.sifen.core.fields.request.de.TgDatRec leido =
+                com.franco.dev.service.sifen.util.SifenReceptorDesdeXml.receptorB2F(xml);
+        assertNotNull(leido, "el XML real de la libreria tiene que leerse");
+        assertEquals(PaisType.BRA, leido.getcPaisRec());
+        assertEquals(TiTipDocRec.PASAPORTE, leido.getiTipIDRec());
     }
 
     /** Autofirmado, solo para firmar en el test: lo crea keytool del JDK que corre los tests. */

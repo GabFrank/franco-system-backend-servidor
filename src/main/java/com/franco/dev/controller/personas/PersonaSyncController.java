@@ -105,11 +105,6 @@ public class PersonaSyncController {
             persona.setCiudad(null);
         }
 
-        // Pais del receptor (#666): solo en el alta. Para una persona que ya existe va por POST /{id}/pais,
-        // que no cambia uno cargado. Un pais que no existe se ignora: no traba el alta de la caja.
-        if (isCreate && request.getPaisId() != null) {
-            persona.setPais(paisService.findById(request.getPaisId()).orElse(null));
-        }
 
         if (request.getNacimiento() != null || isCreate) {
             persona.setNacimiento(DateUtils.stringToDate(request.getNacimiento()));
@@ -126,6 +121,9 @@ public class PersonaSyncController {
         }
         return ResponseEntity.status(isCreate ? HttpStatus.CREATED : HttpStatus.OK).body(respuesta(saved));
     }
+
+    static final String[] ROLES_PAIS = java.util.stream.Stream.concat(java.util.stream.Stream.of("VENTA TOUCH"),
+            java.util.Arrays.stream(com.franco.dev.graphql.personas.PersonaGraphQL.ROLES_PERSONAS)).toArray(String[]::new);
 
     private static final Object ALTA_CLIENTE = new Object();
 
@@ -210,6 +208,8 @@ public class PersonaSyncController {
      */
     @PostMapping("/{id}/pais")
     public ResponseEntity<Map<String, Boolean>> asignarPais(@PathVariable Long id, @RequestBody Map<String, Long> body) {
+        // El cajero que factura (VENTA TOUCH) o quien administra personas; sin rol es 403 y la filial sigue.
+        seg.requireAnyRole(ROLES_PAIS);
         Long paisId = body == null ? null : body.get("paisId");
         if (paisId == null || !paisService.findById(paisId).isPresent()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No existe el pais " + paisId);

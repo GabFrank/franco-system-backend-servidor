@@ -2,8 +2,8 @@
 -- personas.persona.pais_id: pais del receptor, global (#666, etapa 2 de filial #134)
 -- =====================================================================
 -- Nulo = Paraguay. Lo leen los SifenReceptorHelper (central y filial) para declarar B2F con el pais.
--- Lo escriben: savePersona / saveCliente (admin del escritorio), el alta de /api/personas que hace la filial y
--- POST /api/personas/{id}/pais (solo si es nulo), y el backfill desde las filiales.
+-- Lo escriben: savePersona / saveCliente (administracion de personas del escritorio), POST /api/personas/{id}/pais
+-- (la caja de la filial, solo si es nulo) y el backfill desde las filiales.
 --
 -- ORDEN (central_pub publica persona sin lista de columnas): antes de desplegar esta migracion, TODAS las
 -- filiales del canal tienen que tener la columna (filial V116.1) y el trigger que conserva el pais local

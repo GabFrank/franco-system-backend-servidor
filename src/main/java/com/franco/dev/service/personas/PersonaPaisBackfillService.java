@@ -91,7 +91,7 @@ public class PersonaPaisBackfillService {
         private List<Long> conflictos = new ArrayList<>();
         private List<Long> paisesDesconocidos = new ArrayList<>();
         private List<Filial> filiales = new ArrayList<>();
-        /** true solo si respondieron todas las filiales consultadas: si no, hay que volver a correrlo. */
+        /** true si respondieron todas las filiales con IP o suscripcion: si no, hay que volver a correrlo. */
         private boolean completo;
     }
 
@@ -152,7 +152,8 @@ public class PersonaPaisBackfillService {
                 }
             }
             grabar(paises, res);
-            res.completo = res.filiales.stream().allMatch(f -> OK.equals(f.estado));
+            // SIN_IP no cuenta: sin IP ni suscripcion no hay como leerla nunca, y completo no saldria nunca.
+            res.completo = res.filiales.stream().allMatch(f -> OK.equals(f.estado) || SIN_IP.equals(f.estado));
             log.info("Backfill pais: grabados={} sinCambios={} conflictos={} desconocidos={} completo={} ids={}",
                     res.grabados, res.sinCambios, res.conflictos, res.paisesDesconocidos, res.completo, res.idsGrabados);
             return res;
@@ -198,7 +199,8 @@ public class PersonaPaisBackfillService {
             if (sub != null && (d.isEmpty() || !d.get(0).host.equals(sub.host) || d.get(0).puerto != sub.puerto))
                 d.add(sub);
         } catch (Exception e) {
-            log.debug("Backfill pais: sin conninfo para la filial {}: {}", s.getId(), e.toString());
+            // p. ej. el usuario de la app no puede leer subconninfo (solo superusuario de PG)
+            log.warn("Backfill pais: sin conninfo para la filial {}: {}", s.getId(), e.toString());
         }
         return d;
     }

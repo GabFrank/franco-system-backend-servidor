@@ -76,10 +76,12 @@ public class PersonaService extends CrudService<Persona, PersonaRepository, Long
 
     /**
      * Corta el DV ("4043581-2" -> "4043581"). Un documento con letras es un pasaporte o documento extranjero
-     * (#666): el guion es parte del numero ("AB-12345") y no se corta.
+     * (#666): el guion es parte del numero ("AB-12345") y no se corta, y va en mayusculas para que "fx1" y "FX1"
+     * no sean dos personas (las busquedas por documento son exactas).
      */
     public static String sinDv(String documento) {
-        if (documento == null || documento.matches(".*[A-Za-z].*")) return documento;
+        if (documento == null) return null;
+        if (documento.matches(".*[A-Za-z].*")) return documento.toUpperCase();
         int guion = documento.indexOf('-');
         return guion >= 0 ? documento.substring(0, guion) : documento;
     }

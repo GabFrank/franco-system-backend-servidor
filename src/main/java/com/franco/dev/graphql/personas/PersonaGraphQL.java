@@ -48,6 +48,9 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     @Autowired
     private com.franco.dev.service.general.PaisService paisService;
 
+    @Autowired
+    private com.franco.dev.service.personas.PersonaPaisBackfillService paisBackfillService;
+
 
     @Autowired
     private MultiTenantService multiTenantService;
@@ -117,6 +120,11 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
         e = service.save(e);
         return e;
+    }
+
+    public com.franco.dev.service.personas.PersonaPaisBackfillService.Resultado backfillPaisPersonas() {
+        seg.requireSuperusuario();
+        return paisBackfillService.ejecutar();
     }
 
     public Persona updatePersona(Long id, PersonaInput personaInput) {

@@ -63,7 +63,7 @@ class PaginacionPorDefectoPersonasTest {
 
     @Test
     void proveedorSearchByPersonaPageSinPageNiSize() {
-        proveedorGraphQL.proveedorSearchByPersonaPage("coca", null, null);
+        proveedorGraphQL.proveedorSearchByPersonaPage("coca", null, null, null);
 
         ArgumentCaptor<Pageable> p = ArgumentCaptor.forClass(Pageable.class);
         verify(proveedorRepository).findByPersonaNombreOrApodoOrDocumentoIgnoreCase(eq("%coca%"), eq("%coca%"),
@@ -75,13 +75,28 @@ class PaginacionPorDefectoPersonasTest {
 
     @Test
     void proveedorSearchByPersonaPageRespetaPageYSize() {
-        proveedorGraphQL.proveedorSearchByPersonaPage(null, 2, 10);
+        proveedorGraphQL.proveedorSearchByPersonaPage(null, 2, 10, null);
 
         ArgumentCaptor<Pageable> p = ArgumentCaptor.forClass(Pageable.class);
         verify(proveedorRepository).findAll(p.capture());
         assertEquals(2, p.getValue().getPageNumber());
         assertEquals(10, p.getValue().getPageSize());
         assertEquals(Sort.by("persona.nombre"), p.getValue().getSort());
+    }
+
+    /** Estado del proveedor: el buscador (activo = true por defecto) no ofrece inactivos. */
+    @Test
+    void proveedorSearchByPersonaPageSoloActivos() {
+        proveedorGraphQL.proveedorSearchByPersonaPage("coca cola", 0, 10, true);
+
+        verify(proveedorRepository).findByTextoAndActivo(eq("%coca%cola%"), eq(true), any(Pageable.class));
+    }
+
+    @Test
+    void proveedorSearchByPersonaPageSinTextoSoloInactivos() {
+        proveedorGraphQL.proveedorSearchByPersonaPage(" ", 0, 10, false);
+
+        verify(proveedorRepository).findByActivo(eq(false), any(Pageable.class));
     }
 
     @Test

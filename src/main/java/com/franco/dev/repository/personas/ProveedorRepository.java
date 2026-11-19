@@ -31,6 +31,12 @@ public interface ProveedorRepository extends HelperRepository<Proveedor, Long> {
             "where UPPER(per.nombre) like %?1% or cast(p.id as text) like %?1% or UPPER(per.apodo) like %?1% or UPPER(per.documento) like %?1%")
     public List<Proveedor> findByPersona(String texto);
 
+    @Query("select distinct p from Proveedor p " +
+            "left outer join p.persona as per " +
+            "where (UPPER(per.nombre) like %?1% or cast(p.id as text) like %?1% or UPPER(per.apodo) like %?1% or UPPER(per.documento) like %?1%) " +
+            "and p.activo = ?2")
+    public List<Proveedor> findByPersonaAndActivo(String texto, Boolean activo);
+
     @Query("select distinct pro FROM VendedorProveedor v " +
             "left outer JOIN v.vendedor as ven " +
             "left outer JOIN v.proveedor as pro " +
@@ -46,4 +52,12 @@ public interface ProveedorRepository extends HelperRepository<Proveedor, Long> {
     @Query("SELECT p FROM Proveedor p LEFT JOIN p.persona per " +
             "WHERE UPPER(per.nombre) LIKE UPPER(?1) OR UPPER(per.apodo) LIKE UPPER(?2) OR UPPER(per.documento) LIKE UPPER(?3)")
     Page<Proveedor> findByPersonaNombreOrApodoOrDocumentoIgnoreCase(String patternNombre, String patternApodo, String patternDocumento, Pageable pageable);
+
+    /** Lo mismo filtrando por estado. */
+    @Query("SELECT p FROM Proveedor p LEFT JOIN p.persona per " +
+            "WHERE (UPPER(per.nombre) LIKE UPPER(?1) OR UPPER(per.apodo) LIKE UPPER(?1) OR UPPER(per.documento) LIKE UPPER(?1)) " +
+            "AND p.activo = ?2")
+    Page<Proveedor> findByTextoAndActivo(String pattern, Boolean activo, Pageable pageable);
+
+    Page<Proveedor> findByActivo(Boolean activo, Pageable pageable);
 }

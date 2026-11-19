@@ -1898,17 +1898,7 @@ public class LogicalReplicationService {
                         List<String> currentFilial = getPublicationTableNames(remoteJdbc, filialPubName);
                         List<String> toAdd = branchTables.stream().filter(t -> !currentFilial.contains(t)).collect(Collectors.toList());
                         for (String table : toAdd) {
-                            try {
-                                ensureReplicaIdentityFull(remoteJdbc, table, log, "  Filial " + sid + ": ");
-                                remoteJdbc.execute("ALTER PUBLICATION " + filialPubName + " ADD TABLE " + table);
-                                log.append("  Filial ").append(sid).append(" ").append(filialPubName).append(": agregada tabla ").append(table).append(".\n");
-                            } catch (DataAccessException e) {
-                                if (e.getMessage() != null && (e.getMessage().contains("already in") || e.getMessage().contains("duplicate"))) {
-                                    log.append("  Filial ").append(sid).append(": ").append(table).append(" ya estaba (OK).\n");
-                                } else {
-                                    log.append("  Filial ").append(sid).append(": error agregando ").append(table).append(": ").append(e.getMessage()).append("\n");
-                                }
-                            }
+                            agregarTablaAPublicacionFilial(remoteJdbc, sid, filialPubName, table, log);
                         }
                     } catch (Exception e) {
                         log.append("  Filial ").append(sid).append(": no se pudo conectar o sincronizar: ").append(e.getMessage()).append("\n");
@@ -1948,6 +1938,31 @@ public class LogicalReplicationService {
             log.append("\nERROR: ").append(e.getMessage());
             logger.error("syncPublicationsWithReplicationTable failed: {}", e.getMessage(), e);
             return new SetupFullReplicationResult(false, log.toString());
+        }
+    }
+
+    /**
+     * Agrega una tabla BRANCH_TO_MAIN a la publicacion de la filial. Si la tabla todavia no existe
+     * en la filial (migracion del filial sin desplegar ahi), se omite con un warn en vez de dejar
+     * un ERROR en el log de PostgreSQL de la filial en cada corrida; cuando aparezca, la corrida
+     * siguiente la agrega.
+     */
+    void agregarTablaAPublicacionFilial(JdbcTemplate remoteJdbc, Long sid, String filialPubName, String table, StringBuilder log) {
+        try {
+            if (!Boolean.TRUE.equals(remoteJdbc.queryForObject("SELECT to_regclass(?) IS NOT NULL", Boolean.class, table))) {
+                logger.warn("Replicacion: tabla no existe en la filial, omitida: sucursal={} pub={} tabla={}", sid, filialPubName, table);
+                log.append("  Filial ").append(sid).append(": ").append(table).append(" no existe en la filial, omitida.\n");
+                return;
+            }
+            ensureReplicaIdentityFull(remoteJdbc, table, log, "  Filial " + sid + ": ");
+            remoteJdbc.execute("ALTER PUBLICATION " + filialPubName + " ADD TABLE " + table);
+            log.append("  Filial ").append(sid).append(" ").append(filialPubName).append(": agregada tabla ").append(table).append(".\n");
+        } catch (DataAccessException e) {
+            if (e.getMessage() != null && (e.getMessage().contains("already in") || e.getMessage().contains("duplicate"))) {
+                log.append("  Filial ").append(sid).append(": ").append(table).append(" ya estaba (OK).\n");
+            } else {
+                log.append("  Filial ").append(sid).append(": error agregando ").append(table).append(": ").append(e.getMessage()).append("\n");
+            }
         }
     }
 

@@ -56,6 +56,9 @@ extend type Query {
     # Usuarios con al menos uno de los roles. Query aparte (no un argumento mas en
     # usuarioSearchPaginated) para que un desktop nuevo no rompa contra un central viejo.
     usuarioSearchPaginatedPorRoles(texto: String, page: Int, size: Int, roleIds: [ID]): UsuarioPage
+    # Roles (opcional) + estado: activo null = todos, true = activos, false = inactivos.
+    # Query aparte por el mismo motivo: el desktop solo la usa cuando se filtra por estado.
+    usuarioSearchPaginatedConFiltros(texto: String, page: Int, size: Int, roleIds: [ID], activo: Boolean): UsuarioPage
 }
 
 type UsuarioPage {

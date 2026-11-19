@@ -44,6 +44,8 @@ class UsuarioServiceFiltroRolTest {
         Page<Usuario> vacia = new PageImpl<>(Collections.emptyList());
         when(repository.findbyIdOrPersonaPaginated(anyString(), any(Pageable.class))).thenReturn(vacia);
         when(repository.findbyIdOrPersonaAndRolesPaginated(anyString(), any(), any(Pageable.class))).thenReturn(vacia);
+        when(repository.findbyIdOrPersonaAndActivoPaginated(anyString(), any(), any(Pageable.class))).thenReturn(vacia);
+        when(repository.findbyIdOrPersonaAndRolesAndActivoPaginated(anyString(), any(), any(), any(Pageable.class))).thenReturn(vacia);
     }
 
     @Test
@@ -96,6 +98,63 @@ class UsuarioServiceFiltroRolTest {
 
         assertEquals(1, resultado.getTotalElements());
         assertEquals(70L, resultado.getContent().get(0).getId());
+    }
+
+    @Test
+    void estadoNullNoFiltraPorEstado() {
+        service.findbyIdOrPersonaPaginated("juan", 0, 15, null, null);
+
+        verify(repository).findbyIdOrPersonaPaginated(eq("JUAN"), any(Pageable.class));
+        verify(repository, never()).findbyIdOrPersonaAndActivoPaginated(anyString(), any(), any(Pageable.class));
+    }
+
+    @Test
+    void soloActivosSinRoles() {
+        service.findbyIdOrPersonaPaginated("juan", 0, 15, Collections.emptyList(), true);
+
+        verify(repository).findbyIdOrPersonaAndActivoPaginated(eq("JUAN"), eq(true), any(Pageable.class));
+        verify(repository, never()).findbyIdOrPersonaPaginated(anyString(), any(Pageable.class));
+    }
+
+    @Test
+    void soloInactivosConRoles() {
+        List<Long> roles = Arrays.asList(3L, 8L);
+
+        service.findbyIdOrPersonaPaginated("juan", 0, 15, roles, false);
+
+        verify(repository).findbyIdOrPersonaAndRolesAndActivoPaginated(eq("JUAN"), eq(roles), eq(false), any(Pageable.class));
+        verify(repository, never()).findbyIdOrPersonaAndRolesPaginated(anyString(), any(), any(Pageable.class));
+    }
+
+    @Test
+    void conEstadoNoTomaElAtajoPorPersonaId() {
+        Usuario usuario = new Usuario();
+        usuario.setId(70L);
+        usuario.setActivo(false);
+        when(repository.findByPersonaId(anyLong())).thenReturn(usuario);
+
+        Page<Usuario> resultado = service.findbyIdOrPersonaPaginated("7", 0, 15, null, true);
+
+        verify(repository, never()).findByPersonaId(anyLong());
+        assertEquals(0, resultado.getTotalElements());
+    }
+
+    @Test
+    void lasQueriesPorEstadoEncierranLosOrEntreParentesis() throws Exception {
+        Method soloEstado = UsuarioRepository.class.getMethod("findbyIdOrPersonaAndActivoPaginated",
+                String.class, Boolean.class, Pageable.class);
+        Method rolesYEstado = UsuarioRepository.class.getMethod("findbyIdOrPersonaAndRolesAndActivoPaginated",
+                String.class, List.class, Boolean.class, Pageable.class);
+        for (Method m : Arrays.asList(soloEstado, rolesYEstado)) {
+            Query query = m.getAnnotation(Query.class);
+            assertNotNull(query, m.getName() + " debe declarar @Query");
+            for (String jpql : Arrays.asList(query.value(), query.countQuery())) {
+                String normalizada = jpql.replaceAll("\\s+", " ");
+                assertTrue(normalizada.contains("where ("), m.getName() + ": " + normalizada);
+                assertTrue(normalizada.contains(") and "), m.getName() + ": " + normalizada);
+                assertTrue(normalizada.endsWith("and coalesce(u.activo, false) = :activo"), m.getName() + ": " + normalizada);
+            }
+        }
     }
 
     /**

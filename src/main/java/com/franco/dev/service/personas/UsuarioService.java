@@ -89,7 +89,16 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
      * En ese caso no se toma el atajo por persona_id: devolveria al usuario sin mirar su rol.
      */
     public org.springframework.data.domain.Page<Usuario> findbyIdOrPersonaPaginated(String texto, Integer page, Integer size, List<Long> roleIds) {
+        return findbyIdOrPersonaPaginated(texto, page, size, roleIds, null);
+    }
+
+    /**
+     * activo null = todos; true = solo activos; false = solo inactivos.
+     * Con cualquier filtro (rol o estado) no se toma el atajo por persona_id: devolveria al usuario sin filtrarlo.
+     */
+    public org.springframework.data.domain.Page<Usuario> findbyIdOrPersonaPaginated(String texto, Integer page, Integer size, List<Long> roleIds, Boolean activo) {
         boolean filtrarPorRol = roleIds != null && !roleIds.isEmpty();
+        boolean filtrarPorEstado = activo != null;
         if (texto == null) texto = "";
         texto = texto.trim();
         if (page == null) page = 0;
@@ -100,7 +109,7 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
                 org.springframework.data.domain.Sort.by("id").ascending()
         );
 
-        if (!filtrarPorRol && !texto.isEmpty() && texto.chars().allMatch(Character::isDigit)) {
+        if (!filtrarPorRol && !filtrarPorEstado && !texto.isEmpty() && texto.chars().allMatch(Character::isDigit)) {
             try {
                 Long personaId = Long.valueOf(texto);
                 Usuario usuario = repository.findByPersonaId(personaId);
@@ -114,6 +123,11 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
         }
 
         texto = texto.replace(' ', '%');
+        if (filtrarPorEstado) {
+            return filtrarPorRol
+                    ? repository.findbyIdOrPersonaAndRolesAndActivoPaginated(texto.toUpperCase(), roleIds, activo, pageable)
+                    : repository.findbyIdOrPersonaAndActivoPaginated(texto.toUpperCase(), activo, pageable);
+        }
         if (filtrarPorRol) {
             return repository.findbyIdOrPersonaAndRolesPaginated(texto.toUpperCase(), roleIds, pageable);
         }

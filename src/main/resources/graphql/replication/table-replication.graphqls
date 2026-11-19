@@ -48,8 +48,8 @@ extend type Query {
     # Get a single replication table by ID
     replicationTable(id: ID!): ReplicationTable
     
-    # Get replication tables with pagination
-    replicationTablesWithPagination(page: Int = 0, size: Int = 10, search: String): ReplicationTablePage
+    "Tablas de replicacion paginadas, por nombre; texto, direccion y estado son opcionales (#772)."
+    replicationTablesWithPagination(page: Int = 0, size: Int = 10, search: String, direction: ReplicationDirection, enabled: Boolean): ReplicationTablePage
     
     # Get tables by direction
     replicationTablesByDirection(direction: ReplicationDirection!): [ReplicationTable]

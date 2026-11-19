@@ -22,6 +22,14 @@ import java.util.stream.Collectors;
 @Service
 public class LogicalReplicationService {
 
+    /**
+     * pg_subscription es un catalogo de todo el servidor PostgreSQL, no de la base: sin el filtro, un servidor con
+     * varias bases (en local, bodega3 y general6 en el mismo :5551) lista las suscripciones de todas (#772).
+     */
+    private static final String SUSCRIPCIONES_DE_ESTA_BASE =
+            "SELECT * FROM pg_subscription WHERE subdbid = (SELECT oid FROM pg_database WHERE datname = current_database())";
+
+
     /** Result of setupFullReplication for GraphQL (success + step-by-step message). */
     public static final class SetupFullReplicationResult {
         private final boolean success;
@@ -453,7 +461,7 @@ public class LogicalReplicationService {
      */
     public List<Map<String, Object>> listSubscriptions() {
         logger.info("Replicación: listando suscripciones locales (base de datos actual: {})", getCentralDbName());
-        return jdbcTemplate.queryForList("SELECT * FROM pg_subscription");
+        return jdbcTemplate.queryForList(SUSCRIPCIONES_DE_ESTA_BASE);
     }
     
     /**
@@ -464,7 +472,7 @@ public class LogicalReplicationService {
      */
     public Page<Map<String, Object>> listSubscriptionsWithPagination(Pageable pageable, String searchQuery) {
         logger.info("Replicación: listando suscripciones locales (base de datos actual: {})", getCentralDbName());
-        List<Map<String, Object>> allSubscriptions = jdbcTemplate.queryForList("SELECT * FROM pg_subscription");
+        List<Map<String, Object>> allSubscriptions = jdbcTemplate.queryForList(SUSCRIPCIONES_DE_ESTA_BASE);
         
         // Apply search filter if provided
         if (searchQuery != null && !searchQuery.isEmpty()) {
@@ -1164,7 +1172,7 @@ public class LogicalReplicationService {
         );
         
         try {
-            return remoteJdbc.queryForList("SELECT * FROM pg_subscription");
+            return remoteJdbc.queryForList(SUSCRIPCIONES_DE_ESTA_BASE);
         } catch (Exception e) {
             throw new RuntimeException("Error querying remote subscriptions: " + e.getMessage(), e);
         }

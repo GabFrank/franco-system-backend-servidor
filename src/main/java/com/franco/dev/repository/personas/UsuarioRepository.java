@@ -55,6 +55,42 @@ public interface UsuarioRepository extends HelperRepository<Usuario, Long> {
                                                                                    @Param("roleIds") List<Long> roleIds,
                                                                                    org.springframework.data.domain.Pageable pageable);
 
+    /**
+     * Igual que {@link #findbyIdOrPersonaPaginated}, pero solo usuarios activos o solo inactivos.
+     * activo null en la base cuenta como inactivo, igual que lo muestra la lista.
+     */
+    @Query(
+            value = "select u from Usuario u " +
+                    "join u.persona p " +
+                    "where (CAST(u.id as text) like %:texto% or UPPER(p.nombre) like %:texto% or UPPER(u.nickname) like %:texto% or p.documento like %:texto% or CAST(p.id as text) like %:texto%) " +
+                    "and coalesce(u.activo, false) = :activo",
+            countQuery = "select count(u) from Usuario u " +
+                    "join u.persona p " +
+                    "where (CAST(u.id as text) like %:texto% or UPPER(p.nombre) like %:texto% or UPPER(u.nickname) like %:texto% or p.documento like %:texto% or CAST(p.id as text) like %:texto%) " +
+                    "and coalesce(u.activo, false) = :activo"
+    )
+    org.springframework.data.domain.Page<Usuario> findbyIdOrPersonaAndActivoPaginated(@Param("texto") String texto,
+                                                                                    @Param("activo") Boolean activo,
+                                                                                    org.springframework.data.domain.Pageable pageable);
+
+    /** Roles y estado juntos: {@link #findbyIdOrPersonaAndRolesPaginated} + {@link #findbyIdOrPersonaAndActivoPaginated}. */
+    @Query(
+            value = "select u from Usuario u " +
+                    "join u.persona p " +
+                    "where (CAST(u.id as text) like %:texto% or UPPER(p.nombre) like %:texto% or UPPER(u.nickname) like %:texto% or p.documento like %:texto% or CAST(p.id as text) like %:texto%) " +
+                    "and exists (select ur.id from UsuarioRole ur where ur.user = u and ur.role.id in :roleIds) " +
+                    "and coalesce(u.activo, false) = :activo",
+            countQuery = "select count(u) from Usuario u " +
+                    "join u.persona p " +
+                    "where (CAST(u.id as text) like %:texto% or UPPER(p.nombre) like %:texto% or UPPER(u.nickname) like %:texto% or p.documento like %:texto% or CAST(p.id as text) like %:texto%) " +
+                    "and exists (select ur.id from UsuarioRole ur where ur.user = u and ur.role.id in :roleIds) " +
+                    "and coalesce(u.activo, false) = :activo"
+    )
+    org.springframework.data.domain.Page<Usuario> findbyIdOrPersonaAndRolesAndActivoPaginated(@Param("texto") String texto,
+                                                                                            @Param("roleIds") List<Long> roleIds,
+                                                                                            @Param("activo") Boolean activo,
+                                                                                            org.springframework.data.domain.Pageable pageable);
+
     public boolean existsByEmail(String email);
 
     public boolean existsByNicknameIgnoreCase(String nickname);

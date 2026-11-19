@@ -61,6 +61,11 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         seg.requireAnyRole(PersonaGraphQL.ROLES_PERSONAS);
         ModelMapper m = new ModelMapper();
         Proveedor e = m.map(input, Proveedor.class);
+        // Los clientes que no conocen el estado (PWA, versiones viejas) no lo mandan: se conserva el guardado.
+        if (input.getActivo() == null) {
+            e.setActivo(input.getId() == null ? Boolean.TRUE
+                    : service.findById(input.getId()).map(Proveedor::getActivo).orElse(Boolean.TRUE));
+        }
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
         try {
@@ -85,15 +90,22 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         return service.findByPersonaId(id);
     }
 
-    public List<Proveedor> proveedorSearchByPersona(String texto) { return service.findByPersonaNombre(texto); }
+    /** activo: true (por defecto en el schema) solo activos, false solo inactivos, null todos. */
+    public List<Proveedor> proveedorSearchByPersona(String texto, Boolean activo) {
+        return service.findByPersonaNombre(texto, activo);
+    }
 
-    public Page<Proveedor> proveedorSearchByPersonaPage(String texto, Integer page, Integer size) {
+    /** activo: true (por defecto en el schema) solo activos, false solo inactivos, null todos. */
+    public Page<Proveedor> proveedorSearchByPersonaPage(String texto, Integer page, Integer size, Boolean activo) {
         Pageable pageable = Paginacion.of(page, size, Sort.by("persona.nombre"));
-        if (texto == null || texto.trim().isEmpty()) {
-            return service.getRepository().findAll(pageable);
+        boolean sinTexto = texto == null || texto.trim().isEmpty();
+        String pattern = sinTexto ? null : "%" + texto.trim().replace(" ", "%") + "%";
+        if (activo == null) {
+            return sinTexto ? service.getRepository().findAll(pageable)
+                    : service.getRepository().findByPersonaNombreOrApodoOrDocumentoIgnoreCase(pattern, pattern, pattern, pageable);
         }
-        String pattern = "%" + texto.trim().replace(" ", "%") + "%";
-        return service.getRepository().findByPersonaNombreOrApodoOrDocumentoIgnoreCase(pattern, pattern, pattern, pageable);
+        return sinTexto ? service.getRepository().findByActivo(activo, pageable)
+                : service.getRepository().findByTextoAndActivo(pattern, activo, pageable);
     }
 
 }

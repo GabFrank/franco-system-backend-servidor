@@ -58,6 +58,10 @@ public class Proveedor implements Identifiable<Long> {
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
+
+    /** Inactivo: no aparece en los buscadores, pero sigue en los pedidos, gastos y pagos que ya lo usan. */
+    @Column(nullable = false)
+    private Boolean activo = true;
 }
 
 

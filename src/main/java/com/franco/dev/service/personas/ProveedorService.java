@@ -27,7 +27,13 @@ public class ProveedorService extends CrudService<Proveedor, ProveedorRepository
     }
 
     public List<Proveedor> findByPersonaNombre(String texto){
-        return repository.findByPersona(texto.toUpperCase());
+        return findByPersonaNombre(texto, null);
+    }
+
+    /** activo null = todos. */
+    public List<Proveedor> findByPersonaNombre(String texto, Boolean activo){
+        String t = texto == null ? "" : texto.toUpperCase();
+        return activo == null ? repository.findByPersona(t) : repository.findByPersonaAndActivo(t, activo);
     }
 
     public List<Proveedor> findByVendedorId(Long id){ return repository.findByVendedorId(id); }

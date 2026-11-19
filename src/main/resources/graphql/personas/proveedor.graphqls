@@ -6,6 +6,7 @@ type Proveedor {
     chequeDias: Int
     datosBancarios: Int
     creadoEn: Date
+    activo: Boolean
     usuario: Usuario
     vendedores: [Vendedor]
     productos: [Producto]
@@ -20,6 +21,7 @@ input ProveedorInput {
     chequeDias: Int
     datosBancarios: Int
     usuarioId: Int
+    activo: Boolean
 }
 
 type ProveedorPage {
@@ -37,8 +39,9 @@ type ProveedorPage {
 extend type Query {
     proveedor(id:ID!):Proveedor
     proveedorPorPersona(personaId:ID): Proveedor
-    proveedorSearchByPersona(texto: String): [Proveedor]
-    proveedorSearchByPersonaPage(texto: String, page: Int, size: Int): ProveedorPage
+    # Buscadores: por defecto solo activos. activo: false = solo inactivos; activo: null explícito = todos.
+    proveedorSearchByPersona(texto: String, activo: Boolean = true): [Proveedor]
+    proveedorSearchByPersonaPage(texto: String, page: Int, size: Int, activo: Boolean = true): ProveedorPage
     proveedorPorVendedor(id:ID): [Proveedor]
     proveedores(page:Int = 0, size:Int = 10):[Proveedor]!
     countProveedor: Int

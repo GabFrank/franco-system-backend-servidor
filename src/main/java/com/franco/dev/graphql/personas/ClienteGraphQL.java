@@ -225,6 +225,10 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             return null;
         }
 
+        // Un pasaporte (#666) no se reduce a sus digitos ("FX987654" traeria a la persona o al RUC 987654):
+        // se busca tal cual, sin consultar SET ni crear.
+        if (tieneLetras(texto)) return service.findByPersonaDocumento(texto.trim());
+
         // Limpiar documento (remover guiones y caracteres especiales)
         String documentoLimpio = texto.trim().replaceAll("[^0-9]", "");
 
@@ -250,6 +254,17 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
         if (texto == null || texto.trim().isEmpty()) {
             response.getErrores().add("El documento no puede estar vacío");
+            return response;
+        }
+
+        if (tieneLetras(texto)) {
+            Cliente cliente = service.findByPersonaDocumento(texto.trim());
+            if (cliente != null) {
+                response.setCliente(cliente);
+                response.setExito(true);
+            } else {
+                response.getErrores().add("No hay un cliente con el documento " + texto.trim());
+            }
             return response;
         }
 
@@ -289,6 +304,11 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         }
 
         return response;
+    }
+
+    /** Pasaporte o documento extranjero (#666): no es un RUC ni una cedula. */
+    static boolean tieneLetras(String documento) {
+        return documento != null && documento.matches(".*[A-Za-z].*");
     }
 
 }

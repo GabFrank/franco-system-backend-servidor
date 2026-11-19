@@ -89,8 +89,8 @@ extend type Query {
 extend type Mutation {
     savePersona(persona:PersonaInput!):Persona!
     deletePersona(id:ID!):Boolean!
-    "Sube al central el pais que las cajas cargaron en las filiales (#666). Solo ADMIN. Idempotente: correrlo de nuevo hasta que completo sea true."
-    backfillPaisPersonas: BackfillPaisResultado!
+    "Sube al central el pais que las cajas cargaron en las filiales (#666). Solo ADMIN. Idempotente: correrlo de nuevo hasta que completo sea true. Sin sucursalIds, todas las filiales."
+    backfillPaisPersonas(sucursalIds: [ID]): BackfillPaisResultado!
 #    updatePersona(id:ID!, persona:PersonaInput!):Persona!
 }
 

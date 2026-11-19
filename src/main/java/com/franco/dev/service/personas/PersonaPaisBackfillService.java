@@ -91,7 +91,7 @@ public class PersonaPaisBackfillService {
         private List<Long> conflictos = new ArrayList<>();
         private List<Long> paisesDesconocidos = new ArrayList<>();
         private List<Filial> filiales = new ArrayList<>();
-        /** true solo si respondieron todas las filiales: si no, hay que volver a correrlo. */
+        /** true solo si respondieron todas las filiales consultadas: si no, hay que volver a correrlo. */
         private boolean completo;
     }
 
@@ -108,7 +108,8 @@ public class PersonaPaisBackfillService {
         }
     }
 
-    public Resultado ejecutar() {
+    /** @param sucursalIds vacio o null = todas; si no, solo esas (p. ej. las que no respondieron). */
+    public Resultado ejecutar(List<Long> sucursalIds) {
         if (!enCurso.tryLock()) throw new GraphQLException("Ya hay un backfill de paises en curso.");
         Map<Sucursal, Future<Map<Long, Long>>> futuros = new LinkedHashMap<>();
         try {
@@ -116,7 +117,9 @@ public class PersonaPaisBackfillService {
             if (base == null || !BASE_VALIDA.matcher(base).matches())
                 throw new GraphQLException("El nombre de la base de las filiales configurado no es valido.");
             Resultado res = new Resultado();
+            Set<Long> filtro = sucursalIds == null ? Collections.emptySet() : new HashSet<>(sucursalIds);
             for (Sucursal s : sucursalService.findAllExcludingServer()) {
+                if (!filtro.isEmpty() && !filtro.contains(s.getId())) continue;
                 List<Destino> destinos = destinos(s, base);
                 if (destinos.isEmpty()) {
                     res.filiales.add(filial(s, SIN_IP, null, "La sucursal no tiene IP ni suscripcion"));

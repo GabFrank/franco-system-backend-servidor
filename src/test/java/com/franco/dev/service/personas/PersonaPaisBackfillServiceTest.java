@@ -76,7 +76,7 @@ class PersonaPaisBackfillServiceTest {
         when(personaService.asignarPaisSiNulo(100L, 30L)).thenReturn(true);
         when(personaService.asignarPaisSiNulo(300L, 10L)).thenReturn(false); // ya tenia
 
-        PersonaPaisBackfillService.Resultado r = service.ejecutar();
+        PersonaPaisBackfillService.Resultado r = service.ejecutar(null);
 
         assertEquals(1, r.getGrabados());
         assertEquals(Collections.singletonList(100L), r.getIdsGrabados());
@@ -98,7 +98,7 @@ class PersonaPaisBackfillServiceTest {
         when(personaService.asignarPaisSiNulo(100L, 999L)).thenThrow(new DataIntegrityViolationException("fk"));
         when(personaService.asignarPaisSiNulo(200L, 30L)).thenReturn(true);
 
-        PersonaPaisBackfillService.Resultado r = service.ejecutar();
+        PersonaPaisBackfillService.Resultado r = service.ejecutar(null);
 
         assertEquals(Collections.singletonList(100L), r.getPaisesDesconocidos());
         assertEquals(Collections.singletonList(200L), r.getIdsGrabados());
@@ -113,7 +113,7 @@ class PersonaPaisBackfillServiceTest {
         filiales.put("100.64.0.4", filas(100, 30));
         when(personaService.asignarPaisSiNulo(100L, 30L)).thenReturn(true);
 
-        PersonaPaisBackfillService.Resultado r = service.ejecutar();
+        PersonaPaisBackfillService.Resultado r = service.ejecutar(null);
 
         assertEquals(PersonaPaisBackfillService.OK, filial(r, 6).getEstado());
         assertEquals(1, r.getGrabados());
@@ -128,5 +128,18 @@ class PersonaPaisBackfillServiceTest {
         assertEquals("general", d.base);
         assertNull(PersonaPaisBackfillService.desdeConninfo("dbname=general host=a/b port=5552"));
         assertNull(PersonaPaisBackfillService.desdeConninfo("dbname=general user=franco"));
+    }
+
+    @Test
+    void conFiltroSoloConsultaEsasSucursales() {
+        when(sucursalService.findAllExcludingServer()).thenReturn(Arrays.asList(sucursal(1, "10.0.0.1"), sucursal(24, "10.0.0.24")));
+        filiales.put("10.0.0.24", filas(100, 30));
+        when(personaService.asignarPaisSiNulo(100L, 30L)).thenReturn(true);
+
+        PersonaPaisBackfillService.Resultado r = service.ejecutar(Collections.singletonList(24L));
+
+        assertEquals(1, r.getFiliales().size());
+        assertEquals(24L, r.getFiliales().get(0).getSucursalId());
+        assertTrue(r.isCompleto());
     }
 }

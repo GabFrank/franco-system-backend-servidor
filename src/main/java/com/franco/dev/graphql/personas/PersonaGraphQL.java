@@ -122,9 +122,9 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return e;
     }
 
-    public com.franco.dev.service.personas.PersonaPaisBackfillService.Resultado backfillPaisPersonas() {
+    public com.franco.dev.service.personas.PersonaPaisBackfillService.Resultado backfillPaisPersonas(List<Long> sucursalIds) {
         seg.requireSuperusuario();
-        return paisBackfillService.ejecutar();
+        return paisBackfillService.ejecutar(sucursalIds);
     }
 
     public Persona updatePersona(Long id, PersonaInput personaInput) {

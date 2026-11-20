@@ -40,6 +40,19 @@ Rama `fix/retiro-verificacion-motivo` en central y desktop. Se borra en el PR fi
   sin contar por billetes.» (cubre «usar lo declarado» y monto tipeado).
 - Spec del bloque: tipear 5 → 50 → 500 contra 200 termina en SOBRANTE (Karma con tsconfig acotado).
 
+### Fase 3 — desktop, lista «Control de retiros» (pedido de Franco tras probar, 2026-11-20)
+
+- Selector de sucursal de 200 a 360 px (medido: el texto ocupa 308 px en Roboto 16): entra «SUC. NUEVA ESPERANZA SAN ANTONIO» (la 9, el nombre más
+  largo).
+- Columna Sucursal con el nombre, de la `sucursalList` que el filtro ya carga (`_sucursal`
+  precalculado; cae al id si la sucursal no está, p. ej. inactiva, o si la lista llega después de los
+  casos, que se re-rotulan al llegar).
+- Diferencia con los decimales fijos de la moneda (`10,00 R$`, no `10 R$`) y `+` en los sobrantes,
+  igual que el diálogo de verificación; el detalle del caso pasa de `1.0-dec` a `dec-dec`.
+- Auditoría: eje A — sin cambio de GraphQL ni de datos (solo presentación del desktop); eje B — N/A,
+  no toca estado ni persistencia.
+- Prueba: la lista con un caso de la 24 y uno en reales, filtro con la 9 elegida.
+
 ## Datos nuevos
 
 Ninguno: no hay columnas, campos GraphQL ni claves nuevas.

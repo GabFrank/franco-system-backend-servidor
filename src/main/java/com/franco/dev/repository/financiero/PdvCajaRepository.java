@@ -2,7 +2,6 @@ package com.franco.dev.repository.financiero;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.PdvCaja;
-import com.franco.dev.domain.financiero.enums.PdvCajaEstado;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
@@ -63,9 +62,9 @@ public interface PdvCajaRepository extends HelperRepository<PdvCaja, Long>, JpaS
             // Sin turno (0..1440) no se evalúa: una caja con creado_en nulo sigue saliendo como antes.
             "((:desde = 0 and :hasta = 1440) or (" +
             "mod(cast(hour(function('timezone', :zona, c.creadoEn)) as integer) * 60 + cast(minute(function('timezone', :zona, c.creadoEn)) as integer) + :offset, 1440) >= :desde and " +
-            "mod(cast(hour(function('timezone', :zona, c.creadoEn)) as integer) * 60 + cast(minute(function('timezone', :zona, c.creadoEn)) as integer) + :offset, 1440) < :hasta)) and " +
-            "(c.estado = :estado or cast(:estado as com.franco.dev.domain.financiero.enums.PdvCajaEstado) is null) order by c.creadoEn desc")
-    public Page<PdvCaja> findAllWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, LocalDateTime fechaInicio, LocalDateTime fechaFin, Long sucId, Boolean verificado, Boolean activo, String zona, int offset, int desde, int hasta, Pageable pageable);
+            "mod(cast(hour(function('timezone', :zona, c.creadoEn)) as integer) * 60 + cast(minute(function('timezone', :zona, c.creadoEn)) as integer) + :offset, 1440) < :hasta)) " +
+            "order by c.creadoEn desc")
+    public Page<PdvCaja> findAllWithFilters(Long cajaId, Long maletinId, Long cajeroId, LocalDateTime fechaInicio, LocalDateTime fechaFin, Long sucId, Boolean verificado, Boolean activo, String zona, int offset, int desde, int hasta, Pageable pageable);
 
     List<PdvCaja> findBySucursalIdAndActivo(Long sucursalId, Boolean activo);
 
@@ -110,7 +109,6 @@ public interface PdvCajaRepository extends HelperRepository<PdvCaja, Long>, JpaS
             "  FROM financiero.pdv_caja c LEFT JOIN financiero.maletin m ON m.id = c.maletin_id " +
             "  WHERE (CAST(:sucId AS text) IS NULL OR c.sucursal_id = CAST(CAST(:sucId AS text) AS bigint)) " +
             "    AND (CAST(:cajaId AS text) IS NULL OR c.id = CAST(CAST(:cajaId AS text) AS bigint)) " +
-            "    AND (CAST(:estado AS text) IS NULL OR CAST(c.estado AS text) = CAST(:estado AS text)) " +
             "    AND (CAST(:maletinId AS text) IS NULL OR c.maletin_id = CAST(CAST(:maletinId AS text) AS bigint)) " +
             "    AND (CAST(:maletinDescripcion AS text) IS NULL OR lower(m.descripcion) LIKE CAST(:maletinDescripcion AS text)) " +
             "    AND (CAST(:cajeroId AS text) IS NULL OR c.usuario_id = CAST(CAST(:cajeroId AS text) AS bigint)) " +
@@ -150,7 +148,7 @@ public interface PdvCajaRepository extends HelperRepository<PdvCaja, Long>, JpaS
             "LIMIT :limite OFFSET :desde",
             nativeQuery = true)
     List<Object[]> findAnalisisDiferencias(@Param("sucId") String sucId, @Param("cajaId") String cajaId,
-                                           @Param("estado") String estado, @Param("maletinId") String maletinId,
+                                           @Param("maletinId") String maletinId,
                                            @Param("maletinDescripcion") String maletinDescripcion,
                                            @Param("cajeroId") String cajeroId, @Param("verificado") String verificado,
                                            @Param("inicio") String inicio, @Param("fin") String fin,

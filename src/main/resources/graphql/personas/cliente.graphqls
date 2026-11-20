@@ -31,6 +31,8 @@ input ClienteInput {
     tributa: Boolean
     verificadoSet: Boolean
     activo: Boolean
+    "Pais del receptor de la persona (#666). Si viene, reemplaza el guardado; sin el campo, no se toca."
+    paisId: Int
 }
 
 type ClientePage {

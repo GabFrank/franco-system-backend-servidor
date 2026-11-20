@@ -1,0 +1,15 @@
+-- =====================================================================
+-- personas.persona.pais_id: pais del receptor, global (#666, etapa 2 de filial #134)
+-- =====================================================================
+-- Nulo = Paraguay. Lo leen los SifenReceptorHelper (central y filial) para declarar B2F con el pais.
+-- Lo escriben: savePersona / saveCliente (administracion de personas del escritorio), POST /api/personas/{id}/pais
+-- (la caja de la filial, solo si es nulo) y el backfill desde las filiales.
+--
+-- ORDEN (central_pub publica persona sin lista de columnas): antes de desplegar esta migracion, TODAS las
+-- filiales del canal tienen que tener la columna (filial V116.1) y el trigger que conserva el pais local
+-- (filial V117.1), y PG >= 16. Sin la columna, la suscripcion de esa filial se corta entera ("missing
+-- replicated column"); sin el trigger, el primer UPDATE de una persona borra el pais que cargo la caja.
+-- Despues de desplegar: correr backfillPaisPersonas en este central.
+--
+-- Aditiva: un JAR anterior la ignora. IDEMPOTENTE.
+ALTER TABLE personas.persona ADD COLUMN IF NOT EXISTS pais_id bigint REFERENCES general.pais(id);

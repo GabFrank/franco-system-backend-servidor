@@ -40,6 +40,11 @@ public class SifenConsultaRucService {
             return null;
         }
 
+        // Un pasaporte (#666) no es un RUC: sin las letras consultaria a otro contribuyente.
+        if (ruc == null || ruc.matches(".*[A-Za-z].*")) {
+            return null;
+        }
+
         try {
             // Normalizar RUC (solo números)
             String rucNormalizado = ruc.replaceAll("[^0-9]", "");

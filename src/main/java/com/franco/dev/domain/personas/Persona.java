@@ -3,6 +3,7 @@ package com.franco.dev.domain.personas;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.general.Ciudad;
+import com.franco.dev.domain.general.Pais;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -43,6 +44,12 @@ public class Persona implements Identifiable<Long> {
         @ManyToOne(fetch = FetchType.EAGER)
         @JoinColumn(name = "ciudad_id", nullable = true)
         private Ciudad ciudad;
+
+        /** Pais del receptor para SIFEN (#666). Nulo = Paraguay. */
+        @ManyToOne(fetch = FetchType.EAGER)
+        @JoinColumn(name = "pais_id", nullable = true)
+        @JsonIgnore // GraphQL lo resuelve igual; el REST no serializa el usuario lazy de Pais
+        private Pais pais;
 
         @EqualsAndHashCode.Exclude
         @ToString.Exclude

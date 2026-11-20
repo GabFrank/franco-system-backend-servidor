@@ -153,10 +153,7 @@ public class RetiroVerificacionService {
             d.setDiferencia(diferencia);
             if (diferencia.signum() != 0) {
                 hayDiferencia = true;
-                d.setCategoria(c != null && c.getCategoria() != null
-                        ? c.getCategoria()
-                        : (diferencia.signum() < 0 ? CategoriaDiferenciaRetiro.FALTANTE
-                                                   : CategoriaDiferenciaRetiro.SOBRANTE));
+                d.setCategoria(categoriaDe(c != null ? c.getCategoria() : null, diferencia));
             }
             verificacion.agregarDetalle(d);
         }
@@ -180,6 +177,19 @@ public class RetiroVerificacionService {
         if (hayDiferencia) abrirCaso(guardada, usuario);
 
         return guardada;
+    }
+
+    /**
+     * El motivo de una diferencia distinta de cero. FALTANTE y SOBRANTE los dice el signo, no el cliente: el
+     * desktop fijaba el motivo con el primer dígito tipeado (5 contra 200 declarados) y no lo recalculaba al
+     * llegar a 500 (retiro 2108 de la 22). Los demás motivos los elige el usuario y se respetan.
+     */
+    static CategoriaDiferenciaRetiro categoriaDe(CategoriaDiferenciaRetiro elegida, BigDecimal diferencia) {
+        if (elegida != null && elegida != CategoriaDiferenciaRetiro.FALTANTE
+                && elegida != CategoriaDiferenciaRetiro.SOBRANTE) {
+            return elegida;
+        }
+        return diferencia.signum() < 0 ? CategoriaDiferenciaRetiro.FALTANTE : CategoriaDiferenciaRetiro.SOBRANTE;
     }
 
     /** Por debajo de esto, la diferencia con el monto redondeado es ruido de punto flotante del cliente. */

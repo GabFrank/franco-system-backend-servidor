@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -141,10 +142,10 @@ class AnalisisDiferenciasQueriesIT {
         Page<PdvCaja> desc = service.findAllForAnalisisDiferencias(null, null, null, null, "zz609 male", null,
                 null, null, null, null, "CON_DIFERENCIA", PageRequest.of(0, 10));
         assertEquals(ids(C3), ids(desc));
-        // estado de la caja (enum)
-        Page<PdvCaja> estado = service.findAllForAnalisisDiferencias(null, null, PdvCajaEstado.CONCLUIDO, MALETIN, null,
-                null, DESDE, HASTA, null, null, "SIN_DIFERENCIA", PageRequest.of(0, 10));
-        assertEquals(ids(C4), ids(estado));
+        // estado de la caja (enum): no lo escribe nadie, se rechaza en vez de filtrar (filial #148)
+        assertThrows(graphql.GraphQLException.class, () -> service.findAllForAnalisisDiferencias(null, null,
+                PdvCajaEstado.CONCLUIDO, MALETIN, null, null, DESDE, HASTA, null, null, "SIN_DIFERENCIA",
+                PageRequest.of(0, 10)));
         // verificado
         Page<PdvCaja> verif = service.findAllForAnalisisDiferencias(null, null, null, MALETIN, null, null,
                 DESDE, HASTA, null, true, "SIN_DIFERENCIA", PageRequest.of(0, 10));
@@ -194,7 +195,7 @@ class AnalisisDiferenciasQueriesIT {
 
     private String estadoSql(long id) {
         for (String e : Arrays.asList("SIN_DATOS", "SIN_DIFERENCIA", "CON_DIFERENCIA")) {
-            if (!repository.findAnalisisDiferencias(String.valueOf(SUC), String.valueOf(id), null, null, null, null,
+            if (!repository.findAnalisisDiferencias(String.valueOf(SUC), String.valueOf(id), null, null, null,
                     null, null, null, null, e, 10, 0).isEmpty()) return e;
         }
         return null;

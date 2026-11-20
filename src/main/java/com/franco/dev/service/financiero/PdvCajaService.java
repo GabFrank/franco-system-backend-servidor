@@ -540,9 +540,17 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
         return repository.findByUsuarioIdOrderByIdDesc(id, pageable);
     }
 
+    /** pdv_caja.estado no lo escribe nadie (NULL en todas): filtrar por el daba 0 filas sin avisar (filial #148). */
+    private static void rechazarFiltroPorEstado(PdvCajaEstado estado) {
+        if (estado != null) {
+            throw new graphql.GraphQLException("El filtro por estado de caja no esta soportado: use verificado.");
+        }
+    }
+
     public Page<PdvCaja> findAllWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, Boolean activo, Turno turno, Pageable pageable) {
+        rechazarFiltroPorEstado(estado);
         int[] r = CajaTurnos.rango(turno);
-        return repository.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio != null ? stringToDate(fechaInicio) : null, fechaFin != null ? stringToDate(fechaFin) : null, sucId, verificado, activo,
+        return repository.findAllWithFilters(cajaId, maletinId, cajeroId, fechaInicio != null ? stringToDate(fechaInicio) : null, fechaFin != null ? stringToDate(fechaFin) : null, sucId, verificado, activo,
                 cajaTurnos.zona(), r[0], r[1], r[2], pageable);
     }
 
@@ -559,8 +567,9 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
             Boolean verificado,
             String difEstado,
             Pageable pageable) {
+        rechazarFiltroPorEstado(estado);
 
-        if (cajaAnteriorId != null && maletinDescripcion == null && sucId == null && estado == null && fechaInicio == null && fechaFin == null) {
+        if (cajaAnteriorId != null && maletinDescripcion == null && sucId == null && fechaInicio == null && fechaFin == null) {
             return findCajasByAnteriorIdOptimized(cajaAnteriorId, sucId, difEstado, pageable);
         }
 
@@ -570,7 +579,7 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
         // Con filtro de estado o de caja anterior, el estado de todas las cajas se calcula en la base y
         // se pagina despues (#609): filtrar en memoria la pagina ya cortada perdia cajas y el total.
         if (difEstado != null || cajaAnteriorId != null) {
-            return analisisDiferenciasFiltrado(cajaId, cajaAnteriorId, estado, maletinId, maletinDescripcion, cajeroId,
+            return analisisDiferenciasFiltrado(cajaId, cajaAnteriorId, maletinId, maletinDescripcion, cajeroId,
                     inicio, fin, sucId, verificado, difEstado, pageable);
         }
 
@@ -585,9 +594,6 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
 
             if (cajaId != null) {
                 predicates.add(cb.equal(root.get("id"), cajaId));
-            }
-            if (estado != null) {
-                predicates.add(cb.equal(root.get("estado"), estado));
             }
             if (maletinId != null) {
                 predicates.add(cb.equal(maletinJoin.get("id"), maletinId));
@@ -615,13 +621,13 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
         return new PageImpl<PdvCaja>(cajas, page.getPageable(), page.getTotalElements());
     }
 
-    private Page<PdvCaja> analisisDiferenciasFiltrado(Long cajaId, Long cajaAnteriorId, PdvCajaEstado estado, Long maletinId,
+    private Page<PdvCaja> analisisDiferenciasFiltrado(Long cajaId, Long cajaAnteriorId, Long maletinId,
                                                       String maletinDescripcion, Long cajeroId, LocalDateTime inicio,
                                                       LocalDateTime fin, Long sucId, Boolean verificado, String difEstado,
                                                       Pageable pageable) {
         String desc = maletinDescripcion != null ? "%" + maletinDescripcion.toLowerCase() + "%" : null;
         java.util.function.LongFunction<List<Object[]>> pagina = desde -> repository.findAnalisisDiferencias(
-                texto(sucId), texto(cajaId), estado != null ? estado.name() : null, texto(maletinId), desc,
+                texto(sucId), texto(cajaId), texto(maletinId), desc,
                 texto(cajeroId), texto(verificado), texto(inicio), texto(fin), texto(cajaAnteriorId), difEstado,
                 pageable.getPageSize(), desde);
         List<Object[]> filas = pagina.apply(pageable.getOffset());

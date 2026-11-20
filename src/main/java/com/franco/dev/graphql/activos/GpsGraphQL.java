@@ -47,6 +47,11 @@ public class GpsGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver
         return service.search(texto);
     }
 
+    /** La lista de GPS pagina en el central (#772); gpsSearch queda para el mapa y los desktops instalados. */
+    public org.springframework.data.domain.Page<Gps> gpsSearchPage(String texto, int page, int size) {
+        return service.search(texto, PageRequest.of(page, size));
+    }
+
     public Optional<Gps> gpsByImei(String imei) {
         return service.findByImei(imei);
     }

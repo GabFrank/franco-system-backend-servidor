@@ -2,6 +2,8 @@ package com.franco.dev.repository.activos;
 
 import com.franco.dev.domain.activos.Gps;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -47,6 +49,34 @@ public interface GpsRepository extends HelperRepository<Gps, Long> {
                         "OR LOWER(m.descripcion) LIKE %:texto% " +
                         "OR LOWER(ma.descripcion) LIKE %:texto%")
         List<Gps> searchByTexto(@Param("texto") String texto);
+
+        /** Todos los GPS de a una pagina, por id (#772). */
+        @Query(value = "SELECT g FROM Gps g LEFT JOIN FETCH g.vehiculo v LEFT JOIN FETCH v.modelo m " +
+                        "LEFT JOIN FETCH m.marca ORDER BY g.id",
+                        countQuery = "SELECT count(g) FROM Gps g")
+        Page<Gps> findAllWithVehiculoFetched(Pageable pageable);
+
+        /** La misma busqueda que searchByTexto, de a una pagina y por id (#772). */
+        @Query(value = "SELECT g FROM Gps g " +
+                        "LEFT JOIN FETCH g.vehiculo v " +
+                        "LEFT JOIN FETCH v.modelo m " +
+                        "LEFT JOIN FETCH m.marca ma " +
+                        "WHERE LOWER(g.imei) LIKE %:texto% " +
+                        "OR LOWER(g.modeloTracker) LIKE %:texto% " +
+                        "OR LOWER(v.chapa) LIKE %:texto% " +
+                        "OR LOWER(m.descripcion) LIKE %:texto% " +
+                        "OR LOWER(ma.descripcion) LIKE %:texto% " +
+                        "ORDER BY g.id",
+                        countQuery = "SELECT count(g) FROM Gps g " +
+                        "LEFT JOIN g.vehiculo v " +
+                        "LEFT JOIN v.modelo m " +
+                        "LEFT JOIN m.marca ma " +
+                        "WHERE LOWER(g.imei) LIKE %:texto% " +
+                        "OR LOWER(g.modeloTracker) LIKE %:texto% " +
+                        "OR LOWER(v.chapa) LIKE %:texto% " +
+                        "OR LOWER(m.descripcion) LIKE %:texto% " +
+                        "OR LOWER(ma.descripcion) LIKE %:texto%")
+        Page<Gps> searchByTexto(@Param("texto") String texto, Pageable pageable);
 
         @Modifying
         @Query("UPDATE Gps g SET g.ultimaLatitud = :latitud, g.ultimaLongitud = :longitud, " +

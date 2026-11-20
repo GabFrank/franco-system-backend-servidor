@@ -45,6 +45,14 @@ public class VehiculoService extends CrudService<Vehiculo, VehiculoRepository, L
         return repository.findByAllWithPage(texto, pageable);
     }
 
+    /** Con tipo: solo los de ese tipo de vehiculo; sin tipo, igual que findByAllWithPage (#772). */
+    public Page<Vehiculo> findByAllWithPage(String texto, Long tipoVehiculoId, int page, int size) {
+        if (tipoVehiculoId == null) return findByAllWithPage(texto, page, size);
+        Pageable pageable = PageRequest.of(page, size);
+        texto = texto != null ? texto.replace(' ', '%').toUpperCase() : "";
+        return repository.findByAllAndTipoWithPage(texto, tipoVehiculoId, pageable);
+    }
+
     public List<Vehiculo> findByMarcaId(Long marcaId) {
         return repository.findByMarcaId(marcaId);
     }

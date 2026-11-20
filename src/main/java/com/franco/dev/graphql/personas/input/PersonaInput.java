@@ -17,6 +17,7 @@ public class PersonaInput {
     private String email;
     private String direccion;
     private Long ciudadId;
+    private Long paisId;
     private String telefono;
     private String socialMedia;
     private String imagenes;

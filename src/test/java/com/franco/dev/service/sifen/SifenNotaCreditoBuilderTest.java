@@ -125,6 +125,54 @@ class SifenNotaCreditoBuilderTest {
         assertTrue(e.getMessage().contains("teléfono"), "mensaje inesperado: " + e.getMessage());
     }
 
+    @org.junit.jupiter.api.io.TempDir
+    java.nio.file.Path dir;
+
+    /** #666: la NC de una factura B2F lleva el mismo receptor del exterior, y el XML se genera y firma. */
+    @Test
+    void conElReceptorB2FDeLaFacturaElXmlSaleB2F() throws Exception {
+        com.roshka.sifen.core.fields.request.de.TgDatRec receptor =
+                com.franco.dev.service.sifen.util.SifenReceptorDesdeXml.receptorB2F(ReceptorExtranjeroCentralTest.xmlFactura(4));
+        NotaCredito nota = nota(null, null);
+        nota.setNombre("JOAO DA SILVA");
+        nota.setRuc("FX987654");
+        DocumentoElectronico de = builder.construir(nota, items(), timbrado(), sucursal(), CDC_FACTURA, receptor);
+
+        com.roshka.sifen.core.SifenConfig config = new com.roshka.sifen.core.SifenConfig();
+        config.setUsarCertificadoCliente(true);
+        config.setTipoCertificadoCliente(com.roshka.sifen.core.SifenConfig.TipoCertificadoCliente.PFX);
+        config.setCertificadoCliente(certificadoDescartable());
+        config.setContrasenaCertificadoCliente("prueba");
+        config.setHabilitarNotaTecnica13(true);
+        String xml = de.generarXml(com.roshka.sifen.internal.ctx.GenerationCtx.getDefaultFromConfig(config));
+        String gDatRec = xml.substring(xml.indexOf("<gDatRec>"), xml.indexOf("</gDatRec>"));
+        assertTrue(gDatRec.contains("<iTiOpe>4</iTiOpe>"), gDatRec);
+        assertTrue(gDatRec.contains("<cPaisRec>BRA</cPaisRec>"), gDatRec);
+        assertTrue(gDatRec.contains("<iTipIDRec>" + TiTipDocRec.PASAPORTE.getVal() + "</iTipIDRec>"), gDatRec);
+        assertTrue(gDatRec.contains("<dNumIDRec>FX987654</dNumIDRec>"), gDatRec);
+        assertTrue(gDatRec.contains("<dDirRec>RUA 1</dDirRec>"), gDatRec);
+        assertFalse(gDatRec.contains("dRucRec"), gDatRec);
+        assertTrue(xml.contains("SignatureValue"));
+        // ida y vuelta: el lector entiende el XML que genera la libreria (no solo uno escrito a mano)
+        com.roshka.sifen.core.fields.request.de.TgDatRec leido =
+                com.franco.dev.service.sifen.util.SifenReceptorDesdeXml.receptorB2F(xml);
+        assertNotNull(leido, "el XML real de la libreria tiene que leerse");
+        assertEquals(PaisType.BRA, leido.getcPaisRec());
+        assertEquals(TiTipDocRec.PASAPORTE, leido.getiTipIDRec());
+    }
+
+    /** Autofirmado, solo para firmar en el test: lo crea keytool del JDK que corre los tests. */
+    private String certificadoDescartable() throws Exception {
+        java.io.File pfx = dir.resolve("prueba.pfx").toFile();
+        String keytool = java.nio.file.Paths.get(System.getProperty("java.home"), "bin", "keytool").toString();
+        Process p = new ProcessBuilder(keytool, "-genkeypair", "-alias", "prueba", "-keyalg", "RSA",
+                "-keysize", "2048", "-validity", "1", "-dname", "CN=prueba", "-storetype", "PKCS12",
+                "-keystore", pfx.getPath(), "-storepass", "prueba", "-keypass", "prueba")
+                .redirectErrorStream(true).start();
+        assertEquals(0, p.waitFor(), "keytool");
+        return pfx.getPath();
+    }
+
     private DocumentoElectronico construir(NotaCredito nota) {
         return builder.construir(nota, items(), timbrado(), sucursal(), CDC_FACTURA);
     }

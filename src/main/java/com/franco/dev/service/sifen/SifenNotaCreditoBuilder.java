@@ -43,6 +43,13 @@ public class SifenNotaCreditoBuilder {
     public DocumentoElectronico construir(NotaCredito nota, List<NotaCreditoItem> items,
                                           TimbradoDetalle timbradoDetalle, Sucursal sucursal,
                                           String cdcFactura) {
+        return construir(nota, items, timbradoDetalle, sucursal, cdcFactura, null);
+    }
+
+    /** @param receptorFactura gDatRec B2F de la factura (#666); null = el snapshot de la nota, como siempre. */
+    public DocumentoElectronico construir(NotaCredito nota, List<NotaCreditoItem> items,
+                                          TimbradoDetalle timbradoDetalle, Sucursal sucursal,
+                                          String cdcFactura, TgDatRec receptorFactura) {
         DocumentoElectronico de = new DocumentoElectronico();
 
         de.setdFecFirma(SifenTimbradoHelper.fechaFirmaSegura(nota.getFecha()));
@@ -67,7 +74,7 @@ public class SifenNotaCreditoBuilder {
         datGralOpe.setdFeEmiDE(nota.getFecha() != null ? nota.getFecha() : LocalDateTime.now());
         datGralOpe.setgOpeCom(construirOperacion(nota));
         datGralOpe.setgEmis(construirEmisor(timbradoDetalle));
-        datGralOpe.setgDatRec(construirReceptor(nota));
+        datGralOpe.setgDatRec(receptorFactura != null ? receptorFactura : construirReceptor(nota));
         de.setgDatGralOpe(datGralOpe);
 
         de.setgDtipDE(construirDatosItems(nota, items));

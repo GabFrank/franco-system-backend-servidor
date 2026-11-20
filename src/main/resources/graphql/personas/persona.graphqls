@@ -8,6 +8,8 @@ type Persona {
     sexo: String,
     direccion: String,
     ciudad: Ciudad,
+    "Pais del receptor para SIFEN (#666). Nulo = Paraguay."
+    pais: Pais,
     telefono: String,
     socialMedia: String,
     imagenes: String,
@@ -30,6 +32,8 @@ input PersonaInput {
     direccion: String
     email: String
     ciudadId: Int
+    "Pais del receptor (#666). Si viene, reemplaza el guardado; sin el campo, no se toca."
+    paisId: Int
     telefono: String
     socialMedia: String
     imagenes: String
@@ -38,6 +42,28 @@ input PersonaInput {
     isFuncionario: Boolean
     isCliente: Boolean
     isProveedor: Boolean
+}
+
+type BackfillPaisFilial {
+    sucursalId: ID
+    nombre: String
+    "OK, SIN_IP, SIN_CONEXION o SIN_COLUMNA"
+    estado: String
+    personasConPais: Int
+    error: String
+}
+
+type BackfillPaisResultado {
+    grabados: Int
+    "Ya tenian pais en el central (o no existen): no se tocan"
+    sinCambios: Int
+    idsGrabados: [ID]
+    "Personas con paises distintos segun la filial: no se graban"
+    conflictos: [ID]
+    "Personas cuyo pais de la filial no existe en el central"
+    paisesDesconocidos: [ID]
+    filiales: [BackfillPaisFilial]
+    completo: Boolean
 }
 
 type PersonaPage {
@@ -63,6 +89,8 @@ extend type Query {
 extend type Mutation {
     savePersona(persona:PersonaInput!):Persona!
     deletePersona(id:ID!):Boolean!
+    "Sube al central el pais que las cajas cargaron en las filiales (#666). Solo ADMIN. Idempotente: correrlo de nuevo hasta que completo sea true. Sin sucursalIds, todas las filiales."
+    backfillPaisPersonas(sucursalIds: [ID]): BackfillPaisResultado!
 #    updatePersona(id:ID!, persona:PersonaInput!):Persona!
 }
 

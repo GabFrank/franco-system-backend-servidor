@@ -78,6 +78,10 @@ public class ModificacionRegistro implements Identifiable<Long> {
     @Column(name = "user_agent", columnDefinition = "TEXT")
     private String userAgent;
 
+    /** Producto al que se refiere el cambio (precio, presentación, código, costo, stock), para buscar por producto. */
+    @Column(name = "producto_id")
+    private Long productoId;
+
     @Column(name = "observacion", columnDefinition = "TEXT")
     private String observacion;
 

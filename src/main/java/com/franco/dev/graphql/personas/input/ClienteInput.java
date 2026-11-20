@@ -13,6 +13,7 @@ public class ClienteInput {
     private Long personaId;
     private Long usuarioId;
     private String direccion;
+    private Long paisId;
     private String nombre;
     private Boolean tributa;
     private Boolean verificadoSet;

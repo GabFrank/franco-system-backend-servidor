@@ -41,6 +41,7 @@ import com.franco.dev.service.sifen.util.GCamIvaMapper;
 import com.franco.dev.service.sifen.util.SifenEventoParser;
 import com.franco.dev.service.sifen.util.SifenTimbradoHelper;
 import com.franco.dev.service.sifen.util.SifenXmlParser;
+import com.franco.dev.service.sifen.util.SifenReceptorDesdeXml;
 import com.franco.dev.service.sifen.util.SifenReceptorHelper;
 import com.roshka.sifen.Sifen;
 import com.roshka.sifen.core.beans.response.RespuestaConsultaDE;
@@ -239,6 +240,20 @@ public class SifenService {
     }
 
     /**
+     * Receptor B2F de la factura que acredita la nota (#666), tal como SIFEN lo aprobo. Null si la factura no
+     * es B2F o tiene una nominacion aprobada (el receptor cambio: va el snapshot de la nota, como siempre).
+     */
+    com.roshka.sifen.core.fields.request.de.TgDatRec receptorB2FDeLaFactura(
+            com.franco.dev.domain.financiero.NotaCredito nota, String cdcFactura) {
+        boolean nominada = cdcFactura != null && eventoNominacionDEService.findActivosByCdcDocumento(cdcFactura).stream()
+                .anyMatch(e -> e.getEstado() == com.franco.dev.domain.financiero.enums.EstadoEvento.APROBADO);
+        if (nominada || nota.getFacturaLegalId() == null) return null;
+        return documentoElectronicoService.findByFacturaLegalId(nota.getFacturaLegalId(), nota.getSucursalId())
+                .map(de -> SifenReceptorDesdeXml.receptorB2F(de.getXmlOriginal()))
+                .orElse(null);
+    }
+
+    /**
      * Crea el DE de una nota de credito y lo persiste en PENDIENTE con su CDC, su XML y su QR.
      * Igual que la remision, es la T1 del envio en un paso (D8): no envia nada.
      */
@@ -260,7 +275,8 @@ public class SifenService {
             documentoElectronicoService.createFromNotaCredito(nota);
 
         com.roshka.sifen.core.beans.DocumentoElectronico deSifen =
-            notaCreditoBuilder.construir(nota, items, timbradoDetalle, sucursal, cdcFactura);
+            notaCreditoBuilder.construir(nota, items, timbradoDetalle, sucursal, cdcFactura,
+                    receptorB2FDeLaFactura(nota, cdcFactura));
         SifenNotasValidator.validarNCE(deSifen);
         aplicarFixTotalesIVA(deSifen.getgTotSub());
 
@@ -1646,6 +1662,9 @@ public class SifenService {
         gDatRec.setiTiOpe(config.iTiOpe);
         gDatRec.setdNomRec(config.dNomRec);
         gDatRec.setcPaisRec(config.cPaisRec);
+        if (config.dDirRec != null) {
+            gDatRec.setdDirRec(config.dDirRec); // B2F (#666): la libreria lo escribe siempre
+        }
         
         // Contribuyente
         if (config.iNatRec == TiNatRec.CONTRIBUYENTE) {

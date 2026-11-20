@@ -47,6 +47,9 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     private PersonaService personaService;
 
     @Autowired
+    private com.franco.dev.service.general.PaisService paisService;
+
+    @Autowired
     private ContactoService contactoService;
 
 
@@ -143,6 +146,13 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             e.getPersona().setNombre(input.getNombre());
             modifPersona = true;
         }
+        // Pais del receptor (#666): el ModelMapper no lo mapea (paisId no es un campo de Cliente).
+        if (input.getPaisId() != null && (e.getPersona().getPais() == null
+                || !input.getPaisId().equals(e.getPersona().getPais().getId()))) {
+            e.getPersona().setPais(paisService.findById(input.getPaisId())
+                    .orElseThrow(() -> new graphql.GraphQLException("No existe el pais " + input.getPaisId())));
+            modifPersona = true;
+        }
         if (modifPersona) {
             personaService.save(e.getPersona());
         }
@@ -215,6 +225,10 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             return null;
         }
 
+        // Un pasaporte (#666) no se reduce a sus digitos ("FX987654" traeria a la persona o al RUC 987654):
+        // se busca tal cual, sin consultar SET ni crear.
+        if (tieneLetras(texto)) return service.findByPersonaDocumento(texto.trim().toUpperCase());
+
         // Limpiar documento (remover guiones y caracteres especiales)
         String documentoLimpio = texto.trim().replaceAll("[^0-9]", "");
 
@@ -240,6 +254,17 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
         if (texto == null || texto.trim().isEmpty()) {
             response.getErrores().add("El documento no puede estar vacío");
+            return response;
+        }
+
+        if (tieneLetras(texto)) {
+            Cliente cliente = service.findByPersonaDocumento(texto.trim().toUpperCase());
+            if (cliente != null) {
+                response.setCliente(cliente);
+                response.setExito(true);
+            } else {
+                response.getErrores().add("No hay un cliente con el documento " + texto.trim());
+            }
             return response;
         }
 
@@ -279,6 +304,11 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         }
 
         return response;
+    }
+
+    /** Pasaporte o documento extranjero (#666): no es un RUC ni una cedula. */
+    static boolean tieneLetras(String documento) {
+        return documento != null && documento.matches(".*[A-Za-z].*");
     }
 
 }

@@ -68,13 +68,27 @@ public class PersonaService extends CrudService<Persona, PersonaRepository, Long
             entity.setDireccion(entity.getDireccion().toUpperCase());
         if (entity.getEmail() != null)
             entity.setEmail(entity.getEmail().toLowerCase().trim());
-        if (entity.getDocumento().contains("-")) {
-            int index = entity.getDocumento().indexOf("-");
-            entity.setDocumento(entity.getDocumento().substring(0, index));
-        }
+        entity.setDocumento(sinDv(entity.getDocumento()));
         Persona p = super.save(entity);
         // personaPublisher.publish(p);
         return p;
+    }
+
+    /**
+     * Corta el DV ("4043581-2" -> "4043581"). Un documento con letras es un pasaporte o documento extranjero
+     * (#666): el guion es parte del numero ("AB-12345") y no se corta, y va en mayusculas para que "fx1" y "FX1"
+     * no sean dos personas (las busquedas por documento son exactas).
+     */
+    public static String sinDv(String documento) {
+        if (documento == null) return null;
+        if (documento.matches(".*[A-Za-z].*")) return documento.toUpperCase();
+        int guion = documento.indexOf('-');
+        return guion >= 0 ? documento.substring(0, guion) : documento;
+    }
+
+    /** Pais del receptor solo si la persona no tiene (#666). true si lo grabo. */
+    public boolean asignarPaisSiNulo(Long personaId, Long paisId) {
+        return repository.asignarPaisSiNulo(personaId, paisId) == 1;
     }
 
     /**

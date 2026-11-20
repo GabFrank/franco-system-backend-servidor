@@ -28,4 +28,14 @@ public interface PersonaRepository extends HelperRepository<Persona, Long> {
     @Query("select p from Persona p where CAST(p.id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(p.apodo) like %?1% or UPPER(p.documento) like %?1%")
     public List<Persona> findbyAll(String texto);
 
+    /**
+     * Solo si la persona no tiene pais (#666): la caja y el backfill no cambian uno cargado; corregirlo es del
+     * admin (savePersona). Atomico, sin leer y guardar la fila entera.
+     */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query(value = "update personas.persona set pais_id = :paisId where id = :id and pais_id is null", nativeQuery = true)
+    int asignarPaisSiNulo(@org.springframework.data.repository.query.Param("id") Long id,
+                          @org.springframework.data.repository.query.Param("paisId") Long paisId);
+
 }

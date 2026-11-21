@@ -39,8 +39,10 @@ public class ReplicationTableGraphQL implements GraphQLQueryResolver, GraphQLMut
         return service.findById(id).orElse(null);
     }
     
-    public Page<ReplicationTable> replicationTablesWithPagination(int page, int size, String search) {
-        return service.findWithPagination(search, PageRequest.of(page, size));
+    /** Filtra por texto, direccion y estado (opcionales) y pagina en orden de nombre (#772). */
+    public Page<ReplicationTable> replicationTablesWithPagination(int page, int size, String search,
+                                                                  ReplicationDirection direction, Boolean enabled) {
+        return service.findWithPagination(search, direction, enabled, PageRequest.of(page, size));
     }
     
     public List<ReplicationTable> replicationTablesByDirection(ReplicationDirection direction) {

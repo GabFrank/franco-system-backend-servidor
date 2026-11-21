@@ -21,6 +21,19 @@ type CopiaHorarioResultado {
     errores: [String]!
 }
 
+"Pagina del catalogo de horarios (#772)."
+type HorarioPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Horario]
+    getPageable: Pageable
+}
+
 enum Turno {
     DIA
     NOCHE
@@ -46,6 +59,8 @@ extend type Query {
     horariosPorUsuario(usuarioId: Int): [Horario]!
     "Todos los horarios que se pueden asignar, sin importar a quien (V284.3)."
     horariosCatalogo: [Horario]!
+    "El mismo catalogo, paginado en el central para la pantalla Asignar Horario (#772)."
+    horariosCatalogoPage(page: Int = 0, size: Int = 15): HorarioPage
     "Los horarios que rigen para el funcionario, los mismos que usa la marcacion (#523)."
     horariosPorFuncionario(funcionarioId: Int!): [Horario]!
 }

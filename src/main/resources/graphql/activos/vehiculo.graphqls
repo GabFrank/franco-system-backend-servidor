@@ -92,7 +92,8 @@ extend type Query {
     countVehiculo: Int
     vehiculoSearch(texto:String):[Vehiculo]
     vehiculoSearchWithPage(texto:String, page:Int = 0, size:Int = 10):[Vehiculo]
-    vehiculoSearchPage(texto: String, page: Int, size: Int): VehiculoPage
+    "tipoVehiculoId opcional: la lista de vehiculos filtra por tipo y pagina en el central (#772)."
+    vehiculoSearchPage(texto: String, page: Int, size: Int, tipoVehiculoId: ID): VehiculoPage
     vehiculoByChapa(chapa:String):Vehiculo
     vehiculosByMarca(marcaId:ID!):[Vehiculo]
     vehiculosByModelo(modeloId:ID!):[Vehiculo]

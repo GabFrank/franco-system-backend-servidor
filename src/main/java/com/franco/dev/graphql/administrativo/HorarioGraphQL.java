@@ -8,6 +8,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -43,6 +44,11 @@ public class HorarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     /** Todos los horarios que se pueden asignar, sin importar a quien (V284.3). */
     public List<Horario> horariosCatalogo() {
         return service.catalogo();
+    }
+
+    /** El catalogo paginado en el central para Asignar Horario (#772). */
+    public Page<Horario> horariosCatalogoPage(int page, int size) {
+        return service.catalogo(PageRequest.of(page, size));
     }
 
     /** Los horarios que rigen para el funcionario, los mismos que usa la marcacion (#523). */

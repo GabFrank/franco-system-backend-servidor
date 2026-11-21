@@ -54,6 +54,14 @@ public class GpsService extends CrudService<Gps, GpsRepository, Long> {
         return repository.searchByTexto(texto.trim().toLowerCase());
     }
 
+    /** La busqueda de a una pagina: la lista de GPS pagina en el central (#772). */
+    public org.springframework.data.domain.Page<Gps> search(String texto, org.springframework.data.domain.Pageable pageable) {
+        if (texto == null || texto.trim().isEmpty()) {
+            return repository.findAllWithVehiculoFetched(pageable);
+        }
+        return repository.searchByTexto(texto.trim().toLowerCase(), pageable);
+    }
+
     @Transactional
     public void actualizarUltimaPosicion(Long gpsId, Double latitud, Double longitud,
             LocalDateTime fechaGps, Boolean ignicion) {

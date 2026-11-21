@@ -86,12 +86,13 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
      * paginator.
      * Mantiene vehiculoSearchWithPage() por compatibilidad (retorna List).
      */
-    public CustomPage<Vehiculo> vehiculoSearchPage(String texto, Integer page, Integer size) {
+    /** `tipoVehiculoId` opcional: la lista de vehiculos filtra por tipo y pagina en el central (#772). */
+    public CustomPage<Vehiculo> vehiculoSearchPage(String texto, Integer page, Integer size, Long tipoVehiculoId) {
         int p = (page == null || page < 0) ? 0 : page;
         int s = (size == null || size <= 0) ? 15 : size;
 
         Pageable pageable = PageRequest.of(p, s);
-        org.springframework.data.domain.Page<Vehiculo> pageResult = service.findByAllWithPage(texto, p, s);
+        org.springframework.data.domain.Page<Vehiculo> pageResult = service.findByAllWithPage(texto, tipoVehiculoId, p, s);
         return new CustomPageImpl<>(pageResult.getContent(), pageable, pageResult.getTotalElements(), null);
     }
 

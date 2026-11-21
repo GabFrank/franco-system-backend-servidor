@@ -32,11 +32,26 @@ input GpsInput {
     activo: Boolean
 }
 
+"Pagina de GPS (#772)."
+type GpsPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Gps]
+    getPageable: Pageable
+}
+
 extend type Query {
     gps(id: ID!): Gps
     gpsList(page: Int = 0, size: Int = 10): [Gps]!
     countGps: Int
     gpsSearch(texto: String): [Gps]
+    "La lista de GPS paginada en el central (#772)."
+    gpsSearchPage(texto: String, page: Int = 0, size: Int = 15): GpsPage
     gpsByImei(imei: String): Gps
     gpsByVehiculo(vehiculoId: ID!): [Gps]
     

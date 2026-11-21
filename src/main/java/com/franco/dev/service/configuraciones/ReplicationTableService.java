@@ -44,8 +44,11 @@ public class ReplicationTableService {
         return repository.findByDirectionAndEnabledTrue(direction);
     }
     
-    public Page<ReplicationTable> findWithPagination(String query, Pageable pageable) {
-        return repository.findBySearch(query, pageable);
+    /** Texto en minusculas (la consulta compara con LOWER); vacio = sin filtro. */
+    public Page<ReplicationTable> findWithPagination(String query, ReplicationDirection direction, Boolean enabled,
+                                                     Pageable pageable) {
+        String texto = query == null || query.isBlank() ? null : query.trim().toLowerCase();
+        return repository.findBySearch(texto, direction, enabled, pageable);
     }
     
     public ReplicationTable save(ReplicationTable replicationTable, Long usuarioId) {

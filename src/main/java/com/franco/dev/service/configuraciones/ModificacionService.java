@@ -49,6 +49,35 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
         return repository;
     }
 
+    /**
+     * Copia del estado de una entidad ANTES de guardarla, para comparar después. Hace falta porque con
+     * open-session-in-view {@code findById} devuelve la instancia gestionada y el {@code save} la pisa: comparada
+     * contra sí misma no cambiaba nada y quedaba «Entidad actualizada» sin datos. Copia superficial (las
+     * referencias a otras tablas se comparan por id).
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> T copiaParaAuditoria(T entidad) {
+        if (entidad == null) return null;
+        try {
+            Class<?> clase = org.hibernate.Hibernate.getClass(entidad);
+            Object fuente = org.hibernate.Hibernate.unproxy(entidad);
+            java.lang.reflect.Constructor<?> constructor = clase.getDeclaredConstructor();
+            constructor.setAccessible(true);
+            Object copia = constructor.newInstance();
+            for (Class<?> c = clase; c != null && c != Object.class; c = c.getSuperclass()) {
+                for (Field f : c.getDeclaredFields()) {
+                    int mod = f.getModifiers();
+                    if (java.lang.reflect.Modifier.isStatic(mod) || java.lang.reflect.Modifier.isFinal(mod)) continue;
+                    f.setAccessible(true);
+                    f.set(copia, f.get(fuente));
+                }
+            }
+            return (T) copia;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public ModificacionRegistro registrarInsercion(Object entidad, String tipoEntidad, String schemaNombre,
             String tablaNombre) {
@@ -115,6 +144,11 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
                     TipoOperacion.UPDATE);
 
             List<ModificacionDetalle> detalles = obtenerDetallesActualizacion(entidadAnterior, entidadNueva);
+            // Sin ningún dato a la vista (nada, o solo el usuario y la fecha) no se registra: el historial lo
+            // muestra igual vacío y solo suma filas.
+            if (detalles.stream().noneMatch(d -> HistorialCambiosFormato.campoVisible(d.getCampoNombre()))) {
+                return null;
+            }
             if (detalles.isEmpty()) {
                 ModificacionDetalle detalleBasico = new ModificacionDetalle();
                 detalleBasico.setCampoNombre("ACTUALIZACION");
@@ -202,6 +236,8 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
         } catch (Exception e) {
             // e.printStackTrace();
         }
+
+        registro.setProductoId(HistorialCambiosFormato.productoIdDe(entidad, tipoEntidad, registro.getEntidadId()));
 
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

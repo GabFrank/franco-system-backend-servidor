@@ -37,7 +37,7 @@ public class InventarioProductoService extends CrudService<InventarioProducto, I
         InventarioProducto entidadAnterior = null;
         boolean esNuevo = (entity.getId() == null);
         if (!esNuevo) {
-            entidadAnterior = repository.findById(entity.getId()).orElse(null);
+            entidadAnterior = ModificacionService.copiaParaAuditoria(repository.findById(entity.getId()).orElse(null));
         }
 
         InventarioProducto e = super.save(entity);

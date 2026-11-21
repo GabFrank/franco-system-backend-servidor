@@ -4,13 +4,15 @@ import com.franco.dev.domain.configuraciones.ModificacionRegistro;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-public interface ModificacionRegistroRepository extends HelperRepository<ModificacionRegistro, Long> {
+public interface ModificacionRegistroRepository extends HelperRepository<ModificacionRegistro, Long>,
+        JpaSpecificationExecutor<ModificacionRegistro> {
 
     default Class<ModificacionRegistro> getEntityClass() {
         return ModificacionRegistro.class;

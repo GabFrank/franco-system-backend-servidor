@@ -1,5 +1,6 @@
 package com.franco.dev.service.productos;
 
+import com.franco.dev.service.configuraciones.ModificacionService;
 import com.franco.dev.domain.dto.ProductoIdAndCantidadDto;
 import com.franco.dev.domain.dto.ProductoReportDto;
 import com.franco.dev.domain.productos.Codigo;
@@ -351,7 +352,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         if (!esNuevo) {
             Optional<Producto> productoOpt = repository.findById(e.getId());
             if (productoOpt != null && productoOpt.isPresent()) {
-                entidadAnterior = productoOpt.get();
+                entidadAnterior = ModificacionService.copiaParaAuditoria(productoOpt.get());
             }
         }
         // Por valor: con open-session-in-view entidadAnterior es la instancia gestionada y el save la pisa.

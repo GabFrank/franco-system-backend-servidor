@@ -77,3 +77,52 @@ extend type Query {
     detallesModificacion(modificacionRegistroId: Int!): [ModificacionDetalle]
 }
 
+
+# Historial de cambios para administrativos: quién cambió qué, en palabras ("Cambió el precio").
+type HistorialCambio {
+    id: ID
+    fecha: Date
+    usuarioId: ID
+    usuario: String
+    categoria: String
+    accion: String
+    objeto: String
+    observacion: String
+    productoId: ID
+    sinDetalle: Boolean
+    resumen: String
+    cambios: [HistorialCambioDetalle]
+}
+
+type HistorialCambioDetalle {
+    campo: String
+    antes: String
+    despues: String
+}
+
+type HistorialCambioCategoria {
+    codigo: String
+    nombre: String
+}
+
+type HistorialCambioPage {
+    getContent: [HistorialCambio]
+    getTotalElements: Int
+    getTotalPages: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+}
+
+extend type Query {
+    historialCambios(
+        fechaInicio: String
+        fechaFin: String
+        usuarioId: ID
+        productoId: ID
+        categoria: String
+        page: Int = 0
+        size: Int = 25
+    ): HistorialCambioPage
+    historialCambiosCategorias: [HistorialCambioCategoria]
+}

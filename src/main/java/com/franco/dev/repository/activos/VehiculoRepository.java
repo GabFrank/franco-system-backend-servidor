@@ -37,6 +37,19 @@ public interface VehiculoRepository extends HelperRepository<Vehiculo, Long> {
             "order by v.id asc")
     public Page<Vehiculo> findByAllWithPage(String texto, Pageable pageable);
 
+    /** Lo mismo que findByAllWithPage, solo de un tipo de vehiculo (#772: la lista pagina en el central). */
+    @Query("select v from Vehiculo v left join v.modelo m left join m.marca ma left join v.propietario p where " +
+            "v.tipoVehiculo.id = ?2 and " +
+            "(CAST(v.id as text) like concat('%', ?1, '%') or " +
+            "UPPER(v.chapa) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(v.color) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(v.identificadorInterno) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(m.descripcion) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(ma.descripcion) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(p.nombre) like UPPER(concat('%', ?1, '%'))) " +
+            "order by v.id asc")
+    public Page<Vehiculo> findByAllAndTipoWithPage(String texto, Long tipoVehiculoId, Pageable pageable);
+
     @Query("select v from Vehiculo v where v.modelo.marca.id = ?1")
     public List<Vehiculo> findByMarcaId(Long marcaId);
 

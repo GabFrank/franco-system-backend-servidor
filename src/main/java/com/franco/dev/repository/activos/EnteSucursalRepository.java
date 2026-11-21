@@ -25,14 +25,29 @@ public interface EnteSucursalRepository extends HelperRepository<EnteSucursal, L
 
     EnteSucursal findFirstByEnteIdOrderByIdDesc(Long enteId);
 
-    @Query("select es from EnteSucursal es where " +
-            "(:sucursalId is null or es.sucursal.id = :sucursalId) and " +
-            "(:tipoEnte is null or es.ente.tipoEnte = :tipoEnte) and " +
-            "(:responsableId is null or es.responsable.id = :responsableId) and " +
+    /**
+     * Joins explicitos y left: `es.responsable.persona.nombre` en el where hacia un join obligatorio y las
+     * asignaciones sin responsable no aparecian nunca. Orden fijo por id para que las paginas no se pisen (#772).
+     */
+    @Query(value = "select es from EnteSucursal es " +
+            "left join es.ente e left join es.sucursal s left join es.responsable r left join r.persona rp where " +
+            "(:sucursalId is null or s.id = :sucursalId) and " +
+            "(:tipoEnte is null or e.tipoEnte = :tipoEnte) and " +
+            "(:responsableId is null or r.id = :responsableId) and " +
             "(:texto is null or cast(es.id as text) like :texto or " +
-            "lower(es.ente.descripcion) like :texto or " +
-            "lower(es.sucursal.nombre) like :texto or " +
-            "lower(es.responsable.persona.nombre) like :texto)")
+            "lower(e.descripcion) like :texto or " +
+            "lower(s.nombre) like :texto or " +
+            "lower(rp.nombre) like :texto) " +
+            "order by es.id",
+            countQuery = "select count(es) from EnteSucursal es " +
+            "left join es.ente e left join es.sucursal s left join es.responsable r left join r.persona rp where " +
+            "(:sucursalId is null or s.id = :sucursalId) and " +
+            "(:tipoEnte is null or e.tipoEnte = :tipoEnte) and " +
+            "(:responsableId is null or r.id = :responsableId) and " +
+            "(:texto is null or cast(es.id as text) like :texto or " +
+            "lower(e.descripcion) like :texto or " +
+            "lower(s.nombre) like :texto or " +
+            "lower(rp.nombre) like :texto)")
     Page<EnteSucursal> findAllWithFilters(@Param("texto") String texto,
                                           @Param("sucursalId") Long sucursalId,
                                           @Param("tipoEnte") TipoEnte tipoEnte,

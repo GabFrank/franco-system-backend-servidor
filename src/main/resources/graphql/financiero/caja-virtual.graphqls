@@ -87,6 +87,8 @@ extend type Mutation {
 
 enum CajaVirtualTipo {
     CAJA_MAYOR
+    # Retirado (issue #220): ninguna caja lo tiene desde V274.5 y saveCajaVirtual guarda CAJA_MAYOR.
+    # Se mantiene solo para que un cliente viejo que lo mande no falle.
     CAJA_CHICA
 }
 

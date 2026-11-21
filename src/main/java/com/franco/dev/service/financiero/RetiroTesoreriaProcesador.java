@@ -77,7 +77,7 @@ public class RetiroTesoreriaProcesador {
         String nombreSucursal = sucursalService.findById(fresh.getSucursalId())
                 .map(com.franco.dev.domain.empresarial.Sucursal::getNombre)
                 .orElse("Sucursal " + fresh.getSucursalId());
-        String descripcion = "Retiro #" + fresh.getId() + " - " + nombreSucursal;
+        String descripcion = RetiroDescripcion.de(fresh, nombreSucursal);
 
         Long ultimoMovId = null;
         for (Map.Entry<Long, Double> e : porMoneda.entrySet()) {

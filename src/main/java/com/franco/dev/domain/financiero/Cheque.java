@@ -84,6 +84,19 @@ public class Cheque implements Identifiable<Long> {
     /** true = nominal (a nombre del beneficiario); false = al portador. */
     private Boolean nominal;
 
+    /** Proveedor al que se emitió (issue #601). Null = beneficiario libre, o cheque anterior a V278.5. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "proveedor_id", nullable = true)
+    private com.franco.dev.domain.personas.Proveedor proveedor;
+
+    /** Id del primer cheque de su emisión en cuotas ({@code emitirCheques}); null = emitido solo. */
+    @Column(name = "lote_id")
+    private Long loteId;
+
+    /** Aviso de la emisión para quien emitió (fondos insuficientes en un EMITIDO). No se guarda. */
+    @Transient
+    private String avisoFondos;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "firmante", nullable = true)
     private Persona firmante;

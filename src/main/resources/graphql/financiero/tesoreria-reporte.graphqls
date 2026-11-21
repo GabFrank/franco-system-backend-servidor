@@ -4,7 +4,11 @@ type SaldoTesoreria {
     efectivo: Float
     banco: Float
     bancoReservado: Float
+    # banco − bancoReservado: lo libre, descontados los cheques diferidos y al día emitidos.
+    bancoDisponible: Float
     total: Float
+    # efectivo + bancoDisponible.
+    totalDisponible: Float
 }
 
 type VencimientoTesoreria {

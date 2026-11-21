@@ -26,6 +26,8 @@ class RolTesoreriaCajaMatrizTest {
 
     /** Los únicos resolvers que aceptan el rol acotado. Agregar uno acá es una decisión, no un descuido. */
     private static final Set<String> HABILITADOS = new TreeSet<>(Arrays.asList(
+            // Solo los órdenes de la caja (central #603), con requireLecturaCaja: delimitado por caja.
+            "CajaVirtualConfiguracionGraphQL.cajaVirtualOrdenes",
             "CajaVirtualGraphQL.cajaVirtual",
             "CajaVirtualGraphQL.cajaVirtuales",
             "CajaVirtualGraphQL.cajaVirtualesFilter",

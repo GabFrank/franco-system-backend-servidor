@@ -541,13 +541,18 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
      * Generate a remote connection string for creating subscriptions
      */
     public String generateConnectionString(String host, int port, String dbName, String username, String password) {
+        seg.requireSuperusuario();
         return replicationService.createConnectionString(host, port, dbName, username, password);
     }
     
     /**
-     * Generate a connection string for the central server
+     * Generate a connection string for the central server.
+     *
+     * Devuelve el usuario y la clave de PostgreSQL del central en claro: solo superusuario, como el
+     * resto de la replicacion. Hasta este cambio la podia pedir cualquier sesion.
      */
     public String generateCentralConnectionString() {
+        seg.requireSuperusuario();
         return replicationService.createCentralConnectionString();
     }
     

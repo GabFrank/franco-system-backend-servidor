@@ -36,7 +36,7 @@ public class SesionInventarioService extends CrudService<SesionInventario, Sesio
         SesionInventario entidadAnterior = null;
         boolean esNuevo = (entity.getId() == null);
         if (!esNuevo) {
-            entidadAnterior = repository.findById(entity.getId()).orElse(null);
+            entidadAnterior = ModificacionService.copiaParaAuditoria(repository.findById(entity.getId()).orElse(null));
         }
 
         SesionInventario e = super.save(entity);

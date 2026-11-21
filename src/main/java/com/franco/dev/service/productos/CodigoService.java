@@ -1,5 +1,6 @@
 package com.franco.dev.service.productos;
 
+import com.franco.dev.service.configuraciones.ModificacionService;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.productos.input.CodigoInput;
@@ -108,7 +109,7 @@ public class CodigoService extends CrudService<Codigo, CodigoRepository, Long> {
         if (!esNuevo) {
             java.util.Optional<Codigo> codigoOpt = repository.findById(e.getId());
             if (codigoOpt != null && codigoOpt.isPresent()) {
-                entidadAnterior = codigoOpt.get();
+                entidadAnterior = ModificacionService.copiaParaAuditoria(codigoOpt.get());
             }
         }
 

@@ -91,6 +91,40 @@ control:
 6. Por pantalla: reactivar A desde la lista de ventas del desktop contra el central propio.
 7. Restaurar los datos.
 
+## Resultado (21/11)
+
+- `./mvnw clean verify -DskipFlyway=true`: 3918 tests sin fallas. Con el código viejo (la decisión
+  ignora el supplier y el servicio devuelve false) fallan los 4 que exigen detectar el cupón usado.
+- Runtime: central propio en el 8081 contra `bodega@5551` local (perfil `dev`, réplica apagada),
+  cobros sembrados con ids impares (el central rechaza los pares, que son del filial), ventas 79276,
+  79277, 79279 y 79282 de la 24 canceladas y reactivadas con la mutation real `cancelarVenta`:
+
+  | Caso | `develop` | con el fix |
+  |---|---|---|
+  | QR ya COMPLETADO en otra venta | COMPLETADO | PENDIENTE + WARN |
+  | La otra venta cancelada | COMPLETADO | COMPLETADO |
+  | Reactivar después la venta dueña del cupón | COMPLETADO | PENDIENTE (sin ping-pong) |
+  | Mismo código y monto | COMPLETADO | PENDIENTE |
+  | Mismo código, otro monto / fuera de la ventana | COMPLETADO | COMPLETADO |
+  | Cobro sin terminal (parámetro nulo) | COMPLETADO | PENDIENTE, sin error de SQL |
+  | Dos cobros de la misma venta con el mismo QR | COMPLETADO y COMPLETADO | COMPLETADO y PENDIENTE |
+
+- Por pantalla (desktop de `develop` contra el central propio): Operaciones → Ventas, la 79279 →
+  Cancelar → «Venta cancelada con éxito»; otra venta usa el cupón; → Habilitar → «Venta reactivada
+  con éxito»; en base la venta CONCLUIDA y su cobro PENDIENTE, con el WARN en el log.
+- Al arrancar, el central aplicó a la `bodega` local la V288.3 de `develop` (ajena a este fix).
+- Hibernate avisa `HHH000174` (plantilla de `trim`) una vez por consulta nueva; las consultas
+  funcionan (lo prueba el runtime).
+
+## Auditoría del diff (paso 8)
+
+Ejes fijos 1, 2 y 3, sin críticos. Verificado: las consultas filtran por sucursal; el único `new
+VentaTarjetaService(` es el test nuevo; sin cambio de GraphQL; el auto-flush hace que la consulta vea
+la venta recién reactivada y las hermanas ya procesadas (y lo confirmó el runtime); el WARN sale solo
+cuando se degrada. Anotado sin cambio: `trim()` de PostgreSQL saca solo espacios, no `\n` (en la
+`bodega` local hay 0 QR con espacios en los bordes y el filial ya los guarda recortados desde #278);
+el WARN se escribe antes del commit; el PENDIENTE huérfano en caja cerrada (ya escrito arriba).
+
 ## Auditoría del plan (paso 5)
 
 Eje A (REVISE) y eje B (REVISE). Aplicado: solo COMPLETADO (ping-pong), consulta con `NOT EXISTS`

@@ -336,7 +336,14 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             List<VentaTarjeta> tarjetasCambiadas = new ArrayList<>();
             for (VentaTarjeta vt : ventaTarjetaService.findAllByVentaIdAndSucursalId(venta.getId(),
                     venta.getSucursalId())) {
-                String nuevo = estadoTarjetaParaVenta(vt, venta.getEstado());
+                String nuevo = estadoTarjetaParaVenta(vt, venta.getEstado(),
+                        () -> ventaTarjetaService.cuponCompletadoEnOtra(vt));
+                if ("PENDIENTE".equals(nuevo) && "CANCELADO".equals(vt.getEstado()) && tieneCupon(vt)) {
+                    // Unico rastro de cuales se degradaron: un PENDIENTE con datos de cupon no se distingue
+                    // de uno legitimo (#195).
+                    log.warning("[venta_tarjeta] reactivar la venta " + venta.getId() + "/" + venta.getSucursalId()
+                            + ": el cobro " + vt.getId() + " queda PENDIENTE porque su cupon ya esta COMPLETADO en otra venta");
+                }
                 if (!nuevo.equals(vt.getEstado())) {
                     vt.setEstado(nuevo);
                     ventaTarjetaService.save(vt);
@@ -468,13 +475,30 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
      * NO_COMPLETADO; si no, PENDIENTE. Una fila que no estaba CANCELADO no se toca al reactivar.
      */
     static String estadoTarjetaParaVenta(VentaTarjeta vt, VentaEstado estadoVenta) {
+        return estadoTarjetaParaVenta(vt, estadoVenta, () -> false);
+    }
+
+    /**
+     * Como el de arriba, pero al reactivar no revive un cupon que mientras tanto se uso en otra venta
+     * (#195): mientras esta estuvo cancelada su cupon quedo libre, y devolverla a COMPLETADO dejaba dos
+     * cobros con el mismo cupon, que bajan al filial por la replica. En ese caso vuelve a PENDIENTE con
+     * los datos del cupon conservados: el cajero la registra con su cupon real (o la deja sin conciliar)
+     * desde el filial, que la valida.
+     * <p>
+     * El supplier se evalua solo cuando la respuesta iba a ser COMPLETADO: cancelar no consulta nada.
+     */
+    static String estadoTarjetaParaVenta(VentaTarjeta vt, VentaEstado estadoVenta,
+                                         java.util.function.BooleanSupplier cuponUsadoEnOtra) {
         if (estadoVenta == VentaEstado.CANCELADA) return "CANCELADO";
         if (!"CANCELADO".equals(vt.getEstado())) return vt.getEstado();
-        boolean tieneCupon = noVacio(vt.getCodigoAutorizacion()) || noVacio(vt.getNumeroBoleta())
-                || noVacio(vt.getQrCrudo()) || vt.getMontoEscaneado() != null;
-        if (tieneCupon) return "COMPLETADO";
+        if (tieneCupon(vt)) return cuponUsadoEnOtra.getAsBoolean() ? "PENDIENTE" : "COMPLETADO";
         if (vt.getNoCompletadoEn() != null) return "NO_COMPLETADO";
         return "PENDIENTE";
+    }
+
+    private static boolean tieneCupon(VentaTarjeta vt) {
+        return noVacio(vt.getCodigoAutorizacion()) || noVacio(vt.getNumeroBoleta())
+                || noVacio(vt.getQrCrudo()) || vt.getMontoEscaneado() != null;
     }
 
     private static boolean noVacio(String s) {

@@ -59,4 +59,46 @@ class VentaServiceTarjetaCancelacionTest {
     void reactivarNoTocaUnaTarjetaQueNoEstabaCancelada() {
         assertEquals("COMPLETADO", VentaService.estadoTarjetaParaVenta(vt("COMPLETADO"), VentaEstado.CONCLUIDA));
     }
+
+    // ---------------------------------------------------------------- #195: cupon usado en otra venta
+
+    /** Mientras la venta estuvo cancelada otra uso su cupon: revivirlo dejaba dos COMPLETADOS iguales. */
+    @Test
+    void reactivarConCuponYaCompletadoEnOtraVuelveAPendiente() {
+        VentaTarjeta v = vt("CANCELADO");
+        v.setQrCrudo("FRCP1*U1**BRL*50*REF*202611211200");
+        assertEquals("PENDIENTE", VentaService.estadoTarjetaParaVenta(v, VentaEstado.CONCLUIDA, () -> true));
+    }
+
+    @Test
+    void reactivarConCuponLibreVuelveACompletado() {
+        VentaTarjeta v = vt("CANCELADO");
+        v.setCodigoAutorizacion("607041");
+        assertEquals("COMPLETADO", VentaService.estadoTarjetaParaVenta(v, VentaEstado.CONCLUIDA, () -> false));
+    }
+
+    /** Cancelar no consulta nada: el cupon queda libre igual. */
+    @Test
+    void cancelarNoPreguntaSiElCuponEstaUsado() {
+        VentaTarjeta v = vt("COMPLETADO");
+        v.setQrCrudo("QR");
+        assertEquals("CANCELADO", VentaService.estadoTarjetaParaVenta(v, VentaEstado.CANCELADA, () -> {
+            throw new AssertionError("no tenia que consultar");
+        }));
+    }
+
+    /** Sin datos de cupon no hay nada que revivir: no se consulta. */
+    @Test
+    void reactivarSinCuponNoPreguntaSiElCuponEstaUsado() {
+        assertEquals("PENDIENTE", VentaService.estadoTarjetaParaVenta(vt("CANCELADO"), VentaEstado.CONCLUIDA, () -> {
+            throw new AssertionError("no tenia que consultar");
+        }));
+    }
+
+    @Test
+    void reactivarUnaTarjetaQueNoEstabaCanceladaNoPregunta() {
+        assertEquals("COMPLETADO", VentaService.estadoTarjetaParaVenta(vt("COMPLETADO"), VentaEstado.CONCLUIDA, () -> {
+            throw new AssertionError("no tenia que consultar");
+        }));
+    }
 }

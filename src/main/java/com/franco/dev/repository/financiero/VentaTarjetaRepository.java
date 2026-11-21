@@ -28,6 +28,37 @@ public interface VentaTarjetaRepository extends HelperRepository<VentaTarjeta, E
 
     Long countByCajaIdAndSucursalIdAndEstado(Long cajaId, Long sucursalId, String estado);
 
+    /**
+     * Otro cobro COMPLETADO de la sucursal, de una venta no cancelada, con el mismo QR (#195). Lo usa la
+     * reactivacion de una venta. Solo COMPLETADO, a diferencia del filial: contar el PENDIENTE que deja
+     * la propia reactivacion haria que la venta duena del cupon tampoco pudiera volver a completarse.
+     * El NOT EXISTS por vt.venta.id es el patron del filial: aca no hay ventaId escalar.
+     */
+    @Query("SELECT COUNT(vt) FROM VentaTarjeta vt WHERE vt.sucursalId = :sucursalId AND vt.id <> :id " +
+            "AND vt.estado = 'COMPLETADO' AND trim(vt.qrCrudo) = :qr " +
+            "AND NOT EXISTS (SELECT v.id FROM Venta v WHERE v.id = vt.venta.id " +
+            "AND v.sucursalId = vt.sucursalId AND v.estado = :cancelada)")
+    Long countQrCompletadoEnOtra(@Param("sucursalId") Long sucursalId, @Param("qr") String qr,
+                                 @Param("id") Long id,
+                                 @Param("cancelada") com.franco.dev.domain.operaciones.enums.VentaEstado cancelada);
+
+    /**
+     * Cobros COMPLETADOS de la sucursal con el mismo codigo de autorizacion, en la misma terminal (nula =
+     * comodin) y dentro de la ventana: la regla de motivoPorCodigoAutorizacion del filial. El monto lo
+     * compara el servicio.
+     */
+    @Query("SELECT vt FROM VentaTarjeta vt WHERE vt.sucursalId = :sucursalId AND vt.id <> :id " +
+            "AND vt.estado = 'COMPLETADO' " +
+            "AND upper(trim(vt.codigoAutorizacion)) = :codigo " +
+            "AND vt.creadoEn >= :desde " +
+            "AND (:terminalPosId IS NULL OR vt.terminalPos.id = :terminalPosId) " +
+            "AND NOT EXISTS (SELECT v.id FROM Venta v WHERE v.id = vt.venta.id " +
+            "AND v.sucursalId = vt.sucursalId AND v.estado = :cancelada)")
+    List<VentaTarjeta> completadosPorCodigo(@Param("sucursalId") Long sucursalId, @Param("codigo") String codigo,
+                                            @Param("terminalPosId") Long terminalPosId,
+                                            @Param("desde") LocalDateTime desde, @Param("id") Long id,
+                                            @Param("cancelada") com.franco.dev.domain.operaciones.enums.VentaEstado cancelada);
+
     @Query(value = "SELECT vt FROM VentaTarjeta vt " +
             "WHERE (:id IS NULL OR vt.id = :id) " +
             "AND (:ventaId IS NULL OR vt.venta.id = :ventaId) " +

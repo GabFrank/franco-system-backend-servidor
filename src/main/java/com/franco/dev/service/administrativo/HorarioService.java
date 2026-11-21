@@ -1,6 +1,8 @@
 package com.franco.dev.service.administrativo;
 
 import com.franco.dev.domain.administrativo.Horario;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import com.franco.dev.domain.administrativo.enums.Dia;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
@@ -47,6 +49,12 @@ public class HorarioService extends CrudService<Horario, HorarioRepository, Long
     @Transactional(readOnly = true)
     public List<Horario> catalogo() {
         return repository.findCatalogo();
+    }
+
+    /** El catalogo de a una pagina, para la pantalla Asignar Horario (#772). */
+    @Transactional(readOnly = true)
+    public Page<Horario> catalogo(Pageable pageable) {
+        return repository.findCatalogo(pageable);
     }
 
     /**

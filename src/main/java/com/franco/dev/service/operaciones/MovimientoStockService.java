@@ -244,6 +244,11 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
             entity.setCreadoEn(LocalDateTime.now());
             entity.setId(repository.siguienteId());
         }
+        // Lo que había antes, para el historial de un ajuste editado (antes se comparaba el movimiento consigo mismo).
+        MovimientoStock anterior = !esNuevo && entity.getTipoMovimiento() == TipoMovimiento.AJUSTE
+                ? ModificacionService.copiaParaAuditoria(repository.findById(
+                        new com.franco.dev.domain.EmbebedPrimaryKey(entity.getId(), entity.getSucursalId())).orElse(null))
+                : null;
         MovimientoStock e = super.save(entity);
 
         if (e != null && e.getTipoMovimiento() == TipoMovimiento.AJUSTE) {
@@ -251,7 +256,7 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
                 if (esNuevo) {
                     modificacionService.registrarInsercion(e, "AJUSTE_STOCK", "operaciones", "movimiento_stock");
                 } else {
-                    modificacionService.registrarActualizacion(entity, e, "AJUSTE_STOCK", "operaciones",
+                    modificacionService.registrarActualizacion(anterior, e, "AJUSTE_STOCK", "operaciones",
                             "movimiento_stock");
                 }
             } catch (Exception ex) {

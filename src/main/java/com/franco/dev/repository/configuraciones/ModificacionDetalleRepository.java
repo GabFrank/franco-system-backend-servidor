@@ -16,5 +16,9 @@ public interface ModificacionDetalleRepository extends HelperRepository<Modifica
     @Query("SELECT d FROM ModificacionDetalle d WHERE d.modificacionRegistro.id = :modificacionRegistroId " +
             "ORDER BY d.orden ASC")
     List<ModificacionDetalle> findByModificacionRegistroId(@Param("modificacionRegistroId") Long modificacionRegistroId);
+
+    /** Los detalles de una página del historial, en una sola consulta. */
+    @Query("SELECT d FROM ModificacionDetalle d WHERE d.modificacionRegistro.id IN :ids ORDER BY d.orden ASC")
+    List<ModificacionDetalle> findByModificacionRegistroIdIn(@Param("ids") List<Long> ids);
 }
 

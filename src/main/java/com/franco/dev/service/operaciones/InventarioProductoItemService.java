@@ -300,7 +300,7 @@ public class InventarioProductoItemService
         InventarioProductoItem entidadAnterior = null;
         boolean esNuevo = (entity.getId() == null);
         if (!esNuevo) {
-            entidadAnterior = repository.findById(entity.getId()).orElse(null);
+            entidadAnterior = ModificacionService.copiaParaAuditoria(repository.findById(entity.getId()).orElse(null));
         }
 
         InventarioProductoItem e = super.save(entity);

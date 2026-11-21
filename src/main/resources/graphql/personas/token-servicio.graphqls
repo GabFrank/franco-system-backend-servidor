@@ -1,0 +1,35 @@
+# Tokens de servicio para bots (issue #579). Solo superusuario.
+# Se mandan como "Authorization: Token frcsvc_...". El token en claro solo existe en la respuesta
+# de crearTokenServicio: en la base se guarda su hash.
+
+type TokenServicio {
+    id: ID!
+    usuario: Usuario
+    nombre: String!
+    # Los primeros caracteres del token, para reconocerlo.
+    prefijo: String!
+    creadoPor: Usuario
+    creadoEn: Date
+    expiraEn: Date
+    revocadoEn: Date
+    revocadoPor: Usuario
+    ultimoUsoEn: Date
+    # Sin revocar y sin vencer. No mira el usuario: si esta inactivo o es ADMIN, el token igual se rechaza.
+    vigente: Boolean!
+}
+
+type TokenServicioCreado {
+    tokenServicio: TokenServicio!
+    # El token en claro. Se muestra una sola vez: no se puede volver a consultar.
+    token: String!
+}
+
+extend type Query {
+    tokensServicio(usuarioId: ID): [TokenServicio!]!
+}
+
+extend type Mutation {
+    # Reemplaza la clave del usuario por una aleatoria: un usuario de servicio no conserva login humano.
+    crearTokenServicio(usuarioId: ID!, nombre: String!, diasVigencia: Int): TokenServicioCreado!
+    revocarTokenServicio(id: ID!): Boolean!
+}

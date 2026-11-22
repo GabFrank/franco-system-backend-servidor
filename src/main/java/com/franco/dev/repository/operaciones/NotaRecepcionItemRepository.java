@@ -173,7 +173,7 @@ public interface NotaRecepcionItemRepository extends HelperRepository<NotaRecepc
            "LEFT JOIN FETCH nri.notaRecepcion nr " +
            "LEFT JOIN FETCH nr.moneda m " +
            "WHERE nri.notaRecepcion.id = :notaId " +
-           "ORDER BY p.descripcion ASC",
+           "ORDER BY p.descripcion ASC, nri.id ASC",
            countQuery = "SELECT COUNT(nri) FROM NotaRecepcionItem nri " +
            "WHERE nri.notaRecepcion.id = :notaId")
     Page<NotaRecepcionItem> findItemsByNotaIdPaginados(
@@ -209,7 +209,7 @@ public interface NotaRecepcionItemRepository extends HelperRepository<NotaRecepc
      */
     @Query(value = "SELECT nri FROM NotaRecepcionItem nri " +
            "WHERE nri.producto.id = :productoId " +
-           "ORDER BY nri.creadoEn DESC",
+           "ORDER BY nri.creadoEn DESC, nri.id DESC",
            countQuery = "SELECT COUNT(nri) FROM NotaRecepcionItem nri " +
            "WHERE nri.producto.id = :productoId")
     Page<NotaRecepcionItem> findUltimasComprasByProductoId(@Param("productoId") Long productoId, Pageable pageable);

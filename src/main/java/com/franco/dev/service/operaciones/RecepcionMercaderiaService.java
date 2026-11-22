@@ -522,8 +522,8 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
             query.where(predicates.toArray(new Predicate[0]));
         }
         
-        // Ordenar por fecha descendente
-        query.orderBy(cb.desc(root.get("fecha")));
+        // Ordenar por fecha descendente; el id desempata las recepciones del mismo momento (#674)
+        query.orderBy(cb.desc(root.get("fecha")), cb.desc(root.get("id")));
         
         // Log de debug: Query generada y predicados aplicados
         System.out.println("🔍 [Service] Query generada: " + query.toString());

@@ -20,7 +20,7 @@ public interface RetiroDevolucionRepository extends HelperRepository<RetiroDevol
            "WHERE (cast(:proveedorId as long) IS NULL OR r.proveedor.id = :proveedorId) " +
            "AND (cast(:fechaInicio as timestamp) IS NULL OR r.fecha >= :fechaInicio) " +
            "AND (cast(:fechaFin as timestamp) IS NULL OR r.fecha <= :fechaFin) " +
-           "ORDER BY r.fecha DESC")
+           "ORDER BY r.fecha DESC, r.id DESC")
     Page<RetiroDevolucion> findByFilters(
             @Param("proveedorId") Long proveedorId,
             @Param("fechaInicio") LocalDateTime fechaInicio,

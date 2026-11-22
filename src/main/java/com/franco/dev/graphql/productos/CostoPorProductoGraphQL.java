@@ -24,6 +24,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Component;
 
@@ -69,7 +70,8 @@ public class CostoPorProductoGraphQL implements GraphQLQueryResolver, GraphQLMut
     @Autowired
     private Environment env;
     public Page<CostoPorProducto> costosPorProductoId(Long id, Integer page, Integer size) {
-        Pageable pageable = Paginacion.of(page, size);
+        // La derivada no tiene orden: el mas nuevo primero, y paginas sin repetidos (#674).
+        Pageable pageable = Paginacion.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
         return service.findByProductoId(id, pageable);
     }
 

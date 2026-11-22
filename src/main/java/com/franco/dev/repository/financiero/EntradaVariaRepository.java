@@ -12,7 +12,7 @@ import javax.persistence.LockModeType;
 import java.util.Optional;
 
 public interface EntradaVariaRepository extends JpaRepository<EntradaVaria, Long> {
-    Page<EntradaVaria> findByCajaVirtualIdOrderByCreadoEnDesc(Long cajaVirtualId, Pageable pageable);
+    Page<EntradaVaria> findByCajaVirtualIdOrderByCreadoEnDescIdDesc(Long cajaVirtualId, Pageable pageable);
 
     /** Toma la entrada con lock pesimista: serializa dos anulaciones simultaneas de la misma. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)

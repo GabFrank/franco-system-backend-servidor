@@ -58,9 +58,9 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
     /** ¿Existe el contra-movimiento de este movimiento? Un inactivo sin contra es un dato roto, no una anulación. */
     boolean existsByOrigenTipoAndOrigenId(OrigenMovimientoTipo origenTipo, Long origenId);
 
-    Page<MovimientoCajaVirtual> findByCajaVirtualIdOrderByCreadoEnDesc(Long cajaVirtualId, Pageable pageable);
+    Page<MovimientoCajaVirtual> findByCajaVirtualIdOrderByCreadoEnDescIdDesc(Long cajaVirtualId, Pageable pageable);
 
-    Page<MovimientoCajaVirtual> findByCajaVirtualIdAndCreadoEnBetweenOrderByCreadoEnDesc(
+    Page<MovimientoCajaVirtual> findByCajaVirtualIdAndCreadoEnBetweenOrderByCreadoEnDescIdDesc(
             Long cajaVirtualId, LocalDateTime inicio, LocalDateTime fin, Pageable pageable);
 
     List<MovimientoCajaVirtual> findByCajaVirtualIdAndActivoTrue(Long cajaVirtualId);
@@ -98,7 +98,7 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
             + "and (:tipo is null or cast(m.tipoMovimiento as string) = :tipo) "
             + "and (:monedaId is null or m.moneda.id = :monedaId) "
             + "and (:soloActivos = false or m.activo = true) "
-            + "order by m.creadoEn desc";
+            + "order by m.creadoEn desc, m.id desc";
 
     @Query(FILTER_JPQL)
     Page<MovimientoCajaVirtual> filter(@Param("cajaId") Long cajaId,

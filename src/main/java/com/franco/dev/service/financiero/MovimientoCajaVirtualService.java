@@ -34,11 +34,11 @@ public class MovimientoCajaVirtualService {
     }
 
     public Page<MovimientoCajaVirtual> findByCajaVirtualId(Long cajaVirtualId, Pageable pageable) {
-        return repository.findByCajaVirtualIdOrderByCreadoEnDesc(cajaVirtualId, pageable);
+        return repository.findByCajaVirtualIdOrderByCreadoEnDescIdDesc(cajaVirtualId, pageable);
     }
 
     public Page<MovimientoCajaVirtual> findByCajaVirtualIdAndFecha(Long cajaVirtualId, String inicio, String fin, Pageable pageable) {
-        return repository.findByCajaVirtualIdAndCreadoEnBetweenOrderByCreadoEnDesc(
+        return repository.findByCajaVirtualIdAndCreadoEnBetweenOrderByCreadoEnDescIdDesc(
                 cajaVirtualId, stringToDate(inicio), stringToDate(fin), pageable);
     }
 

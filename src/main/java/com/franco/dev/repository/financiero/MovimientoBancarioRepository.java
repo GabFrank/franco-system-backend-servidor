@@ -27,7 +27,7 @@ public interface MovimientoBancarioRepository extends JpaRepository<MovimientoBa
     @Query("select coalesce(m.anulado, false) from MovimientoBancario m where m.id = :id")
     Optional<Boolean> findAnuladoById(@Param("id") Long id);
 
-    Page<MovimientoBancario> findByCuentaBancariaIdOrderByCreadoEnDesc(Long cuentaBancariaId, Pageable pageable);
+    Page<MovimientoBancario> findByCuentaBancariaIdOrderByCreadoEnDescIdDesc(Long cuentaBancariaId, Pageable pageable);
 
     /**
      * Filtro combinado de movimientos de una cuenta (todos opcionales salvo la cuenta).
@@ -39,7 +39,7 @@ public interface MovimientoBancarioRepository extends JpaRepository<MovimientoBa
             + "and (cast(:fin as timestamp) is null or m.creadoEn <= :fin) "
             + "and (:tipo is null or cast(m.tipoMovimiento as string) = :tipo) "
             + "and (:soloActivos = false or m.anulado is null or m.anulado = false) "
-            + "order by m.creadoEn desc";
+            + "order by m.creadoEn desc, m.id desc";
 
     @Query(FILTER_JPQL)
     Page<MovimientoBancario> filter(@Param("cuentaId") Long cuentaId,

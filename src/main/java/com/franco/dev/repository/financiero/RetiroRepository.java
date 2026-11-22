@@ -86,7 +86,7 @@ public interface RetiroRepository extends HelperRepository<Retiro, EmbebedPrimar
             "(r.sucursalId = :sucId or :sucId is null) and " +
             "(res.id = :responsableId or :responsableId is null) and " +
             "(u.id = :cajeroId or :cajeroId is null) " +
-            "order by r.id desc")
+            "order by r.id desc, r.sucursalId desc")
     List<Retiro> findByAll(Long id, Long cajaId, Long sucId, Long responsableId, Long cajeroId, Pageable pageable);
 
     @Query("select r from Retiro r " +
@@ -99,7 +99,7 @@ public interface RetiroRepository extends HelperRepository<Retiro, EmbebedPrimar
             "(r.sucursalId = :sucId or :sucId is null) and " +
             "(res.id = :responsableId or :responsableId is null) and " +
             "(u.id = :cajeroId or :cajeroId is null) " +
-            "order by r.id desc")
+            "order by r.id desc, r.sucursalId desc")
     Page<Retiro> findByAllPage(Long id, Long cajaId, Long sucId, Long responsableId, Long cajeroId, Pageable pageable);
 
     /**
@@ -119,7 +119,7 @@ public interface RetiroRepository extends HelperRepository<Retiro, EmbebedPrimar
             "and (:cajaId is null or r.cajaSalidaId = :cajaId) " +
             "and (cast(:desde as timestamp) is null or r.creadoEn >= :desde) " +
             "and (cast(:hasta as timestamp) is null or r.creadoEn <= :hasta) " +
-            "order by r.creadoEn desc")
+            "order by r.creadoEn desc, r.id desc, r.sucursalId desc")
     Page<Retiro> findFlotantes(@Param("sucId") Long sucId, @Param("cajaId") Long cajaId,
                                @Param("desde") java.time.LocalDateTime desde,
                                @Param("hasta") java.time.LocalDateTime hasta, Pageable pageable);
@@ -138,7 +138,7 @@ public interface RetiroRepository extends HelperRepository<Retiro, EmbebedPrimar
             "and (:cajaId is null or r.cajaSalidaId = :cajaId) " +
             "and (cast(:desde as timestamp) is null or r.creadoEn >= :desde) " +
             "and (cast(:hasta as timestamp) is null or r.creadoEn <= :hasta) " +
-            "order by r.creadoEn desc")
+            "order by r.creadoEn desc, r.id desc, r.sucursalId desc")
     Page<Retiro> findFlotantesEnSucursales(@Param("sucIds") java.util.List<Long> sucIds, @Param("cajaId") Long cajaId,
                                            @Param("desde") java.time.LocalDateTime desde,
                                            @Param("hasta") java.time.LocalDateTime hasta, Pageable pageable);
@@ -163,12 +163,12 @@ public interface RetiroRepository extends HelperRepository<Retiro, EmbebedPrimar
             "com.franco.dev.domain.financiero.enums.EstadoRetiro.EN_PROCESO, " +
             "com.franco.dev.domain.financiero.enums.EstadoRetiro.CANCELADO)) ";
 
-    @Query(SELECT_INGRESADOS + "and (:sucId is null or r.sucursalId = :sucId) order by r.creadoEn desc")
+    @Query(SELECT_INGRESADOS + "and (:sucId is null or r.sucursalId = :sucId) order by r.creadoEn desc, r.id desc, r.sucursalId desc")
     List<RetiroIngresadoDto> findIngresadosDeCaja(@Param("cajaId") Long cajaId, @Param("sucId") Long sucId,
                                                   Pageable pageable);
 
     /** Lo mismo, limitado a las sucursales del rol acotado. {@code sucIds} no puede venir vacía. */
-    @Query(SELECT_INGRESADOS + "and r.sucursalId in :sucIds order by r.creadoEn desc")
+    @Query(SELECT_INGRESADOS + "and r.sucursalId in :sucIds order by r.creadoEn desc, r.id desc, r.sucursalId desc")
     List<RetiroIngresadoDto> findIngresadosDeCajaEnSucursales(@Param("cajaId") Long cajaId,
                                                               @Param("sucIds") List<Long> sucIds,
                                                               Pageable pageable);

@@ -20,7 +20,7 @@ public class VentaCreditoRepositoryImpl {
         return entityManager.createQuery("SELECT vc FROM VentaCredito vc " +
                         "WHERE vc.cliente.id = (:clienteId) " +
                         "AND (vc.estado = (:estado) or cast(:estado as com.franco.dev.domain.financiero.enums.EstadoVentaCredito) IS NULL) " +
-                        "ORDER BY vc.creadoEn DESC",
+                        "ORDER BY vc.creadoEn DESC, vc.id DESC, vc.sucursalId DESC",
                 VentaCredito.class)
                 .setParameter("clienteId", clienteId)
                 .setParameter("estado", estado)

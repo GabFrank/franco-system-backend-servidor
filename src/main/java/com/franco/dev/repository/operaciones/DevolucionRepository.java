@@ -31,7 +31,7 @@ public interface DevolucionRepository extends HelperRepository<Devolucion, Long>
            "AND (cast(:fechaInicio as timestamp) IS NULL OR d.fecha >= :fechaInicio) " +
            "AND (cast(:fechaFin as timestamp) IS NULL OR d.fecha <= :fechaFin) " +
            "AND (cast(:usuarioId as long) IS NULL OR d.usuario.id = :usuarioId) " +
-           "ORDER BY d.fecha DESC")
+           "ORDER BY d.fecha DESC, d.id DESC")
     Page<Devolucion> findByFilters(
             @Param("proveedorId") Long proveedorId,
             @Param("sucursalId") Long sucursalId,
@@ -54,14 +54,14 @@ public interface DevolucionRepository extends HelperRepository<Devolucion, Long>
     @Query("SELECT COUNT(d) FROM Devolucion d WHERE d.colecta.id = :colectaId")
     long countByColectaId(@Param("colectaId") Long colectaId);
 
-    @Query("SELECT d FROM Devolucion d WHERE d.proveedor.id = :proveedorId ORDER BY d.fecha DESC")
+    @Query("SELECT d FROM Devolucion d WHERE d.proveedor.id = :proveedorId ORDER BY d.fecha DESC, d.id DESC")
     List<Devolucion> findByProveedorId(@Param("proveedorId") Long proveedorId);
 
     @Query("SELECT d FROM Devolucion d WHERE d.estado = :estado")
     List<Devolucion> findByEstado(@Param("estado") DevolucionEstado estado);
 
     @Query("SELECT d FROM Devolucion d WHERE d.proveedor.id = :proveedorId " +
-           "AND d.estado IN :estados ORDER BY d.fecha DESC")
+           "AND d.estado IN :estados ORDER BY d.fecha DESC, d.id DESC")
     List<Devolucion> findByProveedorIdAndEstados(@Param("proveedorId") Long proveedorId,
                                                  @Param("estados") List<DevolucionEstado> estados);
 
@@ -69,7 +69,7 @@ public interface DevolucionRepository extends HelperRepository<Devolucion, Long>
      * Devoluciones de un proveedor en un estado dado. Ambos parametros no-null.
      */
     @Query("SELECT d FROM Devolucion d WHERE d.proveedor.id = :proveedorId " +
-           "AND d.estado = :estado ORDER BY d.sucursalOrigen.id ASC, d.fecha ASC")
+           "AND d.estado = :estado ORDER BY d.sucursalOrigen.id ASC, d.fecha ASC, d.id ASC")
     List<Devolucion> findByProveedorIdAndEstado(@Param("proveedorId") Long proveedorId,
                                                 @Param("estado") DevolucionEstado estado);
 
@@ -82,7 +82,7 @@ public interface DevolucionRepository extends HelperRepository<Devolucion, Long>
            "WHERE d.proveedor.id = :proveedorId " +
            "AND d.estado = :estado " +
            "AND (cast(:sucursalId as long) IS NULL OR d.sucursalOrigen.id = :sucursalId) " +
-           "ORDER BY d.sucursalOrigen.id ASC, d.fecha ASC")
+           "ORDER BY d.sucursalOrigen.id ASC, d.fecha ASC, d.id ASC")
     List<Devolucion> findByProveedorIdEstadoAndSucursal(@Param("proveedorId") Long proveedorId,
                                                         @Param("estado") DevolucionEstado estado,
                                                         @Param("sucursalId") Long sucursalId);
@@ -160,7 +160,7 @@ public interface DevolucionRepository extends HelperRepository<Devolucion, Long>
            "JOIN empresarial.sucursal s ON s.id = d.sucursal_origen_id " +
            "WHERE d.estado IN ('PENDIENTE', 'SEPARADO', 'COLECTADO') AND d.fecha <= :limiteFecha " +
            "AND (CAST(:sucursalId AS bigint) IS NULL OR d.sucursal_origen_id = :sucursalId) " +
-           "ORDER BY d.fecha ASC LIMIT :limite",
+           "ORDER BY d.fecha ASC, d.id ASC LIMIT :limite",
            nativeQuery = true)
     List<Object[]> estancadasRaw(@Param("limiteFecha") LocalDateTime limiteFecha,
                                  @Param("sucursalId") Long sucursalId,

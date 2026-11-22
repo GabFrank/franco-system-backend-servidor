@@ -15,6 +15,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Component;
 
@@ -90,7 +91,8 @@ public class SucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Page<Sucursal> findByNombre(String nombre, Integer page, Integer size) {
-        Pageable pageable = Paginacion.of(page, size);
+        // findAll y la derivada no tienen orden: por id, como las demas busquedas de sucursal (#674).
+        Pageable pageable = Paginacion.of(page, size, Sort.by("id"));
         // Si nombre es null, vacío o '%', retornar todos los resultados
         if (nombre == null || nombre.trim().isEmpty() || "%".equals(nombre.trim())) {
             return service.getRepository().findAll(pageable);

@@ -21,6 +21,6 @@ public interface EnteFinancieroRepository extends HelperRepository<EnteFinancier
     @Query("select ef from EnteFinanciero ef left join ef.ente e left join ef.proveedor p where " +
             "CAST(ef.id as text) like %?1% or " +
             "UPPER(cast(ef.situacionPago as text)) like %?1% or " +
-            "UPPER(p.nombre) like %?1%")
+            "UPPER(p.nombre) like %?1% order by ef.id desc")
     Page<EnteFinanciero> findByAllWithPage(String texto, Pageable pageable);
 }

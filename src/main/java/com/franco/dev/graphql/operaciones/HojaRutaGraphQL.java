@@ -61,12 +61,13 @@ public class HojaRutaGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public List<HojaRuta> hojaRutaPorVehiculo(Long vehiculoId, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+        // Las derivadas no tienen orden: la mas nueva primero, como las demas de hoja de ruta (#674).
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
         return service.findByVehiculoId(vehiculoId, pageable).getContent();
     }
 
     public List<HojaRuta> hojaRutaPorChofer(Long choferId, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
         return service.findByChoferId(choferId, pageable).getContent();
     }
 

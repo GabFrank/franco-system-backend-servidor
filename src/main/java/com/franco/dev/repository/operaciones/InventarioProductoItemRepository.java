@@ -23,7 +23,7 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
 
         List<InventarioProductoItem> findByInventarioProductoId(Long id);
 
-        List<InventarioProductoItem> findByInventarioProductoIdAndPresentacionIdOrderByVencimientoDesc(
+        List<InventarioProductoItem> findByInventarioProductoIdAndPresentacionIdOrderByVencimientoDescIdDesc(
                         Long inventarioProductoId, Long presentacionId, Pageable pageable);
 
         List<InventarioProductoItem> findByInventarioProductoInventarioIdAndPresentacionProductoId(Long inventarioId,
@@ -119,7 +119,7 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                         "AND (:#{#zonaIdList == null || #zonaIdList.isEmpty()} = true OR z.id IN :zonaIdList) " +
                         "AND (:#{#usuarioIdList == null || #usuarioIdList.isEmpty()} = true OR u.id IN :usuarioIdList) " +
                         "AND (:#{#productoIdList == null || #productoIdList.isEmpty()} = true OR pro.id IN :productoIdList) " +
-                        "ORDER BY i.vencimiento DESC")
+                        "ORDER BY i.vencimiento DESC, i.id DESC")
         Page<InventarioProductoItem> findProductosVencidos(
                         @Param("sucursalIdList") @Nullable List<Long> sucursalIdList,
                         @Param("sectorIdList") @Nullable List<Long> sectorIdList,
@@ -156,7 +156,7 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                         "AND (:#{#zonaIdList == null || #zonaIdList.isEmpty()} = true OR z.id IN :zonaIdList) " +
                         "AND (:#{#usuarioIdList == null || #usuarioIdList.isEmpty()} = true OR u.id IN :usuarioIdList) " +
                         "AND (:#{#productoIdList == null || #productoIdList.isEmpty()} = true OR pro.id IN :productoIdList) " +
-                        "ORDER BY i.vencimiento DESC")
+                        "ORDER BY i.vencimiento DESC, i.id DESC")
         Page<InventarioProductoItem> findProductosVencidosConFecha(
                         @Param("sucursalIdList") @Nullable List<Long> sucursalIdList,
                         @Param("sectorIdList") @Nullable List<Long> sectorIdList,
@@ -183,7 +183,7 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                         "AND (COALESCE(:productoIdList, NULL) IS NULL OR pro.id IN :productoIdList) " +
                         "AND i.vencimiento BETWEEN CURRENT_TIMESTAMP AND :fechaProximoVencimiento " +
                         "AND i.estado != :estadoVencido " +
-                        "ORDER BY i.vencimiento DESC")
+                        "ORDER BY i.vencimiento DESC, i.id DESC")
         Page<InventarioProductoItem> findProductosProximosAVencer(
                         @Param("sucursalIdList") @Nullable List<Long> sucursalIdList,
                         @Param("sectorIdList") @Nullable List<Long> sectorIdList,
@@ -269,7 +269,7 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                         "      (ipi2.zona_id IS NULL AND ip2.zona_id = :zonaId)" +
                         "   )" +
                         ") " +
-                        "ORDER BY ipi.vencimiento DESC " +
+                        "ORDER BY ipi.vencimiento DESC, ipi.id DESC " +
                         "LIMIT :limit OFFSET :offset", nativeQuery = true)
         List<InventarioProductoItem> findItemsDeInventariosAnteriores(
                         @Param("presentacionId") Long presentacionId,
@@ -302,7 +302,7 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                         "   AND inv2.fecha_inicio < CAST(:fechaInicioInventarioActual AS TIMESTAMP) " +
                         "   AND ipi2.presentacion_id = :presentacionId" +
                         ") " +
-                        "ORDER BY ipi.vencimiento DESC " +
+                        "ORDER BY ipi.vencimiento DESC, ipi.id DESC " +
                         "LIMIT :limit OFFSET :offset", nativeQuery = true)
         List<InventarioProductoItem> findItemsDeInventariosAnterioresSoloSucursal(
                         @Param("presentacionId") Long presentacionId,

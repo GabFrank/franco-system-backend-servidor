@@ -30,7 +30,7 @@ public interface NotificacionDestinatarioRepository extends HelperRepository<Not
                      "JOIN FETCH nd.notificacion n " +
                      "WHERE nd.usuario.id = :usuarioId " +
                      "AND (:leida IS NULL OR nd.leida = :leida) " +
-                     "ORDER BY n.creadoEn DESC", countQuery = "SELECT COUNT(nd) FROM NotificacionDestinatario nd " +
+                     "ORDER BY n.creadoEn DESC, nd.id DESC", countQuery = "SELECT COUNT(nd) FROM NotificacionDestinatario nd " +
                                    "WHERE nd.usuario.id = :usuarioId " +
                                    "AND (:leida IS NULL OR nd.leida = :leida)")
        Page<NotificacionDestinatario> findByUsuarioId(
@@ -45,7 +45,7 @@ public interface NotificacionDestinatarioRepository extends HelperRepository<Not
                      "AND (:leida IS NULL OR nd.leida = :leida) " +
                      "AND (CAST(:fechaInicio AS timestamp) IS NULL OR n.creadoEn >= CAST(:fechaInicio AS timestamp)) " +
                      "AND (CAST(:fechaFin AS timestamp) IS NULL OR n.creadoEn <= CAST(:fechaFin AS timestamp)) " +
-                     "ORDER BY n.creadoEn DESC", countQuery = "SELECT COUNT(nd) FROM NotificacionDestinatario nd " +
+                     "ORDER BY n.creadoEn DESC, nd.id DESC", countQuery = "SELECT COUNT(nd) FROM NotificacionDestinatario nd " +
                                    "JOIN nd.notificacion n " +
                                    "WHERE nd.usuario.id = :usuarioId " +
                                    "AND (:estadoTablero IS NULL OR n.estadoTablero = CAST(:estadoTablero AS text)) " +

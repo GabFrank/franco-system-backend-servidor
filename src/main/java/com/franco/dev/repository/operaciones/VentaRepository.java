@@ -76,7 +76,7 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
                         "AND u.id = :usuarioId " +
                         "AND v.estado = 'CONCLUIDA' " +
                         "GROUP BY u.id, p.nombre " +
-                        "ORDER BY SUM(v.total_gs) DESC", nativeQuery = true)
+                        "ORDER BY SUM(v.total_gs) DESC, u.id ASC", nativeQuery = true)
         List<Object[]> getVentasPorFuncionario(@Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId,
                         @Param("usuarioId") Long usuarioId,
@@ -90,7 +90,7 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
                         "AND v.sucursal_id = :sucId " +
                         "AND v.estado = 'CONCLUIDA' " +
                         "GROUP BY u.id, p.nombre " +
-                        "ORDER BY SUM(v.total_gs) DESC", nativeQuery = true)
+                        "ORDER BY SUM(v.total_gs) DESC, u.id ASC", nativeQuery = true)
         List<Object[]> getVentasPorFuncionarioBySucursal(@Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId,
                         org.springframework.data.domain.Pageable pageable);
@@ -103,7 +103,7 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
                         "AND u.id = :usuarioId " +
                         "AND v.estado = 'CONCLUIDA' " +
                         "GROUP BY u.id, p.nombre " +
-                        "ORDER BY SUM(v.total_gs) DESC", nativeQuery = true)
+                        "ORDER BY SUM(v.total_gs) DESC, u.id ASC", nativeQuery = true)
         List<Object[]> getVentasPorFuncionarioByUsuario(@Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin, @Param("usuarioId") Long usuarioId,
                         org.springframework.data.domain.Pageable pageable);
@@ -115,7 +115,7 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
                         "WHERE v.creado_en BETWEEN :inicio AND :fin " +
                         "AND v.estado = 'CONCLUIDA' " +
                         "GROUP BY u.id, p.nombre " +
-                        "ORDER BY SUM(v.total_gs) DESC", nativeQuery = true)
+                        "ORDER BY SUM(v.total_gs) DESC, u.id ASC", nativeQuery = true)
         List<Object[]> getVentasPorFuncionarioAll(@Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin,
                         org.springframework.data.domain.Pageable pageable);

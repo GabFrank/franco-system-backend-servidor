@@ -235,6 +235,13 @@ public interface MovimientoStockRepository
         @Query(value = "SELECT nextval('operaciones.movimiento_stock_id_seq')", nativeQuery = true)
         Long siguienteId();
 
+        /**
+         * Los listados de saldos se recorren de a paginas (tope de 500, #582) y miles de filas empatan
+         * en la cantidad. El orden termina en la clave del GROUP BY (producto, sucursal) para que sea
+         * total: con un orden que empata, PostgreSQL devuelve los empatados distinto en cada pagina y
+         * hay productos que salen dos veces y otros que no salen (#674). Lo mismo en faltantes, que
+         * ordena por descripcion y termina en el id.
+         */
         @Query("SELECT new com.franco.dev.domain.operaciones.dto.ProductoSaldoDto(ms.producto.id, ms.producto.descripcion, ms.sucursalId, SUM(ms.cantidad)) "
                         +
                         "FROM MovimientoStock ms " +
@@ -244,7 +251,7 @@ public interface MovimientoStockRepository
                         "AND (:productoId is NULL OR p.id = :productoId)" +
                         "GROUP BY ms.producto.id, ms.producto.descripcion, ms.sucursalId " +
                         "HAVING SUM(ms.cantidad) > 0 " +
-                        "ORDER BY SUM(ms.cantidad) DESC")
+                        "ORDER BY SUM(ms.cantidad) DESC, ms.producto.id ASC, ms.sucursalId ASC")
         Page<ProductoSaldoDto> findProductosConCantidadPositiva(@Param("sucursalId") Long sucursalId,
                         @Param("productoId") Long productoId, Pageable pageable);
 
@@ -257,7 +264,7 @@ public interface MovimientoStockRepository
                         "AND (:productoId is NULL OR p.id = :productoId)" +
                         "GROUP BY ms.producto.id, ms.producto.descripcion, ms.sucursalId " +
                         "HAVING SUM(ms.cantidad) < 0 " +
-                        "ORDER BY SUM(ms.cantidad) ASC")
+                        "ORDER BY SUM(ms.cantidad) ASC, ms.producto.id ASC, ms.sucursalId ASC")
         Page<ProductoSaldoDto> findProductosConCantidadNegativa(@Param("sucursalId") Long sucursalId,
                         @Param("productoId") Long productoId, Pageable pageable);
 
@@ -277,7 +284,7 @@ public interface MovimientoStockRepository
                         "    AND ipi.creadoEn BETWEEN :fechaInicio AND :fechaFin" +
                         ") " +
                         "GROUP BY p.id, p.descripcion " +
-                        "ORDER BY p.descripcion ASC")
+                        "ORDER BY p.descripcion ASC, p.id ASC")
         Page<ProductoSaldoDto> findProductosFaltantes(
                         @Param("sucursalId") Long sucursalId,
                         @Param("productoId") Long productoId,

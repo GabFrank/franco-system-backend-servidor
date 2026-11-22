@@ -23,7 +23,7 @@ public interface ProductoProveedorRepository extends HelperRepository<ProductoPr
             "    AND (subpp.activo = true OR subpp.activo IS NULL) " +
             "    GROUP BY subpp.producto.id" +
             ") " +
-            "ORDER BY pp.producto.descripcion ASC")
+            "ORDER BY pp.producto.descripcion ASC, pp.id ASC")
     Page<ProductoProveedor> findByProveedorIdOrderByProductoDescripcionAsc(@Param("id") Long id, Pageable pageable);
 
     @Query(value =  "select pp from ProductoProveedor pp " +
@@ -32,7 +32,7 @@ public interface ProductoProveedorRepository extends HelperRepository<ProductoPr
             "prov.id = :id and " +
             "(pp.activo = true OR pp.activo IS NULL) and " +
             "(:text is null or UPPER(prod.descripcion) like UPPER(:text)) " +
-            "order by prod.descripcion asc")
+            "order by prod.descripcion asc, pp.id asc")
     Page<ProductoProveedor> findByProveedorIdAndProductoDescripcionLikeIgnoreCase(Long id, String text, Pageable pageable);
 
     @Query("SELECT pp.producto.id FROM ProductoProveedor pp " +
@@ -47,7 +47,7 @@ public interface ProductoProveedorRepository extends HelperRepository<ProductoPr
             "LEFT JOIN pp.proveedor prov " +
             "LEFT JOIN prov.persona per " +
             "WHERE pp.producto.id = :id AND (pp.activo = true OR pp.activo IS NULL) " +
-            "ORDER BY per.nombre ASC")
+            "ORDER BY per.nombre ASC, pp.id ASC")
     Page<ProductoProveedor> findByProductoIdAndActivoTrueOrderByProveedorPersonaNombre(@Param("id") Long id, Pageable pageable);
 
     @Query("SELECT pp FROM ProductoProveedor pp " +

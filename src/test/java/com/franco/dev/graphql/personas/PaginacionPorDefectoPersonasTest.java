@@ -70,7 +70,8 @@ class PaginacionPorDefectoPersonasTest {
                 eq("%coca%"), p.capture());
         esPrimeraPaginaDe15(p.getValue());
         // el orden por nombre se mantiene
-        assertEquals(Sort.by("persona.nombre"), p.getValue().getSort());
+        // Por nombre, con el id como desempate (#674).
+        assertEquals(Sort.by("persona.nombre", "id"), p.getValue().getSort());
     }
 
     @Test
@@ -81,7 +82,8 @@ class PaginacionPorDefectoPersonasTest {
         verify(proveedorRepository).findAll(p.capture());
         assertEquals(2, p.getValue().getPageNumber());
         assertEquals(10, p.getValue().getPageSize());
-        assertEquals(Sort.by("persona.nombre"), p.getValue().getSort());
+        // Por nombre, con el id como desempate (#674).
+        assertEquals(Sort.by("persona.nombre", "id"), p.getValue().getSort());
     }
 
     /** Estado del proveedor: el buscador (activo = true por defecto) no ofrece inactivos. */

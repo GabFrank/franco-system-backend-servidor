@@ -88,13 +88,14 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         Specification<FacturaLegal> filtros =
                 withFilters(fechaInicio, fechaFin, sucId, ruc, nombre, isElectronico, activo, sinNombre, ventaId);
         if (fechaInicio == null && fechaFin == null) {
-            return repository.findAll(filtros, Paginacion.of(page, size, Sort.by("id").ascending()));
+            // La PK es (id, sucursal_id) y el id se repite entre sucursales: va la sucursal como desempate (#674).
+            return repository.findAll(filtros, Paginacion.of(page, size, Sort.by("id", "sucursalId").ascending()));
         }
         return repository.findAll(filtros.and(ordenPorIdSinIndice()), Paginacion.of(page, size));
     }
 
     /**
-     * Mismo orden que Sort.by("id").ascending(), escrito como id + 0 (#636).
+     * Mismo orden que Sort.by("id", "sucursalId").ascending(), con el id escrito como id + 0 (#636).
      *
      * Con rango de fechas, ORDER BY id + LIMIT hacia que PostgreSQL recorriera factura_legal_pk desde el
      * principio descartando todas las facturas anteriores al rango (Central, septiembre: 239 ms y 524.677
@@ -106,7 +107,8 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         return (root, query, cb) -> {
             Class<?> tipo = query.getResultType();
             if (tipo != Long.class && tipo != long.class) {
-                query.orderBy(cb.asc(cb.sum(root.<Long>get("id"), 0L)));
+                // La sucursal desempata: el id se repite entre sucursales (#674).
+                query.orderBy(cb.asc(cb.sum(root.<Long>get("id"), 0L)), cb.asc(root.get("sucursalId")));
             }
             return null;
         };

@@ -64,7 +64,7 @@ public interface DocumentoElectronicoRepository extends HelperRepository<Documen
            // Entre parentesis: sin ellos el OR abarcaba todo el WHERE y, sin sucursal,
            // devolvia los documentos de cualquier estado y fecha (#582)
            "AND (d.sucursalId = :sucursalId OR :sucursalId IS NULL) " +
-           "ORDER BY d.id DESC")
+           "ORDER BY d.id DESC, d.sucursalId DESC")
     Page<DocumentoElectronico> findByFilters(
         @Param("estado") EstadoDE estado,
         @Param("fechaInicio") LocalDateTime fechaInicio,

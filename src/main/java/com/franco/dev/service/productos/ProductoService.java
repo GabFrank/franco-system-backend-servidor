@@ -156,9 +156,10 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             Boolean activo,
             Long ordenStockSucursalId,
             boolean mayor) {
-        // Ordenando por stock se toman siempre los mismos candidatos (el tope): si crecieran con el offset,
-        // al pasar de página cambiaría el conjunto ordenado y se repetirían o saltearían productos.
-        int fetchSize = ordenStockSucursalId != null ? 200 : Math.min(Math.max(offset + 10, 50), 200);
+        // Siempre los mismos candidatos (el tope), ordene o no por stock: si crecieran con el offset, al pasar
+        // de página entrarían más productos por código adelante de los de descripción, la lista se correría y
+        // se repetirían o saltearían productos (#674: "AGUA" de a 10 daba 149 filas y 70 productos distintos).
+        int fetchSize = 200;
         // Lucene solo indexa descripción: el código de barras se resuelve aparte y se antepone.
         List<Long> ids = unirIds(
                 codigoSearchService.buscarProductoIdsPorCoincidencia(texto, fetchSize),

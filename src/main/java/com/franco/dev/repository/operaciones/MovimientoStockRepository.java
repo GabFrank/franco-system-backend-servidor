@@ -193,7 +193,7 @@ public interface MovimientoStockRepository
                         "((:tipoMovimientoList) IS NULL OR cast(ms.tipoMovimiento as text) IN :tipoMovimientoList) and "
                         +
                         "ms.creadoEn between cast((:inicio) as timestamp) and cast((:fin) as timestamp) " +
-                        "order by ms.creadoEn")
+                        "order by ms.creadoEn, ms.id, ms.sucursalId")
         public Page<MovimientoStock> findByFilters(
                         @Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin,

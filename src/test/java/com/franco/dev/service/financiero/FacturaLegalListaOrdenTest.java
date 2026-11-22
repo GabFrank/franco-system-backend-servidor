@@ -61,7 +61,7 @@ class FacturaLegalListaOrdenTest {
 
         ArgumentCaptor<Pageable> p = ArgumentCaptor.forClass(Pageable.class);
         verify(repository).findAll(any(Specification.class), p.capture());
-        assertEquals(Sort.by("id").ascending(), p.getValue().getSort());
+        assertEquals(Sort.by("id", "sucursalId").ascending(), p.getValue().getSort());
         assertEquals(1, p.getValue().getPageNumber());
         assertEquals(25, p.getValue().getPageSize());
     }
@@ -88,13 +88,18 @@ class FacturaLegalListaOrdenTest {
         Path<Long> id = mock(Path.class);
         Expression<Long> idMasCero = mock(Expression.class);
         Order asc = mock(Order.class);
+        Path<Object> sucursal = mock(Path.class);
+        Order ascSucursal = mock(Order.class);
         when(root.<Long>get("id")).thenReturn(id);
+        when(root.get("sucursalId")).thenReturn(sucursal);
         when(cb.sum(id, 0L)).thenReturn(idMasCero);
         when(cb.asc(idMasCero)).thenReturn(asc);
+        when(cb.asc(sucursal)).thenReturn(ascSucursal);
         when(query.getResultType()).thenReturn((Class) FacturaLegal.class);
 
         assertNull(FacturaLegalService.ordenPorIdSinIndice().toPredicate(root, query, cb));
-        verify(query).orderBy(eq(asc));
+        // id + 0 y la sucursal como desempate (#674).
+        verify(query).orderBy(eq(asc), eq(ascSucursal));
     }
 
     @Test

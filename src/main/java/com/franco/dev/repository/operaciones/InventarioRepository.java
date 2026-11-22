@@ -39,15 +39,15 @@ public interface InventarioRepository extends HelperRepository<Inventario, Long>
     public Page<Inventario> findByUsuario_IdOrderByIdDesc(Long usuarioId, Pageable pageable);
 
     @Query("SELECT i FROM Inventario i WHERE i.usuario.id = :usuarioId " +
-           "ORDER BY CASE WHEN i.estado = com.franco.dev.domain.operaciones.enums.InventarioEstado.ABIERTO THEN 0 ELSE 1 END, i.fechaInicio DESC")
+           "ORDER BY CASE WHEN i.estado = com.franco.dev.domain.operaciones.enums.InventarioEstado.ABIERTO THEN 0 ELSE 1 END, i.fechaInicio DESC, i.id DESC")
     public Page<Inventario> findByUsuarioIdOrderByAbiertoPrimero(@Param("usuarioId") Long usuarioId, Pageable pageable);
 
     @Query("SELECT i FROM Inventario i WHERE i.usuario.id = :usuarioId " +
-           "ORDER BY CASE WHEN i.estado = com.franco.dev.domain.operaciones.enums.InventarioEstado.CONCLUIDO THEN 0 ELSE 1 END, i.fechaInicio DESC")
+           "ORDER BY CASE WHEN i.estado = com.franco.dev.domain.operaciones.enums.InventarioEstado.CONCLUIDO THEN 0 ELSE 1 END, i.fechaInicio DESC, i.id DESC")
     public Page<Inventario> findByUsuarioIdOrderByConcluidoPrimero(@Param("usuarioId") Long usuarioId, Pageable pageable);
 
     @Query("SELECT i FROM Inventario i WHERE i.usuario.id = :usuarioId " +
-           "ORDER BY CASE WHEN i.estado = com.franco.dev.domain.operaciones.enums.InventarioEstado.CANCELADO THEN 0 ELSE 1 END, i.fechaInicio DESC")
+           "ORDER BY CASE WHEN i.estado = com.franco.dev.domain.operaciones.enums.InventarioEstado.CANCELADO THEN 0 ELSE 1 END, i.fechaInicio DESC, i.id DESC")
     public Page<Inventario> findByUsuarioIdOrderByCanceladoPrimero(@Param("usuarioId") Long usuarioId, Pageable pageable);
 
     public List<Inventario> findBySucursalIdAndEstado(Long id, InventarioEstado estado);

@@ -48,7 +48,7 @@ public class InventarioProductoItemService
 
     public List<InventarioProductoItem> findByInventarioProductoIdAndPresentacionId(Long inventarioProductoId,
             Long presentacionId, Pageable pageable) {
-        return repository.findByInventarioProductoIdAndPresentacionIdOrderByVencimientoDesc(inventarioProductoId,
+        return repository.findByInventarioProductoIdAndPresentacionIdOrderByVencimientoDescIdDesc(inventarioProductoId,
                 presentacionId, pageable);
     }
 

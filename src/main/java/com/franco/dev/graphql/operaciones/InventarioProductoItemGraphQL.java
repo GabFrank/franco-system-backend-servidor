@@ -702,11 +702,14 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
         int pageNumber = page != null ? page : 0;
         int pageSize = size != null ? size : DEFAULT_PAGE_SIZE;
 
+        // El orden termina siempre en el id: vencimiento, fecha o producto se repiten y, al
+        // recorrer las paginas, los empatados salian repetidos o no salian (#674).
+        Sort porId = Sort.by(Sort.Direction.ASC, "id");
         if (orderBy != null && tipoOrder != null) {
             Sort.Direction direction = "DESC".equalsIgnoreCase(tipoOrder) ? Sort.Direction.DESC : Sort.Direction.ASC;
-            return PageRequest.of(pageNumber, pageSize, Sort.by(direction, orderBy));
+            return PageRequest.of(pageNumber, pageSize, Sort.by(direction, orderBy).and(porId));
         }
 
-        return PageRequest.of(pageNumber, pageSize);
+        return PageRequest.of(pageNumber, pageSize, porId);
     }
 }

@@ -187,12 +187,12 @@ class PaginacionPorDefectoResolversTest {
         @Test
         void sinPageNiSizeNoFalla() {
             List<PdvCaja> cajas = Collections.singletonList(new PdvCaja());
-            when(repository.findByUsuarioIdOrderByIdDesc(eq(9L), any(Pageable.class))).thenReturn(cajas);
+            when(repository.findByUsuarioIdOrderByIdDescSucursalIdDesc(eq(9L), any(Pageable.class))).thenReturn(cajas);
 
             assertSame(cajas, service.findByUsuarioId(9L, null, null));
 
             ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
-            verify(repository).findByUsuarioIdOrderByIdDesc(eq(9L), pageable.capture());
+            verify(repository).findByUsuarioIdOrderByIdDescSucursalIdDesc(eq(9L), pageable.capture());
             assertEquals(0, pageable.getValue().getPageNumber());
             assertEquals(15, pageable.getValue().getPageSize());
         }

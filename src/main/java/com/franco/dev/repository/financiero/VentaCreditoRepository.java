@@ -20,7 +20,7 @@ public interface VentaCreditoRepository extends HelperRepository<VentaCredito, E
 
     public List<VentaCredito> findAllByClienteIdAndCreadoEnLessThanEqualAndCreadoEnGreaterThanEqualOrderByCreadoEnDesc(Long id, LocalDateTime start, LocalDateTime end);
 
-    public Page<VentaCredito> findAllByClienteIdAndEstadoOrderByCreadoEnDesc(Long id, EstadoVentaCredito estado, Pageable pageable);
+    public Page<VentaCredito> findAllByClienteIdAndEstadoOrderByCreadoEnDescIdDescSucursalIdDesc(Long id, EstadoVentaCredito estado, Pageable pageable);
 
     /**
      * Todos los convenios del cliente, sin filtrar por estado.
@@ -30,14 +30,14 @@ public interface VentaCreditoRepository extends HelperRepository<VentaCredito, E
      * declara `estado` opcional en `ventaCreditoPorClientePage`, pero sin
      * este metodo esa opcionalidad no existia en la practica.
      */
-    public Page<VentaCredito> findAllByClienteIdOrderByCreadoEnDesc(Long id, Pageable pageable);
+    public Page<VentaCredito> findAllByClienteIdOrderByCreadoEnDescIdDescSucursalIdDesc(Long id, Pageable pageable);
 
     @Query(value = "SELECT vc FROM VentaCredito vc " +
             "WHERE vc.cliente.id = (:clienteId) " +
             "AND (vc.estado = (:estado) or cast(:estado as com.franco.dev.domain.financiero.enums.EstadoVentaCredito) IS NULL) " +
             "AND (:cobro = true or (vc.creadoEn between cast(:fechaInicio as timestamp) and cast(:fechaFin as timestamp))) " +
             "AND (:cobro = false or (vc.fechaCobro between cast(:fechaInicio as timestamp) and cast(:fechaFin as timestamp))) " +
-            "ORDER BY vc.creadoEn DESC")
+            "ORDER BY vc.creadoEn DESC, vc.id DESC, vc.sucursalId DESC")
     List<VentaCredito> findAllWithDateAndFilters(
             @Param("clienteId") Long clienteId,
             @Param("fechaInicio") LocalDateTime fechaInicio,
@@ -49,7 +49,7 @@ public interface VentaCreditoRepository extends HelperRepository<VentaCredito, E
     @Query(value = "SELECT vc FROM VentaCredito vc " +
             "WHERE vc.cliente.id = (:clienteId) " +
             "AND (vc.estado = (:estado) or cast(:estado as com.franco.dev.domain.financiero.enums.EstadoVentaCredito) IS NULL) " +
-            "ORDER BY vc.creadoEn DESC")
+            "ORDER BY vc.creadoEn DESC, vc.id DESC, vc.sucursalId DESC")
     List<VentaCredito> findAllWithFilters(
             @Param("clienteId") Long clienteId,
             @Param("estado") EstadoVentaCredito estado

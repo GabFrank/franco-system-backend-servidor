@@ -68,7 +68,7 @@ public interface VentaTarjetaRepository extends HelperRepository<VentaTarjeta, E
             "AND (:estado IS NULL OR vt.estado = :estado) " +
             "AND (cast(:fechaDesde as timestamp) IS NULL OR vt.creadoEn >= :fechaDesde) " +
             "AND (cast(:fechaHasta as timestamp) IS NULL OR vt.creadoEn <= :fechaHasta) " +
-            "ORDER BY vt.creadoEn DESC",
+            "ORDER BY vt.creadoEn DESC, vt.id DESC, vt.sucursalId DESC",
             countQuery = "SELECT COUNT(vt) FROM VentaTarjeta vt " +
             "WHERE (:id IS NULL OR vt.id = :id) " +
             "AND (:ventaId IS NULL OR vt.venta.id = :ventaId) " +
@@ -98,7 +98,7 @@ public interface VentaTarjetaRepository extends HelperRepository<VentaTarjeta, E
             "AND (:estado IS NULL OR vt.estado = :estado) " +
             "AND (cast(:fechaDesde as timestamp) IS NULL OR vt.creadoEn >= :fechaDesde) " +
             "AND (cast(:fechaHasta as timestamp) IS NULL OR vt.creadoEn <= :fechaHasta) " +
-            "ORDER BY vt.creadoEn DESC")
+            "ORDER BY vt.creadoEn DESC, vt.id DESC, vt.sucursalId DESC")
     List<VentaTarjeta> filterVentaTarjetaList(
             @Param("id") Long id,
             @Param("ventaId") Long ventaId,

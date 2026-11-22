@@ -17,7 +17,7 @@ public interface TipoVehiculoRepository extends HelperRepository<TipoVehiculo, L
     @Query("select t from TipoVehiculo t where CAST(t.id as text) like %?1% or UPPER(t.descripcion) like %?1%")
     public List<TipoVehiculo> findByAll(String texto);
 
-    @Query("select t from TipoVehiculo t where CAST(t.id as text) like %?1% or UPPER(t.descripcion) like %?1%")
+    @Query("select t from TipoVehiculo t where CAST(t.id as text) like %?1% or UPPER(t.descripcion) like %?1% order by t.id desc")
     public Page<TipoVehiculo> findByAllWithPage(String texto, Pageable pageable);
 
 }

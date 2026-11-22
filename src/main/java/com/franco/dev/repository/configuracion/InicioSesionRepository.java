@@ -20,9 +20,9 @@ public interface InicioSesionRepository extends HelperRepository<InicioSesion, E
     @Query("SELECT MAX(s.id) FROM InicioSesion s WHERE s.sucursalId = :sucursalId")
     Long findMaxId(@Param("sucursalId") Long sucursalId);
 
-    Page<InicioSesion> findByUsuarioIdAndHoraFinIsNullOrderByIdDesc(Long id, Pageable page);
+    Page<InicioSesion> findByUsuarioIdAndHoraFinIsNullOrderByIdDescSucursalIdDesc(Long id, Pageable page);
 
-    Page<InicioSesion> findByUsuarioIdAndSucursalIdAndHoraFinIsNullOrderByIdDesc(Long id, Long sucId, Pageable page);
+    Page<InicioSesion> findByUsuarioIdAndSucursalIdAndHoraFinIsNullOrderByIdDescSucursalIdDesc(Long id, Long sucId, Pageable page);
 
     List<InicioSesion> findByUsuarioIdInAndHoraFinIsNullOrderByIdDesc(Collection<Long> usuarioIds);
 

@@ -31,7 +31,7 @@ public interface JornadaRepository extends HelperRepository<Jornada, EmbebedPrim
      * ultimas veinte hace que el costo de abrir la pantalla crezca con la
      * antiguedad del empleado.
      */
-    List<Jornada> findByUsuarioIdOrderByFechaDescIdDesc(Long usuarioId, Pageable pageable);
+    List<Jornada> findByUsuarioIdOrderByFechaDescIdDescSucursalIdDesc(Long usuarioId, Pageable pageable);
 
     /**
      * De la llegada mas reciente a la mas vieja: por dia y, dentro del dia, por la hora de entrada
@@ -41,13 +41,13 @@ public interface JornadaRepository extends HelperRepository<Jornada, EmbebedPrim
      */
     @Query("SELECT j FROM Jornada j LEFT JOIN j.marcacionEntrada me WHERE j.usuario.id = ?1 " +
             "AND cast(j.fecha as date) >= cast(?2 as date) AND cast(j.fecha as date) <= cast(?3 as date) " +
-            "ORDER BY j.fecha DESC, COALESCE(me.fechaEntrada, me.fechaSalida) DESC NULLS LAST, j.id DESC")
+            "ORDER BY j.fecha DESC, COALESCE(me.fechaEntrada, me.fechaSalida) DESC NULLS LAST, j.id DESC, j.sucursalId DESC")
     List<Jornada> findByUsuarioIdAndFechaRange(Long usuarioId, String fechaInicio, String fechaFin);
 
     /** Mismo orden que {@link #findByUsuarioIdAndFechaRange}. */
     @Query("SELECT j FROM Jornada j LEFT JOIN j.marcacionEntrada me " +
             "WHERE cast(j.fecha as date) >= cast(?1 as date) AND cast(j.fecha as date) <= cast(?2 as date) " +
-            "ORDER BY j.fecha DESC, COALESCE(me.fechaEntrada, me.fechaSalida) DESC NULLS LAST, j.id DESC")
+            "ORDER BY j.fecha DESC, COALESCE(me.fechaEntrada, me.fechaSalida) DESC NULLS LAST, j.id DESC, j.sucursalId DESC")
     List<Jornada> findByFechaRange(String fechaInicio, String fechaFin);
 
     String FILTRO_HISTORIAL = "FROM Jornada j LEFT JOIN j.marcacionEntrada me LEFT JOIN j.marcacionSalida ms " +
@@ -64,7 +64,7 @@ public interface JornadaRepository extends HelperRepository<Jornada, EmbebedPrim
      * parametro nulo en un {@code :x IS NULL} y rechaza la consulta.
      */
     @Query(value = "SELECT j " + FILTRO_HISTORIAL +
-            "ORDER BY j.fecha DESC, COALESCE(me.fechaEntrada, me.fechaSalida) DESC NULLS LAST, j.id DESC",
+            "ORDER BY j.fecha DESC, COALESCE(me.fechaEntrada, me.fechaSalida) DESC NULLS LAST, j.id DESC, j.sucursalId DESC",
             countQuery = "SELECT COUNT(j) " + FILTRO_HISTORIAL)
     Page<Jornada> findHistorial(@Param("fechaInicio") String fechaInicio, @Param("fechaFin") String fechaFin,
             @Param("porUsuario") boolean porUsuario, @Param("usuarioId") Long usuarioId,

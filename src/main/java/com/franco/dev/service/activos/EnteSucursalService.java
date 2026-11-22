@@ -37,10 +37,10 @@ public class EnteSucursalService extends CrudService<EnteSucursal, EnteSucursalR
         return repository.findByEnteIdAndSucursalId(enteId, sucursalId);
     }
 
-    public Page<EnteSucursal> findAllWithFilters(String texto, Long sucursalId, TipoEnte tipoEnte, Long responsableId, int page, int size) {
+    public Page<EnteSucursal> findAllWithFilters(String texto, Long sucursalId, TipoEnte tipoEnte, Long responsableId, Long enteId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         String formattedText = (texto != null && !texto.trim().isEmpty()) ? "%" + texto.trim().toLowerCase() + "%" : null;
-        return repository.findAllWithFilters(formattedText, sucursalId, tipoEnte, responsableId, pageable);
+        return repository.findAllWithFilters(formattedText, sucursalId, tipoEnte, responsableId, enteId, pageable);
     }
 
     @Override

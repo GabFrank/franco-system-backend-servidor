@@ -42,7 +42,7 @@ public class OperacionFinancieraService {
     private final com.franco.dev.repository.financiero.CajaVirtualConfiguracionRepository cajaConfiguracionRepository;
 
     public Page<OperacionFinanciera> findAll(Pageable pageable) {
-        return repository.findAllByOrderByCreadoEnDesc(pageable);
+        return repository.findAllByOrderByCreadoEnDescIdDesc(pageable);
     }
 
     private void req(boolean cond, String msg) { if (!cond) throw new GraphQLException(msg); }

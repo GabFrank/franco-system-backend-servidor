@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -78,17 +79,20 @@ public class NotaRecepcionItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         if (filtroVerificacion == null) filtroVerificacion = FiltroVerificacion.TODOS;
         
         Pageable pageable = PageRequest.of(page, size);
+        // Las tres consultas por estado no tienen ORDER BY: sin orden, al pasar de pagina los items
+        // salian repetidos o no salian (#674). Se ordenan por id, como la de TODOS (nativa).
+        Pageable porId = PageRequest.of(page, size, Sort.by("id"));
         
         switch (filtroVerificacion) {
             case PENDIENTES:
                 return service.findByNotaRecepcionIdAndSucursalesIdsAndNoVerificados(
-                    notaRecepcionId, sucursalesIds, filtroTexto, pageable);
+                    notaRecepcionId, sucursalesIds, filtroTexto, porId);
             case VERIFICADOS:
                 return service.findByNotaRecepcionIdAndSucursalesIdsAndVerificados(
-                    notaRecepcionId, sucursalesIds, filtroTexto, pageable);
+                    notaRecepcionId, sucursalesIds, filtroTexto, porId);
             case RECHAZADOS:
                 return service.findByNotaRecepcionIdAndSucursalesIdsAndRechazados(
-                    notaRecepcionId, sucursalesIds, filtroTexto, pageable);
+                    notaRecepcionId, sucursalesIds, filtroTexto, porId);
             case TODOS:
             default:
                 return service.findByNotaRecepcionIdAndSucursalesIds(

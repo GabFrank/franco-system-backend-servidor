@@ -59,7 +59,7 @@ public class ProductosVencidosService {
         aplicarParametros(countQuery, params);
         long total = ((Number) countQuery.getSingleResult()).longValue();
 
-        String paginatedSql = sqlBase + " ORDER BY vencimiento DESC LIMIT :pageSize OFFSET :pageOffset";
+        String paginatedSql = sqlBase + " ORDER BY vencimiento DESC, sucursal_id, presentacion_id LIMIT :pageSize OFFSET :pageOffset";
         Query dataQuery = entityManager.createNativeQuery(paginatedSql);
         aplicarParametros(dataQuery, params);
         dataQuery.setParameter("pageSize", pageable.getPageSize());
@@ -101,7 +101,7 @@ public class ProductosVencidosService {
                 startDate, endDate, sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList,
                 fuenteVerdadList, soloRealmenteVencidos);
 
-        String sql = construirSqlBase(filtros) + " ORDER BY sucursal_nombre ASC, vencimiento ASC LIMIT :limite";
+        String sql = construirSqlBase(filtros) + " ORDER BY sucursal_nombre ASC, vencimiento ASC, sucursal_id, presentacion_id LIMIT :limite";
         Query dataQuery = entityManager.createNativeQuery(sql);
         aplicarParametros(dataQuery, filtros.parametros());
         dataQuery.setParameter("limite", limite);

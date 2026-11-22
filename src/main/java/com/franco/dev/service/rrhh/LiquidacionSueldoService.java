@@ -51,7 +51,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
             Integer page, Integer size) {
         int pagina = page != null && page >= 0 ? page : 0;
         int tamano = size != null && size > 0 ? size : 12;
-        return repository.findByFuncionarioIdAndEstadoOrderByPeriodoDesc(
+        return repository.findByFuncionarioIdAndEstadoOrderByPeriodoDescIdDesc(
                 funcionarioId, estado, org.springframework.data.domain.PageRequest.of(pagina, tamano));
     }
 

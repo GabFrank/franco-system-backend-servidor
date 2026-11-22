@@ -47,7 +47,7 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
                         "upper(p.nombre) like concat('%', :texto, '%') or " +
                         "exists (select usr.id from Usuario usr where usr.persona = p and " +
                         "upper(usr.nickname) like concat('%', :texto, '%'))) " +
-                        "order by p.nombre")
+                        "order by p.nombre, f.id")
         public Page<Funcionario> searchPage(@Param("texto") String texto, @Param("soloActivos") boolean soloActivos,
                         Pageable pageable);
 
@@ -68,7 +68,7 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
                         "join f.persona p " +
                         "where f.sueldo is not null and f.sueldo > 0 and f.sueldo < ?1 " +
                         "and f.activo = true " +
-                        "order by p.nombre")
+                        "order by p.nombre, f.id")
         public List<Funcionario> findConSueldoMenorA(java.math.BigDecimal monto);
         // FlushMode COMMIT: en el path de update la entity está managed y sucia con el
         // nuevo 'activo'. Sin este hint Hibernate auto-flushea antes de la consulta (el
@@ -101,7 +101,7 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
                         "(cast(:cobraBanco as boolean) is null or coalesce(u.cobraBanco, false) = :cobraBanco) and " +
                         // null cae en "No", igual que lo muestra el legajo ("Inscripto en IPS").
                         "(cast(:ipsActivo as boolean) is null or coalesce(u.ipsActivo, false) = :ipsActivo) " +
-                        "order by p.nombre")
+                        "order by p.nombre, u.id")
         public Page<Funcionario> findAllWithFilterAndPage(
                         @Param("id") Long id,
                         @Param("nombre") String nombre,

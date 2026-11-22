@@ -2,10 +2,14 @@ package com.franco.dev.service;
 
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ResolvableType;
 import org.springframework.core.env.Environment;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import javax.persistence.IdClass;
 import javax.transaction.Transactional;
 import java.util.List;
 import java.util.Optional;
@@ -20,8 +24,31 @@ public abstract class CrudService<T, Repository extends HelperRepository<T, S>, 
     public static final Logger log = Logger.getLogger(String.valueOf(CrudService.class));
     @Autowired
     public Environment env;
+    /**
+     * Las entidades con PK (id, sucursal_id) repiten el id entre sucursales: ordenadas solo por id, al
+     * pasar de pagina las filas con el mismo id salian repetidas o no salian (#674). En esas el orden
+     * termina en la sucursal; en las demas queda findAllByOrderByIdAsc, como siempre.
+     */
+    static final Sort ORDEN_PK_COMPUESTA = Sort.by("id", "sucursalId");
+
+    private Boolean pkCompuesta;
+
     public List<T> findAll(Pageable pageable) {
+        if (tienePkCompuesta()) {
+            Pageable conSucursal = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                    ORDEN_PK_COMPUESTA.and(pageable.getSort()));
+            return getRepository().findAll(conSucursal).getContent();
+        }
         return (List<T>) getRepository().findAllByOrderByIdAsc(pageable);
+    }
+
+    /** true si la entidad del servicio se identifica por (id, sucursal_id), con {@code @IdClass}. */
+    boolean tienePkCompuesta() {
+        if (pkCompuesta == null) {
+            Class<?> entidad = ResolvableType.forClass(getClass()).as(CrudService.class).getGeneric(0).resolve();
+            pkCompuesta = entidad != null && entidad.isAnnotationPresent(IdClass.class);
+        }
+        return pkCompuesta;
     }
 
     public List<T> findAll2() {

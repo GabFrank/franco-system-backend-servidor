@@ -29,7 +29,7 @@ public interface LoteDERepository extends HelperRepository<LoteDE, EmbebedPrimar
            "(l.estado = :estado OR cast(:estado as com.franco.dev.domain.financiero.enums.EstadoLoteDE) IS NULL) AND " +
            "(l.fechaProcesado >= :fechaInicio OR cast(:fechaInicio as timestamp) IS NULL) AND " +
            "(l.fechaProcesado <= :fechaFin OR cast(:fechaFin as timestamp) IS NULL) " +
-           "ORDER BY l.id ASC")
+           "ORDER BY l.id ASC, l.sucursalId ASC")
     Page<LoteDE> findByEstadoOrFechaProcesadoBetween(
         @Param("estado") EstadoLoteDE estado,
         @Param("fechaInicio") LocalDateTime fechaInicio,

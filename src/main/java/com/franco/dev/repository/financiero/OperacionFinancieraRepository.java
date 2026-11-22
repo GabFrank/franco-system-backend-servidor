@@ -12,7 +12,7 @@ import javax.persistence.LockModeType;
 import java.util.Optional;
 
 public interface OperacionFinancieraRepository extends JpaRepository<OperacionFinanciera, Long> {
-    Page<OperacionFinanciera> findAllByOrderByCreadoEnDesc(Pageable pageable);
+    Page<OperacionFinanciera> findAllByOrderByCreadoEnDescIdDesc(Pageable pageable);
 
     /** Toma la operacion con lock pesimista: serializa dos anulaciones simultaneas de la misma. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)

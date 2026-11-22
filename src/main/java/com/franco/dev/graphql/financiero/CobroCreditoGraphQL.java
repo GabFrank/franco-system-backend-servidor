@@ -24,7 +24,7 @@ public class CobroCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     public Page<MovimientoCliente> movimientosCliente(Long clienteId, int page, int size) {
         seg.requireVer();
-        return movimientoClienteRepository.findByClienteIdOrderByCreadoEnDesc(clienteId, PageRequest.of(page, size));
+        return movimientoClienteRepository.findByClienteIdOrderByCreadoEnDescIdDesc(clienteId, PageRequest.of(page, size));
     }
 
     public VentaCreditoCuota cobrarCuotaCreditoBanco(Long cuotaId, Long sucursalId, Double montoCobrar,

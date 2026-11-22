@@ -22,7 +22,7 @@ public interface CodigoRepository extends HelperRepository<Codigo, Long> {
             "WHERE UPPER(c.codigo) LIKE CONCAT(UPPER(?1), '%') " +
             "AND (c.activo IS NULL OR c.activo = true) " +
             "GROUP BY pr.producto_id " +
-            "ORDER BY MIN(LENGTH(c.codigo)) ASC " +
+            "ORDER BY MIN(LENGTH(c.codigo)) ASC, pr.producto_id ASC " +
             "LIMIT ?2", nativeQuery = true)
     List<Long> findProductoIdsByCodigoPrefijo(String prefijo, int limite);
 
@@ -44,7 +44,7 @@ public interface CodigoRepository extends HelperRepository<Codigo, Long> {
             "  WHEN UPPER(c.codigo) LIKE CONCAT(UPPER(?1), '%') THEN 1 " +
             "  WHEN UPPER(c.codigo) LIKE CONCAT('%', UPPER(?1)) THEN 2 " +
             "  ELSE 3 END) ASC, " +
-            "MIN(LENGTH(c.codigo)) ASC " +
+            "MIN(LENGTH(c.codigo)) ASC, pr.producto_id ASC " +
             "LIMIT ?2", nativeQuery = true)
     List<Long> findProductoIdsByCodigoCoincidencia(String fragmento, int limite);
 

@@ -135,7 +135,7 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
 
         int p = (page == null || page < 0) ? 0 : page;
         int s = (size == null || size <= 0) ? 20 : size;
-        Pageable pageable = PageRequest.of(p, s, Sort.by(Sort.Direction.DESC, "notificacion.creadoEn"));
+        Pageable pageable = PageRequest.of(p, s, Sort.by(Sort.Direction.DESC, "notificacion.creadoEn", "id"));
 
         java.time.LocalDateTime fechaInicioLdt = null;
         java.time.LocalDateTime fechaFinLdt = null;

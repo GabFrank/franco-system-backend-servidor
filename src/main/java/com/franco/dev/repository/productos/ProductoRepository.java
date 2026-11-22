@@ -27,7 +27,7 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
         @Query(value = "SELECT p.id FROM productos.producto p " +
                         "WHERE UPPER(p.descripcion) LIKE CONCAT('%', UPPER(?1), '%') " +
                         "OR UPPER(p.descripcion_factura) LIKE CONCAT('%', UPPER(?1), '%') " +
-                        "ORDER BY p.descripcion ASC " +
+                        "ORDER BY p.descripcion ASC, p.id ASC " +
                         "LIMIT ?2", nativeQuery = true)
         List<Long> findIdsByDescripcionLike(String texto, int limite);
 
@@ -49,7 +49,7 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         "and EXISTS (SELECT 1 FROM productos.presentacion p3 WHERE p3.producto_id = p.id AND p3.activo = true) "
                         +
                         "and (:conStock = 'false' OR (COALESCE(st.stock_actual, 0) > 0)) " +
-                        "ORDER BY p.descripcion asc " +
+                        "ORDER BY p.descripcion asc, p.id asc " +
                         "limit 10 " +
                         "offset :offset", nativeQuery = true)
         public List<Producto> findbyAll(
@@ -111,7 +111,7 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         "left outer join productos.codigo c on c.presentacion_id = p2.id  " +
                         "where p.is_envase = true and (CAST(p.id as text) like CONCAT('%', ?1, '%') or UPPER(p.descripcion) like CONCAT('%', UPPER(?1), '%')) "
                         +
-                        "ORDER BY p.descripcion asc  " +
+                        "ORDER BY p.descripcion asc, p.id asc " +
                         "limit 10 " +
                         "offset ?2", nativeQuery = true)
         public List<Producto> findEnvases(String texto, int offset, Boolean isEnvase);

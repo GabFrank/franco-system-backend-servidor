@@ -187,9 +187,9 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
 
     public Page<InicioSesion> findByUsuarioIdAndHoraFinIsNul(Long id, Long sucId, Pageable pageable) {
         if (sucId != null) {
-            return repository.findByUsuarioIdAndSucursalIdAndHoraFinIsNullOrderByIdDesc(id, sucId, pageable);
+            return repository.findByUsuarioIdAndSucursalIdAndHoraFinIsNullOrderByIdDescSucursalIdDesc(id, sucId, pageable);
         } else {
-            return repository.findByUsuarioIdAndHoraFinIsNullOrderByIdDesc(id, pageable);
+            return repository.findByUsuarioIdAndHoraFinIsNullOrderByIdDescSucursalIdDesc(id, pageable);
         }
     }
 

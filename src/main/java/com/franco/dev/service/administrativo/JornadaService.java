@@ -39,7 +39,7 @@ public class JornadaService extends CrudService<Jornada, JornadaRepository, Embe
     public List<Jornada> findByUsuarioId(Long usuarioId, Integer page, Integer size) {
         int pagina = page != null && page >= 0 ? page : 0;
         int tamano = size != null && size > 0 ? size : 20;
-        return repository.findByUsuarioIdOrderByFechaDescIdDesc(
+        return repository.findByUsuarioIdOrderByFechaDescIdDescSucursalIdDesc(
                 usuarioId, PageRequest.of(pagina, tamano));
     }
 

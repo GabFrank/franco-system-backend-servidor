@@ -29,7 +29,7 @@ public class LiquidacionConceptoService extends CrudService<LiquidacionConcepto,
      * de siempre (haberes primero, por descripción) con el código como desempate determinista.
      */
     static final Sort ORDEN = Sort.by(Sort.Order.asc("numero"), Sort.Order.desc("esHaber"),
-            Sort.Order.asc("descripcion"), Sort.Order.asc("codigo"));
+            Sort.Order.asc("descripcion"), Sort.Order.asc("codigo"), Sort.Order.asc("id"));
 
     /** Los que se ofrecen en el select de item manual. Ver el repositorio. */
     public java.util.List<LiquidacionConcepto> findParaItemManual() {

@@ -51,7 +51,7 @@ public class ProveedorServicioGraphQL implements GraphQLQueryResolver, GraphQLMu
     }
 
     public Page<ProveedorServicio> proveedorServicioSearchPage(String texto, Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("persona.nombre"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by("persona.nombre", "id"));
         if (texto == null || texto.trim().isEmpty()) {
             return service.getRepository().findAll(pageable);
         }

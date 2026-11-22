@@ -20,7 +20,7 @@ public interface ColectaDevolucionRepository extends HelperRepository<ColectaDev
            "AND (cast(:sucursalDestinoId as long) IS NULL OR c.sucursalDestino.id = :sucursalDestinoId) " +
            "AND (cast(:fechaInicio as timestamp) IS NULL OR c.fecha >= :fechaInicio) " +
            "AND (cast(:fechaFin as timestamp) IS NULL OR c.fecha <= :fechaFin) " +
-           "ORDER BY c.fecha DESC")
+           "ORDER BY c.fecha DESC, c.id DESC")
     Page<ColectaDevolucion> findByFilters(
             @Param("sucursalOrigenId") Long sucursalOrigenId,
             @Param("sucursalDestinoId") Long sucursalDestinoId,

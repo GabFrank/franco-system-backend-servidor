@@ -39,7 +39,7 @@ public interface RrhhAlcanceRepository extends Repository<Funcionario, Long> {
     @Query("select f from Funcionario f where f.sucursal.id in :sucursalIds "
             + "and (:texto is null or upper(f.persona.nombre) like upper(concat('%', :texto, '%'))) "
             + "and (:soloActivos = false or f.activo = true) "
-            + "order by f.persona.nombre")
+            + "order by f.persona.nombre, f.id")
     List<Funcionario> buscarFuncionarios(@Param("sucursalIds") List<Long> sucursalIds,
                                          @Param("texto") String texto,
                                          @Param("soloActivos") boolean soloActivos,

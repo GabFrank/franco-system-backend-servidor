@@ -47,7 +47,7 @@ public interface VentaItemRepository extends HelperRepository<VentaItem, Embebed
                         "AND v.creadoEn BETWEEN :inicio AND :fin " +
                         "AND v.estado = 'CONCLUIDA' " +
                         "GROUP BY p.id, p.descripcion " +
-                        "ORDER BY SUM(vi.cantidad) DESC")
+                        "ORDER BY SUM(vi.cantidad) DESC, p.id ASC")
         List<java.lang.Object> findTopProductoByUsuario(
                         @org.springframework.data.repository.query.Param("usuarioId") Long usuarioId,
                         @org.springframework.data.repository.query.Param("inicio") java.time.LocalDateTime inicio,

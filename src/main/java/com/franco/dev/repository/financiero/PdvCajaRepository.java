@@ -42,7 +42,7 @@ public interface PdvCajaRepository extends HelperRepository<PdvCaja, Long>, JpaS
 
     Optional<PdvCaja> findFirstByMaletinIdOrderByCreadoEnDesc(Long id);
 
-    List<PdvCaja> findByUsuarioIdOrderByIdDesc(Long id, Pageable pageable);
+    List<PdvCaja> findByUsuarioIdOrderByIdDescSucursalIdDesc(Long id, Pageable pageable);
 
     Boolean deleteByIdAndSucursalId(Long id, Long sucId);
 
@@ -63,7 +63,7 @@ public interface PdvCajaRepository extends HelperRepository<PdvCaja, Long>, JpaS
             "((:desde = 0 and :hasta = 1440) or (" +
             "mod(cast(hour(function('timezone', :zona, c.creadoEn)) as integer) * 60 + cast(minute(function('timezone', :zona, c.creadoEn)) as integer) + :offset, 1440) >= :desde and " +
             "mod(cast(hour(function('timezone', :zona, c.creadoEn)) as integer) * 60 + cast(minute(function('timezone', :zona, c.creadoEn)) as integer) + :offset, 1440) < :hasta)) " +
-            "order by c.creadoEn desc")
+            "order by c.creadoEn desc, c.id desc, c.sucursalId desc")
     public Page<PdvCaja> findAllWithFilters(Long cajaId, Long maletinId, Long cajeroId, LocalDateTime fechaInicio, LocalDateTime fechaFin, Long sucId, Boolean verificado, Boolean activo, String zona, int offset, int desde, int hasta, Pageable pageable);
 
     List<PdvCaja> findBySucursalIdAndActivo(Long sucursalId, Boolean activo);

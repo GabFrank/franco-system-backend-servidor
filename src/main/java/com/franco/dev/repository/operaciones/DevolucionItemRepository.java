@@ -58,7 +58,7 @@ public interface DevolucionItemRepository extends HelperRepository<DevolucionIte
            "FROM DevolucionItem di JOIN di.devolucion d JOIN di.producto p " +
            "WHERE d.fecha >= :fechaInicio AND d.fecha <= :fechaFin " +
            "AND (cast(:sucursalId as long) IS NULL OR d.sucursalOrigen.id = :sucursalId) " +
-           "GROUP BY p.id, p.descripcion ORDER BY SUM(di.cantidad) DESC")
+           "GROUP BY p.id, p.descripcion ORDER BY SUM(di.cantidad) DESC, p.id ASC")
     List<TopProductoDevueltoDto> topProductos(@Param("fechaInicio") LocalDateTime fechaInicio,
                                               @Param("fechaFin") LocalDateTime fechaFin,
                                               @Param("sucursalId") Long sucursalId,
@@ -69,7 +69,7 @@ public interface DevolucionItemRepository extends HelperRepository<DevolucionIte
            "FROM DevolucionItem di JOIN di.devolucion d JOIN di.motivoAveria m " +
            "WHERE d.fecha >= :fechaInicio AND d.fecha <= :fechaFin " +
            "AND (cast(:sucursalId as long) IS NULL OR d.sucursalOrigen.id = :sucursalId) " +
-           "GROUP BY m.id, m.descripcion ORDER BY COUNT(di) DESC")
+           "GROUP BY m.id, m.descripcion ORDER BY COUNT(di) DESC, m.id ASC")
     List<TopMotivoDevolucionDto> topMotivos(@Param("fechaInicio") LocalDateTime fechaInicio,
                                             @Param("fechaFin") LocalDateTime fechaFin,
                                             @Param("sucursalId") Long sucursalId,
@@ -81,7 +81,7 @@ public interface DevolucionItemRepository extends HelperRepository<DevolucionIte
            "FROM DevolucionItem di JOIN di.devolucion d JOIN d.proveedor prov JOIN prov.persona per " +
            "WHERE d.fecha >= :fechaInicio AND d.fecha <= :fechaFin " +
            "AND (cast(:sucursalId as long) IS NULL OR d.sucursalOrigen.id = :sucursalId) " +
-           "GROUP BY prov.id, per.nombre ORDER BY COUNT(DISTINCT d.id) DESC")
+           "GROUP BY prov.id, per.nombre ORDER BY COUNT(DISTINCT d.id) DESC, prov.id ASC")
     List<TopProveedorDevolucionDto> topProveedores(@Param("fechaInicio") LocalDateTime fechaInicio,
                                                    @Param("fechaFin") LocalDateTime fechaFin,
                                                    @Param("sucursalId") Long sucursalId,

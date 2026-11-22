@@ -123,12 +123,17 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         return res;
     }
 
-    public CustomPage<EnteSucursal> enteSucursalSearchPage(String texto, Long sucursalId, TipoEnte tipoEnte, Long responsableId, Integer page, Integer size) {
+    /**
+     * {@code enteId} filtra por el bien elegido en el buscador (#774). Antes la pantalla mandaba la descripcion del
+     * bien como texto, pero la que se muestra ("Chapa: BNL515") no es la guardada ("VEHÍCULO - BNL515") y nunca
+     * coincidia.
+     */
+    public CustomPage<EnteSucursal> enteSucursalSearchPage(String texto, Long sucursalId, TipoEnte tipoEnte, Long responsableId, Integer page, Integer size, Long enteId) {
         int p = (page == null || page < 0) ? 0 : page;
         int s = (size == null || size <= 0) ? 15 : size;
 
         Pageable pageable = PageRequest.of(p, s);
-        Page<EnteSucursal> pageResult = enteSucursalService.findAllWithFilters(texto, sucursalId, tipoEnte, responsableId, p, s);
+        Page<EnteSucursal> pageResult = enteSucursalService.findAllWithFilters(texto, sucursalId, tipoEnte, responsableId, enteId, p, s);
         pageResult.getContent().forEach(a -> {
             if (a.getEnte() != null) consultaService.populateTransientFields(a.getEnte());
         });

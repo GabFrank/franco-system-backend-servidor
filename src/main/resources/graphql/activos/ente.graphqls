@@ -98,7 +98,7 @@ extend type Query {
     enteSucursal(id: ID!): EnteSucursal
     entesSucursalesByEnteId(enteId: ID!): [EnteSucursal]
     entesSucursalesBySucursalId(sucursalId: ID!): [EnteSucursal]
-    enteSucursalSearchPage(texto: String, sucursalId: ID, tipoEnte: TipoEnte, responsableId: ID, page: Int, size: Int): EnteSucursalPage
+    enteSucursalSearchPage(texto: String, sucursalId: ID, tipoEnte: TipoEnte, responsableId: ID, page: Int, size: Int, enteId: ID): EnteSucursalPage
 }
 
 extend type Mutation {

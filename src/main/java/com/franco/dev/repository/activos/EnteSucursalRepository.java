@@ -34,6 +34,7 @@ public interface EnteSucursalRepository extends HelperRepository<EnteSucursal, L
             "(:sucursalId is null or s.id = :sucursalId) and " +
             "(:tipoEnte is null or e.tipoEnte = :tipoEnte) and " +
             "(:responsableId is null or r.id = :responsableId) and " +
+            "(:enteId is null or e.id = :enteId) and " +
             "(:texto is null or cast(es.id as text) like :texto or " +
             "lower(e.descripcion) like :texto or " +
             "lower(s.nombre) like :texto or " +
@@ -44,6 +45,7 @@ public interface EnteSucursalRepository extends HelperRepository<EnteSucursal, L
             "(:sucursalId is null or s.id = :sucursalId) and " +
             "(:tipoEnte is null or e.tipoEnte = :tipoEnte) and " +
             "(:responsableId is null or r.id = :responsableId) and " +
+            "(:enteId is null or e.id = :enteId) and " +
             "(:texto is null or cast(es.id as text) like :texto or " +
             "lower(e.descripcion) like :texto or " +
             "lower(s.nombre) like :texto or " +
@@ -52,5 +54,6 @@ public interface EnteSucursalRepository extends HelperRepository<EnteSucursal, L
                                           @Param("sucursalId") Long sucursalId,
                                           @Param("tipoEnte") TipoEnte tipoEnte,
                                           @Param("responsableId") Long responsableId,
+                                          @Param("enteId") Long enteId,
                                           Pageable pageable);
 }

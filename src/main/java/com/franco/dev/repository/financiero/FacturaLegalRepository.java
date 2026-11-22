@@ -51,14 +51,14 @@ public interface FacturaLegalRepository
                         "and (fl.sucursalId in :sucId) " +
                         "and (:nombre is null or fl.nombre like :nombre) " +
                         "and (:ruc is null or fl.ruc like :ruc) " +
-                        "order by fl.creadoEn")
+                        "order by fl.creadoEn, fl.id, fl.sucursalId")
         public Page<FacturaLegal> findByCreadoEnBetweenAndSucursalId(LocalDateTime inicio, LocalDateTime fin,
                         List<Long> sucId, String nombre, String ruc, Pageable pageable);
 
         @Query(value = "select fl from FacturaLegal fl where " +
                         "(fl.creadoEn between :inicio and :fin) " +
                         "and (fl.sucursalId in :sucId) " +
-                        "order by fl.creadoEn")
+                        "order by fl.creadoEn, fl.id, fl.sucursalId")
         public List<FacturaLegal> findByCreadoEnBetweenAndSucursalId(LocalDateTime inicio, LocalDateTime fin,
                         Long sucId);
 
@@ -209,7 +209,7 @@ public interface FacturaLegalRepository
     @Query("SELECT f FROM FacturaLegal f WHERE (:sucursalId IS NULL OR f.sucursalId = :sucursalId) "
             + "AND f.cdc IS NOT NULL AND (f.activo IS NULL OR f.activo = true) "
             + "AND (:numero IS NULL OR f.numeroFactura = :numero) "
-            + "ORDER BY f.numeroFactura DESC")
+            + "ORDER BY f.numeroFactura DESC, f.id DESC, f.sucursalId DESC")
     List<FacturaLegal> buscarCandidatasANotaCredito(@Param("sucursalId") Long sucursalId,
                                                     @Param("numero") Integer numero,
                                                     Pageable pageable);

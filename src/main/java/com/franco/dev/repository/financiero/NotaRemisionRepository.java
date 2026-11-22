@@ -72,7 +72,7 @@ public interface NotaRemisionRepository extends HelperRepository<NotaRemision, E
             + "(cast(:fechaInicio as timestamp) IS NULL OR n.fecha >= :fechaInicio) AND "
             + "(cast(:fechaFin as timestamp) IS NULL OR n.fecha <= :fechaFin) AND "
             + "n.activo = true "
-            + "ORDER BY n.fecha DESC, n.id DESC")
+            + "ORDER BY n.fecha DESC, n.id DESC, n.sucursalId DESC")
     Page<NotaRemision> findByFilters(
             @Param("sucursalId") Long sucursalId,
             @Param("fechaInicio") LocalDateTime fechaInicio,

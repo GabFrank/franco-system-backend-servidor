@@ -17,7 +17,7 @@ public interface TipoMuebleRepository extends HelperRepository<TipoMueble, Long>
     @Query("select t from TipoMueble t where CAST(t.id as text) like %?1% or UPPER(t.descripcion) like %?1%")
     List<TipoMueble> findByAll(String texto);
 
-    @Query("select t from TipoMueble t where CAST(t.id as text) like %?1% or UPPER(t.descripcion) like %?1%")
+    @Query("select t from TipoMueble t where CAST(t.id as text) like %?1% or UPPER(t.descripcion) like %?1% order by t.id desc")
     Page<TipoMueble> findByAllWithPage(String texto, Pageable pageable);
 
     List<TipoMueble> findByFamiliaMuebleId(Long familiaMuebleId);

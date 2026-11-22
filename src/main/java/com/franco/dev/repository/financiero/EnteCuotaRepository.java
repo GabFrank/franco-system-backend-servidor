@@ -23,7 +23,7 @@ public interface EnteCuotaRepository extends HelperRepository<EnteCuota, Long> {
 
     @Query(value = "select ec from EnteCuota ec where " +
             "(cast(:enteFinancieroId as long) is null or ec.enteFinanciero.id = :enteFinancieroId) " +
-            "order by ec.numeroCuota asc",
+            "order by ec.numeroCuota asc, ec.id asc",
             countQuery = "select count(ec) from EnteCuota ec where " +
             "(cast(:enteFinancieroId as long) is null or ec.enteFinanciero.id = :enteFinancieroId)")
     Page<EnteCuota> findAllByEnteFinancieroId(

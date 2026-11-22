@@ -29,7 +29,7 @@ public interface CostosPorProductoRepository extends HelperRepository<CostoPorPr
 
     @Query("SELECT cps FROM CostoPorProducto cps " +
             "WHERE cps.producto.id = :productoId " +
-            "ORDER BY cps.creadoEn DESC")
+            "ORDER BY cps.creadoEn DESC, cps.id DESC")
     List<CostoPorProducto> findLastByProductoId(@Param("productoId") Long productoId, Pageable pageable);
 
     @Query(value = "select * from productos.costo_por_producto cps " +

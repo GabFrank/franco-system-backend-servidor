@@ -74,20 +74,20 @@ public interface SolicitudPagoRepository extends HelperRepository<SolicitudPago,
            "JOIN sp.notasRecepcion spnr " +
            "JOIN spnr.notaRecepcion nr " +
            "WHERE nr.pedido.id = :pedidoId " +
-           "ORDER BY sp.fechaSolicitud DESC")
+           "ORDER BY sp.fechaSolicitud DESC, sp.id DESC")
     public List<SolicitudPago> findByPedidoId(@Param("pedidoId") Long pedidoId);
     
     @Query("SELECT DISTINCT sp FROM SolicitudPago sp " +
            "JOIN sp.notasRecepcion spnr " +
            "JOIN spnr.notaRecepcion nr " +
            "WHERE nr.pedido.id = :pedidoId " +
-           "ORDER BY sp.fechaSolicitud DESC")
+           "ORDER BY sp.fechaSolicitud DESC, sp.id DESC")
     public Page<SolicitudPago> findByPedidoIdPaginated(@Param("pedidoId") Long pedidoId, Pageable pageable);
     
     @Query("SELECT sp FROM SolicitudPago sp " +
            "WHERE sp.proveedor.id = :proveedorId " +
            "AND sp.estado = :estado " +
-           "ORDER BY sp.fechaSolicitud DESC")
+           "ORDER BY sp.fechaSolicitud DESC, sp.id DESC")
     public Page<SolicitudPago> findByProveedorIdAndEstado(@Param("proveedorId") Long proveedorId, 
                                                           @Param("estado") SolicitudPagoEstado estado, 
                                                           Pageable pageable);

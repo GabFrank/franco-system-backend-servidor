@@ -32,6 +32,7 @@ import graphql.schema.DataFetchingEnvironment;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -124,7 +125,9 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             List<Long> monedaIds) {
         exigirRolCompras();
         return solicitudPagoService.getRepository().findAll(
-                specCompras(proveedorId, estado, numero, fechaDesde, fechaHasta, monedaIds), PageRequest.of(page, size));
+                specCompras(proveedorId, estado, numero, fechaDesde, fechaHasta, monedaIds),
+                // La spec no ordena: la mas nueva primero, y paginas sin repetidos (#674).
+                PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id")));
     }
 
     /**

@@ -49,7 +49,7 @@ public interface EventoInutilizacionDERepository extends HelperRepository<Evento
            "(e.creadoEn >= :fechaInicio OR cast(:fechaInicio as timestamp) IS NULL) AND " +
            "(e.creadoEn <= :fechaFin OR cast(:fechaFin as timestamp) IS NULL) AND " +
            "(e.activo = true) " +
-           "ORDER BY e.creadoEn DESC")
+           "ORDER BY e.creadoEn DESC, e.id DESC")
     Page<EventoInutilizacionDE> findWithFilters(
             @Param("sucursalId") Long sucursalId,
             @Param("timbradoId") Long timbradoId,

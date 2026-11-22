@@ -249,7 +249,7 @@ public interface MovimientoStockLoteRepository
             "  AND (:sucursalId IS NULL OR msl.sucursal_id = :sucursalId) " +
             "  AND (:tipoMovimiento IS NULL " +
             "       OR CAST(ms.tipo_movimiento AS text) = :tipoMovimiento) " +
-            "ORDER BY msl.creado_en DESC, msl.id DESC",
+            "ORDER BY msl.creado_en DESC, msl.id DESC, msl.sucursal_id DESC",
             countQuery =
             "SELECT COUNT(*) FROM operaciones.movimiento_stock_lote msl " +
             "LEFT JOIN operaciones.movimiento_stock ms " +
@@ -318,7 +318,7 @@ public interface MovimientoStockLoteRepository
             "             OR UPPER(COALESCE(pc.nombre, '')) = 'SIN NOMBRE'))) " +
             "GROUP BY v.id, v.sucursal_id, s.nombre, v.creado_en, v.cliente_id, " +
             "         pc.nombre, pc.documento, pc.direccion " +
-            "ORDER BY v.creado_en DESC, v.id DESC",
+            "ORDER BY v.creado_en DESC, v.id DESC, v.sucursal_id DESC",
             countQuery =
             "SELECT COUNT(*) FROM (" +
             "  SELECT 1 FROM operaciones.movimiento_stock_lote msl " +

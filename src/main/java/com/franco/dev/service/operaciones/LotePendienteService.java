@@ -99,7 +99,7 @@ public class LotePendienteService {
         MapSqlParameterSource p = params(sucursalId, null, aInicio(desde), aFinExclusivo(hasta));
         p.addValue("limite", sz).addValue("offset", (long) pg * sz);
         List<PendienteLoteDto> filas = jdbc.query(SELECT + BASE +
-                "ORDER BY msl.creado_en DESC, msl.id DESC LIMIT :limite OFFSET :offset", p, (rs, n) -> map(rs));
+                "ORDER BY msl.creado_en DESC, msl.id DESC, msl.sucursal_id DESC LIMIT :limite OFFSET :offset", p, (rs, n) -> map(rs));
         Long total = jdbc.queryForObject("SELECT COUNT(*) " + BASE, p, Long.class);
         return new PendienteLotePageDto(filas, total, pg, sz);
     }

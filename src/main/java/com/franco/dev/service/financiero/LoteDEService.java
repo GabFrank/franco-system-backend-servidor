@@ -42,8 +42,8 @@ public class LoteDEService extends CrudService<LoteDE, LoteDERepository, Embebed
     }
 
     public List<LoteDE> findAll(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return repository.findAllByOrderByIdAsc(pageable);
+        // Por el findAll generico: LoteDE tiene PK (id, sucursal_id) y ordena por id + sucursal (#674).
+        return findAll(PageRequest.of(page, size));
     }
 
     public List<LoteDE> findLotesAntiguosProcesados(LocalDateTime fechaLimite) {

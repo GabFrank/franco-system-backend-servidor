@@ -537,7 +537,7 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
 
     public List<PdvCaja> findByUsuarioId(Long id, Integer page, Integer size) {
         Pageable pageable = Paginacion.of(page, size);
-        return repository.findByUsuarioIdOrderByIdDesc(id, pageable);
+        return repository.findByUsuarioIdOrderByIdDescSucursalIdDesc(id, pageable);
     }
 
     /** pdv_caja.estado no lo escribe nadie (NULL en todas): filtrar por el daba 0 filas sin avisar (filial #148). */
@@ -613,7 +613,7 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("maletin.id", "creadoEn").descending());
+        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("maletin.id", "creadoEn", "id", "sucursalId").descending());
         Page<PdvCaja> page = repository.findAll(spec, sortedPageable);
 
         List<PdvCaja> cajas = new ArrayList<>(page.getContent());

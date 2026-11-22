@@ -62,7 +62,7 @@ public interface RetiroCasoRepository extends JpaRepository<RetiroCaso, Long> {
             // "Solo los míos": en investigación son los asignados a uno; en resueltos, los que
             // uno cerró. Un único parámetro cubre las dos tabs sin lógica extra del lado del front.
             + "and (:usuarioId is null or c.asignadoA.id = :usuarioId or c.resueltoPor.id = :usuarioId) "
-            + "order by c.creadoEn desc")
+            + "order by c.creadoEn desc, c.id desc")
     Page<RetiroCaso> filter(@Param("estado") String estado,
                             @Param("sucursalId") Long sucursalId,
                             @Param("retiroId") Long retiroId,

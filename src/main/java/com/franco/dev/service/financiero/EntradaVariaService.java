@@ -32,7 +32,7 @@ public class EntradaVariaService {
     public Optional<EntradaVaria> findById(Long id) { return repository.findById(id); }
 
     public Page<EntradaVaria> findByCaja(Long cajaVirtualId, Pageable pageable) {
-        return repository.findByCajaVirtualIdOrderByCreadoEnDesc(cajaVirtualId, pageable);
+        return repository.findByCajaVirtualIdOrderByCreadoEnDescIdDesc(cajaVirtualId, pageable);
     }
 
     /** Registra la entrada/salida varia y su movimiento de caja. */

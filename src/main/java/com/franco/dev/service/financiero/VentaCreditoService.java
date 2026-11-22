@@ -77,9 +77,9 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
      */
     public Page<VentaCredito> findByClienteId(Long id, EstadoVentaCredito estado, Pageable pageable) {
         if (estado == null) {
-            return repository.findAllByClienteIdOrderByCreadoEnDesc(id, pageable);
+            return repository.findAllByClienteIdOrderByCreadoEnDescIdDescSucursalIdDesc(id, pageable);
         }
-        return repository.findAllByClienteIdAndEstadoOrderByCreadoEnDesc(id, estado, pageable);
+        return repository.findAllByClienteIdAndEstadoOrderByCreadoEnDescIdDescSucursalIdDesc(id, estado, pageable);
     }
 
     public List<VentaCredito> findWithFilters(Long id, LocalDateTime fechaInicio, LocalDateTime fechaFin,

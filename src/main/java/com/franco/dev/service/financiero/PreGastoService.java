@@ -185,7 +185,7 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         Pageable sorted = PageRequest.of(
                 pageable.getPageNumber(),
                 pageable.getPageSize(),
-                Sort.by(Sort.Direction.DESC, "id"));
+                Sort.by(Sort.Direction.DESC, "id", "sucursalId"));
         return repository.findAll(spec, sorted);
     }
 

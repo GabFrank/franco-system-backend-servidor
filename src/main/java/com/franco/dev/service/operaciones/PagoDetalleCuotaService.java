@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
@@ -72,7 +73,9 @@ public class PagoDetalleCuotaService extends CrudService<PagoDetalleCuota, PagoD
         LocalDateTime fechaDesdeDate = fechaDesde != null ? stringToDate(fechaDesde) : null;
         LocalDateTime fechaHastaDate = fechaHasta != null ? stringToDate(fechaHasta) : null;
         
-        Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : 10);
+        // La spec no ordena: la mas nueva primero, y paginas sin repetidos (#674).
+        Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : 10,
+                Sort.by(Sort.Direction.DESC, "id"));
         
         Specification<PagoDetalleCuota> spec = PagoDetalleCuotaSpecification.withFilters(
                 estado, 

@@ -20,6 +20,7 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
@@ -74,7 +75,8 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
             String texto = "%" + numero + "%";
             return service.findByPedidoIdAndNumero(id, texto, pageable);
         } else {
-            return service.findByPedidoId(id, pageable);
+            // La derivada no tiene orden: mismo orden que la busqueda por numero (#674).
+            return service.findByPedidoId(id, Paginacion.of(page, size, Sort.by(Sort.Direction.DESC, "id")));
         }
     }
 

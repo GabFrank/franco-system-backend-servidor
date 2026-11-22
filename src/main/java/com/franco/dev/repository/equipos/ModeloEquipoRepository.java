@@ -24,7 +24,7 @@ public interface ModeloEquipoRepository extends HelperRepository<ModeloEquipo, L
     Page<ModeloEquipo> findByAllWithPage(String texto, Pageable pageable);
 
     @Query("select m from ModeloEquipo m where m.marca.id = ?1 and " +
-            "(CAST(m.id as text) like %?2% or UPPER(m.descripcion) like %?2%)")
+            "(CAST(m.id as text) like %?2% or UPPER(m.descripcion) like %?2%) order by m.id desc")
     Page<ModeloEquipo> findByMarcaIdAndTexto(Long marcaId, String texto, Pageable pageable);
 
     List<ModeloEquipo> findByMarcaId(Long marcaId);

@@ -27,7 +27,7 @@ public interface TelemetriaRepository extends HelperRepository<Telemetria, Long>
     @Query("SELECT t FROM Telemetria t WHERE t.dispositivo.id = :dispositivoId " +
             "AND t.fechaGps >= :fechaInicio " +
             "AND t.fechaGps <= :fechaFin " +
-            "ORDER BY t.fechaGps DESC")
+            "ORDER BY t.fechaGps DESC, t.id DESC")
     Page<Telemetria> findByDispositivoIdAndFechaGpsBetween(Long dispositivoId, LocalDateTime fechaInicio,
             LocalDateTime fechaFin, Pageable pageable);
 

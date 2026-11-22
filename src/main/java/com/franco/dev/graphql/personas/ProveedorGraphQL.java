@@ -97,7 +97,7 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
 
     /** activo: true (por defecto en el schema) solo activos, false solo inactivos, null todos. */
     public Page<Proveedor> proveedorSearchByPersonaPage(String texto, Integer page, Integer size, Boolean activo) {
-        Pageable pageable = Paginacion.of(page, size, Sort.by("persona.nombre"));
+        Pageable pageable = Paginacion.of(page, size, Sort.by("persona.nombre", "id"));
         boolean sinTexto = texto == null || texto.trim().isEmpty();
         String pattern = sinTexto ? null : "%" + texto.trim().replace(" ", "%") + "%";
         if (activo == null) {

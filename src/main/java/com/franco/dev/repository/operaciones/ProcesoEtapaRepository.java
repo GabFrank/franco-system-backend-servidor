@@ -24,6 +24,6 @@ public interface ProcesoEtapaRepository extends HelperRepository<ProcesoEtapa, L
     @Query("SELECT pe FROM ProcesoEtapa pe WHERE pe.pedido.id = :pedidoId AND pe.tipoEtapa = :tipoEtapa")
     Optional<ProcesoEtapa> findByPedidoIdAndTipoEtapa(@Param("pedidoId") Long pedidoId, @Param("tipoEtapa") ProcesoEtapaTipo tipoEtapa);
 
-    @Query("SELECT pe FROM ProcesoEtapa pe WHERE pe.estadoEtapa = :estado ORDER BY pe.creadoEn DESC")
+    @Query("SELECT pe FROM ProcesoEtapa pe WHERE pe.estadoEtapa = :estado ORDER BY pe.creadoEn DESC, pe.id DESC")
     Page<ProcesoEtapa> findByEstadoEtapa(@Param("estado") ProcesoEtapaEstado estado, Pageable pageable);
 } 

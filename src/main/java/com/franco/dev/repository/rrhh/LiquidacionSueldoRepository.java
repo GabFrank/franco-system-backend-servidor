@@ -30,7 +30,7 @@ public interface LiquidacionSueldoRepository extends HelperRepository<Liquidacio
      * quedara en Java, una pagina de 10 filas podria devolver 2 —o ninguna—,
      * y el cliente no tendria forma de saber si eso significa "no hay mas".
      */
-    List<LiquidacionSueldo> findByFuncionarioIdAndEstadoOrderByPeriodoDesc(
+    List<LiquidacionSueldo> findByFuncionarioIdAndEstadoOrderByPeriodoDescIdDesc(
             Long funcionarioId, LiquidacionSueldoEstado estado, Pageable pageable);
 
     /** La liquidacion existe, esta en ese estado y es del funcionario de esa persona. */

@@ -40,7 +40,7 @@ public interface ClienteRepository extends HelperRepository<Cliente, Long> {
             "UPPER(per.documento) like %:texto%)) and " +
             "(c.tipo = :tipoCliente or cast(:tipoCliente as com.franco.dev.domain.personas.enums.TipoCliente) is null) " +
             "group by per.nombre, c.id " +
-            "order by per.nombre asc")
+            "order by per.nombre asc, c.id asc")
     Page<Cliente> findByAll(String texto, TipoCliente tipoCliente, Pageable page);
 
     Cliente findByPersonaDocumento(String texto);

@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,21 +45,27 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
         return repository;
     }
 
+    /**
+     * Las consultas paginadas de marcaciones no tienen ORDER BY: al pasar de pagina se repetian o
+     * perdian filas (#674). La mas nueva primero; la PK es (id, sucursal_id), asi que van las dos.
+     */
+    static final Sort ORDEN = Sort.by(Sort.Direction.DESC, "id", "sucursalId");
+
     public Page<Marcacion> findAllPaged(Integer page, Integer size) {
-        return repository.findAll(PageRequest.of(page, size));
+        return repository.findAll(PageRequest.of(page, size, ORDEN));
     }
 
     public Page<Marcacion> findByUsuarioId(Long usuarioId, Integer page, Integer size) {
-        return repository.findByUsuarioId(usuarioId, PageRequest.of(page, size));
+        return repository.findByUsuarioId(usuarioId, PageRequest.of(page, size, ORDEN));
     }
 
     public Page<Marcacion> findByUsuarioIdAndFechaRange(Long usuarioId, String fechaInicio, String fechaFin,
             Integer page, Integer size) {
-        return repository.findByUsuarioIdAndFechaRange(usuarioId, fechaInicio, fechaFin, PageRequest.of(page, size));
+        return repository.findByUsuarioIdAndFechaRange(usuarioId, fechaInicio, fechaFin, PageRequest.of(page, size, ORDEN));
     }
 
     public Page<Marcacion> findByFechaRange(String fechaInicio, String fechaFin, Integer page, Integer size) {
-        return repository.findByFechaRange(fechaInicio, fechaFin, PageRequest.of(page, size));
+        return repository.findByFechaRange(fechaInicio, fechaFin, PageRequest.of(page, size, ORDEN));
     }
 
     public List<Marcacion> findBySucursalEntradaId(Long sucursalId) {

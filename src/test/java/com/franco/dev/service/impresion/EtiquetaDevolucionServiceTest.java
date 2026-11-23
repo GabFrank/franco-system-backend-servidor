@@ -25,6 +25,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * La etiqueta de separado es una sola por devolucion, con un QR y todos sus
@@ -108,15 +109,19 @@ class EtiquetaDevolucionServiceTest {
         byte[] bytes = salida.toByteArray();
         String texto = new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1);
 
-        // GS ( k 03 00 31 51 30: "imprimir el QR guardado". Uno solo por ticket.
-        String imprimirQr = new String(new byte[]{0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30},
+        // El QR sale como una imagen ESC * (#687): un solo bloque de filas de imagen por ticket. Cada
+        // fila es ESC * 33 nL nH ... LF, así que los bloques se cuentan por la primera fila (precedida de ESC 3 16).
+        String inicioImagen = new String(new byte[]{0x1B, '3', 16, 0x1B, '*', 33},
                 java.nio.charset.StandardCharsets.ISO_8859_1);
-        assertEquals(1, ocurrencias(texto, imprimirQr));
+        assertEquals(1, ocurrencias(texto, inicioImagen));
         for (int i = 1; i <= 7; i++) {
             assertEquals(1, ocurrencias(texto, "PRODUCTO " + i), "falta el producto " + i);
         }
-        // El identificador va en la cabecera y como contenido del QR.
-        assertEquals(2, ocurrencias(texto, "DEV-1-24"));
+        // El identificador va en la cabecera y dentro del QR, que ya no viaja como texto.
+        assertEquals(1, ocurrencias(texto, "DEV-1-24"));
+        java.util.List<String> qrs = com.franco.dev.utilitarios.print.escpos.EscPosQrLector.leer(bytes);
+        assertEquals(1, qrs.size());
+        assertTrue(qrs.get(0).contains("DEV-1-24"), qrs.get(0));
         assertEquals(1, ocurrencias(texto, "7 productos"));
     }
 

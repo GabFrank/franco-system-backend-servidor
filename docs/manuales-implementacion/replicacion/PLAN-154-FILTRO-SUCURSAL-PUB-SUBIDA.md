@@ -230,3 +230,48 @@ No aceptado:
   `application.properties` igual pide redeploy para cambiarlo. Si Franco lo quiere, es chico.
 - B-H1, `socketTimeout` en el JDBC remoto: es preexistente y afecta a todo el sync; va aparte.
 - B-4, que el sync devuelva falla si una tabla falla: preexistente; las líneas nuevas van en WARN.
+
+## Auditoría del diff (paso 8)
+
+Fijo 1, 2 y 3: N/A para central porque el diff no toca resolvers, `.graphqls`, enums ni migraciones
+(`git diff --name-only origin/develop...HEAD`: solo `LogicalReplicationService.java`, su test y docs).
+Condicional B (replicación), un auditor. Aceptado y arreglado en `fix(replicacion): acotar locks…`:
+
+| Hallazgo | Arreglo |
+|---|---|
+| Si fallaba el paso a FULL de una tabla filtrada, quedaba filtrada sin cobertura | se vuelve a evaluar y se le saca el filtro |
+| `ALTER TABLE … REPLICA IDENTITY FULL` sin `lock_timeout` sobre tablas calientes | misma transacción con `lock_timeout` |
+| `DriverManagerDataSource`: una conexión por consulta, varias por tabla y filial cada hora | `SingleConnectionDataSource` por filial en el sync (medido: 5 sesiones por corrida en lugar de 2+ por tabla) |
+| `EXISTS` de filas ajenas sin tope | `setQueryTimeout(30)`; si vence, sin filtro y reintento |
+| `catch (SQLException)` solo | también `RuntimeException` |
+
+No aceptado: misma tabla filtrable o no según cuándo entró a la pub, y filas ajenas posteriores
+sin rastro (decisiones ya tomadas en el plan, documentadas en la nota de dominio).
+
+## Resultado de las pruebas (paso 9)
+
+Todo en local, central de la rama contra la copia `zz154` (solo la 24 activa) y `general` como
+filial, con suscripción real `zz154_sub`:
+
+1. Línea base sin filtro: una fila con `sucursal_id = 99` subía. ✔
+2. Sync desde la pantalla de replicación: 30 de 33 tablas con `(sucursal_id = 24)`; sin filtro y
+   con motivo `movimiento_personas` (sin columna), `replication_test` (tenía la fila 99) y
+   `sorteo_participacion` (en el filial su PK es solo `id`). La tabla nueva `pdv_caja_reapertura`
+   entró con filtro. Suscripción sin errores. ✔
+3. `UPDATE … WHERE false` / `DELETE … WHERE false` en las 31 filtradas: todas OK. Control: con un
+   filtro forzado sobre `sorteo_participacion` PostgreSQL rechaza el UPDATE. ✔
+4. Segunda corrida: no cambia nada. ✔
+5. Venta en el PDV (filial 8082, sucursal 24): `venta`, `venta_item`, `cobro`, `cobro_detalle`,
+   `movimiento_stock` llegaron a `zz154`. ✔
+6. Tras filtrar `replication_test` en vivo (DROP+ADD con la suscripción activa): insert, update y
+   delete de la 24 suben; insert y update de la 99 no. ✔
+7. Matriz de identidad del SQL real: FULL, DEFAULT con PK `(id, sucursal_id)` e índice que cubre →
+   OK; DEFAULT con PK `(id)`, DEFAULT sin PK, NOTHING, índice que no cubre → no cubre; sin columna y
+   columna borrada → sin columna. ✔
+8. Tabla filtrada bajada a DEFAULT → el sync la sube a FULL. Con una transacción abierta leyendo la
+   tabla, el ALTER se rinde a los 5 s y el sync le saca el filtro; los UPDATE siguen andando. ✔
+9. `createRemotePublication` (la mutation del diálogo) con las tablas BRANCH_TO_MAIN: nace con 31
+   filtros. ✔
+10. SQL de rollback de la nota: sacó los 30 filtros y dejó la pub de `general` como estaba. ✔
+
+No probado en local: PostgreSQL < 15 (solo test unitario) y una filial Windows.

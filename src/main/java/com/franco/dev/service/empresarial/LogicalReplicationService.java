@@ -15,8 +15,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.springframework.stereotype.Service;
 
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.*;
@@ -1904,13 +1907,14 @@ public class LogicalReplicationService {
                     Long sid = sucursal.getId();
                     if (sid == null || sid == 0) continue;
                     String filialPubName = generateBranchPublicationName(sid);
+                    // Una sola conexion para toda la filial: el filtro por sucursal (#154) consulta
+                    // varias veces por tabla, y DriverManagerDataSource abre una por consulta
+                    SingleConnectionDataSource conexionFilial = null;
                     try {
-                        JdbcTemplate remoteJdbc = createRemoteJdbcTemplate(
-                            sucursal.getIp(),
-                            sucursal.getPuerto(),
-                            getBranchDbName(),
-                            dbUsername,
-                            dbPassword);
+                        conexionFilial = new SingleConnectionDataSource(
+                            String.format("jdbc:postgresql://%s:%d/%s", sucursal.getIp(), sucursal.getPuerto(), getBranchDbName()),
+                            dbUsername, dbPassword, true);
+                        JdbcTemplate remoteJdbc = new JdbcTemplate(conexionFilial);
                         List<String> currentFilial = getPublicationTableNames(remoteJdbc, filialPubName);
                         List<String> toAdd = branchTables.stream().filter(t -> !currentFilial.contains(t)).collect(Collectors.toList());
                         for (String table : toAdd) {
@@ -1924,6 +1928,10 @@ public class LogicalReplicationService {
                         }
                     } catch (Exception e) {
                         log.append("  Filial ").append(sid).append(": no se pudo conectar o sincronizar: ").append(e.getMessage()).append("\n");
+                    } finally {
+                        if (conexionFilial != null) {
+                            conexionFilial.destroy();
+                        }
                     }
                 }
             }
@@ -2012,6 +2020,8 @@ public class LogicalReplicationService {
         + " ON a.attrelid = c.oid AND a.attname = 'sucursal_id' AND NOT a.attisdropped"
         + " WHERE c.oid = to_regclass(?)";
 
+    static final int SEGUNDOS_FILAS_AJENAS = 30;
+
     static final String SQL_TIENE_FILTRO =
         "SELECT rowfilter IS NOT NULL FROM pg_publication_tables WHERE pubname = ? AND schemaname || '.' || tablename = ?";
 
@@ -2030,8 +2040,18 @@ public class LogicalReplicationService {
      */
     private Boolean tieneFilasAjenas(JdbcTemplate filial, String tabla, long sucursalId) {
         try {
-            return filial.queryForObject(
-                "SELECT EXISTS (SELECT 1 FROM " + tabla + " WHERE sucursal_id IS DISTINCT FROM ?)", Boolean.class, sucursalId);
+            // Sin filas ajenas recorre la tabla entera (movimiento_stock son millones): con tope, y si
+            // vence la tabla queda sin filtro y se reintenta en la corrida siguiente.
+            return filial.execute((ConnectionCallback<Boolean>) con -> {
+                try (PreparedStatement ps = con.prepareStatement(
+                        "SELECT EXISTS (SELECT 1 FROM " + tabla + " WHERE sucursal_id IS DISTINCT FROM ?)")) {
+                    ps.setQueryTimeout(SEGUNDOS_FILAS_AJENAS);
+                    ps.setLong(1, sucursalId);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        return rs.next() ? (Boolean) rs.getObject(1) : null;
+                    }
+                }
+            });
         } catch (Exception e) {
             return null;
         }
@@ -2075,9 +2095,7 @@ public class LogicalReplicationService {
             Boolean tieneFiltro = versionOk ? filial.queryForObject(SQL_TIENE_FILTRO, Boolean.class, pub, tabla) : null;
             if (Boolean.TRUE.equals(tieneFiltro)) {
                 if (MOTIVO_IDENTIDAD.equals(motivo)) {
-                    logger.warn("Replicacion: {} de la filial {} tiene filtro por sucursal y su identidad de replica ya no lo cubre", tabla, sid);
-                    log.append(prefijo).append(tabla).append(" tiene filtro y la identidad de replica ya no cubre sucursal_id.\n");
-                    ensureReplicaIdentityFull(filial, tabla, log, prefijo);
+                    repararIdentidadDeTablaFiltrada(filial, sid, pub, tabla, log, prefijo);
                 }
                 return;
             }
@@ -2093,27 +2111,61 @@ public class LogicalReplicationService {
             if (filtro.isEmpty()) {
                 return;
             }
-            filial.execute((ConnectionCallback<Void>) con -> {
-                boolean autoCommit = con.getAutoCommit();
-                con.setAutoCommit(false);
-                try (Statement st = con.createStatement()) {
-                    st.execute("SET LOCAL lock_timeout = '5s'");
-                    st.execute("ALTER PUBLICATION " + pub + " DROP TABLE " + tabla);
-                    st.execute("ALTER PUBLICATION " + pub + " ADD TABLE " + tabla + filtro);
-                    con.commit();
-                } catch (SQLException e) {
-                    con.rollback();
-                    throw e;
-                } finally {
-                    con.setAutoCommit(autoCommit);
-                }
-                return null;
-            });
+            enTransaccionConLockTimeout(filial,
+                "ALTER PUBLICATION " + pub + " DROP TABLE " + tabla,
+                "ALTER PUBLICATION " + pub + " ADD TABLE " + tabla + filtro);
             log.append(prefijo).append(tabla).append(" filtrada por sucursal.\n");
         } catch (Exception e) {
             logger.warn("Replicacion: no se pudo filtrar por sucursal {} en la filial {}: {}", tabla, sid, e.getMessage());
             log.append(prefijo).append("error filtrando ").append(tabla).append(" por sucursal: ").append(e.getMessage()).append("\n");
         }
+    }
+
+    /**
+     * Una tabla filtrada cuya identidad de replica dejo de cubrir sucursal_id: hoy cada UPDATE y
+     * DELETE de la tabla falla en la filial. Se sube a FULL; si no se puede, se le saca el filtro,
+     * que es como estaba antes de #154 y no corta las ventas.
+     */
+    private void repararIdentidadDeTablaFiltrada(JdbcTemplate filial, Long sid, String pub, String tabla, StringBuilder log, String prefijo) {
+        logger.warn("Replicacion: {} de la filial {} tiene filtro por sucursal y su identidad de replica ya no lo cubre", tabla, sid);
+        log.append(prefijo).append(tabla).append(" tiene filtro y la identidad de replica ya no cubre sucursal_id.\n");
+        try {
+            enTransaccionConLockTimeout(filial, "ALTER TABLE " + tabla + " REPLICA IDENTITY FULL");
+            log.append(prefijo).append("REPLICA IDENTITY FULL aplicado a ").append(tabla).append(".\n");
+        } catch (Exception e) {
+            log.append(prefijo).append("no se pudo pasar ").append(tabla).append(" a REPLICA IDENTITY FULL: ").append(e.getMessage()).append("\n");
+        }
+        if (MOTIVO_IDENTIDAD.equals(motivoSinFiltro(filial, tabla))) {
+            logger.warn("Replicacion: se saca el filtro por sucursal de {} en la filial {}", tabla, sid);
+            enTransaccionConLockTimeout(filial,
+                "ALTER PUBLICATION " + pub + " DROP TABLE " + tabla,
+                "ALTER PUBLICATION " + pub + " ADD TABLE " + tabla);
+            log.append(prefijo).append(tabla).append(" sin filtro por sucursal: se saco porque la identidad de replica no lo cubre.\n");
+        }
+    }
+
+    /**
+     * Las sentencias en una sola transaccion con lock_timeout: un ALTER que espera un lock no deja
+     * encolados detras los INSERT de las ventas, y si una falla no queda aplicada la otra.
+     */
+    private void enTransaccionConLockTimeout(JdbcTemplate filial, String... sentencias) {
+        filial.execute((ConnectionCallback<Void>) con -> {
+            boolean autoCommit = con.getAutoCommit();
+            con.setAutoCommit(false);
+            try (Statement st = con.createStatement()) {
+                st.execute("SET LOCAL lock_timeout = '5s'");
+                for (String sentencia : sentencias) {
+                    st.execute(sentencia);
+                }
+                con.commit();
+            } catch (SQLException | RuntimeException e) {
+                con.rollback();
+                throw e;
+            } finally {
+                con.setAutoCommit(autoCommit);
+            }
+            return null;
+        });
     }
 
     /**

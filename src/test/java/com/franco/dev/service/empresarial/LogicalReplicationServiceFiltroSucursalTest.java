@@ -9,6 +9,8 @@ import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -62,8 +64,15 @@ class LogicalReplicationServiceFiltroSucursalTest {
         when(filial.queryForObject(LogicalReplicationService.SQL_MOTIVO_SIN_FILTRO, String.class, TABLA)).thenReturn(motivo);
     }
 
-    private void ajenas(Boolean hay) {
-        when(filial.queryForObject(AJENAS, Boolean.class, 7L)).thenReturn(hay);
+    private PreparedStatement psAjenas;
+
+    private void ajenas(Boolean hay) throws SQLException {
+        psAjenas = mock(PreparedStatement.class);
+        ResultSet rs = mock(ResultSet.class);
+        when(con.prepareStatement(AJENAS)).thenReturn(psAjenas);
+        when(psAjenas.executeQuery()).thenReturn(rs);
+        when(rs.next()).thenReturn(true);
+        when(rs.getObject(1)).thenReturn(hay);
     }
 
     private void tieneFiltro(Boolean tiene) {
@@ -73,7 +82,7 @@ class LogicalReplicationServiceFiltroSucursalTest {
     // ── filtroSucursal ──────────────────────────────────────────────────────
 
     @Test
-    void tablaFiltrableSinFilasAjenasLlevaElFiltro() {
+    void tablaFiltrableSinFilasAjenasLlevaElFiltro() throws SQLException {
         motivo(LogicalReplicationService.FILTRABLE);
         ajenas(false);
 
@@ -81,7 +90,7 @@ class LogicalReplicationServiceFiltroSucursalTest {
     }
 
     @Test
-    void tablaQueNoSePuedeFiltrarQuedaSinFiltroYDiceElMotivo() {
+    void tablaQueNoSePuedeFiltrarQuedaSinFiltroYDiceElMotivo() throws SQLException {
         motivo("sin columna sucursal_id");
         StringBuilder log = new StringBuilder();
 
@@ -90,7 +99,7 @@ class LogicalReplicationServiceFiltroSucursalTest {
     }
 
     @Test
-    void tablaConFilasAjenasQuedaSinFiltro() {
+    void tablaConFilasAjenasQuedaSinFiltro() throws SQLException {
         motivo(LogicalReplicationService.FILTRABLE);
         ajenas(true);
         StringBuilder log = new StringBuilder();
@@ -100,20 +109,20 @@ class LogicalReplicationServiceFiltroSucursalTest {
     }
 
     @Test
-    void siElMotivoVieneNullQuedaSinFiltro() {
+    void siElMotivoVieneNullQuedaSinFiltro() throws SQLException {
         // lo que devuelve un JdbcTemplate mockeado sin stub, o una respuesta inesperada
         assertEquals("", service.filtroSucursal(filial, 7L, TABLA, new StringBuilder(), ""));
     }
 
     @Test
-    void siLaConsultaFallaQuedaSinFiltro() {
+    void siLaConsultaFallaQuedaSinFiltro() throws SQLException {
         when(filial.queryForObject(LogicalReplicationService.SQL_MOTIVO_SIN_FILTRO, String.class, TABLA))
                 .thenThrow(new org.springframework.dao.QueryTimeoutException("timeout"));
         assertEquals("", service.filtroSucursal(filial, 7L, TABLA, new StringBuilder(), ""));
     }
 
     @Test
-    void siNoSePuedenContarLasFilasAjenasQuedaSinFiltro() {
+    void siNoSePuedenContarLasFilasAjenasQuedaSinFiltro() throws SQLException {
         motivo(LogicalReplicationService.FILTRABLE);
         ajenas(null);
         assertEquals("", service.filtroSucursal(filial, 7L, TABLA, new StringBuilder(), ""));
@@ -122,7 +131,7 @@ class LogicalReplicationServiceFiltroSucursalTest {
     // ── agregarTablaAPublicacionFilial (tabla nueva en la pub) ──────────────
 
     @Test
-    void tablaNuevaSeAgregaConFiltro() {
+    void tablaNuevaSeAgregaConFiltro() throws SQLException {
         when(filial.queryForObject("SELECT to_regclass(?) IS NOT NULL", Boolean.class, TABLA)).thenReturn(true);
         when(filial.queryForObject(anyString(), eq(String.class), anyString(), anyString())).thenReturn("f");
         motivo(LogicalReplicationService.FILTRABLE);
@@ -172,7 +181,7 @@ class LogicalReplicationServiceFiltroSucursalTest {
     }
 
     @Test
-    void tablaQueYaTieneFiltroNoSeToca() {
+    void tablaQueYaTieneFiltroNoSeToca() throws SQLException {
         motivo(LogicalReplicationService.FILTRABLE);
         tieneFiltro(true);
 
@@ -183,18 +192,19 @@ class LogicalReplicationServiceFiltroSucursalTest {
     }
 
     @Test
-    void tablaConFilasAjenasNoSeFiltra() {
+    void tablaConFilasAjenasNoSeFiltra() throws SQLException {
         motivo(LogicalReplicationService.FILTRABLE);
         tieneFiltro(false);
         ajenas(true);
 
         service.aplicarFiltroSucursal(filial, 7L, PUB, TABLA, new StringBuilder());
 
-        verify(filial, never()).execute(any(ConnectionCallback.class));
+        verify(st, never()).execute(startsWith("ALTER PUBLICATION"));
+        verify(con, never()).commit();
     }
 
     @Test
-    void enPostgresViejoNoSeConsultaElFiltroNiSeToca() {
+    void enPostgresViejoNoSeConsultaElFiltroNiSeToca() throws SQLException {
         motivo("PostgreSQL < 15");
 
         service.aplicarFiltroSucursal(filial, 7L, PUB, TABLA, new StringBuilder());
@@ -205,21 +215,65 @@ class LogicalReplicationServiceFiltroSucursalTest {
     }
 
     @Test
-    void tablaFiltradaQuePerdioLaIdentidadVuelveAFull() {
-        motivo(LogicalReplicationService.MOTIVO_IDENTIDAD);
+    void tablaFiltradaQuePerdioLaIdentidadVuelveAFull() throws SQLException {
+        when(filial.queryForObject(LogicalReplicationService.SQL_MOTIVO_SIN_FILTRO, String.class, TABLA))
+                .thenReturn(LogicalReplicationService.MOTIVO_IDENTIDAD, LogicalReplicationService.FILTRABLE);
         tieneFiltro(true);
-        when(filial.queryForObject(anyString(), eq(String.class), eq("operaciones"), eq("venta"))).thenReturn("d");
         StringBuilder log = new StringBuilder();
 
         service.aplicarFiltroSucursal(filial, 7L, PUB, TABLA, log);
 
-        verify(filial).execute("ALTER TABLE " + TABLA + " REPLICA IDENTITY FULL");
-        verify(filial, never()).execute(startsWith("ALTER PUBLICATION"));
+        InOrder orden = inOrder(con, st);
+        orden.verify(st).execute("SET LOCAL lock_timeout = '5s'");
+        orden.verify(st).execute("ALTER TABLE " + TABLA + " REPLICA IDENTITY FULL");
+        orden.verify(con).commit();
+        verify(st, never()).execute(startsWith("ALTER PUBLICATION"));
         assertTrue(log.toString().contains("la identidad de replica ya no cubre sucursal_id"), log.toString());
+        assertTrue(log.toString().contains("REPLICA IDENTITY FULL aplicado a " + TABLA), log.toString());
     }
 
     @Test
-    void identidadQueNoCubreEnTablaSinFiltroNoSeTocaLaTabla() {
+    void siNoSePuedePasarAFullSeLeSacaElFiltro() throws SQLException {
+        motivo(LogicalReplicationService.MOTIVO_IDENTIDAD);
+        tieneFiltro(true);
+        doThrow(new SQLException("lock timeout")).when(st).execute("ALTER TABLE " + TABLA + " REPLICA IDENTITY FULL");
+        StringBuilder log = new StringBuilder();
+
+        service.aplicarFiltroSucursal(filial, 7L, PUB, TABLA, log);
+
+        InOrder orden = inOrder(st, con);
+        orden.verify(st).execute("ALTER PUBLICATION " + PUB + " DROP TABLE " + TABLA);
+        orden.verify(st).execute("ALTER PUBLICATION " + PUB + " ADD TABLE " + TABLA);
+        orden.verify(con).commit();
+        assertTrue(log.toString().contains("se saco porque la identidad de replica no lo cubre"), log.toString());
+    }
+
+    @Test
+    void elConteoDeFilasAjenasTieneTope() throws SQLException {
+        motivo(LogicalReplicationService.FILTRABLE);
+        ajenas(false);
+
+        service.filtroSucursal(filial, 7L, TABLA, new StringBuilder(), "");
+
+        verify(psAjenas).setQueryTimeout(LogicalReplicationService.SEGUNDOS_FILAS_AJENAS);
+        verify(psAjenas).setLong(1, 7L);
+    }
+
+    @Test
+    void unaRuntimeExceptionTambienHaceRollback() throws SQLException {
+        motivo(LogicalReplicationService.FILTRABLE);
+        tieneFiltro(false);
+        ajenas(false);
+        doThrow(new IllegalStateException("inesperado")).when(st).execute("ALTER PUBLICATION " + PUB + " ADD TABLE " + TABLA + WHERE);
+
+        service.aplicarFiltroSucursal(filial, 7L, PUB, TABLA, new StringBuilder());
+
+        verify(con).rollback();
+        verify(con, never()).commit();
+    }
+
+    @Test
+    void identidadQueNoCubreEnTablaSinFiltroNoSeTocaLaTabla() throws SQLException {
         motivo(LogicalReplicationService.MOTIVO_IDENTIDAD);
         tieneFiltro(false);
 

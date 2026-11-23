@@ -53,7 +53,7 @@ class HorarioResolverTest {
         marcacion = new Marcacion();
         marcacion.setUsuario(usuario);
 
-        when(horarioRepository.findByUsuarioIdOrderByIdDesc(anyLong())).thenReturn(Collections.emptyList());
+        when(horarioRepository.findAsignadosAUsuario(anyLong())).thenReturn(Collections.emptyList());
     }
 
     private Horario horario(Long id, LocalTime entrada, LocalTime salida, Turno turno, Dia... dias) {
@@ -81,7 +81,7 @@ class HorarioResolverTest {
         Horario nocturno = horario(4L, LocalTime.of(17, 0), LocalTime.of(1, 0),
                 Turno.MADRUGADA, Dia.LUNES, Dia.JUEVES);
         asignarAlFuncionario(nocturno);
-        when(horarioRepository.findByUsuarioIdOrderByIdDesc(USUARIO_ID))
+        when(horarioRepository.findAsignadosAUsuario(USUARIO_ID))
                 .thenReturn(Collections.singletonList(nocturno));
 
         assertNull(resolver.resolver(marcacion, DOMINGO));
@@ -118,7 +118,7 @@ class HorarioResolverTest {
                 Turno.MADRUGADA, Dia.LUNES, Dia.JUEVES));
         Horario deFinDeSemana = horario(7L, LocalTime.of(8, 0), LocalTime.of(12, 0),
                 Turno.DIA, Dia.SABADO, Dia.DOMINGO);
-        when(horarioRepository.findByUsuarioIdOrderByIdDesc(USUARIO_ID))
+        when(horarioRepository.findAsignadosAUsuario(USUARIO_ID))
                 .thenReturn(Collections.singletonList(deFinDeSemana));
 
         assertEquals(deFinDeSemana, resolver.resolver(marcacion, DOMINGO));
@@ -128,7 +128,7 @@ class HorarioResolverTest {
     void sinFuncionario_buscaHorarioDelUsuarioParaEseDia() {
         when(funcionarioService.findByPersonaId(PERSONA_ID)).thenReturn(null);
         Horario diurno = horario(6L, LocalTime.of(8, 0), LocalTime.of(17, 0), Turno.DIA, Dia.TODOS);
-        when(horarioRepository.findByUsuarioIdOrderByIdDesc(USUARIO_ID)).thenReturn(Collections.singletonList(diurno));
+        when(horarioRepository.findAsignadosAUsuario(USUARIO_ID)).thenReturn(Collections.singletonList(diurno));
 
         assertEquals(diurno, resolver.resolver(marcacion, DOMINGO));
     }
@@ -145,7 +145,7 @@ class HorarioResolverTest {
         asignarAlFuncionario(horario(4L, LocalTime.of(17, 0), LocalTime.of(1, 0),
                 Turno.MADRUGADA, Dia.LUNES, Dia.JUEVES));
         Horario incompleto = horario(8L, null, null, Turno.DIA, Dia.TODOS);
-        when(horarioRepository.findByUsuarioIdOrderByIdDesc(USUARIO_ID))
+        when(horarioRepository.findAsignadosAUsuario(USUARIO_ID))
                 .thenReturn(new java.util.ArrayList<>(Set.of(incompleto)));
 
         assertNull(resolver.resolver(marcacion, DOMINGO));
@@ -159,7 +159,7 @@ class HorarioResolverTest {
         Horario todos = horario(9L, LocalTime.of(8, 0), LocalTime.of(17, 0), Turno.DIA, Dia.TODOS);
         Horario jueves = horario(8L, LocalTime.of(17, 0), LocalTime.of(1, 0), Turno.MADRUGADA, Dia.JUEVES);
         asignarAlFuncionario(todos);
-        when(horarioRepository.findByUsuarioIdOrderByIdDesc(USUARIO_ID)).thenReturn(Arrays.asList(todos, jueves));
+        when(horarioRepository.findAsignadosAUsuario(USUARIO_ID)).thenReturn(Arrays.asList(todos, jueves));
 
         assertEquals(jueves, resolver.resolver(marcacion, JUEVES));
         assertEquals(todos, resolver.resolver(marcacion, LUNES));
@@ -173,7 +173,7 @@ class HorarioResolverTest {
         Horario semana = horario(20L, LocalTime.of(8, 0), LocalTime.of(17, 0), Turno.DIA,
                 Dia.LUNES, Dia.MARTES, Dia.MIERCOLES);
         Horario jueves = horario(21L, LocalTime.of(17, 0), LocalTime.of(1, 0), Turno.MADRUGADA, Dia.JUEVES);
-        when(horarioRepository.findByUsuarioIdOrderByIdDesc(USUARIO_ID)).thenReturn(Arrays.asList(jueves, semana));
+        when(horarioRepository.findAsignadosAUsuario(USUARIO_ID)).thenReturn(Arrays.asList(jueves, semana));
 
         assertEquals(Turno.MADRUGADA, resolver.resolver(marcacion, JUEVES).getTurno());
         assertEquals(Turno.DIA, resolver.resolver(marcacion, LUNES).getTurno());

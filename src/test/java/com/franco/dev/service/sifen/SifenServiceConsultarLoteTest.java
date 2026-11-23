@@ -30,7 +30,7 @@ class SifenServiceConsultarLoteTest {
         documentoElectronicoService = mock(DocumentoElectronicoService.class);
         when(documentoElectronicoService.findByLoteDe(any())).thenReturn(Collections.emptyList());
         sifenService = new SifenService(documentoElectronicoService, loteDEService, null, null, null,
-            null, null, null, null, null);
+            null, null, null, null, null, null);
     }
 
     @Test

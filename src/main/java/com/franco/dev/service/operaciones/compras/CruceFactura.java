@@ -54,6 +54,8 @@ public final class CruceFactura {
         /** El IVA que tiene el producto en el sistema. */
         public Integer ivaProducto;
         public String observacion;
+        /** El ítem del pedido al que el renglón está vinculado de forma explícita (opcional). */
+        public Long pedidoItemId;
     }
 
     /** Un ítem del pedido, en unidades base. */
@@ -145,7 +147,8 @@ public final class CruceFactura {
         }
         avisoIvaDelProducto(r, res);
 
-        ItemPedido item = elegirItem(r, res.bonificacion, items, pendiente);
+        ItemPedido item = itemVinculado(r, items);
+        if (item == null) item = elegirItem(r, res.bonificacion, items, pendiente);
         if (item == null) {
             if (res.bonificacion && items.stream().anyMatch(i -> i.productoId == r.productoId)) {
                 // Bonificación de un producto del pedido que el pedido no esperaba: buena noticia, no discrepancia
@@ -344,6 +347,15 @@ public final class CruceFactura {
         return productos;
     }
 
+    /** El ítem al que el renglón está vinculado, si existe y es del mismo producto; si no, null. */
+    private static ItemPedido itemVinculado(Renglon r, List<ItemPedido> items) {
+        if (r.pedidoItemId == null) return null;
+        for (ItemPedido i : items) {
+            if (i.id == r.pedidoItemId && r.productoId != null && i.productoId == r.productoId) return i;
+        }
+        return null;
+    }
+
     /**
      * El ítem del pedido del mismo producto. Una bonificación solo va contra un ítem bonificado del pedido; lo
      * cobrado prefiere uno no bonificado, con pendiente y de la misma presentación.
@@ -410,6 +422,17 @@ public final class CruceFactura {
 
     private static String texto(String s) {
         return vacio(s) ? "sin presentación" : s;
+    }
+
+    /**
+     * Lo que multiplica un precio de la factura para llevarlo a la moneda del pedido: guaraníes por unidad de la
+     * moneda de la factura sobre guaraníes por unidad de la del pedido. Misma moneda → 1; sin alguna de las dos
+     * cotizaciones, null (no se inventa una).
+     */
+    static Double factorFacturaAPedido(boolean mismaMoneda, Double cotizacionFactura, Double cotizacionPedido) {
+        if (mismaMoneda) return 1.0;
+        if (cotizacionFactura == null || cotizacionPedido == null || cotizacionPedido <= 0) return null;
+        return cotizacionFactura / cotizacionPedido;
     }
 
     static double redondear(double valor, int decimales) {

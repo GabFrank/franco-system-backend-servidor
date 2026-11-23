@@ -51,7 +51,7 @@ class VueltoEgresoServiceTest {
                 .thenAnswer(i -> ((Supplier<Object>) i.getArgument(4)).get());
         service = new VueltoEgresoService(movimientos, monedas, cambio, tesoreria, mock(TesoreriaSecurityService.class),
                 idempotencia, mock(PagoSolicitudDetalleRepository.class), mock(SolicitudPagoRepository.class),
-                mock(GastoRepository.class));
+                mock(GastoRepository.class), mock(PreGastoService.class));
 
         usuario.setId(1L);
         CajaVirtual caja = new CajaVirtual();

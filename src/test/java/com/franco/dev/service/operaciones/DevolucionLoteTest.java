@@ -19,7 +19,6 @@ import graphql.GraphQLException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.context.ApplicationContext;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,6 +38,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -59,7 +59,7 @@ class DevolucionLoteTest {
     private LoteFefoService loteFefoService;
     private MovimientoStockLoteService movimientoStockLoteService;
     private LoteService loteService;
-    private ApplicationContext ctx;
+    private DevolucionServiceDePrueba deps;
     private DevolucionService service;
     private final AtomicLong idMovimiento = new AtomicLong(1000);
 
@@ -80,17 +80,16 @@ class DevolucionLoteTest {
         movimientoStockLoteService = mock(MovimientoStockLoteService.class);
         loteService = mock(LoteService.class);
 
-        ctx = mock(ApplicationContext.class);
+        deps = new DevolucionServiceDePrueba();
         DevolucionConfiguracion config = new DevolucionConfiguracion();
         config.setPermitirStockNegativo(true);
         DevolucionConfiguracionService configService = mock(DevolucionConfiguracionService.class);
         when(configService.getConfiguracion()).thenReturn(config);
-        when(ctx.getBean(DevolucionConfiguracionService.class)).thenReturn(configService);
-        when(ctx.getBean(DevolucionLoteService.class)).thenReturn(
+        deps.con(configService);
+        deps.con(
                 new DevolucionLoteService(loteFefoService, movimientoStockLoteService, loteService));
 
-        service = new DevolucionService(repo, itemService, null, movimientoStockService,
-                productoVencimientoService, null, null, null, null, ctx);
+        service = deps.con(repo).con(itemService).con(movimientoStockService).con(productoVencimientoService).build();
     }
 
     private Sucursal sucursal(long id) {
@@ -196,7 +195,8 @@ class DevolucionLoteTest {
 
         service.avanzarEstado(1L, DevolucionEstado.SEPARADO, null);
 
-        verify(ctx, never()).getBean(DevolucionLoteService.class);
+        // No se llega al service de lotes: ninguna de sus dependencias se toca.
+        verifyNoInteractions(loteFefoService, movimientoStockLoteService, loteService);
         verify(movimientoStockLoteService, never()).reemplazarDesglose(any(), any(), any(), any(), anyInt());
         assertNull(item.getMovimientoBajaId());
     }

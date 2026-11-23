@@ -43,6 +43,8 @@ public final class FacturaSifenXml {
         public String rucEmisor;
         public String dvEmisor;
         public String razonSocialEmisor;
+        /** dNomFanEmi: nombre de fantasía del emisor, para darlo de alta como proveedor. */
+        public String fantasiaEmisor;
         public String rucReceptor;
         public String dvReceptor;
         public String razonSocialReceptor;
@@ -144,6 +146,7 @@ public final class FacturaSifenXml {
         c.rucEmisor = sinCeros(texto(gEmis, "dRucEm"));
         c.dvEmisor = texto(gEmis, "dDVEmi");
         c.razonSocialEmisor = texto(gEmis, "dNomEmi");
+        c.fantasiaEmisor = texto(gEmis, "dNomFanEmi");
         String calle = texto(gEmis, "dDirEmi");
         String casa = texto(gEmis, "dNumCas");
         c.direccionEmisor = calle == null ? null : calle + (casa != null && !"0".equals(casa.trim()) ? " " + casa : "");

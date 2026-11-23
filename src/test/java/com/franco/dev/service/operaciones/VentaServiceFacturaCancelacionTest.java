@@ -5,10 +5,14 @@ import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.financiero.enums.EstadoDE;
 import com.franco.dev.domain.operaciones.Cobro;
 import com.franco.dev.domain.operaciones.Venta;
+import com.franco.dev.domain.operaciones.VentaCancelacion;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
+import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.repository.operaciones.VentaCancelacionRepository;
 import com.franco.dev.service.financiero.DocumentoElectronicoService;
 import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.financiero.MovimientoCajaService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.financiero.VentaCreditoService;
 import com.franco.dev.service.financiero.VentaTarjetaService;
 import com.franco.dev.service.operaciones.VentaService.BajaFactura;
@@ -16,6 +20,7 @@ import com.franco.dev.service.sifen.SifenEventoService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -23,7 +28,9 @@ import org.mockito.MockitoAnnotations;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -58,6 +65,8 @@ class VentaServiceFacturaCancelacionTest {
     @Mock private VentaItemService ventaItemService;
     @Mock private VentaTarjetaService ventaTarjetaService;
     @Mock private VentaCreditoService ventaCreditoService;
+    @Mock private VentaCancelacionRepository ventaCancelacionRepository;
+    @Mock private TesoreriaSecurityService tesoreriaSecurityService;
 
     @InjectMocks private VentaService service;
 
@@ -219,6 +228,40 @@ class VentaServiceFacturaCancelacionTest {
 
         assertEquals(VentaEstado.CANCELADA, venta.getEstado());
         verify(espia).darDeBajaFactura(venta, false);
+    }
+
+    // ---- quien la cancelo (V274.1) ----
+
+    private VentaCancelacion registroGuardado() {
+        ArgumentCaptor<VentaCancelacion> fila = ArgumentCaptor.forClass(VentaCancelacion.class);
+        verify(ventaCancelacionRepository).save(fila.capture());
+        return fila.getValue();
+    }
+
+    @Test
+    void alCancelarQuedaRegistradoQuienYCuando() {
+        Usuario mr = new Usuario();
+        mr.setId(410L);
+        when(tesoreriaSecurityService.currentUsuario()).thenReturn(mr);
+        VentaService espia = ventaQueSeGuarda(VentaEstado.CONCLUIDA);
+
+        espia.cancelarVenta(venta);
+
+        VentaCancelacion fila = registroGuardado();
+        assertEquals(VENTA, fila.getVentaId());
+        assertEquals(SUCURSAL, fila.getSucursalId());
+        assertEquals(VentaEstado.CANCELADA, fila.getEstado());
+        assertSame(mr, fila.getUsuario());
+        assertNotNull(fila.getCreadoEn());
+    }
+
+    @Test
+    void alReactivarQuedaRegistradaLaReactivacion() {
+        VentaService espia = ventaQueSeGuarda(VentaEstado.CANCELADA);
+
+        espia.cancelarVenta(venta);
+
+        assertEquals(VentaEstado.CONCLUIDA, registroGuardado().getEstado());
     }
 
     @Test

@@ -15,6 +15,7 @@ import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
@@ -68,10 +69,10 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
     // sucursalIdList se declara como [Int] en el schema, por lo que graphql-java-tools
     // entrega la lista con Integer sin convertirla al tipo generico del parametro. Se
     // recibe como List<Integer> y se convierte a Long, que es lo que espera la consulta.
-    public Page<Funcionario> funcionariosWithPage(int page, int size, Long id, String nombre,
+    public Page<Funcionario> funcionariosWithPage(Integer page, Integer size, Long id, String nombre,
             List<Integer> sucursalList, Boolean activo, Long cargoId, Boolean diarista, Boolean fasePrueba,
             Boolean cobraBanco, Boolean ipsActivo) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         if (nombre != null) {
             nombre = nombre.replace(" ", "%");
         }

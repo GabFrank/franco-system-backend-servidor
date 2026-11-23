@@ -6,7 +6,9 @@ import com.franco.dev.repository.financiero.MaletinRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -52,6 +54,11 @@ public class MaletinService extends CrudService<Maletin, MaletinRepository, Long
         } else {
             return repository.findByAllWithoutSucursal(texto);
         }
+    }
+
+    public Page<Maletin> findConFiltros(Long sucursalId, String texto, Boolean abierto, Pageable pageable) {
+        String t = texto != null && !texto.trim().isEmpty() ? texto.trim() : null;
+        return repository.findConFiltros(sucursalId, t, abierto, pageable);
     }
 
     public List<Maletin> findBySucursalId(Long id){

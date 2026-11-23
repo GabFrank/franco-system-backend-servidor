@@ -41,10 +41,12 @@ public class ConteoMonedaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private MultiTenantService multiTenantService;
 
     public Optional<ConteoMoneda> conteoMoneda(Long id, Long sucId) {
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
         return service.findById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public List<ConteoMoneda> conteoMonedas(int page, int size, Long sucId){
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
         Pageable pageable = PageRequest.of(page,size);
         return service.findAll(pageable);
     }
@@ -61,6 +63,7 @@ public class ConteoMonedaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public List<ConteoMoneda> conteoMonedasPorConteoId(Long id, Long sucId){
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
         return service.findByConteoId(id, sucId);
     }
 

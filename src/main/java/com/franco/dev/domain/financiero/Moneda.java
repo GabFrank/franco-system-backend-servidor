@@ -56,6 +56,10 @@ public class Moneda implements Identifiable<Long> {
     @Column(name = "redondeo_multiplo")
     private java.math.BigDecimal redondeoMultiplo;
 
+    /** Codigo ISO 4217 (PYG, USD, BRL), V258.5. Identifica la moneda sin mirar su nombre. */
+    @Column(name = "codigo_iso", length = 3)
+    private String codigoIso;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pais_id", nullable = true)
     private Pais pais;

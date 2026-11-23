@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -58,19 +59,23 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     private PreGastoService preGastoService;
 
     public Gasto gasto(Long id, Long sucId) {
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
         return service.findByIdAndSucursalId(id, sucId);
     }
 
     public List<Gasto> gastos(int page, int size, Long sucId) {
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
     public List<Gasto> gastosPorCajaId(Long id, Long sucId) {
+        PdvCajaGraphQL.exigirLecturaDeCaja(seg, pdvCajaService, id, sucId);
         return service.findByCajaId(id, sucId);
     }
 
     public List<Gasto> gastosPorFecha(String inicio, String fin, Long sucId) {
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
         return service.findByDate(inicio, fin, sucId);
     }
 
@@ -114,7 +119,8 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
     public Page<Gasto> filterGastos(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion,
             Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size);
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
+        Pageable pageable = Paginacion.of(page, size);
         descripcion = StringUtils.convertToCustomFormat(descripcion);
         String finalDescripcion = descripcion;
         return service.filterGastosPage(id, cajaId, sucId, responsableId, finalDescripcion, pageable);

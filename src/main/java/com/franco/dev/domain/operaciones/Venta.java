@@ -1,5 +1,7 @@
 package com.franco.dev.domain.operaciones;
 
+import java.math.BigDecimal;
+import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.FormaPago;
@@ -89,5 +91,17 @@ public class Venta implements Serializable {
         private Double totalRs;
         @Column(name = "total_ds")
         private Double totalDs;
+
+        // Venta en la moneda del PDV (V267.5). total_gs sigue en la moneda de la empresa (equivalente).
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "moneda_id", nullable = true)
+        private Moneda moneda;
+
+        /** Unidades de la moneda de la empresa por unidad de {@link #moneda}. */
+        @Column(name = "cotizacion")
+        private BigDecimal cotizacion;
+
+        @Column(name = "total_moneda")
+        private BigDecimal totalMoneda;
 
 }

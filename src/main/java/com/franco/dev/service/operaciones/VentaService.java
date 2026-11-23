@@ -17,6 +17,7 @@ import com.franco.dev.domain.operaciones.dto.VentaPorPeriodoV1Dto;
 import com.franco.dev.domain.operaciones.enums.DeliveryEstado;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
+import com.franco.dev.repository.operaciones.VentaCancelacionRepository;
 import com.franco.dev.repository.operaciones.VentaItemRepository;
 import com.franco.dev.repository.operaciones.VentaRepository;
 import com.franco.dev.repository.productos.ProductoRepository;
@@ -34,6 +35,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -58,6 +60,16 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
     @Autowired
     private EntityManager em;
+
+    @Autowired(required = false)
+    private com.franco.dev.eventos.EventoEmisor eventoEmisor;
+
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.franco.dev.service.financiero.TesoreriaSecurityService tesoreriaSecurityService;
+
+    @Autowired
+    private VentaCancelacionRepository ventaCancelacionRepository;
 
     @Autowired
     private MovimientoCajaService movimientoCajaService;
@@ -121,7 +133,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
     public Page<Venta> findByCajaId(EmbebedPrimaryKey id, Integer page, Integer size, Boolean asc, Long formaPago,
             VentaEstado estado, Boolean isDelivery, Long monedaId) {
-        Pageable pagina = PageRequest.of(page, size);
+        Pageable pagina = Paginacion.of(page, size);
         return findWithFiltersCriteria(null, id.getId(), id.getSucursalId(), formaPago, estado, pagina, isDelivery,
                 monedaId, asc, null, null);
     }
@@ -321,12 +333,14 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             }
             // La venta con tarjeta sigue a la venta: cancelada, su cupon queda libre para otra; reactivada,
             // vuelve al estado que le corresponde por sus datos. Baja a la filial por central_filialN_pub.
+            List<VentaTarjeta> tarjetasCambiadas = new ArrayList<>();
             for (VentaTarjeta vt : ventaTarjetaService.findAllByVentaIdAndSucursalId(venta.getId(),
                     venta.getSucursalId())) {
                 String nuevo = estadoTarjetaParaVenta(vt, venta.getEstado());
                 if (!nuevo.equals(vt.getEstado())) {
                     vt.setEstado(nuevo);
                     ventaTarjetaService.save(vt);
+                    tarjetasCambiadas.add(vt);
                 }
             }
             Delivery delivery = venta.getDelivery();
@@ -343,16 +357,38 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                 ventaCreditoService.cancelarVentaCredito(ventaCredito.getId(), ventaCredito.getSucursalId(), venta);
             }
 
+            // Quien la cancelo o reactivo (V274.1). Antes de la baja de la factura, que puede mandar el evento a
+            // SIFEN: si esto fallara despues, quedaria la factura cancelada en SIFEN y la venta no.
+            ventaCancelacionRepository.save(new VentaCancelacion(venta, usuarioActual()));
             // Solo al cancelar. Reactivar no toca la factura: un documento cancelado en SIFEN no
             // revive, y antes este bloque volvia a mandar el evento de cancelacion.
             if (venta.getEstado() == VentaEstado.CANCELADA) {
                 darDeBajaFactura(venta, facturaYaCanceladaEnSifen);
             }
+            // Aviso por webhook (srv #587): en la misma TX; si falla el INSERT, la cancelacion sigue
+            final Venta v = venta;
+            if (eventoEmisor != null && eventoEmisor.encendido()) eventoEmisor.emitirProyeccionDe(v.getSucursalId(), com.franco.dev.eventos.EventosCentral.tipoCancelacion(v),
+                    v.getEstado() == VentaEstado.CANCELADA ? "media" : "baja", usuarioActualId(), "venta/" + v.getId(),
+                    () -> com.franco.dev.eventos.EventosCentral.ventaCancelada(v, tarjetasCambiadas, usuarioActual()),
+                    () -> com.franco.dev.eventos.EventosCentral.atributosVentaCancelada(v));
             return true;
         } catch (Exception e) {
             e.printStackTrace();
             throw new GraphQLException("No se pudo cancelar la venta");
         }
+    }
+
+    private com.franco.dev.domain.personas.Usuario usuarioActual() {
+        try {
+            return tesoreriaSecurityService.currentUsuario();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Long usuarioActualId() {
+        com.franco.dev.domain.personas.Usuario u = usuarioActual();
+        return u != null ? u.getId() : null;
     }
 
     /** Que se hace con la factura legal de una venta que se cancela. */
@@ -566,7 +602,9 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
     public Page<Venta> findWithFiltersCriteria(Long idVenta, Long id, Long sucId, Long formaPagoId, VentaEstado estado,
             Pageable pageable, Boolean isDelivery, Long monedaId, Boolean isAsc, Boolean conDescuento,
             Boolean conAumento) {
-        Sort sort = isAsc == false ? Sort.by("id").descending() : Sort.by("id").ascending();
+        // asc es opcional en el schema: sin asc, la mas reciente primero, como manda el desktop (#628).
+        // Antes "isAsc == false" desempaquetaba el Boolean y con null daba NullPointerException.
+        Sort sort = Boolean.TRUE.equals(isAsc) ? Sort.by("id").ascending() : Sort.by("id").descending();
         Pageable newPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
 
         return this.repository.findAll((root, query, cb) -> {
@@ -678,20 +716,39 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                 conDescuento, conAumento, conObservacion, clienteId, fechaInicio, fechaFin);
     }
 
-    public Page<Venta> findWithGenericFiltersCriteria(Long idVenta, Long id, Long sucId, Long formaPagoId,
-            VentaEstado estado,
-            Pageable pageable, Boolean isDelivery, Long monedaId, Boolean isAsc, Boolean conDescuento,
-            Boolean conAumento, Boolean conObservacion, Long clienteId, String fechaInicio, String fechaFin) {
-        // Al filtrar por nro. de venta todas las filas comparten el id (la PK es
-        // compuesta: id + sucursal_id), por eso se desempata por creadoEn desc para
-        // que la venta mas reciente quede primera. sucursalId cierra el orden para
-        // que la paginacion sea determinista.
-        Sort sort = isAsc == Boolean.TRUE
+    /**
+     * Orden de la lista de ventas (ventasGenericFilter).
+     *
+     * Sin rango de fechas, por nro. de venta: es la busqueda por numero en todo el historico. Al
+     * filtrar por nro. todas las filas comparten el id (la PK es compuesta: id + sucursal_id), por eso
+     * se desempata por creadoEn desc para que la mas reciente quede primera; sucursalId cierra el orden
+     * para que la paginacion sea determinista.
+     *
+     * Con rango de fechas, por fecha (#636): ordenar por id obligaba a PostgreSQL a recorrer venta_pk
+     * hacia atras descartando todas las ventas mas nuevas que el rango (marzo 2024: 983 ms y 2,8 M filas
+     * descartadas; por fecha, 0,16 ms con idx_venta_creado_en o idx_venta_sucursal_creado_en). Sin
+     * nullsLast: haria que el indice no sirva para ordenar, y dentro del rango creado_en nunca es nulo.
+     */
+    static Sort ordenListaVentas(Boolean isAsc, boolean conRangoDeFechas) {
+        boolean asc = isAsc == Boolean.TRUE;
+        if (conRangoDeFechas) {
+            return asc
+                    ? Sort.by(Sort.Order.asc("creadoEn"), Sort.Order.asc("id"), Sort.Order.asc("sucursalId"))
+                    : Sort.by(Sort.Order.desc("creadoEn"), Sort.Order.desc("id"), Sort.Order.desc("sucursalId"));
+        }
+        return asc
                 ? Sort.by(Sort.Order.asc("id"), Sort.Order.desc("creadoEn").nullsLast(),
                         Sort.Order.desc("sucursalId"))
                 : Sort.by(Sort.Order.desc("id"), Sort.Order.desc("creadoEn").nullsLast(),
                         Sort.Order.desc("sucursalId"));
-        Pageable newPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
+    }
+
+    public Page<Venta> findWithGenericFiltersCriteria(Long idVenta, Long id, Long sucId, Long formaPagoId,
+            VentaEstado estado,
+            Pageable pageable, Boolean isDelivery, Long monedaId, Boolean isAsc, Boolean conDescuento,
+            Boolean conAumento, Boolean conObservacion, Long clienteId, String fechaInicio, String fechaFin) {
+        Pageable newPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                ordenListaVentas(isAsc, fechaInicio != null && fechaFin != null));
 
         return this.repository.findAll((root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -780,26 +837,31 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         }, newPageable);
     }
 
+    /**
+     * Lucro por funcionario. Una lista de sucursales nula, vacía o que solo trae {@code null} (lo que
+     * manda «Todas» en el desktop) no filtra por sucursal (#615): antes {@code [null]} llegaba a la
+     * consulta como {@code IN (NULL)} y el reporte salía vacío.
+     */
     public List<LucroPorFuncionarioDto> findLucroPorFuncionarios(String inicio, String fin, List<Long> sucIdList,
             List<Long> usuarioIdList, List<Long> productoIdList, Long subfamiliaId, Long familiaId) {
-        if (sucIdList == null || sucIdList.isEmpty()) {
-            return new ArrayList<>();
-        }
+        List<Long> sucursales = idsSinNulos(sucIdList);
+        List<Long> usuarios = idsSinNulos(usuarioIdList);
+        List<Long> productos = idsSinNulos(productoIdList);
 
-        boolean filtrarUsuario = usuarioIdList != null && !usuarioIdList.isEmpty();
-        boolean filtrarProducto = productoIdList != null && !productoIdList.isEmpty();
+        boolean filtrarSucursal = !sucursales.isEmpty();
+        boolean filtrarUsuario = !usuarios.isEmpty();
+        boolean filtrarProducto = !productos.isEmpty();
 
-        List<Long> finalUsuarioIdList = filtrarUsuario ? usuarioIdList : Arrays.asList(-1L);
-        List<Long> finalProductoIdList = filtrarProducto ? productoIdList : Arrays.asList(-1L);
-
+        // Hibernate no acepta un IN vacío: sin filtro va un relleno que el flag deja sin efecto.
         List<Object[]> rows = ventaItemRepository.findLucroPorFuncionarioNative(
-                sucIdList,
+                filtrarSucursal ? sucursales : Arrays.asList(-1L),
                 stringToDate(inicio),
                 stringToDate(fin),
-                finalUsuarioIdList,
-                finalProductoIdList,
+                filtrarUsuario ? usuarios : Arrays.asList(-1L),
+                filtrarProducto ? productos : Arrays.asList(-1L),
                 subfamiliaId,
                 familiaId,
+                filtrarSucursal,
                 filtrarUsuario,
                 filtrarProducto);
 
@@ -859,6 +921,19 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
         result.sort((dto1, dto2) -> dto2.getTotalVenta().compareTo(dto1.getTotalVenta()));
         return result;
+    }
+
+    private static List<Long> idsSinNulos(List<Long> ids) {
+        if (ids == null) {
+            return new ArrayList<>();
+        }
+        List<Long> r = new ArrayList<>();
+        for (Long id : ids) {
+            if (id != null && !r.contains(id)) {
+                r.add(id);
+            }
+        }
+        return r;
     }
 }
 

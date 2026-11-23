@@ -25,6 +25,7 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Familia;
 import com.franco.dev.domain.productos.Subfamilia;
 import com.franco.dev.graphql.financiero.FacturaLegalGraphQL;
+import com.franco.dev.graphql.financiero.PdvCajaGraphQL;
 import com.franco.dev.graphql.financiero.VentaCreditoGraphQL;
 import com.franco.dev.graphql.operaciones.input.LucroPorFuncionarioResponse;
 import com.franco.dev.graphql.operaciones.input.LucroPorFuncionarioSummary;
@@ -75,6 +76,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Component;
 
 import javax.imageio.ImageIO;
@@ -118,7 +120,6 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     @Autowired
     private MovimientoCajaService movimientoCajaService;
 
-    private PrinterOutputStream printerOutputStream;
     @Autowired
     private ProductoService productoService;
     @Autowired
@@ -271,7 +272,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             selectedPrintService = printingService.setPrintService(printerName);
         }
         if (selectedPrintService != null) {
-            printerOutputStream = new PrinterOutputStream(selectedPrintService);
+            PrinterOutputStream printerOutputStream = new PrinterOutputStream(selectedPrintService);
 
             // creating the EscPosImage, need buffered image and algorithm.
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
@@ -410,13 +411,10 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             Long monedaId,
             Boolean conDescuento,
             Boolean conAumento) {
+        PdvCajaGraphQL.exigirLecturaDeCaja(seg, pdvCajaService, idCaja, sucId);
 
-        Pageable pageable;
-        if (page != null) {
-            pageable = PageRequest.of(page, size);
-        } else {
-            pageable = PageRequest.of(0, 15);
-        }
+        // Sin page o sin size: primera pagina de 15 (antes, page sin size daba error) (#582)
+        Pageable pageable = Paginacion.of(page, size);
         return service.onSearch(idVenta, idCaja, pageable, asc, sucId, formaPago, estado, isDelivery, monedaId,
                 conDescuento, conAumento);
     }
@@ -488,13 +486,11 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             Long clienteId,
             String fechaInicio,
             String fechaFin) {
+        // Con caja es el detalle de esa caja (#562): mismo control que ventasPorCajaId
+        if (idCaja != null) PdvCajaGraphQL.exigirLecturaDeCaja(seg, pdvCajaService, idCaja, sucId);
 
-        Pageable pageable;
-        if (page != null) {
-            pageable = PageRequest.of(page, size);
-        } else {
-            pageable = PageRequest.of(0, 15);
-        }
+        // Sin page o sin size: primera pagina de 15 (antes, page sin size daba error) (#582)
+        Pageable pageable = Paginacion.of(page, size);
         return service.onGenericSearch(
                 idVenta,
                 idCaja,
@@ -1072,29 +1068,36 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             List<Long> usuarioIdList, List<Long> productoIdList, Long subfamiliaId, Long familiaId) {
         Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
         StringBuilder filtro = new StringBuilder();
-        if (usuarioIdList != null && !usuarioIdList.isEmpty()) {
-            filtro.append("Funcionario: ");
-            for (int i = 0; i < usuarioIdList.size(); i++) {
-                Usuario u = usuarioService.findById(usuarioIdList.get(i)).orElse(null);
+        // Los ids pueden venir null («Todas» llega como [null]) y findById(null) devuelve null, no un
+        // Optional vacío: hay que saltearlos antes del .orElse() (#615).
+        List<String> funcionarios = new ArrayList<>();
+        if (usuarioIdList != null) {
+            for (Long id : usuarioIdList) {
+                Usuario u = id != null ? usuarioService.findById(id).orElse(null) : null;
                 if (u != null) {
-                    filtro.append(u.getNickname());
-                    if (i < usuarioIdList.size() - 1) {
-                        filtro.append(", ");
-                    }
+                    funcionarios.add(u.getNickname());
                 }
             }
         }
-        if (filtro.length() > 0 && sucursalIdList != null && sucursalIdList.size() > 0) {
-            filtro.append("\n");
+        if (!funcionarios.isEmpty()) {
+            filtro.append("Funcionario: ").append(String.join(", ", funcionarios)).append("\n");
         }
-        if (sucursalIdList != null && sucursalIdList.size() > 0) {
-            if (sucursalIdList.size() > 1) {
-                filtro.append("Sucursales: ");
-            } else {
-                filtro.append("Sucursal: ");
+        List<Long> sucursales = new ArrayList<>();
+        if (sucursalIdList != null) {
+            for (Long id : sucursalIdList) {
+                if (id != null) {
+                    sucursales.add(id);
+                }
             }
         }
-        for (Long sucId : sucursalIdList) {
+        if (sucursales.isEmpty()) {
+            filtro.append("Sucursales: Todas");
+        } else if (sucursales.size() > 1) {
+            filtro.append("Sucursales: ");
+        } else {
+            filtro.append("Sucursal: ");
+        }
+        for (Long sucId : sucursales) {
             Sucursal suc = sucursalService.findById(sucId).orElse(null);
             if (suc != null)
                 filtro.append(suc.getNombre() + ", ");

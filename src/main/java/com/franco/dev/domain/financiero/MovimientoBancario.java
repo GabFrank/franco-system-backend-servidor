@@ -64,4 +64,16 @@ public class MovimientoBancario implements Serializable {
     @CreationTimestamp
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
+
+    /**
+     * Evento de pago al que pertenece (lo lee {@code MovimientoBancarioFieldResolver.pagoId}): 0 = ninguno, null = no
+     * leído (entidad recién guardada, que Hibernate no relee). Sale en el mismo select: antes era una consulta aparte
+     * por fila de la tabla de movimientos. Vale para lecturas frescas: si en la misma sesión se carga el movimiento y
+     * después se crea su detalle de pago, queda el valor de antes.
+     */
+    @org.hibernate.annotations.Formula("coalesce((select d.pago_id from financiero.pago_solicitud_detalle d "
+            + "where d.movimiento_bancario_id = id order by d.pago_id limit 1), 0)")
+    @lombok.EqualsAndHashCode.Exclude
+    @lombok.ToString.Exclude
+    private Long pagoIdLeido;
 }

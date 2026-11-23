@@ -183,6 +183,11 @@ type FacturaProveedorMobile {
     totalIva10: Float
     totalIva: Float
     totalNota: Float
+    # Solo en la factura nueva (null en modo pedido)
+    puedeCrearSoloReconocidos: Boolean
+    renglonesReconocidos: Int
+    montoReconocido: Float
+    montoSinCargar: Float
     consultadaEn: String
     proveedorId: ID
     proveedorNombre: String
@@ -219,6 +224,54 @@ type PedidosParaFacturaMobile {
     proveedorId: ID
     proveedorNombre: String
     pedidos: [CompraPedidoResumenMobile!]!
+}
+
+# El emisor de una factura recibida, para darlo de alta como proveedor si todavía no lo es
+type ProveedorDeFacturaMobile {
+    documentoId: ID
+    # SIFEN o FOTO
+    origen: String
+    # RUC sin DV
+    ruc: String
+    dv: String
+    rucValido: Boolean
+    nombre: String
+    nombreFantasia: String
+    direccion: String
+    ciudad: String
+    telefono: String
+    email: String
+    # La factura es a crédito: sugerencia para el proveedor nuevo
+    credito: Boolean
+    # Ya es proveedor
+    proveedorId: ID
+    proveedorNombre: String
+    # Ya existe una persona con ese documento (por ejemplo, un cliente): el alta la reutiliza
+    personaId: ID
+    personaNombre: String
+    # Datos que la persona ya tiene cargados: los campos de arriba traen el suyo; si la factura trae otro, va en factura
+    datosDePersona: [DatoDePersonaMobile]
+    puedeRegistrar: Boolean!
+    motivo: String
+}
+
+input RegistrarProveedorFacturaInput {
+    documentoId: ID!
+    nombre: String
+    nombreFantasia: String
+    direccion: String
+    telefono: String
+    email: String
+    credito: Boolean
+    chequeDias: Int
+    # Con persona existente: campos que se actualizan con lo enviado (nombre, nombreFantasia, direccion, telefono, email)
+    actualizarPersona: [String]
+}
+
+type DatoDePersonaMobile {
+    campo: String!
+    actual: String
+    factura: String
 }
 
 type OpcionMobile {
@@ -281,6 +334,34 @@ input RepartoRenglonMobileInput {
     cantidad: Float!
 }
 
+# Un renglón de la factura que quedó afuera de la compra (#124): pendiente de cargar o descartado.
+# precioPedido: precio neto por unidad en la moneda del pedido, con su cotización; null si no hay cotización.
+type RenglonPendienteFactura {
+    id: ID!
+    orden: Int
+    descripcion: String
+    cantidad: Float
+    unidadMedida: String
+    precioUnitario: Float
+    total: Float
+    # yyyy-MM-dd
+    vencimiento: String
+    precioPedido: Float
+    descartado: Boolean!
+    motivoDescarte: String
+    descartadoPor: String
+}
+
+# Una factura del pedido que espera la planificación y tiene renglones sin cargar. Montos en la moneda de la factura.
+type FacturaPendientePedido {
+    documentoId: ID!
+    numeroCompleto: String
+    monedaSimbolo: String
+    montoPendiente: Float!
+    montoDescartado: Float!
+    renglones: [RenglonPendienteFactura!]!
+}
+
 extend type Query {
     # Todas las compras, la última primero; con soloEsperandoFactura, solo las de la etapa de notas abierta
     comprasMobile(texto: String, soloEsperandoFactura: Boolean, page: Int = 0, size: Int = 20): CompraPedidoResumenMobilePage
@@ -293,6 +374,8 @@ extend type Query {
     pedidosParaFacturaMobile(qr: String!): PedidosParaFacturaMobile
     facturaProveedorMobile(id: ID!, pedidoId: ID): FacturaProveedorMobile
     resumenFinalizarNotasMobile(pedidoId: ID!): ResumenFinalizarNotasMobile
+    # Desktop: los renglones de las facturas del pedido que faltan cargar y los descartados (#124)
+    renglonesFacturaPendientesPedido(pedidoId: ID!): [FacturaPendientePedido!]!
 }
 
 extend type Mutation {
@@ -301,6 +384,11 @@ extend type Mutation {
     leerFacturaNuevaCompraMobile(qr: String!): FacturaProveedorMobile!
     # Escanear el KuDE y ver la factura del proveedor en PDF. Solo consulta: no crea nada
     kudeFacturaProveedorMobile(qr: String!): KudeProveedorMobile!
+    # Los datos del emisor para darlo de alta como proveedor. Con qr trae la factura de SIFEN (o de la caché): por
+    # eso es mutation. Con documentoId usa la ya guardada (la factura en papel)
+    proveedorDeFacturaMobile(qr: String, documentoId: ID): ProveedorDeFacturaMobile!
+    # Alta del proveedor con los datos de la factura: idempotente por RUC, reutiliza la persona si ya existe
+    registrarProveedorDeFacturaMobile(input: RegistrarProveedorFacturaInput!): ProveedorDeFacturaMobile!
     crearCompraDesdeFacturaMobile(
         documentoId: ID!
         formaPagoId: ID
@@ -312,6 +400,8 @@ extend type Mutation {
         repartos: [RepartoRenglonMobileInput!]
         # La moneda del pedido; sin ella, la de la factura. Con otra, los precios se convierten con la cotización
         monedaId: ID
+        # Crear la compra con los renglones reconocidos y dejar afuera los sin producto (si el borrador lo permite)
+        soloReconocidos: Boolean
     ): CompraPedidoMobile!
     leerFacturaProveedorMobile(pedidoId: ID!, qr: String!): FacturaProveedorMobile!
     vincularRenglonFacturaMobile(renglonId: ID!, presentacionId: ID!, factor: Float, recordar: Boolean): FacturaProveedorMobile!
@@ -319,6 +409,9 @@ extend type Mutation {
     confirmarFacturaMobile(documentoId: ID!, pedidoId: ID!): CompraNotaMobile!
     eliminarNotaComprasMobile(notaId: ID!): CompraPedidoMobile!
     finalizarRecepcionNotasMobile(pedidoId: ID!): CompraPedidoMobile!
+    # Desktop: un renglón que no se va a cargar, con su motivo; restaurarlo lo devuelve a pendiente (#124)
+    descartarRenglonFactura(renglonId: ID!, motivo: String!): Boolean!
+    restaurarRenglonFactura(renglonId: ID!): Boolean!
 }
 
 # Factura en papel: la cabecera que leyó la IA de las fotos, para revisarla con el papel antes de seguir.

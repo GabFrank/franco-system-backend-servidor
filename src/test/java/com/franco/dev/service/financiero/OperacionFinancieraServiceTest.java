@@ -175,6 +175,33 @@ class OperacionFinancieraServiceTest {
     }
 
     @Test
+    void anular_sin_acceso_a_la_caja_responde_el_permiso_antes_de_mirar_el_estado() {
+        OperacionFinanciera op = operacionBloqueada(11L, true);
+        op.setTipoOperacion(TipoOperacionFinanciera.DEPOSITO_BANCARIO);
+        op.setCajaMayorOrigen(caja(1L));
+        doThrow(new graphql.GraphQLException("No tenes permiso para mover plata en esta caja.")).when(seguridad).requireEscrituraCaja(1L);
+
+        graphql.GraphQLException e = assertThrows(graphql.GraphQLException.class, () -> service.anular(11L, null, null));
+
+        assertTrue(e.getMessage().contains("No tenes permiso"), e.getMessage());
+        verify(repository, never()).findAnuladoById(11L);
+    }
+
+    @Test
+    void retiro_bancario_sin_acceso_al_destino_recibe_el_mensaje_generico_y_no_el_del_envio() {
+        OperacionFinanciera op = operacionBloqueada(12L, true);
+        op.setTipoOperacion(TipoOperacionFinanciera.RETIRO_BANCARIO);
+        op.setCajaMayorDestino(caja(2L));
+        when(seguridad.puedeEscribirCaja(2L)).thenReturn(false);
+        doThrow(new graphql.GraphQLException("No tenes permiso para mover plata en esta caja.")).when(seguridad).requireEscrituraCaja(2L);
+
+        graphql.GraphQLException e = assertThrows(graphql.GraphQLException.class, () -> service.anular(12L, null, null));
+
+        assertTrue(e.getMessage().contains("No tenes permiso"), e.getMessage());
+        verify(repository, never()).findAnuladoById(12L);
+    }
+
+    @Test
     void anular_mira_el_estado_de_la_base_y_no_el_de_la_instancia_ya_cargada() {
         // Otra anulacion commiteo mientras esta esperaba el lock: la instancia sigue diciendo que no.
         OperacionFinanciera op = operacionBloqueada(8L, false);

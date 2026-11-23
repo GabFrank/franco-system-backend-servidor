@@ -1,6 +1,5 @@
 package com.franco.dev.service.operaciones;
 
-import com.franco.dev.domain.financiero.Cambio;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.NotaRecepcionItem;
@@ -17,7 +16,8 @@ import com.franco.dev.graphql.operaciones.input.DividirPedidoItemInput;
 import com.franco.dev.graphql.operaciones.input.NotaRecepcionItemInput;
 import com.franco.dev.graphql.operaciones.input.ParteDivisionPedidoItemInput;
 import com.franco.dev.graphql.operaciones.input.RechazarNotaRecepcionItemInput;
-import com.franco.dev.service.financiero.CambioService;
+import com.franco.dev.service.financiero.CotizacionService;
+import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.PresentacionService;
 import graphql.GraphQLException;
@@ -61,7 +61,7 @@ public class RecepcionDocumentalService {
     @Autowired
     private PedidoItemDistribucionService pedidoItemDistribucionService;
     @Autowired
-    private CambioService cambioService;
+    private CotizacionService cotizacionService;
 
     /**
      * Alta o edición de un ítem de nota (es el cuerpo de {@code saveNotaRecepcionItem}, sin cambios): guarda, recalcula
@@ -271,14 +271,10 @@ public class RecepcionDocumentalService {
     }
 
     private Double cotizacion(Moneda moneda) {
-        if ("GUARANI".equals(moneda.getDenominacion()) || moneda.getId() == null) {
+        if (MonedaService.esGuarani(moneda) || moneda.getId() == null) {
             return 1.0;
         }
-        Cambio cambio = cambioService.findLastByMonedaId(moneda.getId());
-        Double tasa = cambio == null ? null
-                : cambio.getValorEnGsCompraMercado() != null ? cambio.getValorEnGsCompraMercado()
-                : cambio.getValorEnGsVentaMercado() != null ? cambio.getValorEnGsVentaMercado()
-                : cambio.getValorEnGs();
+        Double tasa = cotizacionService.paraCompraDouble(moneda);
         if (tasa == null || !(tasa > 0)) {
             throw new GraphQLException(SIN_COTIZACION);
         }

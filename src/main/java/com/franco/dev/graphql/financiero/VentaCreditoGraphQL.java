@@ -56,6 +56,7 @@ import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -191,8 +192,8 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.findByClienteAndVencimiento(id, stringToDate(inicio), stringToDate(fin));
     }
 
-    public CustomPage<VentaCredito> ventaCreditoPorClientePage(Long id, EstadoVentaCredito estado, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+    public CustomPage<VentaCredito> ventaCreditoPorClientePage(Long id, EstadoVentaCredito estado, Integer page, Integer size) {
+        Pageable pageable = Paginacion.of(page, size);
         Page<VentaCredito> pageResult = service.findByClienteId(id, estado, pageable);
         return new CustomPageImpl<>(
                 pageResult.getContent(),

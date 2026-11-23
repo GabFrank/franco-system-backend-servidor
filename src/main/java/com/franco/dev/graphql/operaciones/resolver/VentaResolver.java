@@ -2,7 +2,9 @@ package com.franco.dev.graphql.operaciones.resolver;
 
 import com.franco.dev.domain.operaciones.*;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.domain.productos.enums.UnidadMedida;
+import com.franco.dev.repository.operaciones.VentaCancelacionRepository;
 import com.franco.dev.service.operaciones.*;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLResolver;
@@ -32,6 +34,9 @@ public class VentaResolver implements GraphQLResolver<Venta> {
     @Autowired
     private CobroDetalleService cobroDetalleService;
 
+    @Autowired
+    private VentaCancelacionRepository ventaCancelacionRepository;
+
     public FormaPago formaPago(Venta v) {
         if (v.getFormaPago() != null) {
             return v.getFormaPago();
@@ -44,6 +49,19 @@ public class VentaResolver implements GraphQLResolver<Venta> {
             }
         }
         return null;
+    }
+
+    /** Quien cancelo la venta, si esta cancelada y quedo registro (V274.1); si no, null. */
+    public VentaCancelacion cancelacion(Venta v) {
+        if (v.getEstado() != VentaEstado.CANCELADA) return null;
+        return cancelacionVigente(v,
+                ventaCancelacionRepository.findFirstByVentaIdAndSucursalIdOrderByIdDesc(v.getId(), v.getSucursalId()));
+    }
+
+    /** La ultima fila vale solo si coincide con el estado de la venta: una cancelada por otra via no se atribuye. */
+    static VentaCancelacion cancelacionVigente(Venta v, VentaCancelacion ultima) {
+        return v.getEstado() == VentaEstado.CANCELADA && ultima != null && ultima.getEstado() == VentaEstado.CANCELADA
+                ? ultima : null;
     }
 
     public List<VentaObservacion> ventaObservacionList(Venta v) {

@@ -14,13 +14,11 @@ import com.franco.dev.repository.financiero.VentaCreditoCuotaRepository;
 import com.franco.dev.repository.financiero.VentaCreditoRepository;
 import com.franco.dev.repository.financiero.VentaCreditoRepositoryImpl;
 import com.franco.dev.service.CrudService;
-import com.franco.dev.service.operaciones.VentaService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -39,8 +37,6 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
 
     private VentaCreditoRepository repository = null;
 
-    private VentaService ventaService;
-
     @Autowired
     private MultiTenantService multiTenantService;
     @Autowired
@@ -58,8 +54,7 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
     private ApplicationEventPublisher publisher2;
 
     @Autowired
-    public VentaCreditoService(@Lazy VentaService ventaService, VentaCreditoRepository repository) {
-        this.ventaService = ventaService;
+    public VentaCreditoService(VentaCreditoRepository repository) {
         this.repository = repository;
     }
 

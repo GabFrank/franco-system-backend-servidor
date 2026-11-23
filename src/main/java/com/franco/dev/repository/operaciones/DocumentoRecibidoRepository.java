@@ -22,5 +22,8 @@ public interface DocumentoRecibidoRepository extends JpaRepository<DocumentoReci
 
     Optional<DocumentoRecibido> findByNotaRecepcionId(Long notaRecepcionId);
 
+    /** Las facturas vinculadas al pedido (con o sin nota). */
+    List<DocumentoRecibido> findByPedidoIdOrderByIdAsc(Long pedidoId);
+
     List<DocumentoRecibido> findByNotaRecepcionIdIn(List<Long> notaRecepcionIds);
 }

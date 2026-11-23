@@ -59,7 +59,15 @@ type VentaCreditoPage {
     getMultiPageableList: [MultiPage]
 }
 
+type ConvenioRemoto {
+    empresa: String
+    limite: Float
+    utilizado: Float
+}
+
 extend type Query {
+    # Credito por convenio de la persona en sesion en el central de la otra empresa (bodega <-> farmacia).
+    convenioOtraEmpresa: ConvenioRemoto
     ventaCredito(id:ID!, sucId:ID!):VentaCredito
     ventaCreditos(page:Int = 0, size:Int = 10):[VentaCredito]!
     countVentaCredito: Int

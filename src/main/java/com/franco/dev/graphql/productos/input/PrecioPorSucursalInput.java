@@ -10,9 +10,11 @@ public class PrecioPorSucursalInput {
     private Long presentacionId;
     private Long tipoPrecioId;
     private Long sucursalId;
-    private Float precio;
+    private Double precio;
     private LocalDateTime creadoEn;
     private Long usuarioId;
     private Boolean activo;
     private Boolean principal;
+    /** Moneda del precio. null en un alta = la de PRECIOS; en una edicion = conserva la guardada. */
+    private Long monedaId;
 }

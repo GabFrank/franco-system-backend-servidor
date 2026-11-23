@@ -24,6 +24,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Component;
 
 import java.text.DecimalFormat;
@@ -67,8 +68,8 @@ public class CostoPorProductoGraphQL implements GraphQLQueryResolver, GraphQLMut
 
     @Autowired
     private Environment env;
-    public Page<CostoPorProducto> costosPorProductoId(Long id, int page, int size) {
-        Pageable pageable = PageRequest.of(page,size);
+    public Page<CostoPorProducto> costosPorProductoId(Long id, Integer page, Integer size) {
+        Pageable pageable = Paginacion.of(page, size);
         return service.findByProductoId(id, pageable);
     }
 

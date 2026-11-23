@@ -231,7 +231,7 @@ public class FacturaFotoService {
         } else if (!rucValido) {
             a.add("El RUC leído (" + emisor + ") no cierra con su dígito verificador: revisá el papel y elegí el proveedor.");
         } else if (pedido == null && doc.getProveedor() == null) {
-            a.add("El RUC " + emisor + " no es de ningún proveedor cargado: elegí el proveedor o dalo de alta en el desktop.");
+            a.add("El RUC " + emisor + " no es de ningún proveedor cargado: elegí el proveedor o registralo con los datos de la factura.");
         } else if (pedido != null) {
             String rucPedido = ComprasMobileService.rucDe(pedido.getProveedor());
             if (rucPedido != null && !ComprasMobileService.mismoRuc(rucPedido, doc.getRucEmisor())) {

@@ -93,7 +93,7 @@ public class AltaIdempotenteService {
     public SolicitudPago gastoParaPago(String clave, String huella, Usuario usuario, Supplier<SolicitudPago> alta) {
         return idempotencia.ejecutar(clave, OPERACION_GASTO_PARA_PAGO, huella, usuario, alta, SolicitudPago::getId, id -> {
             SolicitudPago s = solicitudPagoRepository.findById(id).orElse(null);
-            // Hoy ningún flujo cancela una solicitud de gasto; queda por si alguno lo hace.
+            // Tesorería puede cancelar el gasto (#599): reintentar con la clave de uno cancelado no lo revive.
             rechazarSi(s != null && s.getEstado() == SolicitudPagoEstado.CANCELADO, "El gasto");
             return s;
         });

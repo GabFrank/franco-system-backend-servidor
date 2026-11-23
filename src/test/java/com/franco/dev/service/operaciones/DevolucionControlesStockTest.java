@@ -18,7 +18,6 @@ import graphql.GraphQLException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.context.ApplicationContext;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -55,7 +54,7 @@ class DevolucionControlesStockTest {
     private DevolucionItemService itemService;
     private MovimientoStockService movimientoStockService;
     private ProductoVencimientoService productoVencimientoService;
-    private ApplicationContext ctx;
+    private DevolucionServiceDePrueba deps;
     private DevolucionConfiguracion config;
     private DevolucionService service;
 
@@ -66,14 +65,13 @@ class DevolucionControlesStockTest {
         itemService = mock(DevolucionItemService.class);
         movimientoStockService = mock(MovimientoStockService.class);
         productoVencimientoService = mock(ProductoVencimientoService.class);
-        ctx = mock(ApplicationContext.class);
+        deps = new DevolucionServiceDePrueba();
         config = new DevolucionConfiguracion();
         config.setPermitirStockNegativo(true);
         DevolucionConfiguracionService configService = mock(DevolucionConfiguracionService.class);
         when(configService.getConfiguracion()).thenReturn(config);
-        when(ctx.getBean(DevolucionConfiguracionService.class)).thenReturn(configService);
-        service = new DevolucionService(repo, itemService, null, movimientoStockService,
-                productoVencimientoService, null, null, null, null, ctx);
+        deps.con(configService);
+        service = deps.con(repo).con(itemService).con(movimientoStockService).con(productoVencimientoService).build();
     }
 
     private Sucursal sucursal(long id) {

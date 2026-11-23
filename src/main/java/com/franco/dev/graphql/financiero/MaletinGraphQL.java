@@ -14,6 +14,9 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.franco.dev.utilitarios.Paginacion;
+import org.springframework.data.domain.Page;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.Map;
@@ -87,6 +90,10 @@ public class MaletinGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     public List<Maletin> maletines(int page, int size) {
         return service.findAll2();
+    }
+
+    public Page<Maletin> maletinesConFiltros(Long sucursalId, String texto, Boolean abierto, Integer page, Integer size) {
+        return service.findConFiltros(sucursalId, texto, abierto, Paginacion.of(page, size));
     }
 
     public Maletin saveMaletin(MaletinInput input) {

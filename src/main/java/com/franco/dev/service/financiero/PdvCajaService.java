@@ -3,6 +3,7 @@ package com.franco.dev.service.financiero;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.*;
+import com.franco.dev.domain.administrativo.enums.Turno;
 import com.franco.dev.domain.financiero.enums.EstadoRetiro;
 import com.franco.dev.domain.financiero.enums.PdvCajaEstado;
 import com.franco.dev.domain.operaciones.Venta;
@@ -20,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import javax.persistence.criteria.Join;
@@ -30,11 +32,13 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import com.franco.dev.domain.personas.Usuario;
 
+import com.franco.dev.eventos.EventosCaja;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Set;
 import org.springframework.data.domain.PageImpl;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
@@ -66,6 +70,8 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
     private ConteoService conteoService;
     @Autowired
     private SucursalService sucursalService;
+    @Autowired
+    private CajaTurnos cajaTurnos;
 
     @Override
     public PdvCajaRepository getRepository() {
@@ -461,8 +467,9 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
             balance.setFechaApertura(pdvCaja.getFechaApertura());
             balance.setFechaCierre(pdvCaja.getFechaCierre());
             balance.setDiferenciaGs(balance.getTotalGsCierre() - balance.getTotalGsAper() - balance.getTotalVentaGs() - balance.getVueltoGs() + totalRetiroGs + totalGastoGs);
-            balance.setDiferenciaRs(balance.getTotalRsCierre() - balance.getTotalRsAper() - balance.getTotalVentaRs() - balance.getVueltoRs() + totalRetiroRs + totalGastoRs);
-            balance.setDiferenciaDs(balance.getTotalDsCierre() - balance.getTotalDsAper() - balance.getTotalVentaDs() - balance.getVueltoDs() + totalRetiroDs + totalGastoDs);
+            // Reales y dolares en centavos: la suma en double deja ruido (0,1+0,2) y los clientes comparan con 0 (#604).
+            balance.setDiferenciaRs(centavos(balance.getTotalRsCierre() - balance.getTotalRsAper() - balance.getTotalVentaRs() - balance.getVueltoRs() + totalRetiroRs + totalGastoRs));
+            balance.setDiferenciaDs(centavos(balance.getTotalDsCierre() - balance.getTotalDsAper() - balance.getTotalVentaDs() - balance.getVueltoDs() + totalRetiroDs + totalGastoDs));
             balance.setSucursal((Sucursal) sucursalService.findById(pdvCaja.getSucursalId()).orElse(null));
         }
         return balance;
@@ -529,12 +536,14 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
     }
 
     public List<PdvCaja> findByUsuarioId(Long id, Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         return repository.findByUsuarioIdOrderByIdDesc(id, pageable);
     }
 
-    public Page<PdvCaja> findAllWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, Boolean activo, Pageable pageable) {
-        return repository.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio != null ? stringToDate(fechaInicio) : null, fechaFin != null ? stringToDate(fechaFin) : null, sucId, verificado, activo, pageable);
+    public Page<PdvCaja> findAllWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, Boolean activo, Turno turno, Pageable pageable) {
+        int[] r = CajaTurnos.rango(turno);
+        return repository.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio != null ? stringToDate(fechaInicio) : null, fechaFin != null ? stringToDate(fechaFin) : null, sucId, verificado, activo,
+                cajaTurnos.zona(), r[0], r[1], r[2], pageable);
     }
 
     public Page<PdvCaja> findAllForAnalisisDiferencias(
@@ -552,11 +561,18 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
             Pageable pageable) {
 
         if (cajaAnteriorId != null && maletinDescripcion == null && sucId == null && estado == null && fechaInicio == null && fechaFin == null) {
-            return findCajasByAnteriorIdOptimized(cajaAnteriorId, sucId, pageable);
+            return findCajasByAnteriorIdOptimized(cajaAnteriorId, sucId, difEstado, pageable);
         }
 
         final LocalDateTime inicio = fechaInicio != null ? stringToDate(fechaInicio) : null;
         final LocalDateTime fin = fechaFin != null ? stringToDate(fechaFin) : null;
+
+        // Con filtro de estado o de caja anterior, el estado de todas las cajas se calcula en la base y
+        // se pagina despues (#609): filtrar en memoria la pagina ya cortada perdia cajas y el total.
+        if (difEstado != null || cajaAnteriorId != null) {
+            return analisisDiferenciasFiltrado(cajaId, cajaAnteriorId, estado, maletinId, maletinDescripcion, cajeroId,
+                    inicio, fin, sucId, verificado, difEstado, pageable);
+        }
 
         Specification<PdvCaja> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -596,30 +612,40 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
 
         List<PdvCaja> cajas = new ArrayList<>(page.getContent());
         cajas.forEach(this::enriquecerConCajaAnterior);
+        return new PageImpl<PdvCaja>(cajas, page.getPageable(), page.getTotalElements());
+    }
 
-        List<PdvCaja> cajasFiltradas = cajas;
-
-        if(cajaAnteriorId != null){
-            cajasFiltradas = cajasFiltradas.stream().filter(c -> cajaAnteriorId.equals(c.getCajaAnteriorId())).collect(Collectors.toList());
-        }
-
-        if (difEstado != null) {
-            cajasFiltradas = cajasFiltradas.stream()
-                .filter(c -> {
-                    String estadoCalculado = calcularEstadoDiferenciaConsecutiva(c);
-                    return difEstado.equals(estadoCalculado);
-                })
-                .collect(Collectors.toList());
-        }
-
-        if (difEstado != null || cajaAnteriorId != null) {
-            int start = (int) pageable.getOffset();
-            int end = Math.min((start + pageable.getPageSize()), cajasFiltradas.size());
-            List<PdvCaja> sublist = (start <= end) ? cajasFiltradas.subList(start, end) : new ArrayList<>();
-            return new PageImpl<PdvCaja>(sublist, pageable, cajasFiltradas.size());
+    private Page<PdvCaja> analisisDiferenciasFiltrado(Long cajaId, Long cajaAnteriorId, PdvCajaEstado estado, Long maletinId,
+                                                      String maletinDescripcion, Long cajeroId, LocalDateTime inicio,
+                                                      LocalDateTime fin, Long sucId, Boolean verificado, String difEstado,
+                                                      Pageable pageable) {
+        String desc = maletinDescripcion != null ? "%" + maletinDescripcion.toLowerCase() + "%" : null;
+        java.util.function.LongFunction<List<Object[]>> pagina = desde -> repository.findAnalisisDiferencias(
+                texto(sucId), texto(cajaId), estado != null ? estado.name() : null, texto(maletinId), desc,
+                texto(cajeroId), texto(verificado), texto(inicio), texto(fin), texto(cajaAnteriorId), difEstado,
+                pageable.getPageSize(), desde);
+        List<Object[]> filas = pagina.apply(pageable.getOffset());
+        long total;
+        if (!filas.isEmpty()) {
+            total = ((Number) filas.get(0)[2]).longValue();
         } else {
-            return new PageImpl<PdvCaja>(cajasFiltradas, page.getPageable(), page.getTotalElements());
+            // Pagina pasada del final: el total sale de la primera.
+            List<Object[]> primera = pageable.getOffset() > 0 ? pagina.apply(0) : filas;
+            total = primera.isEmpty() ? 0 : ((Number) primera.get(0)[2]).longValue();
         }
+        List<PdvCaja> cajas = new ArrayList<>();
+        for (Object[] f : filas) {
+            PdvCaja c = repository.findByIdAndSucursalId(((Number) f[0]).longValue(), ((Number) f[1]).longValue());
+            if (c != null) {
+                enriquecerConCajaAnterior(c);
+                cajas.add(c);
+            }
+        }
+        return new PageImpl<>(cajas, pageable, total);
+    }
+
+    private static String texto(Object valor) {
+        return valor != null ? valor.toString() : null;
     }
 
     /**
@@ -729,26 +755,30 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
         }
 
         List<ConteoMoneda> cierreAnteriorList = conteoMonedaService.findByConteoId(
-            cajaAnterior.getConteoCierre().getId(), 
+            cajaAnterior.getConteoCierre().getId(),
             cajaAnterior.getSucursalId()
         );
-
-        Double totalCierreAnterior = cierreAnteriorList.stream()
-                .mapToDouble(cm -> cm.getCantidad() * cm.getMonedaBilletes().getValor()).sum();
-
         List<ConteoMoneda> aperturaActualList = conteoMonedaService.findByConteoId(
-            cajaActual.getConteoApertura().getId(), 
+            cajaActual.getConteoApertura().getId(),
             cajaActual.getSucursalId()
         );
+        return estadoPorMoneda(cierreAnteriorList, aperturaActualList);
+    }
 
-        Double totalAperturaActual = aperturaActualList.stream()
-                .mapToDouble(cm -> cm.getCantidad() * cm.getMonedaBilletes().getValor()).sum();
-
-        if(!totalCierreAnterior.equals(totalAperturaActual)){
-            return "CON_DIFERENCIA";
-        } else {
-            return "SIN_DIFERENCIA";
+    /**
+     * Cierre de la caja anterior contra apertura de esta, moneda por moneda (#607): sumar todas juntas
+     * dejaba pasar 100 R$ que volvian como 100 US$. Medio centavo de tolerancia, como
+     * EventosCaja.hayDiferencia: cantidad x valor en double deja ruido (3 x 0,1 != 0,3).
+     */
+    static String estadoPorMoneda(List<ConteoMoneda> cierreAnterior, List<ConteoMoneda> aperturaActual) {
+        Map<String, Double> cierre = EventosCaja.totalesDeConteo(cierreAnterior, null);
+        Map<String, Double> apertura = EventosCaja.totalesDeConteo(aperturaActual, null);
+        Set<String> monedas = new HashSet<>(cierre.keySet());
+        monedas.addAll(apertura.keySet());
+        for (String m : monedas) {
+            if (Math.abs(cierre.getOrDefault(m, 0.0) - apertura.getOrDefault(m, 0.0)) > 0.005) return "CON_DIFERENCIA";
         }
+        return "SIN_DIFERENCIA";
     }
 
     /**
@@ -757,7 +787,7 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
      * @param pageable
      * @return
      */
-    private Page<PdvCaja> findCajasByAnteriorIdOptimized(Long cajaAnteriorId, Long sucId, Pageable pageable) {
+    private Page<PdvCaja> findCajasByAnteriorIdOptimized(Long cajaAnteriorId, Long sucId, String difEstado, Pageable pageable) {
         final List<PdvCaja> posiblesCajasAnteriores = buscarCajasPorId(cajaAnteriorId, sucId);
 
         if (posiblesCajasAnteriores.isEmpty()) {
@@ -787,6 +817,9 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
                 .ifPresent(resultadosTotales::add);
         }
         
+        if (difEstado != null) {
+            resultadosTotales.removeIf(c -> !difEstado.equals(c.getEstadoDiferenciaConsecutiva()));
+        }
         resultadosTotales.sort((a, b) -> b.getFechaApertura().compareTo(a.getFechaApertura()));
 
         int start = (int) pageable.getOffset();
@@ -807,6 +840,12 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
         };
         List<PdvCaja> cajas = repository.findAll(spec);
         return cajas;
+    }
+
+    /** A 2 decimales (HALF_UP); null, NaN e infinito pasan tal cual: BigDecimal.valueOf los rechaza. */
+    static Double centavos(Double valor) {
+        if (valor == null || valor.isNaN() || valor.isInfinite()) return valor;
+        return java.math.BigDecimal.valueOf(valor).setScale(2, java.math.RoundingMode.HALF_UP).doubleValue();
     }
 
     /** Un monto nulo cuenta como 0. */

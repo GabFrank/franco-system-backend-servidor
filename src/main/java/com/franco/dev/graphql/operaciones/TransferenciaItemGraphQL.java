@@ -12,6 +12,15 @@ import com.franco.dev.domain.operaciones.enums.EtapaAsignacionLote;
 import com.franco.dev.domain.operaciones.enums.EtapaTransferencia;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
+import com.franco.dev.domain.operaciones.enums.TransferenciaItemMotivoRechazo;
+import com.franco.dev.utilitarios.Paginacion;
+import com.franco.dev.utilitarios.DateUtils;
+import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.impresion.ImpresionService;
+import com.franco.dev.service.impresion.ProductoFaltanteReporteItem;
+import com.franco.dev.service.productos.ProductoService;
 import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.domain.productos.Producto;
@@ -98,6 +107,15 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
     @Autowired
     private MovimientoStockLoteService movimientoStockLoteService;
 
+    @Autowired
+    private ImpresionService impresionService;
+
+    @Autowired
+    private SucursalService sucursalService;
+
+    @Autowired
+    private ProductoService productoService;
+
     public Optional<TransferenciaItem> transferenciaItem(Long id) {
         return service.findById(id);
     }
@@ -116,6 +134,85 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
             Integer size) {
         Page<TransferenciaItem> res = service.findByTransferenciaItemIdWithFilter(id, name, page, size);
         return res;
+    }
+
+    static final int RECHAZADOS_DIAS_POR_DEFECTO = 30;
+    static final int RECHAZADOS_DIAS_MAXIMO = 366;
+    static final int RECHAZADOS_SIZE_MAXIMO = 100;
+
+    /**
+     * Items rechazados por {@code motivo} (FALTA_PRODUCTO si no viene), por fecha de la transferencia:
+     * no se guarda la fecha del rechazo. El rango es obligatorio y acotado porque la consulta recorre
+     * transferencia_item entera, salvo con {@code transferenciaId}: ahi se ignoran las fechas (una
+     * transferencia vieja quedaria afuera de los 30 dias) y la consulta va por indice.
+     */
+    public Page<TransferenciaItem> transferenciaItemsRechazados(TransferenciaItemMotivoRechazo motivo,
+            Long sucursalOrigenId, Long sucursalDestinoId, Long productoId, Long transferenciaId, String creadoDesde,
+            String creadoHasta, Integer page, Integer size) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
+        int s = size != null && size > 0 ? Math.min(size, RECHAZADOS_SIZE_MAXIMO) : 20;
+        TransferenciaItemMotivoRechazo m = motivo != null ? motivo : TransferenciaItemMotivoRechazo.FALTA_PRODUCTO;
+        LocalDateTime[] rango = rangoRechazados(transferenciaId, creadoDesde, creadoHasta);
+        return service.findRechazados(m, sucursalOrigenId, sucursalDestinoId, productoId, transferenciaId, rango[0],
+                rango[1], Paginacion.of(page, s));
+    }
+
+    /**
+     * {desde, hasta}. Con {@code transferenciaId} no hay rango (nulls). Si no, 30 dias por defecto, maximo 366.
+     */
+    private LocalDateTime[] rangoRechazados(Long transferenciaId, String creadoDesde, String creadoHasta) {
+        if (transferenciaId != null) return new LocalDateTime[]{null, null};
+        LocalDateTime hasta = stringToDate(creadoHasta);
+        if (hasta == null) hasta = LocalDateTime.now();
+        // Una fecha sin hora es el dia entero (si no, se pierde el ultimo dia). Microsegundos: la
+        // precision de Postgres; con nanos el driver redondea a las 00:00 del dia siguiente.
+        else if (creadoHasta.trim().length() == 10) hasta = hasta.with(java.time.LocalTime.of(23, 59, 59, 999_999_000));
+        LocalDateTime desde = stringToDate(creadoDesde);
+        if (desde == null) desde = hasta.toLocalDate().minusDays(RECHAZADOS_DIAS_POR_DEFECTO).atStartOfDay();
+        if (desde.isAfter(hasta))
+            throw new GraphQLException("La fecha desde no puede ser posterior a la fecha hasta.");
+        if (java.time.temporal.ChronoUnit.DAYS.between(desde.toLocalDate(), hasta.toLocalDate()) > RECHAZADOS_DIAS_MAXIMO)
+            throw new GraphQLException("El rango de fechas no puede superar los " + RECHAZADOS_DIAS_MAXIMO + " días.");
+        return new LocalDateTime[]{desde, hasta};
+    }
+
+    static final int LIMITE_REPORTE_RECHAZADOS = 5000;
+
+    /**
+     * PDF (base64) de los items rechazados, con los mismos filtros que la pantalla pero sin paginar: hasta
+     * {@link #LIMITE_REPORTE_RECHAZADOS} filas, con aviso si se corta. Null si el filtro no dio resultados.
+     */
+    public String reporteTransferenciaItemsRechazados(TransferenciaItemMotivoRechazo motivo, Long sucursalOrigenId,
+            Long sucursalDestinoId, Long productoId, Long transferenciaId, String creadoDesde, String creadoHasta) {
+        seg.requireAnyRole(TransferenciaRoles.ROLES);
+        TransferenciaItemMotivoRechazo m = motivo != null ? motivo : TransferenciaItemMotivoRechazo.FALTA_PRODUCTO;
+        LocalDateTime[] rango = rangoRechazados(transferenciaId, creadoDesde, creadoHasta);
+        Page<TransferenciaItem> res = service.findRechazados(m, sucursalOrigenId, sucursalDestinoId, productoId,
+                transferenciaId, rango[0], rango[1], PageRequest.of(0, LIMITE_REPORTE_RECHAZADOS));
+        if (res.isEmpty()) return null;
+
+        java.util.Map<String, Object> cabecera = new java.util.HashMap<>();
+        cabecera.put("periodo", transferenciaId != null ? "Transferencia N° " + transferenciaId
+                : DateUtils.dateToStringWithFormat(rango[0], "dd/MM/yyyy") + " al "
+                + DateUtils.dateToStringWithFormat(rango[1], "dd/MM/yyyy"));
+        cabecera.put("motivo", m.name().replace('_', ' '));
+        cabecera.put("origen", nombreSucursal(sucursalOrigenId));
+        cabecera.put("destino", nombreSucursal(sucursalDestinoId));
+        cabecera.put("filtroProducto", productoId == null ? "TODOS"
+                : productoService.findById(productoId).map(Producto::getDescripcion).orElse("ID " + productoId));
+        Usuario usuario = seg.currentUsuario();
+        cabecera.put("usuario", usuario != null && usuario.getNickname() != null ? usuario.getNickname() : "");
+        cabecera.put("aviso", res.getTotalElements() > LIMITE_REPORTE_RECHAZADOS
+                ? "Resultado truncado: se muestran los primeros " + LIMITE_REPORTE_RECHAZADOS + " de "
+                + res.getTotalElements() + " ítems. Acotá los filtros."
+                : "");
+        List<ProductoFaltanteReporteItem> items = res.getContent().stream()
+                .map(ti -> ProductoFaltanteReporteItem.de(ti, m)).collect(Collectors.toList());
+        return impresionService.imprimirProductosFaltantesTransferencia(items, cabecera);
+    }
+
+    private String nombreSucursal(Long id) {
+        return id == null ? "TODAS" : sucursalService.findById(id).map(Sucursal::getNombre).orElse("ID " + id);
     }
 
     public List<TransferenciaItemAlertaDTO> alertasTransferenciaItems(Long transferenciaId, List<Long> itemIds) {
@@ -330,14 +427,15 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
                 if (e.getPresentacionPreTransferencia() != null
                         && e.getPresentacionPreTransferencia().getProducto() != null) {
                     Producto producto = e.getPresentacionPreTransferencia().getProducto();
-                    Moneda guarani = null;
+                    // El precio de la transferencia esta en la moneda de la empresa, como las columnas de costo.
+                    Moneda empresa = null;
                     try {
-                        guarani = monedaService.findByDescripcion("GUARANI");
+                        empresa = monedaService.empresa();
                     } catch (Exception ex) {
-                        System.err.println("Moneda GUARANI no encontrada: " + ex.getMessage());
+                        System.err.println("Moneda de la empresa no encontrada: " + ex.getMessage());
                     }
                     costosPorProductoService.registrarCostoCompraManual(
-                            producto, precioCosto, guarani,
+                            producto, precioCosto, empresa,
                             e.getTransferencia().getSucursalOrigen(), e.getUsuario(), e.getCreadoEn());
                 }
             } catch (Exception ex) {

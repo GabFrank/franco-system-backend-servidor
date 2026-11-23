@@ -4,6 +4,8 @@ type EgresoParaVuelto {
     movimiento: MovimientoCajaVirtual
     devuelto: Float
     pendiente: Float
+    "La solicitud de gasto pagada con este egreso, si el pago fue de una sola."
+    preGasto: PreGasto
 }
 
 type EgresoParaVueltoPage {
@@ -18,8 +20,11 @@ type EgresoParaVueltoPage {
 }
 
 extend type Query {
-    """Egresos de la caja con algo pendiente de devolver, del mas nuevo al mas viejo. texto busca en la descripcion y en el responsable."""
-    egresosParaVuelto(cajaVirtualId: ID!, texto: String, page: Int = 0, size: Int = 10): EgresoParaVueltoPage
+    """
+    Egresos de la caja con algo pendiente de devolver, del mas nuevo al mas viejo. texto busca en la descripcion y en el
+    responsable. desde/fin (yyyy-MM-dd HH:mm, opcionales) acotan por la fecha del egreso; fin incluye todo ese dia.
+    """
+    egresosParaVuelto(cajaVirtualId: ID!, texto: String, desde: String, fin: String, page: Int = 0, size: Int = 10): EgresoParaVueltoPage
 }
 
 extend type Mutation {

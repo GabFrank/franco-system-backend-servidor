@@ -51,6 +51,11 @@ public class FacturaProveedorMobile {
     private Double totalIva;
     /** Σ cantidad base × precio base de lo que va a la nota (sin bonificaciones). */
     private Double totalNota;
+    /** Solo en la factura nueva: se puede crear la compra con los renglones reconocidos, dejando afuera los sin producto. */
+    private Boolean puedeCrearSoloReconocidos;
+    private Integer renglonesReconocidos;
+    private Double montoReconocido;
+    private Double montoSinCargar;
     private String consultadaEn;
 
     private Long proveedorId;

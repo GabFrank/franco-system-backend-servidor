@@ -55,4 +55,11 @@ public interface PreGastoRepository extends HelperRepository<PreGasto, EmbebedPr
             "AND pg.sucursal_caja_id = CAST(:sucursalCajaId AS bigint) " +
             "ORDER BY pg.id DESC", nativeQuery = true)
     List<PreGasto> buscarAutorizadosParaRetiro(@Param("sucursalCajaId") Long sucursalCajaId);
+
+    /** La solicitud que se retiró con este gasto de la caja de una sucursal (ejecutarRetiro). */
+    @Query(value = "SELECT pg.* FROM financiero.pre_gasto pg " +
+            "WHERE pg.gasto_caja_registro_id = CAST(:gastoId AS bigint) " +
+            "AND (pg.sucursal_caja_id = CAST(:sucursalId AS bigint) OR pg.sucursal_id = CAST(:sucursalId AS bigint)) " +
+            "ORDER BY pg.creado_en DESC LIMIT 1", nativeQuery = true)
+    PreGasto buscarPorGastoCaja(@Param("gastoId") Long gastoId, @Param("sucursalId") Long sucursalId);
 }

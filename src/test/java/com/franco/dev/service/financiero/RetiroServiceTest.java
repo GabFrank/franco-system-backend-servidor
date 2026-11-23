@@ -42,7 +42,7 @@ class RetiroServiceTest {
         publisher = mock(ApplicationEventPublisher.class);
         verificacionRepository = mock(RetiroVerificacionRepository.class);
         seguridad = mock(TesoreriaSecurityService.class);
-        service = new RetiroService(repository, publisher, verificacionRepository, seguridad);
+        service = new RetiroService(repository, publisher, verificacionRepository, seguridad, null, null);
 
         // La instancia que devuelve el lock queda a propósito con el estado viejo (nulo): si el
         // servicio decidiera con ella, los tests de repetición fallarían.
@@ -301,5 +301,48 @@ class RetiroServiceTest {
         service.findFlotantes(null, null, 19L, null, null, PAGINA);
 
         verify(repository).findFlotantes(null, null, null, null, PAGINA);
+    }
+
+    // ── Retiros ya procesados de una caja (aviso del diálogo de ingreso) ──
+
+    private static final org.springframework.data.domain.Pageable TOPE =
+            org.springframework.data.domain.PageRequest.of(0, RetiroService.TOPE_INGRESADOS);
+
+    @Test
+    void ingresados_sin_rol_acotado_pasa_la_sucursal_tal_cual_con_el_tope() {
+        service.findIngresadosDeCaja(662L, 24L, 19L);
+
+        verify(repository).findIngresadosDeCaja(662L, 24L, TOPE);
+        verify(repository, never()).findIngresadosDeCajaEnSucursales(any(), any(), any());
+    }
+
+    @Test
+    void ingresados_acotado_con_caja_destino_deja_solo_las_sucursales_que_esa_caja_cubre() {
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.sucursalesOperablesIds()).thenReturn(java.util.Arrays.asList(13L, 4L, 9L));
+        when(seguridad.sucursalesDeCajaIds(19L)).thenReturn(java.util.Arrays.asList(4L, 9L));
+
+        service.findIngresadosDeCaja(662L, null, 19L);
+
+        verify(repository).findIngresadosDeCajaEnSucursales(662L, java.util.Arrays.asList(4L, 9L), TOPE);
+        verify(repository, never()).findIngresadosDeCaja(any(), any(), any());
+    }
+
+    @Test
+    void ingresados_acotado_pidiendo_una_sucursal_ajena_no_devuelve_nada() {
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.sucursalesOperablesIds()).thenReturn(java.util.Arrays.asList(13L, 4L));
+
+        assertTrue(service.findIngresadosDeCaja(662L, 7L, null).isEmpty());
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    void ingresados_acotado_sin_ninguna_sucursal_no_devuelve_nada_ni_consulta() {
+        when(seguridad.esSoloCaja()).thenReturn(true);
+        when(seguridad.sucursalesOperablesIds()).thenReturn(java.util.Collections.emptyList());
+
+        assertTrue(service.findIngresadosDeCaja(662L, null, null).isEmpty());
+        verifyNoInteractions(repository);
     }
 }

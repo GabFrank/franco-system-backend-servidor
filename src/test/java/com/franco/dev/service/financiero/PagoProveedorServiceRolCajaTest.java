@@ -306,7 +306,8 @@ class PagoProveedorServiceRolCajaTest {
 
         service.anularPagoCpp(500L, "x", null);
 
-        verify(seguridad).requireEscrituraCaja(CAJA);
+        // Se pide antes del estado y otra vez en el control del modo acotado: alcanza con que se pida.
+        verify(seguridad, atLeastOnce()).requireEscrituraCaja(CAJA);
         verify(tesoreriaService).revertir(any(), any(), any());
     }
 

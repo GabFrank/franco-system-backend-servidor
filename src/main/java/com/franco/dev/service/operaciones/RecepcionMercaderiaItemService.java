@@ -6,7 +6,6 @@ import com.franco.dev.domain.operaciones.RecepcionMercaderia;
 import com.franco.dev.repository.operaciones.RecepcionMercaderiaItemRepository;
 import com.franco.dev.service.CrudService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -18,7 +17,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.context.annotation.Lazy;
 import com.franco.dev.domain.operaciones.EstadoVerificacion;
 import com.franco.dev.domain.operaciones.enums.MetodoVerificacion;
 import com.franco.dev.domain.operaciones.enums.MotivoRechazoFisico;
@@ -55,11 +53,7 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
     private final MovimientoStockRepository movimientoStockRepository;
     private final MovimientoStockService movimientoStockService;
     private final RecepcionMercaderiaItemVariacionService recepcionMercaderiaItemVariacionService;
-    
-    // Usar @Lazy para romper dependencia circular con RecepcionMercaderiaService
-    @Autowired
-    @Lazy
-    private RecepcionMercaderiaService recepcionMercaderiaService;
+    private final RecepcionMercaderiaService recepcionMercaderiaService;
 
     @Override
     public RecepcionMercaderiaItemRepository getRepository() {

@@ -6,13 +6,14 @@ import com.franco.dev.domain.personas.enums.TipoCliente;
 import com.franco.dev.graphql.personas.ConsultaRucResponse;
 import com.franco.dev.repository.personas.ClienteRepository;
 import com.franco.dev.service.CrudService;
-import com.franco.dev.service.sifen.SifenService;
+import com.franco.dev.service.sifen.SifenConsultaRucService;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -24,13 +25,14 @@ public class ClienteService extends CrudService<Cliente, ClienteRepository, Long
 
     private final ClienteRepository repository;
     private final PersonaService personaService;
-    private final SifenService sifenService;
+    /** Null cuando sifen.enabled=false (el bean no existe). */
+    private final SifenConsultaRucService sifenConsultaRucService;
 
     public ClienteService(ClienteRepository repository, PersonaService personaService,
-        @Autowired(required = false) SifenService sifenService) {
+        @Autowired(required = false) SifenConsultaRucService sifenConsultaRucService) {
           this.repository = repository;
           this.personaService = personaService;
-          this.sifenService = sifenService;
+          this.sifenConsultaRucService = sifenConsultaRucService;
     }
 
     @Override
@@ -49,7 +51,7 @@ public class ClienteService extends CrudService<Cliente, ClienteRepository, Long
 
     public Page<Cliente> findByAll2(String texto, TipoCliente tipoCliente, Integer page, Integer size) {
         texto = texto != null ? texto.replace(' ', '%').toUpperCase() : "%";
-        Pageable pagina = PageRequest.of(page, size);
+        Pageable pagina = Paginacion.of(page, size);
         return repository.findByAll(texto, tipoCliente, pagina);
     }
 
@@ -87,12 +89,12 @@ public class ClienteService extends CrudService<Cliente, ClienteRepository, Long
         }
 
         // 2. Si no existe o no está verificado, consultar SIFEN
-        if (sifenService == null) {
+        if (sifenConsultaRucService == null) {
             log.warn("SIFEN no está disponible, retornando cliente existente si hay");
             return cliente; // Retornar cliente existente si hay
         }
 
-        ConsultaRucResponse respuestaSifen = sifenService.consultaRuc(documento);
+        ConsultaRucResponse respuestaSifen = sifenConsultaRucService.consultaRuc(documento);
         if (respuestaSifen == null) {
             log.warn("No se pudo obtener respuesta de SIFEN para documento: {}", documento);
             return cliente; // Retornar cliente existente si hay

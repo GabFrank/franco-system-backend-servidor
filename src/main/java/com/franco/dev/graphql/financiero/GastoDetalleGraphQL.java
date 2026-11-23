@@ -48,9 +48,13 @@ public class GastoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private GastoService gastoService;
 
-    public Optional<GastoDetalle> gastoDetalle(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
+    public Optional<GastoDetalle> gastoDetalle(Long id, Long sucId) {
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
+        return service.findById(new EmbebedPrimaryKey(id, sucId));
+    }
 
     public List<GastoDetalle> gastoDetalles(int page, int size, Long sucId){
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
         Pageable pageable = PageRequest.of(page,size);
         return service.findAll(pageable);
     }
@@ -72,6 +76,7 @@ public class GastoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public List<GastoDetalle> gastoDetalleListPorGastoId(Long id, Long sucId){
+        seg.requireAnyRole(PdvCajaGraphQL.LECTURA_CAJA);
         return service.findByGastoId(id);
     }
 

@@ -20,6 +20,7 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import com.franco.dev.utilitarios.Paginacion;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
@@ -68,7 +69,7 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public Page<NotaRecepcion> notaRecepcionPorPedidoIdAndNumero(Long id, Integer numero, Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         if (numero != null) {
             String texto = "%" + numero + "%";
             return service.findByPedidoIdAndNumero(id, texto, pageable);
@@ -249,7 +250,7 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * @return Página paginada de notas pendientes
      */
     public Page<NotaRecepcion> notasPendientesPage(Long sucursalId, Long proveedorId, Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = Paginacion.of(page, size);
         return service.findNotasDisponiblesParaRecepcionPage(null, proveedorId, sucursalId, pageable);
     }
 

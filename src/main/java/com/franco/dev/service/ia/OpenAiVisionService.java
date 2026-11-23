@@ -54,7 +54,8 @@ public class OpenAiVisionService {
             "'Razón Social', 'RUC/CI' del cuerpo) NO es el emisor: en estas compras el cliente casi siempre es " +
             "'FRANCO AREVALOS S.A.' u otra razón social de Franco. Poné al cliente en receptorRuc/receptorNombre " +
             "y usá SIEMPRE los datos del proveedor del encabezado para emisorRuc/emisorNombre (RUC con formato " +
-            "XXXXXXXX-X si está). NÚMERO DE FACTURA: devolvelo partido en tres: establecimiento (3 dígitos), " +
+            "XXXXXXXX-X si está). Del encabezado del proveedor leé también emisorDireccion (calle y número, " +
+            "con la ciudad si figura), emisorTelefono y emisorEmail (null si no están impresos). NÚMERO DE FACTURA: devolvelo partido en tres: establecimiento (3 dígitos), " +
             "puntoExpedicion (3 dígitos) y numero (hasta 7 dígitos), p. ej. 001-002-0001234. timbrado: número " +
             "de timbrado (null si es nota común). fechaEmision en formato YYYY-MM-DD. condicion: 'CONTADO' o " +
             "'CREDITO' (null si no se ve). moneda: PYG o USD. Ítems: codigoProveedor, codigoBarras, descripcion, " +
@@ -241,10 +242,12 @@ public class OpenAiVisionService {
                 new String[]{"string", "string", "string", "string", "number",
                         "number", "number", "number", "integer", "array"});
         ObjectNode root = objeto(
-                new String[]{"emisorRuc", "emisorNombre", "receptorRuc", "receptorNombre", "timbrado",
+                new String[]{"emisorRuc", "emisorNombre", "emisorDireccion", "emisorTelefono", "emisorEmail",
+                        "receptorRuc", "receptorNombre", "timbrado",
                         "establecimiento", "puntoExpedicion", "numero", "fechaEmision", "condicion", "moneda",
                         "totalGeneral", "dudosos", "error", "items"},
                 new String[]{"string", "string", "string", "string", "string",
+                        "string", "string", "string",
                         "string", "string", "string", "string", "string", "string",
                         "number", "array", "string", "array"});
         ObjectNode items = (ObjectNode) root.path("properties").path("items");
@@ -519,6 +522,9 @@ public class OpenAiVisionService {
                 algunaValida = true;
                 if (m.getEmisorRuc() == null) m.setEmisorRuc(d.getEmisorRuc());
                 if (m.getEmisorNombre() == null) m.setEmisorNombre(d.getEmisorNombre());
+                if (m.getEmisorDireccion() == null) m.setEmisorDireccion(d.getEmisorDireccion());
+                if (m.getEmisorTelefono() == null) m.setEmisorTelefono(d.getEmisorTelefono());
+                if (m.getEmisorEmail() == null) m.setEmisorEmail(d.getEmisorEmail());
                 if (m.getReceptorRuc() == null) m.setReceptorRuc(d.getReceptorRuc());
                 if (m.getReceptorNombre() == null) m.setReceptorNombre(d.getReceptorNombre());
                 if (m.getTimbrado() == null) m.setTimbrado(d.getTimbrado());

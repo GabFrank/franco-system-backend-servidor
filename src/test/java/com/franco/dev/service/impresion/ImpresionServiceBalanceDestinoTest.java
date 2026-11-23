@@ -107,7 +107,8 @@ class ImpresionServiceBalanceDestinoTest {
         ByteArrayOutputStream memoria = new ByteArrayOutputStream();
 
         assertTrue(service.printBalance(dto, null, "CAJA 1", memoria));
-        assertTrue(new String(memoria.toByteArray(), java.nio.charset.StandardCharsets.ISO_8859_1)
+        // El QR va como imagen ESC * (#687): se lee de vuelta en lugar de buscar el dato como texto.
+        assertTrue(com.franco.dev.utilitarios.print.escpos.EscPosQrLector.leer(memoria.toByteArray())
                 .contains("frc-24-PDVCAJA-7166-24-IngresarRetiroCajaMayor-null-null"));
     }
 
@@ -116,6 +117,7 @@ class ImpresionServiceBalanceDestinoTest {
         ByteArrayOutputStream memoria = new ByteArrayOutputStream();
         assertTrue(service.printBalance(balance(), null, "CAJA 1", memoria));
         assertFalse(new String(memoria.toByteArray(), java.nio.charset.StandardCharsets.ISO_8859_1).contains("frc-"));
+        assertTrue(com.franco.dev.utilitarios.print.escpos.EscPosQrLector.leer(memoria.toByteArray()).isEmpty());
     }
 
     @Test

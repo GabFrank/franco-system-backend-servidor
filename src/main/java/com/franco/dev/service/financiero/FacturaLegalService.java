@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 import static com.franco.dev.repository.financiero.FacturaLegalSpecification.withFilters;
 import static com.franco.dev.utilitarios.DateUtils.dateToStringWithFormat;
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToFinDeRango;
 
 @Service
 @AllArgsConstructor
@@ -121,7 +122,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
     public ResumenFacturasDto findResumenFacturas(String fechaInicio, String fechaFin, List<Long> sucId, String ruc,
             String nombre, Boolean iva5, Boolean iva10, Boolean sinNombre) {
         LocalDateTime inicio = stringToDate(fechaInicio);
-        LocalDateTime fin = stringToDate(fechaFin);
+        LocalDateTime fin = stringToFinDeRango(fechaFin);
         return repository.findResumenFacturas(inicio, fin, sucId, nombre, ruc, sinNombre);
     }
 
@@ -202,7 +203,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
 
     public String createExcelReport(String fechaInicio, String fechaFin, Long sucId) {
         LocalDateTime inicio = stringToDate(fechaInicio);
-        LocalDateTime fin = stringToDate(fechaFin);
+        LocalDateTime fin = stringToFinDeRango(fechaFin);
         Sucursal sucursal = sucursalService.findById(sucId).orElse(null);
         List<ExcelFacturasDto> dataList = getExcelFacturas(inicio, fin, sucId);
         XSSFWorkbook workbook;
@@ -328,7 +329,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
 
     public Workbook createExcelWorkbook(String fechaInicio, String fechaFin, Long sucId) {
         LocalDateTime inicio = stringToDate(fechaInicio);
-        LocalDateTime fin = stringToDate(fechaFin);
+        LocalDateTime fin = stringToFinDeRango(fechaFin);
         List<ExcelFacturasDto> dataList = getExcelFacturas(inicio, fin, sucId);
         XSSFWorkbook workbook;
         XSSFSheet sheet;

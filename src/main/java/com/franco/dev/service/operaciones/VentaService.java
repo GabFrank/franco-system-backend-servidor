@@ -51,6 +51,7 @@ import java.util.Map;
 
 import static com.franco.dev.utilitarios.DateUtils.ajustarFinRangoGrafico;
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToFinDeRango;
 import static java.time.temporal.ChronoUnit.DAYS;
 
 @Service
@@ -797,7 +798,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
             if (fechaInicio != null && fechaFin != null) {
                 LocalDateTime start = stringToDate(fechaInicio);
-                LocalDateTime end = stringToDate(fechaFin);
+                LocalDateTime end = stringToFinDeRango(fechaFin);
                 predicates.add(cb.between(root.get("creadoEn"), start, end));
             }
 

@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToFinDeRango;
 
 public final class FacturaLegalSpecification {
 
@@ -37,7 +38,7 @@ public final class FacturaLegalSpecification {
             }
 
             if (fechaFin != null) {
-                LocalDateTime fin = stringToDate(fechaFin);
+                LocalDateTime fin = stringToFinDeRango(fechaFin);
                 predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("creadoEn"), fin));
             }
 

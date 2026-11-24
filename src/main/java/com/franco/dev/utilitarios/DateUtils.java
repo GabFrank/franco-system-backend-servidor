@@ -80,6 +80,23 @@ public class DateUtils {
         return formatter.format(date);
     }
 
+    /**
+     * Fin inclusivo de un filtro por rango de fechas (#744). Una fecha sola ("2025-01-31") es el
+     * dia completo: hasta las 23:59:59.999999, la precision de timestamp en PostgreSQL. No se usa
+     * 999_999_999 porque pgjdbc redondea a microsegundos y lo llevaria a las 00:00 del dia
+     * siguiente. Una fecha con hora se respeta tal cual. {@link #stringToDate} no cambia: la
+     * fecha sola sigue siendo las 00:00 para el resto de las consultas.
+     */
+    public static LocalDateTime stringToFinDeRango(String s) {
+        if (s == null || s.trim().isEmpty())
+            return null;
+        String valor = s.trim();
+        if (valor.length() == 10) {
+            return LocalDate.parse(valor, formatter2).atTime(23, 59, 59, 999_999_000);
+        }
+        return stringToDate(valor);
+    }
+
     public static LocalDateTime stringToDateEndOfDay(String s) {
         if (s == null)
             return null;

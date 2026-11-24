@@ -304,6 +304,14 @@ Además, **prueba guiada manual** de todo el módulo al final: ver `PRUEBA-GUIAD
 - **Conciliación bancaria formal contra extracto** (archivo del banco) — no existe en gourmet, se diseñaría de cero.
 - **Tasa de interés en préstamos** (CPP PRESTAMO) — no existe en gourmet.
 - **Multi-moneda >3 / replicación de caja mayor a filiales** — decisión de negocio pendiente (hoy central-only).
+- **Cheque al día `EMITIDO`** (bandera `cheque.al_dia_emitido`, 2026-11, issues #601/#603):
+  - «Cobrar» masivo de los EMITIDO: hoy se cobran de a uno. Hace falta antes de prender la bandera en un canal con
+    muchos cheques al día.
+  - Revisar si los fondos deben **bloquear** la emisión de un EMITIDO: hoy solo avisa (decidido 2026-11-12 para una
+    primera etapa) y el control real es el del cobro, contra el saldo real.
+  - Antes de prender la bandera en un canal: central y desktop de esa versión instalados; para volver atrás,
+    `reconciliar-saldo-reservado.sql`.
+  - Imprimir el cheque y su comprobante → desktop #729. Reglas configurables por caja → central #620.
 
 ### Criterio de secuenciamiento
 F1 es prerequisito duro (ledger correcto antes de conectar nada). F2–F3 dan operación básica + circuito de efectivo

@@ -61,6 +61,25 @@ public class CajaVirtualConfiguracion implements Serializable {
     @Column(name = "cuentas_bancarias_orden")
     private String cuentasBancariasOrden;
 
+    /** JSON array de ids de moneda: orden de las cards de saldo (issue #540). Null = por id de moneda. */
+    @Column(name = "monedas_orden")
+    private String monedasOrden;
+
+    /** JSON array de ids de sucursal: orden en los diálogos de la caja (desk #653). Null = por nombre. */
+    @Column(name = "sucursales_orden")
+    private String sucursalesOrden;
+
+    /**
+     * JSON array de {@code TipoOperacionFinanciera}: orden del diálogo de operaciones (issue #603).
+     * Solo ordena: los permisos siguen en el servicio.
+     */
+    @Column(name = "operaciones_financieras_orden")
+    private String operacionesFinancierasOrden;
+
+    /** JSON array de {@code TipoOperacionFinanciera} que el diálogo no muestra. Oculta, nunca habilita. */
+    @Column(name = "operaciones_financieras_ocultas")
+    private String operacionesFinancierasOcultas;
+
     @CreationTimestamp
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;

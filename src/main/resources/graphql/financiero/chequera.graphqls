@@ -41,7 +41,32 @@ type ChequeraPage {
     getPageable: Pageable
 }
 
+# Un número de chequera que no se usa (issue #603). Vigente mientras revertidoEn sea null.
+type ChequeraNumeroInutilizado {
+    id: ID!
+    chequera: Chequera
+    numero: Float
+    motivo: String
+    usuario: Usuario
+    creadoEn: Date
+    cheque: Cheque
+    accionCheque: AccionChequeInutilizado
+    numeroNuevo: Float
+    revertidoEn: Date
+    revertidoPor: Usuario
+}
+
+enum AccionChequeInutilizado {
+    NINGUNA
+    ANULADO
+    RENUMERADO
+}
+
 extend type Query {
+    # Los próximos N números libres (sin cheque ni inutilizados): «Próximo Nº» y plan de cuotas.
+    proximosNumerosCheque(chequeraId: ID!, cantidad: Int!): [Float!]!
+    # Inutilizaciones de una chequera (vigentes y revertidas), o las vigentes de todas sin chequeraId.
+    numerosInutilizados(chequeraId: ID): [ChequeraNumeroInutilizado]
     chequera(id: ID!): Chequera
     chequeras(page: Int = 0, size: Int = 10): [Chequera]!
     chequerasSearch(texto: String): [Chequera]
@@ -52,4 +77,8 @@ extend type Query {
 extend type Mutation {
     saveChequera(entity: ChequeraInput!): Chequera!
     deleteChequera(id: ID!): Boolean!
+    # accionCheque solo si el número tiene cheque: ANULADO (suelto) o RENUMERADO (a numeroNuevo, libre y en el rango).
+    inutilizarNumeroCheque(chequeraId: ID!, numero: Float!, motivo: String!, accionCheque: AccionChequeInutilizado,
+                           numeroNuevo: Float): ChequeraNumeroInutilizado!
+    revertirInutilizacion(id: ID!): ChequeraNumeroInutilizado!
 } 

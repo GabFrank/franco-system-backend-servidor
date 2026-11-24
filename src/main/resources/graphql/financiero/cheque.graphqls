@@ -21,6 +21,15 @@ type Cheque {
     motivoAnulacion: String
     creadoEn: Date
     usuario: Usuario
+    # Emisión completa (issue #601).
+    proveedor: Proveedor
+    # Id del primer cheque de su emisión en cuotas; null = emitido solo.
+    loteId: Int
+    # Evento de pago del que salió (null = emitido suelto) y «PAGO» / «MANUAL».
+    pagoId: Int
+    origen: String
+    # Aviso de la emisión (fondos insuficientes en un EMITIDO). Solo en la respuesta de emitir.
+    avisoFondos: String
 }
 
 input ChequeInput {
@@ -81,7 +90,11 @@ type ChequeSaldoChequera {
 }
 
 extend type Query {
-    chequesDashboard(desde: String!, hasta: String!, cuentaBancariaId: ID, chequeraId: ID, estado: EstadoCheque): [Cheque]
-    chequesResumenPorDia(desde: String!, hasta: String!, cuentaBancariaId: ID, chequeraId: ID, estado: EstadoCheque): [ChequeResumenDia]
+    # tipoFecha: EMISION | PAGO | COBRO (sin él, PAGO: lo de siempre). estados gana sobre estado; ninguno = todos.
+    # texto busca en número, beneficiario y concepto. Hasta 500 cheques (los más nuevos).
+    chequesDashboard(desde: String!, hasta: String!, cuentaBancariaId: ID, chequeraId: ID, estado: EstadoCheque,
+                     tipoFecha: String, estados: [EstadoCheque], texto: String, proveedorId: ID): [Cheque]
+    chequesResumenPorDia(desde: String!, hasta: String!, cuentaBancariaId: ID, chequeraId: ID, estado: EstadoCheque,
+                         tipoFecha: String, estados: [EstadoCheque], texto: String, proveedorId: ID): [ChequeResumenDia]
     chequesSaldosPorChequera(hasta: String!, estado: EstadoCheque): [ChequeSaldoChequera]
 }

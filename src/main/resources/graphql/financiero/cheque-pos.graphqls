@@ -4,14 +4,27 @@ extend type Mutation {
         monedaId: Int, cuentaBancariaId: Int, fechaPago: String, concepto: String,
         # La genera el cliente por cada intento del usuario y la reenvia al reintentar: un pedido repetido
         # con la misma clave devuelve el cheque ya emitido en vez de emitir otro.
-        claveIdempotencia: String
+        claveIdempotencia: String,
+        # Emisión completa (issue #601). Con proveedor, el beneficiario por defecto es su nombre.
+        proveedorId: Int, beneficiario: String, nominal: Boolean, fechaEmision: String
     ): Cheque!
+    # N cheques de una chequera en una sola operación: todos o ninguno, con una clave para el lote (issue #601).
+    emitirCheques(
+        chequeraId: Int!, cheques: [CuotaChequeInput!]!, diferido: Boolean!, nominal: Boolean,
+        beneficiario: String, proveedorId: Int, fechaEmision: String, concepto: String,
+        claveIdempotencia: String
+    ): [Cheque!]!
     cobrarCheque(chequeId: ID!): Cheque!
     anularCheque(chequeId: ID!, motivo: String): Cheque!
 
     crearAcreditacionPos(terminalPosId: Int!, montoOriginal: Float!, ventaId: Int): AcreditacionPos!
     verificarAcreditacionPos(id: ID!, montoReal: Float!): AcreditacionPos!
     procesarAcreditacionesPos: Int!
+}
+
+input CuotaChequeInput {
+    total: Float!
+    fechaPago: String
 }
 
 type AcreditacionPos {

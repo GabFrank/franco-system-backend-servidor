@@ -7,6 +7,11 @@ type CajaVirtualConfiguracion {
     formasPagoVisibles: [FormaPago]
     cuentasBancariasVisibles: [CuentaBancaria]
     cuentasBancariasOrden: String
+    # JSON arrays de orden (null = orden por defecto). Ver CajaVirtualConfiguracion.java.
+    monedasOrden: String
+    sucursalesOrden: String
+    operacionesFinancierasOrden: String
+    operacionesFinancierasOcultas: String
     creadoEn: Date
 }
 
@@ -18,10 +23,24 @@ input CajaVirtualConfiguracionInput {
     formasPagoVisiblesIds: [Int]
     cuentasBancariasVisiblesIds: [Int]
     cuentasBancariasOrden: String
+    # Semántica PATCH: null no pisa lo guardado; "[]" lo vacía.
+    monedasOrden: String
+    sucursalesOrden: String
+    operacionesFinancierasOrden: String
+    operacionesFinancierasOcultas: String
+}
+
+# Solo los órdenes de la caja (JSON arrays; null = orden por defecto). Lo lee también el rol acotado.
+type CajaVirtualOrdenes {
+    monedasOrden: String
+    sucursalesOrden: String
+    operacionesFinancierasOrden: String
+    operacionesFinancierasOcultas: String
 }
 
 extend type Query {
     cajaVirtualConfiguracion(cajaVirtualId: ID!): CajaVirtualConfiguracion
+    cajaVirtualOrdenes(cajaVirtualId: ID!): CajaVirtualOrdenes!
 }
 
 extend type Mutation {

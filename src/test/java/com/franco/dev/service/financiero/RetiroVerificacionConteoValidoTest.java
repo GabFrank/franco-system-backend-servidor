@@ -118,6 +118,30 @@ class RetiroVerificacionConteoValidoTest {
     }
 
     @Test
+    void una_moneda_no_declarada_e_inactiva_se_rechaza() {
+        Moneda usInactiva = moneda(3, "DOLAR", 2);
+        usInactiva.setActivo(false);
+        when(monedaService.findById(3L)).thenReturn(Optional.of(usInactiva));
+        GraphQLException e = rechazo(conteo(1, "1000000"), conteo(2, "100"), conteo(3, "50"));
+        assertTrue(e.getMessage().contains("DOLAR") && e.getMessage().contains("inactiva"), e.getMessage());
+    }
+
+    @Test
+    void una_moneda_declarada_e_inactiva_se_acepta() {
+        RS.setActivo(false);
+        try {
+            when(verificacionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+            com.franco.dev.domain.financiero.MovimientoCajaVirtual mov = new com.franco.dev.domain.financiero.MovimientoCajaVirtual();
+            mov.setId(78L);
+            when(tesoreria.registrar(any())).thenReturn(mov);
+            assertDoesNotThrow(() -> service.verificar(1151L, 24L, 3L,
+                    Arrays.asList(conteo(1, "1000000"), conteo(2, "100")), false, null, null));
+        } finally {
+            RS.setActivo(null);
+        }
+    }
+
+    @Test
     void el_detalle_guardado_lleva_el_contado_normalizado() {
         RetiroDetalle rs = new RetiroDetalle();
         rs.setMoneda(RS);

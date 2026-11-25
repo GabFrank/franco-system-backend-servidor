@@ -80,7 +80,8 @@ extend type Mutation {
     # claveIdempotencia: la genera el cliente por cada intento del usuario y la reenvia al reintentar.
     # Un pedido repetido con la misma clave devuelve el pago ya creado en vez de registrarlo otra vez.
     pagarSolicitudesMixto(pagos: [SolicitudConLineasInput!]!, claveIdempotencia: String): Pago
-    anularPagoCpp(pagoId: ID!, motivo: String): Pago!
+    # anulacionCheque: motivo de la lista para los cheques del pago (#807).
+    anularPagoCpp(pagoId: ID!, motivo: String, anulacionCheque: AnulacionChequeInput): Pago!
     # Asigna una solicitud pagable (compra o gasto) a una caja para que la pague su operador.
     # cajaVirtualId null = quitar la asignación.
     asignarSolicitudPagoACaja(solicitudPagoId: ID!, cajaVirtualId: ID): SolicitudPago!

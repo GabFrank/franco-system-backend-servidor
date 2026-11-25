@@ -82,10 +82,10 @@ public class LiquidacionFinalGraphQL implements GraphQLQueryResolver, GraphQLMut
         return service.pagar(id, cajaVirtualId);
     }
 
-    public LiquidacionFinal anularLiquidacionFinal(Long id) {
+    public LiquidacionFinal anularLiquidacionFinal(Long id, com.franco.dev.graphql.financiero.input.AnulacionChequeInput anulacionCheque) {
         seg.requireAnyRole(seg.PAGAR);
         // Pagado desde tesoreria: se anula junto con su pago (pide ademas el rol de tesoreria).
-        return anulacionPagoRrhhService.anularFiniquito(id);
+        return anulacionPagoRrhhService.anularFiniquito(id, anulacionCheque);
     }
 
     public LiquidacionFinalItem agregarItemLiquidacionFinal(Long liquidacionFinalId, String descripcion, BigDecimal monto, LiquidacionItemTipo tipo) {

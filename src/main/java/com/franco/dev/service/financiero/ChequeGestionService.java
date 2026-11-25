@@ -5,12 +5,15 @@ import com.franco.dev.domain.financiero.Chequera;
 import com.franco.dev.domain.financiero.MovimientoBancario;
 import com.franco.dev.domain.financiero.enums.EstadoCheque;
 import com.franco.dev.domain.financiero.enums.EstadoChequera;
+import com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque;
 import com.franco.dev.domain.financiero.enums.MovimientoBancarioTipo;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.graphql.financiero.input.AnulacionChequeInput;
 import com.franco.dev.service.financiero.ChequeService;
 import com.franco.dev.service.financiero.ChequeraService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +30,7 @@ import java.util.List;
  */
 @Service
 @AllArgsConstructor
+@Slf4j
 public class ChequeGestionService {
 
     private final ChequeService chequeService;
@@ -392,6 +396,15 @@ public class ChequeGestionService {
     @Transactional
     public com.franco.dev.domain.financiero.ChequeraNumeroInutilizado inutilizar(Long chequeraId, Long numero, String motivo,
             com.franco.dev.domain.financiero.enums.AccionChequeInutilizado accion, Long numeroNuevo, Usuario usuario) {
+        return inutilizar(chequeraId, numero, motivo, accion, numeroNuevo, null, usuario);
+    }
+
+    /** Con el motivo de la lista para el cheque que se anula (acción {@code ANULADO}, #807). */
+    @Transactional
+    public com.franco.dev.domain.financiero.ChequeraNumeroInutilizado inutilizar(Long chequeraId, Long numero, String motivo,
+            com.franco.dev.domain.financiero.enums.AccionChequeInutilizado accion, Long numeroNuevo,
+            AnulacionChequeInput anulacionCheque, Usuario usuario) {
+        validarAnulacionCheque(anulacionCheque);
         if (numero == null) throw new GraphQLException("Indicá el número a inutilizar.");
         if (motivo == null || motivo.trim().isEmpty()) throw new GraphQLException("El motivo es obligatorio.");
         Chequera chequera = chequeraRepository.lockById(chequeraId)
@@ -418,7 +431,7 @@ public class ChequeGestionService {
                     .ifPresent(d -> { throw new GraphQLException("El cheque Nº " + numero + " es del pago #" + d.getPagoId()
                             + ": revertí el pago desde la caja mayor, o pasá el cheque a otro número."); });
             // Misma lógica que la anulación por pago: libera la reserva o revierte el débito si ya era COBRADO.
-            anularPorPago(cheque.getId(), razon, usuario);
+            anularPorPago(cheque.getId(), razon, anulacionCheque, usuario);
         } else if (a == com.franco.dev.domain.financiero.enums.AccionChequeInutilizado.RENUMERADO) {
             if (numeroNuevo == null) throw new GraphQLException("Indicá el número al que pasa el cheque.");
             exigirEnRango(chequera, numeroNuevo);
@@ -516,6 +529,13 @@ public class ChequeGestionService {
     /** Anula un cheque no cobrado. Libera la reserva si era diferido. */
     @Transactional
     public Cheque anular(Long chequeId, String motivo, Usuario usuario) {
+        return anular(chequeId, motivo, null, usuario);
+    }
+
+    /** Con el motivo de la lista (#807); sin él (desktop viejo) guarda el texto libre como antes. */
+    @Transactional
+    public Cheque anular(Long chequeId, String motivo, AnulacionChequeInput anulacion, Usuario usuario) {
+        validarAnulacionCheque(anulacion);
         Cheque cheque = chequeRepository.lockById(chequeId).orElseThrow(
                 () -> new GraphQLException("Cheque no encontrado: " + chequeId));
         if (cheque.getEstado() == EstadoCheque.COBRADO) {
@@ -530,8 +550,7 @@ public class ChequeGestionService {
             BigDecimal monto = BigDecimal.valueOf(cheque.getTotal() != null ? cheque.getTotal() : 0.0);
             bancoLedgerService.ajustarReservado(cheque.getCuentaBancaria().getId(), monto.negate());
         }
-        cheque.setEstado(EstadoCheque.ANULADO);
-        cheque.setMotivoAnulacion(motivo);
+        marcarAnulado(cheque, motivo, anulacion, usuario);
         return chequeService.save(cheque);
     }
 
@@ -542,6 +561,12 @@ public class ChequeGestionService {
      */
     @Transactional
     public Cheque anularPorPago(Long chequeId, String motivo, Usuario usuario) {
+        return anularPorPago(chequeId, motivo, null, usuario);
+    }
+
+    /** El input lo valida quien llama, antes de sus locks ({@link #validarAnulacionCheque}). */
+    @Transactional
+    public Cheque anularPorPago(Long chequeId, String motivo, AnulacionChequeInput anulacion, Usuario usuario) {
         Cheque cheque = chequeRepository.lockById(chequeId).orElseThrow(
                 () -> new GraphQLException("Cheque no encontrado: " + chequeId));
         if (cheque.getEstado() == EstadoCheque.ANULADO) return cheque;
@@ -554,8 +579,40 @@ public class ChequeGestionService {
             BigDecimal monto = BigDecimal.valueOf(cheque.getTotal() != null ? cheque.getTotal() : 0.0);
             bancoLedgerService.ajustarReservado(cheque.getCuentaBancaria().getId(), monto.negate());
         }
-        cheque.setEstado(EstadoCheque.ANULADO);
-        cheque.setMotivoAnulacion(motivo);
+        marcarAnulado(cheque, motivo, anulacion, usuario);
         return chequeService.save(cheque);
+    }
+
+    /**
+     * Rechaza un motivo de anulación incompleto. Va al entrar, antes de cualquier lock o reversa, porque un cheque
+     * que ya estaba anulado no vuelve a mirar el input. Null = desktop anterior a #807: se acepta.
+     */
+    public static void validarAnulacionCheque(AnulacionChequeInput anulacion) {
+        if (anulacion == null) return;
+        if (anulacion.getMotivo() == null) throw new GraphQLException("Elegí el motivo de anulación del cheque.");
+        if (anulacion.getMotivo() == MotivoAnulacionCheque.OTRO && textoONull(anulacion.getObservacion()) == null) {
+            throw new GraphQLException("Con el motivo «Otro», la observación de la anulación es obligatoria.");
+        }
+    }
+
+    /** Único escritor de los datos de la anulación. {@code motivoTexto} es el de antes de #807 (desktop viejo). */
+    private void marcarAnulado(Cheque cheque, String motivoTexto, AnulacionChequeInput anulacion, Usuario usuario) {
+        cheque.setEstado(EstadoCheque.ANULADO);
+        cheque.setFechaAnulacion(LocalDateTime.now());
+        cheque.setUsuarioAnulacion(usuario);
+        if (anulacion == null) {
+            log.warn("Cheque {} anulado sin motivo de la lista (cliente anterior a #807): {}", cheque.getId(), motivoTexto);
+            cheque.setMotivoAnulacion(motivoTexto);
+            return;
+        }
+        String obs = textoONull(anulacion.getObservacion());
+        cheque.setMotivoAnulacionTipo(anulacion.getMotivo());
+        cheque.setObservacionAnulacion(obs);
+        // El texto lo sigue mostrando el desktop viejo.
+        cheque.setMotivoAnulacion(anulacion.getMotivo().getEtiqueta().toUpperCase() + (obs != null ? " - " + obs : ""));
+    }
+
+    private static String textoONull(String s) {
+        return s == null || s.trim().isEmpty() ? null : s.trim();
     }
 }

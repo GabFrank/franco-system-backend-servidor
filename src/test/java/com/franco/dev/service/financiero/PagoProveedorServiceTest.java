@@ -376,7 +376,7 @@ class PagoProveedorServiceTest {
         verify(pagoService, never()).findById(anyLong());
         verify(tesoreriaService, never()).revertir(any(), any(), any());
         verify(bancoLedgerService, never()).revertir(any(), any(), any());
-        verify(chequeGestionService, never()).anularPorPago(anyLong(), any(), any());
+        verify(chequeGestionService, never()).anularPorPago(anyLong(), any(), any(), any());
     }
 
     @Test
@@ -401,7 +401,7 @@ class PagoProveedorServiceTest {
         assertEquals("TOPE", e.getMessage());
         verify(tesoreriaService, never()).revertir(any(), any(), any());
         verify(bancoLedgerService, never()).revertir(any(), any(), any());
-        verify(chequeGestionService, never()).anularPorPago(anyLong(), any(), any());
+        verify(chequeGestionService, never()).anularPorPago(anyLong(), any(), any(), any());
         verify(pagoService, never()).save(any());
     }
 
@@ -424,6 +424,51 @@ class PagoProveedorServiceTest {
         assertTrue(e.getMessage().contains("ya está anulado"), e.getMessage());
         verify(tesoreriaService, never()).revertir(any(), any(), any());
         verify(bancoLedgerService, never()).revertir(any(), any(), any());
+    }
+
+    // ── Motivo de la lista para los cheques del pago (#807) ──
+
+    @Test
+    void anular_con_motivo_otro_sin_observacion_se_rechaza_antes_de_tomar_el_pago() {
+        com.franco.dev.repository.operaciones.PagoRepository pagoRepo =
+                mock(com.franco.dev.repository.operaciones.PagoRepository.class);
+        when(pagoService.getRepository()).thenReturn(pagoRepo);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anularPagoCpp(500L, "X",
+                new com.franco.dev.graphql.financiero.input.AnulacionChequeInput(
+                        com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque.OTRO, "  "), null));
+
+        assertTrue(e.getMessage().contains("Otro"), e.getMessage());
+        verify(pagoRepo, never()).lockById(anyLong());
+    }
+
+    @Test
+    void anular_un_pago_con_cheque_le_pasa_el_motivo_de_la_lista_al_cheque() {
+        com.franco.dev.repository.operaciones.PagoRepository pagoRepo =
+                mock(com.franco.dev.repository.operaciones.PagoRepository.class);
+        when(pagoService.getRepository()).thenReturn(pagoRepo);
+        com.franco.dev.domain.operaciones.Pago pago = new com.franco.dev.domain.operaciones.Pago();
+        pago.setId(600L);
+        pago.setEstado(com.franco.dev.domain.operaciones.enums.PagoEstado.CONCLUIDO);
+        pago.setCreadoEn(java.time.LocalDateTime.now());
+        when(pagoRepo.lockById(600L)).thenReturn(Optional.of(pago));
+        when(pagoRepo.findEstadoById(600L)).thenReturn(Optional.of(com.franco.dev.domain.operaciones.enums.PagoEstado.CONCLUIDO));
+        com.franco.dev.domain.financiero.PagoSolicitudDetalle d = new com.franco.dev.domain.financiero.PagoSolicitudDetalle();
+        d.setPagoId(600L);
+        d.setChequeId(9L);
+        d.setSolicitudPagoId(3L);
+        d.setMonto(new java.math.BigDecimal("1000"));
+        when(detalleRepo.findByPagoIdOrderByCreadoEnAsc(600L)).thenReturn(java.util.Collections.singletonList(d));
+        com.franco.dev.graphql.financiero.input.AnulacionChequeInput motivo =
+                new com.franco.dev.graphql.financiero.input.AnulacionChequeInput(
+                        com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque.EFECTIVIZACION, null);
+
+        try { service.anularPagoCpp(600L, "X", motivo, null); } catch (RuntimeException ignorado) {
+            // Lo que pase después de anular el cheque (reabrir solicitudes) no es lo que mide este test.
+        }
+
+        verify(chequeGestionService).anularPorPago(org.mockito.ArgumentMatchers.eq(9L), any(),
+                org.mockito.ArgumentMatchers.same(motivo), any());
     }
 
     // ── Idempotencia del pago mixto (issue #376) ──

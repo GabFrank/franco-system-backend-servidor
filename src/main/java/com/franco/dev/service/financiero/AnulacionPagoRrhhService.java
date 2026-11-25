@@ -1,5 +1,6 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.graphql.financiero.input.AnulacionChequeInput;
 import com.franco.dev.domain.financiero.PagoSolicitudDetalle;
 import com.franco.dev.domain.operaciones.Pago;
 import com.franco.dev.domain.operaciones.enums.PagoEstado;
@@ -61,6 +62,13 @@ public class AnulacionPagoRrhhService {
 
     @Transactional
     public LiquidacionSueldo anularLiquidacion(Long id) {
+        return anularLiquidacion(id, null);
+    }
+
+    /** {@code anulacionCheque}: motivo de la lista para los cheques del pago (#807); null = como antes. */
+    @Transactional
+    public LiquidacionSueldo anularLiquidacion(Long id, AnulacionChequeInput anulacionCheque) {
+        ChequeGestionService.validarAnulacionCheque(anulacionCheque);
         // Lock primero: dos anulaciones simultaneas se serializan y la segunda ve ANULADA.
         LiquidacionSueldo liq = liquidacionSueldoRepository.lockById(id)
                 .orElseThrow(() -> new GraphQLException("Liquidacion no encontrada"));
@@ -70,7 +78,7 @@ public class AnulacionPagoRrhhService {
         String documento = "la liquidacion #" + id;
         List<Long> pagos = pagosVivos(liq.getSolicitudPagoId(), documento);
         if (pagos.isEmpty()) return liquidacionSueldoService.anularSinPagoVivo(id);
-        anularPagos(pagos, "ANULACION LIQUIDACION #" + id);
+        anularPagos(pagos, "ANULACION LIQUIDACION #" + id, anulacionCheque);
         // Con dos pagos, el segundo sincroniza por idempotencia y no suelta los links: que la ANULADA no
         // quede apuntando a un movimiento ya revertido.
         liq.setCajaVirtualId(null);
@@ -81,6 +89,12 @@ public class AnulacionPagoRrhhService {
 
     @Transactional
     public LiquidacionFinal anularFiniquito(Long id) {
+        return anularFiniquito(id, null);
+    }
+
+    @Transactional
+    public LiquidacionFinal anularFiniquito(Long id, AnulacionChequeInput anulacionCheque) {
+        ChequeGestionService.validarAnulacionCheque(anulacionCheque);
         LiquidacionFinal lf = liquidacionFinalRepository.lockById(id)
                 .orElseThrow(() -> new GraphQLException("Liquidacion final no encontrada"));
         if (lf.getEstado() != LiquidacionFinalEstado.PAGADA || lf.getSolicitudPagoId() == null) {
@@ -89,7 +103,7 @@ public class AnulacionPagoRrhhService {
         String documento = "el finiquito #" + id;
         List<Long> pagos = pagosVivos(lf.getSolicitudPagoId(), documento);
         if (pagos.isEmpty()) return liquidacionFinalService.anularSinPagoVivo(id);
-        anularPagos(pagos, "ANULACION LIQUIDACION FINAL #" + id);
+        anularPagos(pagos, "ANULACION LIQUIDACION FINAL #" + id, anulacionCheque);
         lf.setCajaVirtualId(null);
         lf.setMovimientoCajaVirtualId(null);
         lf.setFechaPago(null);
@@ -134,12 +148,12 @@ public class AnulacionPagoRrhhService {
         return new ArrayList<>(pagoIds);
     }
 
-    private void anularPagos(List<Long> pagoIds, String motivo) {
+    private void anularPagos(List<Long> pagoIds, String motivo, AnulacionChequeInput anulacionCheque) {
         Usuario usuario = tesoreriaSecurity.currentUsuario();
         // La reversa queda firmada: sin usuario resuelto (ej. el nickname ADMIN sin fila) no se anula.
         if (usuario == null) throw new GraphQLException("No se pudo identificar al usuario que anula el pago");
         for (Long pagoId : pagoIds) {
-            pagoProveedorService.anularPagoCpp(pagoId, motivo, usuario);
+            pagoProveedorService.anularPagoCpp(pagoId, motivo, anulacionCheque, usuario);
         }
     }
 

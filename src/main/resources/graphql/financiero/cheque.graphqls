@@ -1,5 +1,17 @@
 enum EstadoCheque { EMITIDO DIFERIDO COBRADO ANULADO }
 
+# Motivo de anulación de un cheque (desktop #807). Un valor nuevo redefine el CHECK de V289.1.
+enum MotivoAnulacionCheque {
+    EFECTIVIZACION FIRMA_NO_CONFORME MALA_IMPRESION DEVOLUCION
+    PROVEEDOR_INCORRECTO FECHA_INCORRECTA MONTO_INCORRECTO OTRO
+}
+
+# Motivo de la lista y observación (obligatoria con OTRO). Uno solo vale para todos los cheques de un pago.
+input AnulacionChequeInput {
+    motivo: MotivoAnulacionCheque!
+    observacion: String
+}
+
 type Cheque {
     id: ID!
     chequera: Chequera
@@ -19,6 +31,11 @@ type Cheque {
     cuentaBancaria: CuentaBancaria
     fechaCobro: Date
     motivoAnulacion: String
+    # Datos de la anulación (#807); null en los anulados antes del cambio.
+    motivoAnulacionTipo: MotivoAnulacionCheque
+    observacionAnulacion: String
+    fechaAnulacion: Date
+    usuarioAnulacion: Usuario
     creadoEn: Date
     usuario: Usuario
     # Emisión completa (issue #601).

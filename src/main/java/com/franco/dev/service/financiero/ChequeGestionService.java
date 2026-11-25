@@ -584,6 +584,26 @@ public class ChequeGestionService {
     }
 
     /**
+     * Los cheques que anula la anulación de estos pagos (#807): los de sus detalles vivos que no estén ya anulados,
+     * COBRADO incluido (se revierte su débito). El mismo filtro que {@code anularPagoCpp}. El desktop pide el motivo
+     * de la lista solo si hay alguno, e imprime un ticket por cada uno.
+     */
+    @Transactional(readOnly = true)
+    public List<Cheque> chequesAAnular(java.util.Collection<Long> pagoIds) {
+        java.util.Set<Long> ids = new java.util.LinkedHashSet<>();
+        for (Long pagoId : pagoIds) {
+            for (com.franco.dev.domain.financiero.PagoSolicitudDetalle d : pagoDetalleRepository.findByPagoIdOrderByCreadoEnAsc(pagoId)) {
+                if (d.getChequeId() != null && !Boolean.TRUE.equals(d.getAnulado())) ids.add(d.getChequeId());
+            }
+        }
+        if (ids.isEmpty()) return new java.util.ArrayList<>();
+        return chequeRepository.findAllById(ids).stream()
+                .filter(c -> c.getEstado() != EstadoCheque.ANULADO)
+                .sorted(java.util.Comparator.comparing(Cheque::getNumero, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
      * Rechaza un motivo de anulación incompleto. Va al entrar, antes de cualquier lock o reversa, porque un cheque
      * que ya estaba anulado no vuelve a mirar el input. Null = desktop anterior a #807: se acepta.
      */

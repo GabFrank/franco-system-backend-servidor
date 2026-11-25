@@ -110,6 +110,26 @@ public class AnulacionPagoRrhhService {
         return liquidacionFinalService.anular(id);
     }
 
+    /**
+     * Los pagos que anularia {@link #anularLiquidacion} (#807), para mostrar sus cheques antes de anular. Mismas reglas:
+     * rechaza un lote y exige el rol de tesoreria si hay pagos vivos. Vacio si no esta pagada desde tesoreria.
+     */
+    @Transactional(readOnly = true)
+    public List<Long> pagosAAnularDeLiquidacion(Long id) {
+        LiquidacionSueldo liq = liquidacionSueldoRepository.findById(id)
+                .orElseThrow(() -> new GraphQLException("Liquidacion no encontrada"));
+        if (liq.getEstado() != LiquidacionSueldoEstado.PAGADA || liq.getSolicitudPagoId() == null) return new ArrayList<>();
+        return pagosVivos(liq.getSolicitudPagoId(), "la liquidacion #" + id);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> pagosAAnularDeFiniquito(Long id) {
+        LiquidacionFinal lf = liquidacionFinalRepository.findById(id)
+                .orElseThrow(() -> new GraphQLException("Liquidacion final no encontrada"));
+        if (lf.getEstado() != LiquidacionFinalEstado.PAGADA || lf.getSolicitudPagoId() == null) return new ArrayList<>();
+        return pagosVivos(lf.getSolicitudPagoId(), "el finiquito #" + id);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────────
 
     /**

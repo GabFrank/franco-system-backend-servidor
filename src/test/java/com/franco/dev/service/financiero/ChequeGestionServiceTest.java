@@ -511,6 +511,37 @@ class ChequeGestionServiceTest {
     }
 
     @Test
+    void cheques_a_anular_son_los_de_detalles_vivos_que_no_estan_ya_anulados() {
+        com.franco.dev.domain.financiero.PagoSolicitudDetalle vivo = new com.franco.dev.domain.financiero.PagoSolicitudDetalle();
+        vivo.setChequeId(1L);
+        com.franco.dev.domain.financiero.PagoSolicitudDetalle cobrado = new com.franco.dev.domain.financiero.PagoSolicitudDetalle();
+        cobrado.setChequeId(2L);
+        com.franco.dev.domain.financiero.PagoSolicitudDetalle deUnPagoAnulado = new com.franco.dev.domain.financiero.PagoSolicitudDetalle();
+        deUnPagoAnulado.setChequeId(3L); deUnPagoAnulado.setAnulado(true);
+        com.franco.dev.domain.financiero.PagoSolicitudDetalle chequeYaAnulado = new com.franco.dev.domain.financiero.PagoSolicitudDetalle();
+        chequeYaAnulado.setChequeId(4L);
+        com.franco.dev.domain.financiero.PagoSolicitudDetalle efectivo = new com.franco.dev.domain.financiero.PagoSolicitudDetalle();
+        when(pagoDetalleRepository.findByPagoIdOrderByCreadoEnAsc(600L))
+                .thenReturn(java.util.Arrays.asList(vivo, cobrado, deUnPagoAnulado, chequeYaAnulado, efectivo));
+        Cheque c1 = nuevo(true); c1.setId(1L); c1.setNumero(12.0); c1.setEstado(EstadoCheque.DIFERIDO);
+        Cheque c2 = nuevo(false); c2.setId(2L); c2.setNumero(11.0); c2.setEstado(EstadoCheque.COBRADO);
+        Cheque c4 = nuevo(false); c4.setId(4L); c4.setNumero(13.0); c4.setEstado(EstadoCheque.ANULADO);
+        when(chequeRepository.findAllById(argThat(ids -> ids != null && new java.util.HashSet<>((java.util.Collection<Long>) ids)
+                .equals(new java.util.HashSet<>(java.util.Arrays.asList(1L, 2L, 4L)))))).thenReturn(java.util.Arrays.asList(c1, c2, c4));
+
+        java.util.List<Cheque> r = service.chequesAAnular(java.util.Collections.singletonList(600L));
+
+        assertEquals(java.util.Arrays.asList(2L, 1L), r.stream().map(Cheque::getId).collect(java.util.stream.Collectors.toList()),
+                "el cobrado entra (se revierte su débito), por número; el de un pago anulado y el ya anulado no");
+    }
+
+    @Test
+    void sin_cheques_en_el_pago_no_consulta_cheques() {
+        assertTrue(service.chequesAAnular(java.util.Collections.singletonList(601L)).isEmpty());
+        verify(chequeRepository, never()).findAllById(any());
+    }
+
+    @Test
     void la_fecha_de_emision_siempre_queda() {
         Cheque c = service.emitir(nuevo(true), null);
         assertNotNull(c.getFechaEntrega());

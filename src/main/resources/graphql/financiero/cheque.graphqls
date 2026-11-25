@@ -78,6 +78,10 @@ type ChequePage {
 
 extend type Query {
     cheque(id: ID!): Cheque
+    # Los cheques que anula la anulación de un pago, una liquidación o un finiquito (uno de los tres, #807).
+    chequesAAnular(pagoId: ID, liquidacionId: ID, liquidacionFinalId: ID): [Cheque!]!
+    # Comprobante térmico (base64 ESC/POS) de un cheque anulado; anchoMm 58 u 80.
+    imprimirChequeAnulado(chequeId: ID!, anchoMm: Int): String
     cheques(page: Int = 0, size: Int = 10): [Cheque]!
     chequesSearch(texto: String): [Cheque]
     chequesPorChequeraId(chequeraId: ID!): [Cheque]

@@ -431,6 +431,130 @@ class ChequeGestionServiceTest {
         verify(bancoLedgerService, never()).ajustarReservado(anyLong(), any());
     }
 
+    // ── Motivo de la lista, observación, fecha y usuario (#807) ──
+
+    private static com.franco.dev.graphql.financiero.input.AnulacionChequeInput motivo(
+            com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque m, String obs) {
+        return new com.franco.dev.graphql.financiero.input.AnulacionChequeInput(m, obs);
+    }
+
+    @Test
+    void anular_con_motivo_de_la_lista_guarda_tipo_observacion_fecha_y_usuario() {
+        Cheque c = nuevo(false); c.setId(9L); c.setEstado(EstadoCheque.EMITIDO); c.setCuentaBancaria(cuenta);
+        when(chequeRepository.lockById(9L)).thenReturn(Optional.of(c));
+        com.franco.dev.domain.personas.Usuario u = new com.franco.dev.domain.personas.Usuario(); u.setId(77L);
+
+        Cheque r = service.anular(9L, null, motivo(
+                com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque.MALA_IMPRESION, "  sin tinta "), u);
+
+        assertEquals(EstadoCheque.ANULADO, r.getEstado());
+        assertEquals(com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque.MALA_IMPRESION, r.getMotivoAnulacionTipo());
+        assertEquals("sin tinta", r.getObservacionAnulacion());
+        assertEquals("MALA IMPRESIÓN - sin tinta", r.getMotivoAnulacion(), "el texto que muestra el desktop viejo");
+        assertNotNull(r.getFechaAnulacion());
+        assertEquals(77L, r.getUsuarioAnulacion().getId());
+    }
+
+    @Test
+    void una_observacion_larga_queda_entera_y_el_texto_viejo_se_recorta_a_200() {
+        Cheque c = nuevo(false); c.setId(9L); c.setEstado(EstadoCheque.EMITIDO); c.setCuentaBancaria(cuenta);
+        when(chequeRepository.lockById(9L)).thenReturn(Optional.of(c));
+        String larga = new String(new char[500]).replace('\0', 'X');
+
+        Cheque r = service.anular(9L, null, motivo(
+                com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque.PROVEEDOR_INCORRECTO, larga), null);
+
+        assertEquals(500, r.getObservacionAnulacion().length());
+        assertEquals(200, r.getMotivoAnulacion().length(), "motivo_anulacion es varchar(200)");
+        assertTrue(r.getMotivoAnulacion().startsWith("PROVEEDOR INCORRECTO - X"));
+    }
+
+    @Test
+    void motivo_otro_sin_observacion_se_rechaza_antes_de_tomar_el_cheque() {
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.anular(9L, null,
+                motivo(com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque.OTRO, " "), null));
+        assertTrue(e.getMessage().contains("Otro"), e.getMessage());
+        verify(chequeRepository, never()).lockById(anyLong());
+        verify(bancoLedgerService, never()).ajustarReservado(anyLong(), any());
+    }
+
+    @Test
+    void un_motivo_sin_valor_se_rechaza() {
+        assertThrows(GraphQLException.class, () -> service.anular(9L, null, motivo(null, "x"), null));
+        verify(chequeRepository, never()).lockById(anyLong());
+    }
+
+    @Test
+    void sin_motivo_de_la_lista_queda_como_antes_pero_con_fecha_y_usuario() {
+        Cheque c = nuevo(false); c.setId(9L); c.setEstado(EstadoCheque.EMITIDO); c.setCuentaBancaria(cuenta);
+        when(chequeRepository.lockById(9L)).thenReturn(Optional.of(c));
+
+        Cheque r = service.anular(9L, "HOJA DAÑADA", null);
+
+        assertEquals("HOJA DAÑADA", r.getMotivoAnulacion());
+        assertNull(r.getMotivoAnulacionTipo());
+        assertNotNull(r.getFechaAnulacion());
+    }
+
+    @Test
+    void anular_por_pago_guarda_el_motivo_de_la_lista() {
+        Cheque c = nuevo(true); c.setId(9L); c.setEstado(EstadoCheque.DIFERIDO); c.setCuentaBancaria(cuenta);
+        when(chequeRepository.lockById(9L)).thenReturn(Optional.of(c));
+
+        Cheque r = service.anularPorPago(9L, "ANULACION LIQUIDACION #3",
+                motivo(com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque.EFECTIVIZACION, null), null);
+
+        assertEquals(com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque.EFECTIVIZACION, r.getMotivoAnulacionTipo());
+        assertEquals("EFECTIVIZACIÓN", r.getMotivoAnulacion());
+    }
+
+    @Test
+    void un_cheque_ya_anulado_conserva_los_datos_de_su_anulacion() {
+        java.time.LocalDateTime antes = java.time.LocalDateTime.now().minusDays(3);
+        Cheque c = nuevo(false); c.setId(9L); c.setEstado(EstadoCheque.ANULADO);
+        c.setMotivoAnulacionTipo(com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque.DEVOLUCION);
+        c.setFechaAnulacion(antes);
+        when(chequeRepository.lockById(9L)).thenReturn(Optional.of(c));
+
+        Cheque r = service.anularPorPago(9L, "otro pago",
+                motivo(com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque.MONTO_INCORRECTO, null), null);
+
+        assertEquals(com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque.DEVOLUCION, r.getMotivoAnulacionTipo());
+        assertEquals(antes, r.getFechaAnulacion());
+        verify(chequeService, never()).save(any());
+    }
+
+    @Test
+    void cheques_a_anular_son_los_de_detalles_vivos_que_no_estan_ya_anulados() {
+        com.franco.dev.domain.financiero.PagoSolicitudDetalle vivo = new com.franco.dev.domain.financiero.PagoSolicitudDetalle();
+        vivo.setChequeId(1L);
+        com.franco.dev.domain.financiero.PagoSolicitudDetalle cobrado = new com.franco.dev.domain.financiero.PagoSolicitudDetalle();
+        cobrado.setChequeId(2L);
+        com.franco.dev.domain.financiero.PagoSolicitudDetalle deUnPagoAnulado = new com.franco.dev.domain.financiero.PagoSolicitudDetalle();
+        deUnPagoAnulado.setChequeId(3L); deUnPagoAnulado.setAnulado(true);
+        com.franco.dev.domain.financiero.PagoSolicitudDetalle chequeYaAnulado = new com.franco.dev.domain.financiero.PagoSolicitudDetalle();
+        chequeYaAnulado.setChequeId(4L);
+        com.franco.dev.domain.financiero.PagoSolicitudDetalle efectivo = new com.franco.dev.domain.financiero.PagoSolicitudDetalle();
+        when(pagoDetalleRepository.findByPagoIdOrderByCreadoEnAsc(600L))
+                .thenReturn(java.util.Arrays.asList(vivo, cobrado, deUnPagoAnulado, chequeYaAnulado, efectivo));
+        Cheque c1 = nuevo(true); c1.setId(1L); c1.setNumero(12.0); c1.setEstado(EstadoCheque.DIFERIDO);
+        Cheque c2 = nuevo(false); c2.setId(2L); c2.setNumero(11.0); c2.setEstado(EstadoCheque.COBRADO);
+        Cheque c4 = nuevo(false); c4.setId(4L); c4.setNumero(13.0); c4.setEstado(EstadoCheque.ANULADO);
+        when(chequeRepository.findAllById(argThat(ids -> ids != null && new java.util.HashSet<>((java.util.Collection<Long>) ids)
+                .equals(new java.util.HashSet<>(java.util.Arrays.asList(1L, 2L, 4L)))))).thenReturn(java.util.Arrays.asList(c1, c2, c4));
+
+        java.util.List<Cheque> r = service.chequesAAnular(java.util.Collections.singletonList(600L));
+
+        assertEquals(java.util.Arrays.asList(2L, 1L), r.stream().map(Cheque::getId).collect(java.util.stream.Collectors.toList()),
+                "el cobrado entra (se revierte su débito), por número; el de un pago anulado y el ya anulado no");
+    }
+
+    @Test
+    void sin_cheques_en_el_pago_no_consulta_cheques() {
+        assertTrue(service.chequesAAnular(java.util.Collections.singletonList(601L)).isEmpty());
+        verify(chequeRepository, never()).findAllById(any());
+    }
+
     @Test
     void la_fecha_de_emision_siempre_queda() {
         Cheque c = service.emitir(nuevo(true), null);

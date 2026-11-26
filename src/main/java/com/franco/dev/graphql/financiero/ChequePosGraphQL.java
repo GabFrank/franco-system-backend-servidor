@@ -88,9 +88,9 @@ public class ChequePosGraphQL implements GraphQLMutationResolver {
         return chequeGestionService.cobrar(chequeId, seg.currentUsuario());
     }
 
-    public Cheque anularCheque(Long chequeId, String motivo) {
+    public Cheque anularCheque(Long chequeId, String motivo, com.franco.dev.graphql.financiero.input.AnulacionChequeInput anulacionCheque) {
         seg.requireGestionar();
-        return chequeGestionService.anular(chequeId, motivo, seg.currentUsuario());
+        return chequeGestionService.anular(chequeId, motivo, anulacionCheque, seg.currentUsuario());
     }
 
     public AcreditacionPos crearAcreditacionPos(Long terminalPosId, Double montoOriginal, Long ventaId) {

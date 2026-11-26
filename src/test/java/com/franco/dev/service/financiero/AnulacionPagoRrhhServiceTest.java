@@ -103,7 +103,7 @@ class AnulacionPagoRrhhServiceTest {
         when(pagoService.findById(anyLong())).thenAnswer(i -> Optional.of(pago(i.getArgument(0), PagoEstado.CONCLUIDO)));
 
         // El motor real, al anular el pago, sincroniza la liquidacion: la MISMA instancia vuelve a APROBADA.
-        when(motor.anularPagoCpp(anyLong(), anyString(), any())).thenAnswer(i -> {
+        when(motor.anularPagoCpp(anyLong(), anyString(), any(), any())).thenAnswer(i -> {
             liq.setEstado(LiquidacionSueldoEstado.APROBADA);
             return null;
         });
@@ -148,10 +148,30 @@ class AnulacionPagoRrhhServiceTest {
 
         LiquidacionSueldo res = service.anularLiquidacion(LIQ_ID);
 
-        verify(motor).anularPagoCpp(eq(700L), contains("#" + LIQ_ID), any());
+        verify(motor).anularPagoCpp(eq(700L), contains("#" + LIQ_ID), any(), any());
         verify(tesoreriaSecurity).requirePagarCpp();
         assertSame(liq, res);
         assertEquals(LiquidacionSueldoEstado.ANULADA, liq.getEstado());
+    }
+
+    @Test
+    void elMotivoDeLaListaLlegaAlPagoQueAnulaLosCheques() {
+        detalle(700L, SOLICITUD, false);
+        com.franco.dev.graphql.financiero.input.AnulacionChequeInput motivo =
+                new com.franco.dev.graphql.financiero.input.AnulacionChequeInput(
+                        com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque.EFECTIVIZACION, null);
+
+        service.anularLiquidacion(LIQ_ID, motivo);
+
+        verify(motor).anularPagoCpp(eq(700L), anyString(), same(motivo), any());
+    }
+
+    @Test
+    void unMotivoOtroSinObservacionSeRechazaAntesDeTomarLaLiquidacion() {
+        assertThrows(GraphQLException.class, () -> service.anularLiquidacion(LIQ_ID,
+                new com.franco.dev.graphql.financiero.input.AnulacionChequeInput(
+                        com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque.OTRO, null)));
+        verify(motor, never()).anularPagoCpp(anyLong(), anyString(), any(), any());
     }
 
     @Test
@@ -161,8 +181,8 @@ class AnulacionPagoRrhhServiceTest {
 
         service.anularLiquidacion(LIQ_ID);
 
-        verify(motor).anularPagoCpp(eq(700L), anyString(), any());
-        verify(motor).anularPagoCpp(eq(701L), anyString(), any());
+        verify(motor).anularPagoCpp(eq(700L), anyString(), any(), any());
+        verify(motor).anularPagoCpp(eq(701L), anyString(), any(), any());
         assertEquals(LiquidacionSueldoEstado.ANULADA, liq.getEstado());
     }
 
@@ -177,7 +197,7 @@ class AnulacionPagoRrhhServiceTest {
         GraphQLException ex = assertThrows(GraphQLException.class, () -> service.anularLiquidacion(LIQ_ID));
 
         assertTrue(ex.getMessage().contains("#487"), ex.getMessage());
-        verify(motor, never()).anularPagoCpp(anyLong(), anyString(), any());
+        verify(motor, never()).anularPagoCpp(anyLong(), anyString(), any(), any());
         assertEquals(LiquidacionSueldoEstado.PAGADA, liq.getEstado());
     }
 
@@ -188,7 +208,7 @@ class AnulacionPagoRrhhServiceTest {
 
         service.anularLiquidacion(LIQ_ID);
 
-        verify(motor).anularPagoCpp(eq(700L), anyString(), any());
+        verify(motor).anularPagoCpp(eq(700L), anyString(), any(), any());
         assertEquals(LiquidacionSueldoEstado.ANULADA, liq.getEstado());
     }
 
@@ -200,8 +220,8 @@ class AnulacionPagoRrhhServiceTest {
 
         service.anularLiquidacion(LIQ_ID);
 
-        verify(motor, never()).anularPagoCpp(eq(700L), anyString(), any());
-        verify(motor).anularPagoCpp(eq(701L), anyString(), any());
+        verify(motor, never()).anularPagoCpp(eq(700L), anyString(), any(), any());
+        verify(motor).anularPagoCpp(eq(701L), anyString(), any(), any());
     }
 
     @Test
@@ -212,7 +232,7 @@ class AnulacionPagoRrhhServiceTest {
 
         service.anularLiquidacion(LIQ_ID);
 
-        verify(motor, never()).anularPagoCpp(anyLong(), anyString(), any());
+        verify(motor, never()).anularPagoCpp(anyLong(), anyString(), any(), any());
         verify(tesoreriaSecurity, never()).requirePagarCpp();
         assertEquals(LiquidacionSueldoEstado.ANULADA, liq.getEstado());
     }
@@ -223,7 +243,7 @@ class AnulacionPagoRrhhServiceTest {
         doThrow(new GraphQLException("No autorizado")).when(tesoreriaSecurity).requirePagarCpp();
 
         assertThrows(GraphQLException.class, () -> service.anularLiquidacion(LIQ_ID));
-        verify(motor, never()).anularPagoCpp(anyLong(), anyString(), any());
+        verify(motor, never()).anularPagoCpp(anyLong(), anyString(), any(), any());
         assertEquals(LiquidacionSueldoEstado.PAGADA, liq.getEstado());
     }
 
@@ -233,7 +253,7 @@ class AnulacionPagoRrhhServiceTest {
         when(tesoreriaSecurity.currentUsuario()).thenReturn(null);
 
         assertThrows(GraphQLException.class, () -> service.anularLiquidacion(LIQ_ID));
-        verify(motor, never()).anularPagoCpp(anyLong(), anyString(), any());
+        verify(motor, never()).anularPagoCpp(anyLong(), anyString(), any(), any());
     }
 
     @Test
@@ -256,7 +276,7 @@ class AnulacionPagoRrhhServiceTest {
         service.anularLiquidacion(LIQ_ID);
 
         verify(tesoreriaSecurity, never()).requirePagarCpp();
-        verify(motor, never()).anularPagoCpp(anyLong(), anyString(), any());
+        verify(motor, never()).anularPagoCpp(anyLong(), anyString(), any(), any());
         assertEquals(LiquidacionSueldoEstado.ANULADA, liq.getEstado());
     }
 
@@ -278,7 +298,7 @@ class AnulacionPagoRrhhServiceTest {
 
         service.anularFiniquito(900L);
 
-        verify(motor).anularPagoCpp(eq(800L), contains("#900"), any());
+        verify(motor).anularPagoCpp(eq(800L), contains("#900"), any(), any());
         verify(finiquitoService).anular(900L);
     }
 
@@ -289,6 +309,6 @@ class AnulacionPagoRrhhServiceTest {
         service.anularFiniquito(900L);
 
         verify(finiquitoService).anularSinPagoVivo(900L);
-        verify(motor, never()).anularPagoCpp(anyLong(), anyString(), any());
+        verify(motor, never()).anularPagoCpp(anyLong(), anyString(), any(), any());
     }
 }

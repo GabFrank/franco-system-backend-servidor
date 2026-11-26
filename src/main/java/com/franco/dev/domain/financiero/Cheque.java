@@ -72,8 +72,24 @@ public class Cheque implements Identifiable<Long> {
     @Column(name = "fecha_cobro")
     private LocalDateTime fechaCobro;
 
-    @Column(name = "motivo_anulacion")
+    @Column(name = "motivo_anulacion", length = 200)
     private String motivoAnulacion;
+
+    /** Motivo de la lista (#807). Null = anulado antes de V289.1 o desde un desktop viejo. */
+    @javax.persistence.Enumerated(javax.persistence.EnumType.STRING)
+    @Column(name = "motivo_anulacion_tipo", length = 30)
+    private com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque motivoAnulacionTipo;
+
+    @Column(name = "observacion_anulacion")
+    private String observacionAnulacion;
+
+    @Column(name = "fecha_anulacion")
+    private LocalDateTime fechaAnulacion;
+
+    /** Quien anuló (el {@link #usuario} es quien emitió). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_anulacion_id", nullable = true)
+    private Usuario usuarioAnulacion;
 
     @Column(name = "movimiento_bancario_id")
     private Long movimientoBancarioId;

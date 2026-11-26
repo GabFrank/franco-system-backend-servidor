@@ -100,10 +100,11 @@ public class ChequeraGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public com.franco.dev.domain.financiero.ChequeraNumeroInutilizado inutilizarNumeroCheque(Long chequeraId, Double numero,
-            String motivo, com.franco.dev.domain.financiero.enums.AccionChequeInutilizado accionCheque, Double numeroNuevo) {
+            String motivo, com.franco.dev.domain.financiero.enums.AccionChequeInutilizado accionCheque, Double numeroNuevo,
+            com.franco.dev.graphql.financiero.input.AnulacionChequeInput anulacionCheque) {
         seg.requireGestionar();
         return chequeGestionService.inutilizar(chequeraId, numero != null ? numero.longValue() : null, motivo, accionCheque,
-                numeroNuevo != null ? numeroNuevo.longValue() : null, seg.currentUsuario());
+                numeroNuevo != null ? numeroNuevo.longValue() : null, anulacionCheque, seg.currentUsuario());
     }
 
     public com.franco.dev.domain.financiero.ChequeraNumeroInutilizado revertirInutilizacion(Long id) {

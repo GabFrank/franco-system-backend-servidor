@@ -131,10 +131,10 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
         return service.pagar(id, cajaVirtualId);
     }
 
-    public LiquidacionSueldo anularLiquidacion(Long id) {
+    public LiquidacionSueldo anularLiquidacion(Long id, com.franco.dev.graphql.financiero.input.AnulacionChequeInput anulacionCheque) {
         seg.requireAnyRole(seg.PAGAR);
         // Pagada desde tesoreria: se anula junto con su pago (pide ademas el rol de tesoreria).
-        return anulacionPagoRrhhService.anularLiquidacion(id);
+        return anulacionPagoRrhhService.anularLiquidacion(id, anulacionCheque);
     }
 
     public Integer generarLiquidacionesMes(String periodo, Long monedaId) {

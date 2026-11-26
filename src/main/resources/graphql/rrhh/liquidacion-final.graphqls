@@ -122,7 +122,7 @@ extend type Mutation {
     aprobarLiquidacionFinal(id: ID!, aprobadoPorId: ID): LiquidacionFinal
     volverBorradorLiquidacionFinal(id: ID!): LiquidacionFinal
     pagarLiquidacionFinal(id: ID!, cajaVirtualId: ID!): LiquidacionFinal
-    anularLiquidacionFinal(id: ID!): LiquidacionFinal
+    anularLiquidacionFinal(id: ID!, anulacionCheque: AnulacionChequeInput): LiquidacionFinal
     agregarItemLiquidacionFinal(liquidacionFinalId: ID!, descripcion: String, monto: Float, tipo: LiquidacionItemTipo): LiquidacionFinalItem
     editarItemLiquidacionFinal(itemId: ID!, descripcion: String, monto: Float, tipo: LiquidacionItemTipo, usuarioId: ID): LiquidacionFinalItem
     eliminarItemLiquidacionFinal(itemId: ID!): Boolean

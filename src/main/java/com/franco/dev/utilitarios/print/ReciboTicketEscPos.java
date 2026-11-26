@@ -125,7 +125,7 @@ public final class ReciboTicketEscPos {
     }
 
     /** Word-wrap con ancho distinto para la 1ra linea (`maxPrimera`) y el resto (`cols`). */
-    private static List<String> wrapAncho(String texto, int maxPrimera, int cols) {
+    static List<String> wrapAncho(String texto, int maxPrimera, int cols) {
         List<String> out = new ArrayList<>();
         if (texto == null || texto.isEmpty()) { out.add(""); return out; }
         StringBuilder linea = new StringBuilder();
@@ -156,7 +156,7 @@ public final class ReciboTicketEscPos {
     }
 
     /** left + espacios + right, ajustado a `cols`; trunca el concepto si no entra. */
-    private static String dosColumnas(String left, String right, int cols) {
+    static String dosColumnas(String left, String right, int cols) {
         left = nz(left); right = nz(right);
         int max = cols - right.length() - 1;
         if (max < 1) max = 1;
@@ -167,7 +167,7 @@ public final class ReciboTicketEscPos {
     }
 
     /** Word-wrap simple a `cols` columnas. */
-    private static List<String> wrap(String texto, int cols) {
+    static List<String> wrap(String texto, int cols) {
         List<String> out = new ArrayList<>();
         if (texto == null || texto.isEmpty()) { out.add(""); return out; }
         StringBuilder linea = new StringBuilder();
@@ -183,20 +183,20 @@ public final class ReciboTicketEscPos {
         return out;
     }
 
-    private static String linea(int cols) { return repeat("-", cols); }
+    static String linea(int cols) { return repeat("-", cols); }
 
-    private static String repeat(String s, int n) {
+    static String repeat(String s, int n) {
         StringBuilder b = new StringBuilder();
         for (int i = 0; i < n; i++) b.append(s);
         return b.toString();
     }
 
     /** Quita acentos/diacriticos (ASCII para termica RAW). */
-    private static String na(String s) {
+    static String na(String s) {
         if (s == null) return "";
         String n = Normalizer.normalize(s, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
         return n.replace("Ñ", "N").replace("ñ", "n");
     }
 
-    private static String nz(String s) { return s != null ? s : ""; }
+    static String nz(String s) { return s != null ? s : ""; }
 }

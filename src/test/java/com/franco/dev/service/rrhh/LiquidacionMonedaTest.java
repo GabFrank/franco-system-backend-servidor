@@ -116,7 +116,9 @@ class LiquidacionMonedaTest {
         cuota.setMonto(new BigDecimal("100.00"));
         cuota.setMontoPagado(BigDecimal.ZERO);
         cuota.setEstado(PrestamoCuotaEstado.PENDIENTE);
-        cuota.setFechaVencimiento(LocalDate.now().plusDays(5));
+        // Fija dentro del período que liquidan los tests ("2026-11"): con now()+5 la cuota caía en el mes siguiente
+        // desde el día ~26 y la liquidación la salteaba.
+        cuota.setFechaVencimiento(LocalDate.of(2026, 11, 20));
         PrestamoRepository prestamoRepository = mock(PrestamoRepository.class);
         when(prestamoRepository.findByFuncionarioIdOrderByFechaInicioDesc(7L)).thenReturn(List.of(prestamo));
         PrestamoCuotaRepository prestamoCuotaRepository = mock(PrestamoCuotaRepository.class);

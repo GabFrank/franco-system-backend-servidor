@@ -622,14 +622,19 @@ public class ChequeGestionService {
         cheque.setUsuarioAnulacion(usuario);
         if (anulacion == null) {
             log.warn("Cheque {} anulado sin motivo de la lista (cliente anterior a #807): {}", cheque.getId(), motivoTexto);
-            cheque.setMotivoAnulacion(motivoTexto);
+            cheque.setMotivoAnulacion(recortarMotivo(motivoTexto));
             return;
         }
         String obs = textoONull(anulacion.getObservacion());
         cheque.setMotivoAnulacionTipo(anulacion.getMotivo());
         cheque.setObservacionAnulacion(obs);
         // El texto lo sigue mostrando el desktop viejo.
-        cheque.setMotivoAnulacion(anulacion.getMotivo().getEtiqueta().toUpperCase() + (obs != null ? " - " + obs : ""));
+        cheque.setMotivoAnulacion(recortarMotivo(anulacion.getMotivo().getEtiqueta().toUpperCase() + (obs != null ? " - " + obs : "")));
+    }
+
+    /** {@code motivo_anulacion} es varchar(200) (V183.5): pasarse revierte la anulación entera. La observación completa va en su columna. */
+    static String recortarMotivo(String motivo) {
+        return motivo != null && motivo.length() > 200 ? motivo.substring(0, 200) : motivo;
     }
 
     private static String textoONull(String s) {

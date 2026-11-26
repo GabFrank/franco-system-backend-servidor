@@ -456,6 +456,20 @@ class ChequeGestionServiceTest {
     }
 
     @Test
+    void una_observacion_larga_queda_entera_y_el_texto_viejo_se_recorta_a_200() {
+        Cheque c = nuevo(false); c.setId(9L); c.setEstado(EstadoCheque.EMITIDO); c.setCuentaBancaria(cuenta);
+        when(chequeRepository.lockById(9L)).thenReturn(Optional.of(c));
+        String larga = new String(new char[500]).replace('\0', 'X');
+
+        Cheque r = service.anular(9L, null, motivo(
+                com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque.PROVEEDOR_INCORRECTO, larga), null);
+
+        assertEquals(500, r.getObservacionAnulacion().length());
+        assertEquals(200, r.getMotivoAnulacion().length(), "motivo_anulacion es varchar(200)");
+        assertTrue(r.getMotivoAnulacion().startsWith("PROVEEDOR INCORRECTO - X"));
+    }
+
+    @Test
     void motivo_otro_sin_observacion_se_rechaza_antes_de_tomar_el_cheque() {
         GraphQLException e = assertThrows(GraphQLException.class, () -> service.anular(9L, null,
                 motivo(com.franco.dev.domain.financiero.enums.MotivoAnulacionCheque.OTRO, " "), null));

@@ -72,7 +72,7 @@ public class Cheque implements Identifiable<Long> {
     @Column(name = "fecha_cobro")
     private LocalDateTime fechaCobro;
 
-    @Column(name = "motivo_anulacion")
+    @Column(name = "motivo_anulacion", length = 200)
     private String motivoAnulacion;
 
     /** Motivo de la lista (#807). Null = anulado antes de V289.1 o desde un desktop viejo. */

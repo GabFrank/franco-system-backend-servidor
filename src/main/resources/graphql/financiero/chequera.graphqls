@@ -79,6 +79,8 @@ extend type Mutation {
     deleteChequera(id: ID!): Boolean!
     # accionCheque solo si el número tiene cheque: ANULADO (suelto) o RENUMERADO (a numeroNuevo, libre y en el rango).
     inutilizarNumeroCheque(chequeraId: ID!, numero: Float!, motivo: String!, accionCheque: AccionChequeInutilizado,
-                           numeroNuevo: Float): ChequeraNumeroInutilizado!
+                           numeroNuevo: Float,
+                           # Motivo de la lista para el cheque, con accionCheque ANULADO (#807).
+                           anulacionCheque: AnulacionChequeInput): ChequeraNumeroInutilizado!
     revertirInutilizacion(id: ID!): ChequeraNumeroInutilizado!
 } 

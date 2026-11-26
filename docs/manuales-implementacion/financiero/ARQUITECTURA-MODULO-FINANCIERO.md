@@ -138,6 +138,26 @@ CAMBIO_DIVISA (egreso+ingreso caja), DEPOSITO_BANCARIO (egreso caja + entrada ba
 - El aviso de fondos de un `EMITIDO` compara contra el saldo real, igual que el control del cobro: lo reservado por
   otros cheques no bloquea a propósito.
 
+### 6.2 Anulación con motivo y comprobante (desk #807)
+
+- **Motivo de una lista** (`MotivoAnulacionCheque`: EFECTIVIZACION, FIRMA_NO_CONFORME, MALA_IMPRESION, DEVOLUCION,
+  PROVEEDOR_INCORRECTO, FECHA_INCORRECTA, MONTO_INCORRECTO, OTRO) + observación (obligatoria con OTRO). El cheque
+  guarda `motivo_anulacion_tipo`, `observacion_anulacion`, `fecha_anulacion` y `usuario_anulacion_id` (V289.1,
+  central-only). `motivo_anulacion` (texto) se sigue escribiendo: con el motivo de la lista, «ETIQUETA - OBS».
+  Un valor nuevo del enum exige una migración que redefina el CHECK (`MotivoAnulacionChequeCheckTest`).
+- **Cinco puertas** reciben el mismo argumento opcional `anulacionCheque: AnulacionChequeInput`: `anularCheque`,
+  `anularPagoCpp`, `anularLiquidacion`, `anularLiquidacionFinal` e `inutilizarNumeroCheque`. Uno solo vale para todos
+  los cheques del pago. Se valida al entrar (`ChequeGestionService.validarAnulacionCheque`), antes de cualquier lock;
+  `marcarAnulado` es el único escritor y corre después del corte de idempotencia (un cheque ya anulado conserva sus
+  datos). Sin el argumento (desktop anterior) anula como antes y deja un WARN en el log.
+- **`chequesAAnular(pagoId | liquidacionId | liquidacionFinalId)`**: los cheques vivos que va a anular la anulación,
+  con el mismo filtro que `anularPagoCpp` y el mismo rol que la mutation que sigue (al rol acotado TESORERIA CAJA, vacío:
+  no anula pagos con cheque). El desktop pide el motivo solo si hay alguno, e imprime un comprobante por cada uno.
+- **`imprimirChequeAnulado(chequeId, anchoMm)`**: ticket ESC/POS «CHEQUE ANULADO» (`ChequeAnuladoTicketEscPos`, 58/80
+  mm) para presillarlo al cheque. «Movimiento bancario revertido» si tenía débito; si no, «Reserva liberada». Los
+  anulados antes de #807 salen con su texto y «sin dato».
+- Fuera de alcance: un pago pagado solo con cheques diferidos no tiene fila de caja ni de banco desde donde anularlo.
+
 Prueba manual: [PRUEBA-MANUAL-CAJA-MAYOR-CHEQUES.md](PRUEBA-MANUAL-CAJA-MAYOR-CHEQUES.md). Más detalle en la skill
 `frc-financiero-expert`.
 

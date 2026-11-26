@@ -874,6 +874,14 @@ public class PagoProveedorService {
      */
     @Transactional
     public Pago anularPagoCpp(Long pagoId, String motivo, Usuario usuario) {
+        return anularPagoCpp(pagoId, motivo, null, usuario);
+    }
+
+    /** {@code anulacionCheque}: motivo de la lista para todos los cheques del pago (#807); null = como antes. */
+    @Transactional
+    public Pago anularPagoCpp(Long pagoId, String motivo,
+                              com.franco.dev.graphql.financiero.input.AnulacionChequeInput anulacionCheque, Usuario usuario) {
+        ChequeGestionService.validarAnulacionCheque(anulacionCheque);
         // Con lock: el pago se puede anular desde su fila de caja y desde su fila de banco. Sin el,
         // dos anulaciones simultaneas pasan las dos el chequeo de CANCELADO y cada una postea su
         // contra-movimiento (TesoreriaService.revertir no mira si el original ya esta revertido).
@@ -918,7 +926,7 @@ public class PagoProveedorService {
         for (PagoSolicitudDetalle d : detalles) {
             if (d.getChequeId() != null) {
                 // Cheque: diferido libera la reserva; contado revierte su movimiento bancario (no bloquea).
-                chequeGestionService.anularPorPago(d.getChequeId(), razon, usuario);
+                chequeGestionService.anularPorPago(d.getChequeId(), razon, anulacionCheque, usuario);
             } else if (d.getMovimientoCajaVirtualId() != null && cajaRevertidas.add(d.getMovimientoCajaVirtualId())) {
                 tesoreriaService.revertir(tesoreriaService.findMovimiento(d.getMovimientoCajaVirtualId()), razon, usuario);
             } else if (d.getMovimientoBancarioId() != null && bancoRevertidas.add(d.getMovimientoBancarioId())) {

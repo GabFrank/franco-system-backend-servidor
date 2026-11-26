@@ -65,7 +65,9 @@ class RolTesoreriaCajaMatrizTest {
             "PagoProveedorGraphQL.detalleDePago",
             "PagoProveedorGraphQL.crearGastoParaPago",
             "PagoProveedorGraphQL.pagarSolicitudesMixto",
-            "PagoProveedorGraphQL.anularPagoCpp"));
+            "PagoProveedorGraphQL.anularPagoCpp",
+            // Antecede a anularPagoCpp con su mismo rol; al acotado le devuelve vacío (no anula pagos con cheque).
+            "ChequeAnulacionGraphQL.chequesAAnular"));
 
     private static final Pattern FIRMA = Pattern.compile("^    public [^=;]*?\\b(\\w+)\\(");
     private static final Pattern ACEPTA_ACOTADO = Pattern.compile(

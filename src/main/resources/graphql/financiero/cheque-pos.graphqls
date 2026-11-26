@@ -15,7 +15,7 @@ extend type Mutation {
         claveIdempotencia: String
     ): [Cheque!]!
     cobrarCheque(chequeId: ID!): Cheque!
-    anularCheque(chequeId: ID!, motivo: String): Cheque!
+    anularCheque(chequeId: ID!, motivo: String, anulacionCheque: AnulacionChequeInput): Cheque!
 
     crearAcreditacionPos(terminalPosId: Int!, montoOriginal: Float!, ventaId: Int): AcreditacionPos!
     verificarAcreditacionPos(id: ID!, montoReal: Float!): AcreditacionPos!

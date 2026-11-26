@@ -121,9 +121,9 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     /** Anula todo un evento de pago (revierte los movimientos consolidados y reabre sus solicitudes). */
-    public Pago anularPagoCpp(Long pagoId, String motivo) {
+    public Pago anularPagoCpp(Long pagoId, String motivo, com.franco.dev.graphql.financiero.input.AnulacionChequeInput anulacionCheque) {
         seg.requirePagarCppCaja();
-        return service.anularPagoCpp(pagoId, motivo, seg.currentUsuario());
+        return service.anularPagoCpp(pagoId, motivo, anulacionCheque, seg.currentUsuario());
     }
 
     /** Mapeo del input de líneas al modelo del motor de pago. Compartido con el pago de vales. */

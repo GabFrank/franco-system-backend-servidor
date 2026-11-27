@@ -209,4 +209,108 @@ class BonoServiceRecurrenciaTest {
     void motivoNoEditableEsNuloParaUnBonoNuevo() {
         assertNull(service.motivoNoEditable(bono(null, null)));
     }
+
+    // --- Una sola regla activa por funcionario y tipo (bodega, 14 funcionarios cobrando doble, 11/2026) ---
+
+    private BonoRecurrente regla(Long id, BonoTipo tipo) {
+        BonoRecurrente p = new BonoRecurrente();
+        p.setId(id);
+        p.setTipo(tipo);
+        p.setMonto(new BigDecimal("456000"));
+        p.setActivo(true);
+        return p;
+    }
+
+    private void activas(BonoRecurrente... reglas) {
+        when(plantillaRepository.findByFuncionarioIdAndActivoTrue(7L)).thenReturn(java.util.List.of(reglas));
+    }
+
+    @Test
+    void bonoNuevoRecurrenteConOtraReglaActivaDelMismoTipoSeRechaza() {
+        activas(regla(45L, BonoTipo.PRODUCTIVIDAD));
+
+        GraphQLException ex = assertThrows(GraphQLException.class,
+                () -> service.saveConRecurrencia(bono(null, null), true, BonoFrecuencia.MENSUAL));
+        assertTrue(ex.getMessage().contains("#45"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("Gs. 456.000"), ex.getMessage());
+        verify(plantillaRepository, never()).save(any(BonoRecurrente.class));
+        verify(repository, never()).save(any(Bono.class));
+    }
+
+    @Test
+    void bonoNuevoRecurrenteConReglaActivaDeOtroTipoSeGuarda() {
+        activas(regla(45L, BonoTipo.DESEMPENIO));
+
+        Bono guardado = service.saveConRecurrencia(bono(null, null), true, BonoFrecuencia.MENSUAL);
+
+        assertEquals(77L, guardado.getBonoRecurrenteId());
+    }
+
+    @Test
+    void editarElBonoDeLaReglaPropiaNoSeRechazaASiMismo() {
+        BonoRecurrente propia = regla(77L, BonoTipo.PRODUCTIVIDAD);
+        activas(propia);
+        when(plantillaRepository.findById(77L)).thenReturn(Optional.of(propia));
+        when(repository.findById(5L)).thenReturn(Optional.of(bono(5L, 77L)));
+
+        Bono guardado = service.saveConRecurrencia(bono(5L, 77L), true, BonoFrecuencia.MENSUAL);
+
+        assertEquals(77L, guardado.getBonoRecurrenteId());
+    }
+
+    @Test
+    void bonoPuntualConReglaActivaDelMismoTipoSeGuarda() {
+        activas(regla(45L, BonoTipo.PRODUCTIVIDAD));
+
+        service.saveConRecurrencia(bono(null, null), false, null);
+
+        verify(repository).save(any(Bono.class));
+    }
+
+    @Test
+    void bonoPuntualQuePasaARecurrenteConReglaActivaDelMismoTipoSeRechaza() {
+        activas(regla(45L, BonoTipo.PRODUCTIVIDAD));
+        when(repository.findById(5L)).thenReturn(Optional.of(bono(5L, null)));
+
+        assertThrows(GraphQLException.class,
+                () -> service.saveConRecurrencia(bono(5L, null), true, BonoFrecuencia.MENSUAL));
+        verify(plantillaRepository, never()).save(any(BonoRecurrente.class));
+    }
+
+    @Test
+    void cambiarElTipoAlDeOtraReglaActivaSeRechaza() {
+        BonoRecurrente propia = regla(77L, BonoTipo.DESEMPENIO);
+        activas(propia, regla(45L, BonoTipo.PRODUCTIVIDAD));
+        when(plantillaRepository.findById(77L)).thenReturn(Optional.of(propia));
+        when(repository.findById(5L)).thenReturn(Optional.of(bono(5L, 77L)));
+
+        // bono() viene como PRODUCTIVIDAD: la edicion le cambia el tipo de DESEMPENIO a PRODUCTIVIDAD.
+        assertThrows(GraphQLException.class,
+                () -> service.saveConRecurrencia(bono(5L, 77L), true, BonoFrecuencia.MENSUAL));
+        verify(plantillaRepository, never()).save(any(BonoRecurrente.class));
+    }
+
+    @Test
+    void conDosReglasActivasEditarConElToggleEncendidoSeRechaza() {
+        BonoRecurrente propia = regla(77L, BonoTipo.PRODUCTIVIDAD);
+        activas(propia, regla(45L, BonoTipo.PRODUCTIVIDAD));
+        when(plantillaRepository.findById(77L)).thenReturn(Optional.of(propia));
+        when(repository.findById(5L)).thenReturn(Optional.of(bono(5L, 77L)));
+
+        assertThrows(GraphQLException.class,
+                () -> service.saveConRecurrencia(bono(5L, 77L), true, BonoFrecuencia.MENSUAL));
+    }
+
+    @Test
+    void conDosReglasActivasApagarElToggleSigueSiendoLaSalida() {
+        BonoRecurrente propia = regla(77L, BonoTipo.PRODUCTIVIDAD);
+        activas(propia, regla(45L, BonoTipo.PRODUCTIVIDAD));
+        when(plantillaRepository.findById(77L)).thenReturn(Optional.of(propia));
+        when(repository.findById(5L)).thenReturn(Optional.of(bono(5L, 77L)));
+
+        service.saveConRecurrencia(bono(5L, 77L), false, null);
+
+        assertEquals(Boolean.FALSE, propia.getActivo());
+        verify(repository).save(any(Bono.class));
+    }
 }

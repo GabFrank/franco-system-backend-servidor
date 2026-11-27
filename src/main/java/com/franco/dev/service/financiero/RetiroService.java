@@ -29,6 +29,7 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
     /** Avisos por webhook (srv #587). Provider: RetiroDetalleService depende de este servicio. */
     private final com.franco.dev.eventos.EventoEmisor eventoEmisor;
     private final org.springframework.beans.factory.ObjectProvider<RetiroDetalleService> retiroDetalleService;
+    private final com.franco.dev.repository.financiero.RetiroDetalleRepository retiroDetalleRepository;
 
     @Override
     public RetiroRepository getRepository() {
@@ -101,9 +102,43 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
         if (seguridad.esSoloCaja()) {
             List<Long> operables = sucursalesDelAcotado(sucId, cajaVirtualDestinoId);
             if (operables.isEmpty()) return java.util.Collections.emptyList();
-            return repository.findIngresadosDeCajaEnSucursales(cajaId, operables, tope);
+            return conMontos(repository.findIngresadosDeCajaEnSucursales(cajaId, operables, tope));
         }
-        return repository.findIngresadosDeCaja(cajaId, sucId, tope);
+        return conMontos(repository.findIngresadosDeCaja(cajaId, sucId, tope));
+    }
+
+    /**
+     * Completa el monto que entró a caja mayor: la verificación acredita lo contado (puede ser otro monto u otra
+     * moneda); el poller y el ingreso manual, lo declarado en retiro_detalle. Si hay verificación vigente, sus
+     * montos son los únicos que cuentan.
+     */
+    private List<com.franco.dev.repository.financiero.RetiroIngresadoDto> conMontos(
+            List<com.franco.dev.repository.financiero.RetiroIngresadoDto> lista) {
+        if (lista.isEmpty()) return lista;
+        java.util.Set<Long> ids = new java.util.HashSet<>();
+        lista.forEach(r -> ids.add(r.getRetiroId()));
+        java.util.Map<String, java.util.Map<Long, Double>> contado = porRetiro(verificacionRepository.sumarContadoVigente(ids));
+        java.util.Map<String, java.util.Map<Long, Double>> declarado = porRetiro(retiroDetalleRepository.sumarPorMoneda(ids));
+        for (com.franco.dev.repository.financiero.RetiroIngresadoDto r : lista) {
+            String k = r.getRetiroId() + "_" + r.getSucursalId();
+            java.util.Map<Long, Double> m = contado.containsKey(k) ? contado.get(k) : declarado.get(k);
+            if (m == null) continue;
+            r.setRetiroGs(m.get(1L));
+            r.setRetiroRs(m.get(2L));
+            r.setRetiroDs(m.get(3L));
+        }
+        return lista;
+    }
+
+    /** {@code [retiroId, sucursalId, monedaId, suma]} → clave "retiro_sucursal" → moneda → suma. */
+    private static java.util.Map<String, java.util.Map<Long, Double>> porRetiro(List<Object[]> filas) {
+        java.util.Map<String, java.util.Map<Long, Double>> m = new java.util.HashMap<>();
+        for (Object[] f : filas) {
+            if (f[2] == null || f[3] == null) continue;
+            m.computeIfAbsent(f[0] + "_" + f[1], x -> new java.util.HashMap<>())
+                    .merge(((Number) f[2]).longValue(), ((Number) f[3]).doubleValue(), Double::sum);
+        }
+        return m;
     }
 
     /**

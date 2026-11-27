@@ -47,6 +47,7 @@ type RetiroPage {
 
 # Retiro de una caja del PDV que ya se procesó. movimientoId null = sin movimiento (procesado sin montos o
 # dado por procesado en una limpieza); usuario null con movimiento = lo ingresó el sistema.
+# retiroGs/Rs/Ds: lo que entró a caja mayor (lo contado si hubo verificación, si no lo declarado); null = nada.
 type RetiroIngresado {
     retiroId: ID
     sucursalId: Int
@@ -57,6 +58,9 @@ type RetiroIngresado {
     movimientoId: Int
     usuario: String
     ingresadoEn: Date
+    retiroGs: Float
+    retiroRs: Float
+    retiroDs: Float
 }
 
 extend type Query {

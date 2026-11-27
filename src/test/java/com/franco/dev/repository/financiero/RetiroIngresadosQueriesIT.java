@@ -48,6 +48,12 @@ class RetiroIngresadosQueriesIT {
     private RetiroRepository repository;
 
     @Autowired
+    private RetiroDetalleRepository detalleRepository;
+
+    @Autowired
+    private RetiroVerificacionRepository verificacionRepository;
+
+    @Autowired
     private EntityManager em;
 
     private long suc1;
@@ -61,7 +67,9 @@ class RetiroIngresadosQueriesIT {
     void sembrar() {
         Number ocupados = (Number) em.createNativeQuery("select " +
                 "(select count(*) from financiero.retiro where id >= " + ID + " or caja_salida_id = " + CAJA_PDV + ") + " +
-                "(select count(*) from financiero.movimiento_caja_virtual where id >= " + ID + ")").getSingleResult();
+                "(select count(*) from financiero.movimiento_caja_virtual where id >= " + ID + ") + " +
+                "(select count(*) from financiero.retiro_detalle where id >= " + ID + ") + " +
+                "(select count(*) from financiero.retiro_verificacion where id >= " + ID + ")").getSingleResult();
         assertEquals(0, ocupados.intValue(), "los ids de prueba tienen que estar libres en la base");
 
         List<?> sucs = em.createNativeQuery("select id from empresarial.sucursal where id > 0 order by id limit 2")
@@ -117,6 +125,64 @@ class RetiroIngresadosQueriesIT {
                         "values (?1, ?2, ?3, " + (caja == null ? "null" : caja) + ", " +
                         (marcador == null ? "null" : marcador) + ", now() - (?1 - " + ID + ") * interval '1 minute')")
                 .setParameter(1, id).setParameter(2, suc).setParameter(3, CAJA_PDV).executeUpdate();
+    }
+
+    private void detalle(long id, long retiroId, long suc, long moneda, double cantidad) {
+        em.createNativeQuery("insert into financiero.retiro_detalle (id, retiro_id, sucursal_id, moneda_id, cantidad) " +
+                        "values (?1, ?2, ?3, ?4, ?5)")
+                .setParameter(1, id).setParameter(2, retiroId).setParameter(3, suc).setParameter(4, moneda)
+                .setParameter(5, cantidad).executeUpdate();
+    }
+
+    private void verificacion(long id, long retiroId, long suc, boolean anulada) {
+        em.createNativeQuery("insert into financiero.retiro_verificacion (id, retiro_id, sucursal_id, resultado, anulada) " +
+                        "values (?1, ?2, ?3, 'SIN_DIFERENCIA', ?4)")
+                .setParameter(1, id).setParameter(2, retiroId).setParameter(3, suc).setParameter(4, anulada)
+                .executeUpdate();
+    }
+
+    private void contado(long verificacionId, long moneda, long contado) {
+        em.createNativeQuery("insert into financiero.retiro_verificacion_detalle " +
+                        "(verificacion_id, moneda_id, declarado, contado, diferencia) values (?1, ?2, 0, ?3, ?3)")
+                .setParameter(1, verificacionId).setParameter(2, moneda).setParameter(3, contado).executeUpdate();
+    }
+
+    /** {@code [retiroId, sucursalId, monedaId, suma]} → "retiro_sucursal_moneda" → suma. */
+    private static Map<String, Double> sumas(List<Object[]> filas) {
+        return filas.stream().collect(Collectors.toMap(f -> f[0] + "_" + f[1] + "_" + f[2],
+                f -> ((Number) f[3]).doubleValue()));
+    }
+
+    @Test
+    void suma_lo_declarado_por_retiro_sucursal_y_moneda() {
+        detalle(ID + 1, ID + 1, suc1, 1, 100000);
+        detalle(ID + 2, ID + 1, suc1, 1, 50000);
+        detalle(ID + 3, ID + 1, suc1, 2, 30);
+        detalle(ID + 4, ID + 6, suc2, 3, 10);
+        em.flush();
+
+        Map<String, Double> s = sumas(detalleRepository.sumarPorMoneda(Arrays.asList(ID + 1, ID + 6)));
+
+        assertEquals(3, s.size(), "una fila por retiro, sucursal y moneda");
+        assertEquals(150000.0, s.get((ID + 1) + "_" + suc1 + "_1"));
+        assertEquals(30.0, s.get((ID + 1) + "_" + suc1 + "_2"));
+        assertEquals(10.0, s.get((ID + 6) + "_" + suc2 + "_3"));
+    }
+
+    @Test
+    void suma_lo_contado_solo_de_la_verificacion_vigente() {
+        verificacion(ID + 1, ID + 1, suc1, true);
+        contado(ID + 1, 1, 999);
+        verificacion(ID + 2, ID + 1, suc1, false);
+        contado(ID + 2, 1, 850000);
+        contado(ID + 2, 2, 50);
+        em.flush();
+
+        Map<String, Double> s = sumas(verificacionRepository.sumarContadoVigente(Arrays.asList(ID + 1)));
+
+        assertEquals(2, s.size(), "la anulada no suma");
+        assertEquals(850000.0, s.get((ID + 1) + "_" + suc1 + "_1"));
+        assertEquals(50.0, s.get((ID + 1) + "_" + suc1 + "_2"));
     }
 
     private static Map<Long, RetiroIngresadoDto> porRetiro(List<RetiroIngresadoDto> l) {

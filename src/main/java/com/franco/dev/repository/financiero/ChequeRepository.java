@@ -16,6 +16,10 @@ public interface ChequeRepository extends HelperRepository<Cheque, Long> {
         return Cheque.class;
     }
 
+    /** Vocales acentuadas, ñ y ç en minúscula y mayúscula, y su letra sin marca (mismo criterio que V257.3). */
+    String ACENTOS = "áéíóúüñÁÉÍÓÚÜÑàèìòùÀÈÌÒÙâêîôûÂÊÎÔÛäëïöÄËÏÖçÇ";
+    String SIN_ACENTOS = "aeiouunAEIOUUNaeiouAEIOUaeiouAEIOUaeioAEIOcC";
+
     @Query("select c from Cheque c " +
             "where UPPER(CAST(id as text)) like %?1% or UPPER(CAST(numero as text)) like %?1% or UPPER(orden) like %?1% or UPPER(concepto) like %?1%")
     public List<Cheque> findByAll(String texto);
@@ -42,7 +46,9 @@ public interface ChequeRepository extends HelperRepository<Cheque, Long> {
     /**
      * Tablero de cheques (issue #601): por fecha de EMISION ({@code coalesce(fechaEntrega, creadoEn)}), de PAGO o de
      * COBRO; estados como lista (vacía no se puede: quien llama pasa {@code todosLosEstados}); texto contra número,
-     * beneficiario y concepto. El tope lo pone el {@code Pageable}.
+     * beneficiario y concepto, sin acentos (desk #767: el texto llega ya normalizado). El tope lo pone el
+     * {@code Pageable}; el cheque con el número exacto ({@code exacto}, '' si el texto no es un número) va primero
+     * para que el tope no lo deje afuera.
      */
     @Query("select c from Cheque c " +
             "where (case when :tipoFecha = 'EMISION' then coalesce(c.fechaEntrega, c.creadoEn) " +
@@ -51,9 +57,10 @@ public interface ChequeRepository extends HelperRepository<Cheque, Long> {
             "and (:chequeraId is null or c.chequera.id = :chequeraId) " +
             "and (:todosLosEstados = true or c.estado in :estados) " +
             "and (:proveedorId is null or c.proveedor.id = :proveedorId) " +
-            "and (:texto is null or str(c.numero) like :texto or upper(c.beneficiario) like :texto " +
-            "     or upper(c.concepto) like :texto) " +
-            "order by c.id desc")
+            "and (:texto is null or str(c.numero) like :texto " +
+            "     or upper(translate(c.beneficiario, '" + ACENTOS + "', '" + SIN_ACENTOS + "')) like :texto " +
+            "     or upper(translate(c.concepto, '" + ACENTOS + "', '" + SIN_ACENTOS + "')) like :texto) " +
+            "order by case when str(c.numero) = :exacto then 0 else 1 end, c.id desc")
     List<Cheque> filtrarTablero(@Param("tipoFecha") String tipoFecha,
                                 @Param("desde") java.time.LocalDateTime desde,
                                 @Param("hasta") java.time.LocalDateTime hasta,
@@ -63,6 +70,7 @@ public interface ChequeRepository extends HelperRepository<Cheque, Long> {
                                 @Param("estados") java.util.Collection<com.franco.dev.domain.financiero.enums.EstadoCheque> estados,
                                 @Param("proveedorId") Long proveedorId,
                                 @Param("texto") String texto,
+                                @Param("exacto") String exacto,
                                 org.springframework.data.domain.Pageable tope);
 
     /** Números con cheque de una chequera desde {@code desde} (un cheque renumerado puede ocupar uno futuro). */

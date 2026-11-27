@@ -19,6 +19,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -120,6 +122,7 @@ public class BonoService extends CrudService<Bono, BonoRepository, Long> {
         entity.setFrecuencia(recurrente ? freq : null);
 
         if (recurrente) {
+            rechazarSiHayOtraReglaActiva(entity);
             BonoRecurrente p = entity.getBonoRecurrenteId() != null
                     ? plantillaRepository.findById(entity.getBonoRecurrenteId()).orElse(null)
                     : null;
@@ -149,6 +152,23 @@ public class BonoService extends CrudService<Bono, BonoRepository, Long> {
         }
 
         return save(entity);
+    }
+
+    /**
+     * El job genera un bono por regla activa: dos del mismo tipo cobran doble (bodega, 14
+     * funcionarios, 11/2026). Se compara contra el funcionario y el tipo nuevos del bono, que
+     * una edicion puede cambiar, y se excluye la regla propia.
+     */
+    private void rechazarSiHayOtraReglaActiva(Bono entity) {
+        if (entity.getFuncionario() == null || entity.getFuncionario().getId() == null) return;
+        for (BonoRecurrente otra : plantillaRepository.findByFuncionarioIdAndActivoTrue(entity.getFuncionario().getId())) {
+            if (otra.getId().equals(entity.getBonoRecurrenteId())) continue;
+            if (!Objects.equals(otra.getTipo(), entity.getTipo())) continue;
+            throw new GraphQLException("El funcionario ya tiene un bono recurrente activo de tipo " + otra.getTipo()
+                    + " (regla #" + otra.getId() + ", Gs. " + String.format(Locale.ROOT, "%,d", otra.getMonto().longValue()).replace(',', '.')
+                    + "). Para cambiar el monto edita el bono del mes de esa regla. Para cortar una de las dos,"
+                    + " apaga Recurrente en su bono.");
+        }
     }
 
     /**

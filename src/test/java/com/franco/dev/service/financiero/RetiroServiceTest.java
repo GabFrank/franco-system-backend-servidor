@@ -29,6 +29,7 @@ class RetiroServiceTest {
     private ApplicationEventPublisher publisher;
     private RetiroVerificacionRepository verificacionRepository;
     private TesoreriaSecurityService seguridad;
+    private com.franco.dev.repository.financiero.RetiroDetalleRepository detalleRepository;
     private RetiroService service;
 
     /** Lo que hay en la base: el mock la mantiene para que un segundo pedido vea lo que dejó el primero. */
@@ -42,7 +43,9 @@ class RetiroServiceTest {
         publisher = mock(ApplicationEventPublisher.class);
         verificacionRepository = mock(RetiroVerificacionRepository.class);
         seguridad = mock(TesoreriaSecurityService.class);
-        service = new RetiroService(repository, publisher, verificacionRepository, seguridad, null, null);
+        detalleRepository = mock(com.franco.dev.repository.financiero.RetiroDetalleRepository.class);
+        service = new RetiroService(repository, publisher, verificacionRepository, seguridad, null, null,
+                detalleRepository);
 
         // La instancia que devuelve el lock queda a propósito con el estado viejo (nulo): si el
         // servicio decidiera con ella, los tests de repetición fallarían.
@@ -344,5 +347,68 @@ class RetiroServiceTest {
 
         assertTrue(service.findIngresadosDeCaja(662L, null, null).isEmpty());
         verifyNoInteractions(repository);
+    }
+
+    // ── Montos del aviso: lo que entró a caja mayor ──
+
+    private static com.franco.dev.repository.financiero.RetiroIngresadoDto ingresado(long retiroId, long suc) {
+        return new com.franco.dev.repository.financiero.RetiroIngresadoDto(retiroId, suc, "SUC", 662L, 3L, "TESORERIA",
+                90L, "JUAN", java.time.LocalDateTime.now());
+    }
+
+    private static Object[] fila(long retiroId, long suc, long moneda, double suma) {
+        return new Object[]{retiroId, suc, moneda, suma};
+    }
+
+    private java.util.List<com.franco.dev.repository.financiero.RetiroIngresadoDto> conLista(
+            com.franco.dev.repository.financiero.RetiroIngresadoDto... l) {
+        when(repository.findIngresadosDeCaja(662L, null, TOPE)).thenReturn(new java.util.ArrayList<>(java.util.Arrays.asList(l)));
+        return service.findIngresadosDeCaja(662L, null, null);
+    }
+
+    @Test
+    void ingresados_toman_lo_declarado_por_moneda_sin_mezclar_el_mismo_id_de_otra_sucursal() {
+        when(detalleRepository.sumarPorMoneda(any())).thenReturn(java.util.Arrays.asList(
+                fila(10, 24, 1, 150000), fila(10, 24, 2, 30), fila(10, 13, 1, 777), fila(11, 24, 3, 20)));
+
+        java.util.List<com.franco.dev.repository.financiero.RetiroIngresadoDto> l =
+                conLista(ingresado(10, 24), ingresado(11, 24));
+
+        assertEquals(150000.0, l.get(0).getRetiroGs());
+        assertEquals(30.0, l.get(0).getRetiroRs());
+        assertNull(l.get(0).getRetiroDs());
+        assertNull(l.get(1).getRetiroGs());
+        assertEquals(20.0, l.get(1).getRetiroDs());
+    }
+
+    @Test
+    void ingresados_con_verificacion_vigente_toman_solo_lo_contado() {
+        // Declaró 800.000 Gs; la verificación contó 850.000 Gs y 50 R$, y eso es lo que entró.
+        when(detalleRepository.sumarPorMoneda(any())).thenReturn(java.util.Arrays.asList(
+                fila(10, 24, 1, 800000), fila(10, 24, 3, 5)));
+        when(verificacionRepository.sumarContadoVigente(any())).thenReturn(java.util.Arrays.asList(
+                fila(10, 24, 1, 850000), fila(10, 24, 2, 50)));
+
+        com.franco.dev.repository.financiero.RetiroIngresadoDto r = conLista(ingresado(10, 24)).get(0);
+
+        assertEquals(850000.0, r.getRetiroGs());
+        assertEquals(50.0, r.getRetiroRs());
+        assertNull(r.getRetiroDs(), "lo declarado no se mezcla con lo contado");
+    }
+
+    @Test
+    void ingresados_sin_detalle_quedan_sin_montos() {
+        com.franco.dev.repository.financiero.RetiroIngresadoDto r = conLista(ingresado(10, 24)).get(0);
+
+        assertNull(r.getRetiroGs());
+        assertNull(r.getRetiroRs());
+        assertNull(r.getRetiroDs());
+    }
+
+    @Test
+    void ingresados_sin_resultados_no_buscan_montos() {
+        assertTrue(conLista().isEmpty());
+        verifyNoInteractions(detalleRepository);
+        verify(verificacionRepository, never()).sumarContadoVigente(any());
     }
 }

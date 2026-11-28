@@ -72,6 +72,13 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
     List<MovimientoCajaVirtual> findByOrigenTipoAndOrigenIdAndActivoTrueOrderByCajaVirtualIdAscIdAsc(
             OrigenMovimientoTipo origenTipo, Long origenId);
 
+    /** Contra-movimientos de la anulación de una operación financiera (los de sus patas de caja), por id. */
+    @Query("select c from MovimientoCajaVirtual c where c.origenTipo = com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo.ANULACION"
+            + " and c.origenId in (select m.id from MovimientoCajaVirtual m"
+            + " where m.origenTipo = com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo.OPERACION_FINANCIERA"
+            + " and m.origenId = :operacionId) order by c.id asc")
+    List<MovimientoCajaVirtual> findAnulacionesDeOperacion(@Param("operacionId") Long operacionId);
+
     /**
      * Igual que el anterior pero acotado a la sucursal del documento de origen.
      *

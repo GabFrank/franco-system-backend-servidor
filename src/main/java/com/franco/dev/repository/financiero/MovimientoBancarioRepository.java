@@ -60,4 +60,10 @@ public interface MovimientoBancarioRepository extends JpaRepository<MovimientoBa
     /** Patas bancarias no anuladas de una operación dueña (para revertir todas al anularla), por cuenta ascendente. */
     List<MovimientoBancario> findByOrigenTipoAndOrigenIdAndAnuladoFalseOrderByCuentaBancariaIdAscIdAsc(
             String origenTipo, Long origenId);
+
+    /** Contra-movimientos de la anulación de una operación financiera (los de sus patas bancarias), por id. */
+    @Query("select c from MovimientoBancario c where c.origenTipo = 'ANULACION' and c.origenId in ("
+            + "select m.id from MovimientoBancario m where m.origenTipo = 'OPERACION_FINANCIERA' and m.origenId = :operacionId)"
+            + " order by c.id asc")
+    List<MovimientoBancario> findAnulacionesDeOperacion(@Param("operacionId") Long operacionId);
 }

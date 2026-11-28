@@ -36,6 +36,16 @@ type OperacionFinanciera {
     diferenciaObservacion: String
     anulado: Boolean
     creadoEn: Date
+    # Quien la registro.
+    usuario: Usuario
+    # Quien, cuando y por que se anulo; null si no esta anulada (sale del contra-movimiento de la anulacion).
+    anulacion: OperacionFinancieraAnulacion
+}
+
+type OperacionFinancieraAnulacion {
+    motivo: String
+    usuario: Usuario
+    fecha: Date
 }
 
 enum DiferenciaDestinoTipo {

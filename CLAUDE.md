@@ -350,3 +350,16 @@ Qué significan los números:
 - La fila es una foto: no se actualiza si la venta se anula, el movimiento cambia o el ítem se borra.
 
 Plan, verificación y límites conocidos: [docs/manuales-implementacion/operaciones/CONTROL-STOCK-NEGATIVO-PLAN.md](docs/manuales-implementacion/operaciones/CONTROL-STOCK-NEGATIVO-PLAN.md).
+
+## Tokens de servicio para bots
+
+Los bots (Loom, el futuro MCP) entran al GraphQL con un **token de servicio**, no con el JWT de sesión de un usuario (issue #579). El JWT de sesión no vence y no se puede revocar uno por uno; el token de servicio sí.
+
+- **Formato y uso:** `frcsvc_` + 43 caracteres. Se manda igual que el JWT: `Authorization: Token frcsvc_...`. Vale en `/graphql/**`, `/api/**` y `/notification/**`, igual que el JWT. Lo que el bot puede hacer lo deciden **los roles de su usuario**: el request queda autenticado con ese usuario y todos los `*SecurityService` aplican sin cambios.
+- **Guardado:** tabla central-only `personas.token_servicio` (V267.5), **solo el SHA-256**. El token en claro sale una vez, en la respuesta de `crearTokenServicio`. **Nunca registrar esta tabla en `configuraciones.replication_table`**: los hashes no salen del central.
+- **Emitir / revocar / listar:** `crearTokenServicio(usuarioId, nombre, diasVigencia)` (1-365 días, 90 por defecto), `revocarTokenServicio(id)`, `tokensServicio(usuarioId)`. Todo solo superusuario. Sin pantalla en el desktop todavía: se usa por GraphiQL o `curl` con un token de ADMIN.
+- **Se valida en cada request** (`TokenServicioValidator`, JDBC): revocado, vencido, usuario inactivo (`activo IS FALSE`) o usuario superusuario (nickname `ADMIN` o rol `ADMIN`) → 401. Darle `ADMIN` a un usuario de servicio apaga sus tokens: un bot no lleva llave maestra. La revocación es inmediata.
+- **Emitir reemplaza la clave del usuario por una aleatoria**: un usuario de servicio no conserva login por `/login`. Eso no invalida un JWT que ese usuario ya tuviera (no vencen), así que **cada bot tiene su usuario nuevo**, con los roles mínimos; no reutilizar usuarios que ya se loguearon (BOT-LOOM 674).
+- **En `usuario_role` el dueño del rol es `user_id`**; `usuario_id` es quien lo asignó (ver `RoleRepository.findByUsuarioId`). Todo SQL que lea roles va por `user_id`.
+- **Apagar todos los tokens sin desplegar:** `UPDATE personas.token_servicio SET revocado_en = now() WHERE revocado_en IS NULL;`
+- **Rotación:** emitir el nuevo, cambiarlo en la bóveda del bot, revocar el viejo. `ultimoUsoEn` (se escribe a lo sumo cada 5 min) muestra si el viejo todavía se usa.

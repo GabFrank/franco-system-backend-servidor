@@ -67,10 +67,20 @@ public class ChequeDashboardService {
         boolean todos = f.getEstados() == null || f.getEstados().isEmpty();
         // Una lista vacía en un IN no es SQL válido: con «todos» el parámetro no se mira, pero tiene que tener algo.
         java.util.List<EstadoCheque> estados = todos ? java.util.Collections.singletonList(EstadoCheque.DIFERIDO) : f.getEstados();
-        String texto = f.getTexto() != null && !f.getTexto().trim().isEmpty() ? "%" + f.getTexto().trim().toUpperCase() + "%" : null;
+        String limpio = sinAcentos(f.getTexto());
+        String texto = limpio.isEmpty() ? null : "%" + limpio + "%";
+        // El cheque con ese número exacto va primero: con «contiene» sobre todas las fechas el tope lo podía dejar afuera.
+        String exacto = limpio.matches("\\d+") ? limpio.replaceFirst("^0+(?=\\d)", "") : "";
         return chequeRepository.filtrarTablero(f.getTipoFecha().name(), f.getDesde(), f.getHasta(), f.getCuentaId(),
-                f.getChequeraId(), todos, estados, f.getProveedorId(), texto,
+                f.getChequeraId(), todos, estados, f.getProveedorId(), texto, exacto,
                 org.springframework.data.domain.PageRequest.of(0, TOPE_TABLERO));
+    }
+
+    /** Recortado, sin acentos y en mayúsculas, como lo compara {@code filtrarTablero} (desk #767). */
+    static String sinAcentos(String texto) {
+        if (texto == null) return "";
+        return java.text.Normalizer.normalize(texto.trim(), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").toUpperCase();
     }
 
     /** La fecha por la que se agrupa el resumen: la misma que filtra. */

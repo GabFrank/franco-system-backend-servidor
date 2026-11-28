@@ -44,7 +44,7 @@ class ChequeDashboardServiceTest {
     @Test
     void resumen_por_dia_agrupa_y_suma_por_fecha_de_pago() {
         // El resumen pasa por el filtro del tablero (issue #601); sin tipo de fecha, por fecha de pago.
-        when(chequeRepository.filtrarTablero(any(), any(), any(), any(), any(), anyBoolean(), any(), any(), any(), any())).thenReturn(Arrays.asList(
+        when(chequeRepository.filtrarTablero(any(), any(), any(), any(), any(), anyBoolean(), any(), any(), any(), any(), any())).thenReturn(Arrays.asList(
                 cheque("2026-08-12", 100000),
                 cheque("2026-08-12", 50000),   // mismo día → se suma
                 cheque("2026-08-20", 30000)
@@ -60,6 +60,37 @@ class ChequeDashboardServiceTest {
         assertEquals("2026-08-20", r.get(1).getFecha());
         assertEquals(30000.0, r.get(1).getTotal());
         assertEquals(1, r.get(1).getCantidad());
+    }
+
+    private void filtrarConTexto(String texto) {
+        ChequeDashboardService.Filtro f = new ChequeDashboardService.Filtro();
+        f.setDesde(LocalDateTime.now());
+        f.setHasta(LocalDateTime.now());
+        f.setTexto(texto);
+        service.filtrar(f);
+    }
+
+    @Test
+    void el_texto_llega_sin_acentos_y_en_mayusculas() {
+        // Desk #767: «garcía» no encontraba «GARCIA» (ni al revés): el repositorio compara sin acentos.
+        filtrarConTexto("  garcía ñandú ");
+        verify(chequeRepository).filtrarTablero(any(), any(), any(), any(), any(), anyBoolean(), any(), any(),
+                eq("%GARCIA NANDU%"), eq(""), any());
+    }
+
+    @Test
+    void un_numero_pide_el_exacto_primero() {
+        // Con «contiene» sobre todas las fechas, el tope de 500 podía dejar afuera el cheque con ese Nº justo.
+        filtrarConTexto("0303644");
+        verify(chequeRepository).filtrarTablero(any(), any(), any(), any(), any(), anyBoolean(), any(), any(),
+                eq("%0303644%"), eq("303644"), any());
+    }
+
+    @Test
+    void sin_texto_no_filtra() {
+        filtrarConTexto("   ");
+        verify(chequeRepository).filtrarTablero(any(), any(), any(), any(), any(), anyBoolean(), any(), any(),
+                isNull(), eq(""), any());
     }
 
     private static Chequera chequera(long id, EstadoChequera estado) {
